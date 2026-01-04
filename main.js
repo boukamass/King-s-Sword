@@ -34,6 +34,7 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
   }
 
+  // Gestion de l'ouverture des fenêtres pour la projection et le masquage
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     const isProjection = url.includes('projection=true');
     const isMask = url.includes('mask=true');
@@ -41,13 +42,18 @@ function createWindow() {
     if (isProjection || isMask) {
       const displays = screen.getAllDisplays();
       const currentDisplay = screen.getDisplayMatching(mainWindow.getBounds());
+      
+      // On cherche l'écran secondaire physique
       let targetDisplay = displays.find(d => d.id !== currentDisplay.id);
 
-      // Si un seul écran est détecté (Mode Dupliqué), on refuse l'ouverture 
-      // pour ne pas masquer l'interface de contrôle de l'utilisateur.
-      if (!targetDisplay) {
+      // Si un seul écran logique est détecté (mode Dupliqué), on bloque l'ouverture du masque
+      // pour ne pas perdre le contrôle de l'application principale.
+      if (!targetDisplay && isMask) {
         return { action: 'deny' };
       }
+      
+      // Par défaut, si pas de second écran, on utilise l'écran actuel (pour la projection simple)
+      if (!targetDisplay) targetDisplay = currentDisplay;
 
       const windowOptions = {
         fullscreen: true,
@@ -88,10 +94,10 @@ function createWindow() {
   });
 }
 
+// Logicielle de mise à jour
 autoUpdater.on('update-available', (info) => {
   if (mainWindow) mainWindow.webContents.send('update_available');
 });
-
 autoUpdater.on('update-downloaded', (info) => {
   if (mainWindow) mainWindow.webContents.send('update_downloaded');
 });
