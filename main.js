@@ -45,14 +45,15 @@ function createWindow() {
       // On identifie sur quel écran se trouve l'application principale
       const currentDisplay = screen.getDisplayMatching(mainWindow.getBounds());
       
-      // On cherche l'écran "externe" (tout écran qui n'est pas celui de l'app)
+      // On cherche l'écran "externe" (celui qui n'est pas celui de l'app)
+      // En mode "Duplicate", le système ne rapporte souvent qu'un seul écran logique.
+      // En mode "Extend", il en rapporte deux.
       let targetDisplay = displays.find(d => d.id !== currentDisplay.id);
 
-      // Si on ne trouve pas d'écran externe distinct (mode dupliqué ou écran unique), 
-      // on utilise l'écran courant par défaut pour éviter de bloquer l'action,
-      // mais on privilégie toujours l'écran secondaire si disponible.
+      // CRITIQUE : Si on demande un masque ou une projection mais qu'aucun 2nd écran 
+      // physique distinct n'est trouvé, on refuse l'ouverture pour ne pas bloquer l'écran principal.
       if (!targetDisplay) {
-        targetDisplay = currentDisplay;
+        return { action: 'deny' };
       }
 
       const windowOptions = {
@@ -60,7 +61,7 @@ function createWindow() {
         autoHideMenuBar: true,
         backgroundColor: '#000000',
         title: isMask ? "King's Sword - Masque" : "King's Sword - Projection",
-        // Positionnement absolu sur les coordonnées de l'écran cible
+        // Positionnement rigoureux sur les coordonnées de l'écran cible uniquement
         x: targetDisplay.bounds.x,
         y: targetDisplay.bounds.y,
         width: targetDisplay.bounds.width,
