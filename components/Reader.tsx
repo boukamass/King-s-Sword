@@ -43,7 +43,8 @@ import {
   Calendar,
   Feather,
   Milestone,
-  Library
+  Library,
+  MonitorUp
 } from 'lucide-react';
 
 interface SimpleWord {
@@ -104,6 +105,7 @@ const WordComponent = memo(({ word, isSearchResult, isCurrentResult, isSearchOri
   return content;
 });
 
+let externalProjectionWindow: Window | null = null;
 let externalMaskWindow: Window | null = null;
 
 const Reader: React.FC = () => {
@@ -117,6 +119,8 @@ const Reader: React.FC = () => {
   const notes = useAppStore(s => s.notes);
   const activeNoteId = useAppStore(s => s.activeNoteId);
   const setSelectedSermonId = useAppStore(s => s.setSelectedSermonId);
+  const isExternalProjectionOpen = useAppStore(s => s.isExternalProjectionOpen);
+  const setExternalProjectionOpen = useAppStore(s => s.setExternalProjectionOpen);
   const isExternalMaskOpen = useAppStore(s => s.isExternalMaskOpen);
   const setExternalMaskOpen = useAppStore(s => s.setExternalMaskOpen);
   const fontSize = useAppStore(s => s.fontSize);
@@ -182,6 +186,10 @@ const Reader: React.FC = () => {
     broadcastChannel.current = new BroadcastChannel('kings_sword_projection');
 
     const checkWindowStatus = setInterval(() => {
+      if (externalProjectionWindow && externalProjectionWindow.closed) {
+        setExternalProjectionOpen(false);
+        externalProjectionWindow = null;
+      }
       if (externalMaskWindow && externalMaskWindow.closed) {
         setExternalMaskOpen(false);
         externalMaskWindow = null;
@@ -196,7 +204,66 @@ const Reader: React.FC = () => {
       clearInterval(checkWindowStatus);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
-  }, [setExternalMaskOpen]);
+  }, [setExternalProjectionOpen, setExternalMaskOpen]);
+
+  // Synchronisation des données vers l'écran secondaire
+  useEffect(() => {
+    if (broadcastChannel.current && sermon) {
+      broadcastChannel.current.postMessage({
+        type: 'sync',
+        title: sermon.title,
+        date: sermon.date,
+        city: sermon.city,
+        text: sermon.text,
+        fontSize: fontSize,
+        blackout: isExternalMaskOpen,
+        theme: theme,
+        highlights: sermon.highlights || [],
+        selectionIndices: [], // Optionnel: synchroniser la sélection si besoin
+        searchResults: searchResults,
+        currentResultIndex: currentResultIndex,
+        activeDefinition: activeDefinition
+      });
+    }
+  }, [sermon, fontSize, isExternalMaskOpen, theme, searchResults, currentResultIndex, activeDefinition]);
+
+  const handleScroll = useCallback(() => {
+    if (scrollContainerRef.current && broadcastChannel.current) {
+      const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+      const scrollPercent = scrollTop / (scrollHeight - clientHeight);
+      broadcastChannel.current.postMessage({
+        type: 'scroll',
+        scrollPercent
+      });
+    }
+  }, []);
+
+  const toggleExternalProjection = () => {
+    if (isExternalProjectionOpen && externalProjectionWindow && !externalProjectionWindow.closed) {
+      externalProjectionWindow.close();
+      externalProjectionWindow = null;
+      setExternalProjectionOpen(false);
+      addNotification("Projection arrêtée.", "success");
+    } else {
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('projection', 'true');
+        url.hash = '';
+        const finalUrl = url.toString();
+        
+        externalProjectionWindow = window.open(finalUrl, 'KingsSwordProjection');
+        
+        if (externalProjectionWindow) {
+          setExternalProjectionOpen(true);
+          addNotification("Écran secondaire de projection ouvert.", "success");
+        } else {
+          addNotification("Action refusée : Aucun second écran détecté.", "error");
+        }
+      } catch (err) {
+        addNotification("Erreur lors de l'ouverture de la projection.", "error");
+      }
+    }
+  };
 
   const toggleExternalMask = () => {
     if (isExternalMaskOpen && externalMaskWindow && !externalMaskWindow.closed) {
@@ -667,6 +734,13 @@ const Reader: React.FC = () => {
             )}
 
             <ActionButton 
+              onClick={toggleExternalProjection} 
+              icon={MonitorUp} 
+              tooltip={isExternalProjectionOpen ? "Arrêter la projection" : "Lancer la projection"} 
+              active={isExternalProjectionOpen} 
+              special={isExternalProjectionOpen} 
+            />
+            <ActionButton 
               onClick={toggleExternalMask} 
               icon={isExternalMaskOpen ? Eye : EyeOff} 
               tooltip={isExternalMaskOpen ? "Retirer le masque" : "Masquer l'écran secondaire"} 
@@ -722,7 +796,7 @@ const Reader: React.FC = () => {
 
       <div className={`flex-1 relative overflow-hidden flex justify-center`}>
         <div 
-          onScroll={() => {}} 
+          onScroll={handleScroll} 
           ref={scrollContainerRef} 
           onMouseUp={handleTextSelection} 
           className={`absolute inset-0 overflow-y-auto custom-scrollbar serif-text leading-relaxed text-zinc-800 dark:text-zinc-300 transition-all duration-300 ${isOSFullscreen ? 'py-4 px-4 md:px-8' : 'py-16 px-6 sm:px-12 lg:px-20 xl:px-28'}`}
