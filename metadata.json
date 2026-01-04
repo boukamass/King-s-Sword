@@ -1,0 +1,7 @@
+{
+  "name": "King’s Sword",
+  "description": "Une application web moderne et interactive dédiée à la lecture, l’étude approfondie et l’annotation intelligente des sermons de William Marrion Branham.\nLa plateforme offre une expérience immersive permettant aux utilisateurs de consulter les sermons dans différents formats, de surligner, commenter et organiser leurs réflexions personnelles, tout en bénéficiant d’une assistance locale par intelligence artificielle.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

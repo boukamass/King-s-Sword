@@ -1,0 +1,86 @@
+
+{
+  "name": "kings-sword",
+  "version": "1.0.1",
+  "description": "Logiciel d'étude des sermons de W.M. Branham",
+  "main": "main.js",
+  "author": "Bienvenu Sédin Massamba",
+  "scripts": {
+    "start": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "electron:dev": "concurrently \"npm start\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:build": "npm run build && electron-builder",
+    "publish": "npm run build && electron-builder --publish always"
+  },
+  "dependencies": {
+    "@google/genai": "^1.34.0",
+    "zustand": "^5.0.9",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "electron-updater": "^6.1.8",
+    "marked": "^12.0.2",
+    "jspdf": "^2.5.1",
+    "docx": "^8.5.0",
+    "file-saver": "^2.0.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.1",
+    "electron": "^29.1.0",
+    "electron-builder": "^24.13.3",
+    "vite": "^5.1.4",
+    "concurrently": "^8.2.2",
+    "wait-on": "^7.2.0",
+    "typescript": "^5.3.3"
+  },
+  "build": {
+    "appId": "com.kingssword.app",
+    "productName": "King's Sword",
+    "copyright": "Copyright © 2024 Bienvenu Sédin Massamba. Tous droits réservés.",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "main.js",
+      "preload.js"
+    ],
+    "extraResources": [
+      {
+        "from": "public",
+        "to": "public",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "VOTRE_NOM_UTILISATEUR_GITHUB",
+        "repo": "NOM_DU_DEPOT_GITHUB"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "public/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "King's Sword",
+      "installerIcon": "public/icon.ico",
+      "uninstallerIcon": "public/icon.ico",
+      "installerHeaderIcon": "public/icon.ico"
+    }
+  }
+}

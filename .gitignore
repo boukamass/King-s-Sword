@@ -1,0 +1,30 @@
+
+# Secrets
+.env
+.env.local
+.env.*.local
+environment.local
+.environment
+
+# Dependencies
+node_modules
+jspdf
+
+# Build outputs
+dist
+release
+*.exe
+*.zip
+*.dmg
+*.blockmap
+
+# OS files
+.DS_Store
+Thumbs.db
+library.json
+public/library.json
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
