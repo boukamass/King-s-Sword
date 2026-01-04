@@ -42,16 +42,15 @@ function createWindow() {
     if (isProjection || isMask) {
       const displays = screen.getAllDisplays();
       
-      // On identifie sur quel écran se trouve l'application principale
+      // On identifie l'écran sur lequel se trouve l'interface de contrôle (mainWindow)
       const currentDisplay = screen.getDisplayMatching(mainWindow.getBounds());
       
-      // On cherche l'écran "externe" (celui qui n'est pas celui de l'app)
-      // En mode "Duplicate", le système ne rapporte souvent qu'un seul écran logique.
-      // En mode "Extend", il en rapporte deux.
+      // On cherche un écran physique qui n'est pas celui de l'application
       let targetDisplay = displays.find(d => d.id !== currentDisplay.id);
 
-      // CRITIQUE : Si on demande un masque ou une projection mais qu'aucun 2nd écran 
-      // physique distinct n'est trouvé, on refuse l'ouverture pour ne pas bloquer l'écran principal.
+      // SECURITÉ CRITIQUE : Si aucun deuxième écran LOGIQUE n'est détecté (Mode Dupliquer),
+      // on refuse l'ouverture du masque pour éviter de masquer l'écran de contrôle.
+      // En mode "Duplicate", displays.length est égal à 1.
       if (!targetDisplay) {
         return { action: 'deny' };
       }
@@ -61,7 +60,7 @@ function createWindow() {
         autoHideMenuBar: true,
         backgroundColor: '#000000',
         title: isMask ? "King's Sword - Masque" : "King's Sword - Projection",
-        // Positionnement rigoureux sur les coordonnées de l'écran cible uniquement
+        // Positionnement forcé sur l'écran secondaire uniquement
         x: targetDisplay.bounds.x,
         y: targetDisplay.bounds.y,
         width: targetDisplay.bounds.width,
@@ -70,9 +69,9 @@ function createWindow() {
         movable: false,
         resizable: false,
         closable: true,
-        alwaysOnTop: isMask, // Le masque doit être au-dessus de tout sur le 2nd écran
+        alwaysOnTop: isMask, // Le masque reste au-dessus des autres fenêtres sur l'écran 2
         skipTaskbar: true,
-        focusable: !isMask, // Le masque ne vole pas le focus pour laisser l'utilisateur travailler
+        focusable: !isMask, // Empêche le masque de voler le focus clavier de l'app
         webPreferences: {
           nodeIntegration: false,
           contextIsolation: true,
@@ -96,7 +95,7 @@ function createWindow() {
   });
 }
 
-// Logicielle de mise à jour
+// Logique de mise à jour
 autoUpdater.on('checking-for-update', () => { console.log('Vérification des mises à jour...'); });
 autoUpdater.on('update-available', (info) => {
   console.log('Mise à jour disponible:', info.version);
