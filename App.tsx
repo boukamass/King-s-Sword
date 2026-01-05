@@ -91,17 +91,14 @@ const ProjectionView = memo(() => {
   }, [syncData.theme]);
 
   // Algorithme de calcul de taille de police adaptative maximale (Fluid Typography)
-  // On calcule la taille pour que le texte occupe la quasi totalité du viewport
   const adaptiveFontSize = useMemo(() => {
     if (!syncData.isSlideMode) return `${syncData.fontSize * 1.8}px`;
     const charCount = syncData.text.length;
     
-    // Formule fluide : On réduit la taille proportionnellement à la racine du nombre de caractères
-    // pour maximiser l'occupation de surface (Largeur x Hauteur)
-    // 95vmin est notre base de calcul pour s'assurer que ça ne déborde jamais
-    const baseSize = 95; 
+    // Maximisation de l'espace : on utilise une base plus large (115vmin)
+    const baseSize = 115; 
     const scaleFactor = Math.sqrt(charCount);
-    const size = Math.max(2.2, Math.min(14, (baseSize / scaleFactor) * 1.5));
+    const size = Math.max(2.5, Math.min(16, (baseSize / scaleFactor) * 1.6));
     
     return `${size}vmin`;
   }, [syncData.text, syncData.isSlideMode]);
@@ -120,22 +117,22 @@ const ProjectionView = memo(() => {
 
   if (syncData.isSlideMode) {
     return (
-      <div className="fixed inset-0 bg-black flex flex-col items-center justify-center p-10 select-none cursor-none overflow-hidden h-screen w-screen border-0">
-        <div className="animate-in fade-in zoom-in duration-500 flex flex-col items-center w-full h-full justify-between py-6">
-          {/* Conteneur de texte flexible qui occupe tout l'espace central */}
-          <div className="flex-1 flex items-center justify-center w-full max-w-[96vw]">
-            <div className="serif-text font-bold text-white leading-[1.2] text-justify w-full" style={{ fontSize: adaptiveFontSize }}>
+      <div className="fixed inset-0 bg-black flex flex-col items-center justify-center p-4 select-none cursor-none overflow-hidden h-screen w-screen border-0">
+        <div className="animate-in fade-in zoom-in duration-500 flex flex-col items-center w-full h-full justify-between">
+          {/* Conteneur de texte flexible - Occupation maximale horizontale et verticale */}
+          <div className="flex-1 flex items-center justify-center w-full max-w-[98vw]">
+            <div className="serif-text font-bold text-white leading-[1.3] text-justify w-full" style={{ fontSize: adaptiveFontSize }}>
               {syncData.text}
             </div>
           </div>
           
-          {/* Pied de page métadonnées fixe et élégant */}
-          <div className="w-full mt-8 flex flex-col items-start gap-1 border-t-2 border-teal-600/30 pt-6 shrink-0 max-w-[96vw]">
-            <h2 className="text-teal-500 text-4xl font-black uppercase tracking-[0.4em] drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)]">{syncData.title}</h2>
-            <div className="flex items-center gap-10 text-zinc-200 text-2xl font-bold uppercase tracking-widest mt-2">
-              <div className="flex items-center gap-3"><Calendar className="w-7 h-7 text-teal-500" /><span>{syncData.date}</span></div>
-              <span className="w-2 h-2 bg-zinc-500 rounded-full" />
-              <div className="flex items-center gap-3"><MapPin className="w-7 h-7 text-teal-500" /><span>{syncData.city}</span></div>
+          {/* Pied de page métadonnées ultra-compact */}
+          <div className="w-full mt-2 flex flex-col items-start gap-0.5 border-t-2 border-teal-600/20 pt-2 shrink-0 max-w-[98vw]">
+            <h2 className="text-teal-500 text-2xl font-black uppercase tracking-[0.3em] drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] leading-none">{syncData.title}</h2>
+            <div className="flex items-center gap-6 text-zinc-300 text-sm font-bold uppercase tracking-widest opacity-80 mt-1">
+              <div className="flex items-center gap-2"><Calendar className="w-4 h-4 text-teal-500" /><span>{syncData.date}</span></div>
+              <span className="w-1 h-1 bg-zinc-600 rounded-full" />
+              <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-teal-500" /><span>{syncData.city}</span></div>
             </div>
           </div>
         </div>

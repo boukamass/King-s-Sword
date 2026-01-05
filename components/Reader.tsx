@@ -291,14 +291,14 @@ const Reader: React.FC = () => {
                   <div 
                     key={sIdx} 
                     onClick={() => projectSlide(segTrim, sIdx)}
-                    className={`relative p-2 -mx-4 my-0.5 rounded-[12px] cursor-pointer transition-all duration-300 group/slide border-l-4 ${
+                    className={`relative p-1 -mx-4 my-0 rounded-[10px] cursor-pointer transition-all duration-300 group/slide border-l-4 ${
                       activeSlideIndex === sIdx 
-                        ? 'bg-teal-600/10 dark:bg-teal-600/20 border-teal-600 shadow-sm' 
+                        ? 'bg-teal-600/10 dark:bg-teal-600/20 border-teal-600' 
                         : 'bg-transparent border-transparent hover:bg-zinc-100 dark:hover:bg-zinc-900/50 hover:border-zinc-300 dark:hover:border-zinc-700'
                     }`}
                   >
-                    <div className="absolute -left-10 top-2 opacity-0 group-hover/slide:opacity-100 transition-opacity">
-                      <Presentation className={`w-4 h-4 ${activeSlideIndex === sIdx ? 'text-teal-600' : 'text-zinc-400'}`} />
+                    <div className="absolute -left-10 top-1.5 opacity-0 group-hover/slide:opacity-100 transition-opacity">
+                      <Presentation className={`w-3.5 h-3.5 ${activeSlideIndex === sIdx ? 'text-teal-600' : 'text-zinc-400'}`} />
                     </div>
                     {words.filter(w => w.segmentIndex === sIdx).map(word => (
                       <WordComponent 
@@ -314,7 +314,7 @@ const Reader: React.FC = () => {
               }
               
               return (
-                <div key={sIdx} className="my-0.5">
+                <div key={sIdx} className="my-0">
                   {words.filter(w => w.segmentIndex === sIdx).map(word => (
                     <WordComponent 
                       key={word.globalIndex} 
