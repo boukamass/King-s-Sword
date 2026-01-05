@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect, useRef, useMemo, useCallback, memo, useTransition } from 'react';
+// Fix: Added useMemo to the React imports to resolve "Cannot find name 'useMemo'" errors
+import React, { useState, useEffect, useRef, useCallback, memo, useTransition, useMemo } from 'react';
 import { useAppStore } from '../store';
 import { translations } from '../translations';
 import { getDefinition, WordDefinition } from '../services/dictionaryService';
@@ -105,6 +106,7 @@ const WordComponent = memo(({ word, isSearchResult, isCurrentResult, isSearchOri
 });
 
 let externalMaskWindow: Window | null = null;
+let externalProjectionWindow: Window | null = null;
 
 const Reader: React.FC = () => {
   const [isPending, startTransition] = useTransition();
@@ -119,6 +121,10 @@ const Reader: React.FC = () => {
   const setSelectedSermonId = useAppStore(s => s.setSelectedSermonId);
   const isExternalMaskOpen = useAppStore(s => s.isExternalMaskOpen);
   const setExternalMaskOpen = useAppStore(s => s.setExternalMaskOpen);
+  const isExternalProjectionOpen = useAppStore(s => s.isExternalProjectionOpen);
+  const setExternalProjectionOpen = useAppStore(s => s.setExternalProjectionOpen);
+  const projectionBlackout = useAppStore(s => s.projectionBlackout);
+  
   const fontSize = useAppStore(s => s.fontSize);
   const setFontSize = useCallback((size: number) => {
     startTransition(() => {
@@ -156,6 +162,7 @@ const Reader: React.FC = () => {
   const [isPlayerExpanded, setIsPlayerExpanded] = useState(false);
   const [noteSelectorPayload, setNoteSelectorPayload] = useState<{ text: string; sermon: Sermon } | null>(null);
   const [isOSFullscreen, setIsOSFullscreen] = useState(false);
+  const [projectedParaIndex, setProjectedParaIndex] = useState<number | null>(null);
   
   const [activeDefinition, setActiveDefinition] = useState<WordDefinition | null>(null);
   const [isDefining, setIsDefining] = useState(false);
@@ -186,6 +193,10 @@ const Reader: React.FC = () => {
         setExternalMaskOpen(false);
         externalMaskWindow = null;
       }
+      if (externalProjectionWindow && externalProjectionWindow.closed) {
+        setExternalProjectionOpen(false);
+        externalProjectionWindow = null;
+      }
     }, 1000);
 
     const handleFullscreenChange = () => setIsOSFullscreen(!!document.fullscreenElement);
@@ -196,7 +207,28 @@ const Reader: React.FC = () => {
       clearInterval(checkWindowStatus);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
-  }, [setExternalMaskOpen]);
+  }, [setExternalMaskOpen, setExternalProjectionOpen]);
+
+  // Sync state with projection window on change
+  useEffect(() => {
+    if (sermon) {
+      broadcastChannel.current?.postMessage({
+        type: 'sync',
+        title: sermon.title,
+        date: sermon.date,
+        city: sermon.city,
+        text: sermon.text,
+        fontSize: fontSize,
+        blackout: projectionBlackout,
+        theme: theme,
+        highlights: sermon.highlights || [],
+        selectionIndices: [],
+        searchResults: searchResults,
+        currentResultIndex: currentResultIndex,
+        activeDefinition: activeDefinition
+      });
+    }
+  }, [sermon, fontSize, projectionBlackout, theme, searchResults, currentResultIndex, activeDefinition]);
 
   const toggleExternalMask = () => {
     if (isExternalMaskOpen && externalMaskWindow && !externalMaskWindow.closed) {
@@ -210,17 +242,40 @@ const Reader: React.FC = () => {
         url.searchParams.set('mask', 'true');
         url.hash = '';
         const finalUrl = url.toString();
-        
         externalMaskWindow = window.open(finalUrl, 'KingsSwordMask');
-        
         if (externalMaskWindow) {
           setExternalMaskOpen(true);
           addNotification("Écran secondaire masqué.", "success");
         } else {
-          addNotification("Action refusée : Aucun second écran détecté.", "error");
+          addNotification("Action refusée : Vérifiez les popups.", "error");
         }
       } catch (err) {
         addNotification("Erreur lors du masquage.", "error");
+      }
+    }
+  };
+
+  const toggleExternalProjection = () => {
+    if (isExternalProjectionOpen && externalProjectionWindow && !externalProjectionWindow.closed) {
+      externalProjectionWindow.close();
+      externalProjectionWindow = null;
+      setExternalProjectionOpen(false);
+      addNotification("Projection désactivée.", "success");
+    } else {
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('projection', 'true');
+        url.hash = '';
+        const finalUrl = url.toString();
+        externalProjectionWindow = window.open(finalUrl, 'KingsSwordProjection');
+        if (externalProjectionWindow) {
+          setExternalProjectionOpen(true);
+          addNotification("Écran de projection activé.", "success");
+        } else {
+          addNotification("Action refusée : Vérifiez les popups.", "error");
+        }
+      } catch (err) {
+        addNotification("Erreur lors de la projection.", "error");
       }
     }
   };
@@ -236,21 +291,35 @@ const Reader: React.FC = () => {
   const segments = useMemo(() => {
     if (!sermon || !sermon.text) return [];
     return sermon.text.split(/(\n\s*\n)/); 
-  }, [sermon?.id]);
+  }, [sermon?.id, sermon?.text]);
 
-  const words: SimpleWord[] = useMemo(() => {
-    const allWords: SimpleWord[] = [];
+  const wordsBySegment = useMemo(() => {
     let globalIndex = 0;
-    segments.forEach((seg, segIdx) => {
+    return segments.map((seg, segIdx) => {
+        const allWords: SimpleWord[] = [];
         const splitWords = seg.split(/(\s+)/);
         splitWords.forEach((token) => {
             if (token !== "") {
               allWords.push({ text: token, segmentIndex: segIdx, globalIndex: globalIndex++ });
             }
         });
+        return allWords;
     });
-    return allWords;
   }, [segments]);
+
+  const words: SimpleWord[] = useMemo(() => wordsBySegment.flat(), [wordsBySegment]);
+
+  const handleProjectParagraph = (text: string, index: number) => {
+    setProjectedParaIndex(index);
+    broadcastChannel.current?.postMessage({
+      type: 'project_text',
+      projectedText: text.trim()
+    });
+    // Si l'écran de projection n'est pas ouvert, on l'ouvre automatiquement
+    if (!isExternalProjectionOpen) {
+      toggleExternalProjection();
+    }
+  };
 
   useEffect(() => {
     if (jumpToText && sermon && words.length > 0) {
@@ -261,7 +330,6 @@ const Reader: React.FC = () => {
         let foundStartIndex = -1;
         let foundEndIndex = -1;
 
-        // Étape 1 : Trouver le bloc (paragraphe) vers lequel sauter
         for (let i = 0; i <= contentWords.length - jumpWords.length; i++) {
           let matchCount = 0;
           for (let j = 0; j < jumpWords.length; j++) {
@@ -283,38 +351,27 @@ const Reader: React.FC = () => {
             const firstEl = wordRefs.current.get(foundStartIndex);
             if (firstEl) {
               firstEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              
-              // Étape 2 : Identifier les indices à marquer en ambre dans ce bloc
               const matchIndices: number[] = [];
               if (lastSearchQuery) {
                   const queryNorm = normalizeText(lastSearchQuery);
                   const queryWordsNorm = queryNorm.split(/\s+/).filter(Boolean);
-                  
-                  // On restreint la recherche de marquage aux mots du bloc trouvé
                   const blockContentWords = contentWords.filter(w => w.globalIndex >= foundStartIndex && w.globalIndex <= foundEndIndex);
                   
                   if (lastSearchMode === SearchMode.EXACT_PHRASE) {
-                    // Mode Phrase : On cherche la séquence exacte de mots normalisés
                     const blockNormString = blockContentWords.map(w => normalizeText(w.text)).join(' ');
-                    
                     const phraseIndex = blockNormString.indexOf(queryNorm);
                     if (phraseIndex !== -1) {
-                      // On a trouvé le début de la phrase dans la chaîne concaténée.
-                      // On doit maintenant mapper les caractères de blockNormString vers les indices globaux.
                       let currentCharPos = 0;
                       for (let i = 0; i < blockContentWords.length; i++) {
                         const wordNorm = normalizeText(blockContentWords[i].text);
-                        // Si le mot est dans l'intervalle de la phrase trouvée
                         if (currentCharPos >= phraseIndex && currentCharPos < phraseIndex + queryNorm.length) {
                            matchIndices.push(blockContentWords[i].globalIndex);
                         } else if (currentCharPos + wordNorm.length > phraseIndex && currentCharPos < phraseIndex + queryNorm.length) {
-                           // Cas où le mot chevauche le début ou la fin (très probable avec normalize)
                            matchIndices.push(blockContentWords[i].globalIndex);
                         }
-                        currentCharPos += wordNorm.length + 1; // +1 pour l'espace du join
+                        currentCharPos += wordNorm.length + 1;
                       }
                     } else {
-                      // Fallback au cas où le join exact échoue (ponctuation complexe)
                       for (let k = 0; k < blockContentWords.length; k++) {
                         if (queryWordsNorm.some(qw => normalizeText(blockContentWords[k].text).includes(qw))) {
                           matchIndices.push(blockContentWords[k].globalIndex);
@@ -322,7 +379,6 @@ const Reader: React.FC = () => {
                       }
                     }
                   } else {
-                    // Mode Mots/Exacts : Marquer tous les mots individuels présents
                     for (let k = 0; k < blockContentWords.length; k++) {
                       if (queryWordsNorm.some(qw => normalizeText(blockContentWords[k].text).includes(qw))) {
                         matchIndices.push(blockContentWords[k].globalIndex);
@@ -330,7 +386,6 @@ const Reader: React.FC = () => {
                     }
                   }
               }
-
               setSearchOriginMatchIndices(matchIndices);
               window.getSelection()?.removeAllRanges();
             }
@@ -358,10 +413,8 @@ const Reader: React.FC = () => {
     if (!activeNote) return map;
     const relevantCitations = activeNote.citations.filter(c => c.sermon_id === sermon.id);
     if (relevantCitations.length === 0) return map;
-
     const contentWords = words.filter(w => /\S/.test(w.text));
     const sermonWordsNormalized = contentWords.map(w => normalizeText(w.text));
-
     for (const citation of relevantCitations) {
         const searchWordsNormalized = normalizeText(citation.quoted_text).split(' ').filter(Boolean);
         if (searchWordsNormalized.length === 0) continue;
@@ -466,11 +519,9 @@ const Reader: React.FC = () => {
   const handleHighlight = useCallback(() => {
     const sel = window.getSelection();
     if (!sel || !sermon || sel.rangeCount === 0) return;
-    
     const range = sel.getRangeAt(0);
     const startNode = range.startContainer.parentElement?.closest('[data-global-index]');
     const endNode = range.endContainer.parentElement?.closest('[data-global-index]');
-    
     if (startNode && endNode) {
       const start = parseInt(startNode.getAttribute('data-global-index') || '0');
       const end = parseInt(endNode.getAttribute('data-global-index') || '0');
@@ -543,11 +594,7 @@ const Reader: React.FC = () => {
       <div className="flex-1 flex flex-col h-full bg-white dark:bg-zinc-950 relative">
         <div className="px-6 h-14 border-b border-zinc-100 dark:border-zinc-900/50 flex items-center bg-white/60 dark:bg-zinc-950/70 backdrop-blur-2xl z-20 no-print">
           {!sidebarOpen && (
-             <button 
-               onClick={toggleSidebar}
-               data-tooltip="Ouvrir la Bibliothèque"
-               className="flex items-center gap-3 hover:opacity-80 transition-all active:scale-95 group shrink-0 mr-1"
-             >
+             <button onClick={toggleSidebar} data-tooltip="Ouvrir la Bibliothèque" className="flex items-center gap-3 hover:opacity-80 transition-all active:scale-95 group shrink-0 mr-1">
                <div className="w-8 h-8 flex items-center justify-center bg-teal-600/10 rounded-lg border border-teal-600/20 shadow-sm shrink-0 group-hover:border-teal-600/40 transition-all duration-300">
                  <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-4 h-4 grayscale group-hover:grayscale-0 group-hover:scale-110 group-hover:rotate-[-5deg] transition-all duration-300" />
                </div>
@@ -673,6 +720,14 @@ const Reader: React.FC = () => {
               active={isExternalMaskOpen} 
               special={isExternalMaskOpen} 
             />
+
+            <ActionButton 
+              onClick={toggleExternalProjection} 
+              icon={Monitor} 
+              tooltip={isExternalProjectionOpen ? "Fermer la projection" : "Activer la projection secondaire"} 
+              active={isExternalProjectionOpen} 
+              special={isExternalProjectionOpen} 
+            />
             
             <div className="hidden sm:block w-px h-5 bg-zinc-200 dark:bg-zinc-800/50 mx-1" />
             <ActionButton onClick={() => window.print()} icon={Printer} tooltip={t.print} />
@@ -722,26 +777,50 @@ const Reader: React.FC = () => {
 
       <div className={`flex-1 relative overflow-hidden flex justify-center`}>
         <div 
-          onScroll={() => {}} 
           ref={scrollContainerRef} 
           onMouseUp={handleTextSelection} 
           className={`absolute inset-0 overflow-y-auto custom-scrollbar serif-text leading-relaxed text-zinc-800 dark:text-zinc-300 transition-all duration-300 ${isOSFullscreen ? 'py-4 px-4 md:px-8' : 'py-16 px-6 sm:px-12 lg:px-20 xl:px-28'}`}
         >
           <div className={`w-full mx-auto printable-content whitespace-pre-wrap text-justify pb-64 ${isPending ? 'opacity-50' : ''} max-w-[95%]`} style={{ fontSize: `${fontSize}px` }}>
-            {words.map((word) => (
-              <WordComponent 
-                key={word.globalIndex} 
-                word={word} 
-                wordRef={(el: any) => { if(el) wordRefs.current.set(word.globalIndex, el); }} 
-                isSearchResult={checkIsSearchResult(word.globalIndex)} 
-                isCurrentResult={checkIsCurrentResult(word.globalIndex)} 
-                isSearchOriginMatch={checkIsSearchOriginMatch(word.globalIndex)}
-                citationColor={citationHighlightMap.get(word.globalIndex)?.colorClass}
-                highlight={highlightMap.get(word.globalIndex)}
-                onRemoveHighlight={handleRemoveHighlight}
-                onMouseUp={handleTextSelection}
-              />
-            ))}
+            {wordsBySegment.map((paraWords, paraIdx) => {
+              if (paraWords.length === 0) return <br key={`br-${paraIdx}`} />;
+              
+              const paraText = paraWords.map(w => w.text).join('');
+              const startsWithNumber = /^\s*\d+/.test(paraText);
+              const isCurrentlyProjected = projectedParaIndex === paraIdx;
+
+              return (
+                <div 
+                  key={`para-${paraIdx}`} 
+                  onClick={() => startsWithNumber && handleProjectParagraph(paraText, paraIdx)}
+                  className={`relative group/para mb-4 p-2 rounded-2xl transition-all duration-300 ${
+                    startsWithNumber 
+                      ? `cursor-pointer hover:bg-teal-600/5 dark:hover:bg-teal-600/10 ring-1 ring-transparent hover:ring-teal-500/20 ${isCurrentlyProjected ? 'bg-teal-600/10 ring-teal-500/30 shadow-sm border-l-4 border-l-teal-600' : ''}` 
+                      : ''
+                  }`}
+                >
+                  {startsWithNumber && (
+                    <div className={`absolute -left-12 top-2 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest transition-all duration-300 opacity-0 group-hover/para:opacity-100 ${isCurrentlyProjected ? 'bg-teal-600 text-white opacity-100' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'}`}>
+                      Projet
+                    </div>
+                  )}
+                  {paraWords.map((word) => (
+                    <WordComponent 
+                      key={word.globalIndex} 
+                      word={word} 
+                      wordRef={(el: any) => { if(el) wordRefs.current.set(word.globalIndex, el); }} 
+                      isSearchResult={checkIsSearchResult(word.globalIndex)} 
+                      isCurrentResult={checkIsCurrentResult(word.globalIndex)} 
+                      isSearchOriginMatch={checkIsSearchOriginMatch(word.globalIndex)}
+                      citationColor={citationHighlightMap.get(word.globalIndex)?.colorClass}
+                      highlight={highlightMap.get(word.globalIndex)}
+                      onRemoveHighlight={handleRemoveHighlight}
+                      onMouseUp={handleTextSelection}
+                    />
+                  ))}
+                </div>
+              );
+            })}
           </div>
         </div>
         

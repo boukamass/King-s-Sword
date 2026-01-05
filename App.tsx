@@ -65,24 +65,24 @@ const ProjectionView = memo(() => {
     searchResults: number[];
     currentResultIndex: number;
     activeDefinition: WordDefinition | null;
+    projectedText?: string;
   }>({
     title: '', date: '', city: '', text: '', fontSize: 24, blackout: false, theme: 'system',
     highlights: [], selectionIndices: [], searchResults: [], currentResultIndex: -1, activeDefinition: null
   });
-  const [scrollPercent, setScrollPercent] = useState(0);
-  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const channel = new BroadcastChannel('kings_sword_projection');
     channel.onmessage = (e) => {
       if (e.data.type === 'sync') {
-        setSyncData({ 
-            title: e.data.title || '', date: e.data.date || '', city: e.data.city || '', text: e.data.text || '', 
-            fontSize: e.data.fontSize || 24, blackout: e.data.blackout ?? false, theme: e.data.theme || 'system',
-            highlights: e.data.highlights || [], selectionIndices: e.data.selectionIndices || [],
-            searchResults: e.data.searchResults || [], currentResultIndex: e.data.currentResultIndex ?? -1, activeDefinition: e.data.activeDefinition || null
-        });
-      } else if (e.data.type === 'scroll') setScrollPercent(e.data.scrollPercent);
+        setSyncData(prev => ({ 
+            ...prev,
+            ...e.data,
+            blackout: e.data.blackout ?? prev.blackout
+        }));
+      } else if (e.data.type === 'project_text') {
+        setSyncData(prev => ({ ...prev, projectedText: e.data.projectedText }));
+      }
     };
     channel.postMessage({ type: 'ready' });
     return () => channel.close();
@@ -94,90 +94,91 @@ const ProjectionView = memo(() => {
     else document.documentElement.classList.remove('dark');
   }, [syncData.theme]);
 
-  useEffect(() => {
-    if (scrollRef.current) {
-      const target = scrollRef.current;
-      target.scrollTop = scrollPercent * (target.scrollHeight - target.clientHeight);
-    }
-  }, [scrollPercent]);
+  // Calcul dynamique de la taille de police pour la projection (Mode Slide)
+  const dynamicFontSize = useMemo(() => {
+    const text = syncData.projectedText || syncData.title;
+    if (!text) return '5vmin';
+    const charCount = text.length;
+    // Formule : (95 / sqrt(nb_caractères)) * 1.45
+    let size = (95 / Math.sqrt(charCount)) * 1.45;
+    // Limites de sécurité : min 2.8vmin, max 13.5vmin
+    size = Math.max(2.8, Math.min(13.5, size));
+    return `${size}vmin`;
+  }, [syncData.projectedText, syncData.title]);
 
-  const words = useMemo(() => {
-    if (!syncData.text) return [];
-    const allWords: { text: string; globalIndex: number }[] = [];
-    let globalIndex = 0;
-    syncData.text.split(/(\n\s*\n)/).forEach(seg => {
-        seg.split(/(\s+)/).forEach(token => { if (token !== "") allWords.push({ text: token, globalIndex: globalIndex++ }); });
-    });
-    return allWords;
-  }, [syncData.text]);
-
-  const highlightMap = useMemo(() => {
-    const map = new Map<number, Highlight>();
-    syncData.highlights.forEach(h => { for (let i = h.start; i <= h.end; i++) map.set(i, h); });
-    return map;
-  }, [syncData.highlights]);
-
-  if (syncData.blackout) return <div className="fixed inset-0 bg-black z-[99999] cursor-none transition-opacity duration-300" />;
-
-  if (!syncData.text) {
-    return (
-      <div className="fixed inset-0 bg-white dark:bg-zinc-950 flex flex-col items-center justify-center p-20 text-center animate-pulse">
-         <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-32 h-32 opacity-10 mb-8 grayscale" />
-         <p className="text-[14px] font-black uppercase tracking-[0.6em] text-zinc-400">King's Sword Projection</p>
-         <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500 mt-2 opacity-50">En attente...</p>
-      </div>
-    );
-  }
+  if (syncData.blackout) return <div className="fixed inset-0 bg-black z-[99999] cursor-none" />;
 
   return (
-    <div ref={scrollRef} className="fixed inset-0 bg-white dark:bg-zinc-950 overflow-y-auto serif-text leading-relaxed py-10 px-6 md:px-10 scroll-smooth no-scrollbar select-none cursor-none transition-colors duration-500">
-       <div className="w-full max-w-[96%] mx-auto whitespace-pre-wrap text-justify pb-[60vh]">
-          <div className="flex items-center gap-6 mb-10 border-b border-zinc-100 dark:border-zinc-800/50 pb-8">
-            <div className="w-20 h-20 flex items-center justify-center bg-teal-600/5 dark:bg-teal-600/10 rounded-[24px] border border-teal-600/20 shadow-xl shrink-0"><img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-10 h-10" /></div>
-            <div className="flex-1 min-w-0">
-              <h1 className="text-5xl font-black text-zinc-900 dark:text-zinc-50 tracking-tighter mb-2 leading-tight">{syncData.title}</h1>
-              <div className="flex items-center gap-6 text-xl font-bold text-zinc-400 uppercase tracking-[0.15em]">
-                {syncData.date && <div className="flex items-center gap-2"><Calendar className="w-5 h-5 text-teal-600" /><span className="font-mono">{syncData.date}</span></div>}
-                {syncData.city && <div className="flex items-center gap-2 truncate"><MapPin className="w-5 h-5 text-teal-600" /><span className="truncate">{syncData.city}</span></div>}
-              </div>
+    <div className="fixed inset-0 bg-black flex flex-col overflow-hidden select-none cursor-none transition-colors duration-500">
+       {/* Zone de Texte Sacré (90%) */}
+       <div className="h-[90%] flex items-center justify-center p-12 lg:p-20">
+          {syncData.projectedText ? (
+             <div 
+               className="w-full text-center text-white font-bold serif-text leading-[1.4] whitespace-pre-wrap animate-in fade-in zoom-in-95 duration-500"
+               style={{ fontSize: dynamicFontSize, textAlignLast: 'center', textJustify: 'inter-word' }}
+             >
+               {syncData.projectedText}
+             </div>
+          ) : (
+            <div className="flex flex-col items-center gap-10 opacity-20 scale-110">
+               <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-48 h-48 grayscale invert" />
+               <p className="text-4xl font-black uppercase tracking-[1em] text-white">KING'S SWORD</p>
             </div>
+          )}
+       </div>
+
+       {/* Zone d'Information (10%) - Bandeau inférieur Premium */}
+       <div className="h-[10%] bg-zinc-950/80 backdrop-blur-2xl border-t border-white/10 flex items-center justify-between px-12 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-teal-900/10 via-transparent to-teal-900/10 pointer-events-none" />
+          
+          <div className="flex items-center gap-6 relative z-10">
+             <div className="w-12 h-12 flex items-center justify-center bg-teal-600/20 text-teal-500 rounded-xl border border-teal-500/20 shadow-[0_0_20px_rgba(20,184,166,0.2)]">
+                <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-6 h-6" />
+             </div>
+             <div className="flex flex-col">
+                <h2 className="text-teal-500 text-2xl font-black uppercase tracking-tight drop-shadow-md">
+                   {syncData.title || "King's Sword"}
+                </h2>
+                <div className="flex items-center gap-3 text-zinc-400 text-xs font-bold uppercase tracking-widest mt-1 opacity-70">
+                   <div className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> <span className="font-mono">{syncData.date}</span></div>
+                   <div className="w-1 h-1 bg-zinc-600 rounded-full" />
+                   <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> <span>{syncData.city}</span></div>
+                </div>
+             </div>
           </div>
-          <div className="text-zinc-900 dark:text-zinc-100 font-medium leading-[1.6] transition-all duration-300" style={{ fontSize: `clamp(${syncData.fontSize * 1.5}px, ${syncData.fontSize * 0.12}vw, ${syncData.fontSize * 3}px)` }}>
-            {words.map(word => {
-              const isHighlighted = highlightMap.has(word.globalIndex);
-              const isSelected = syncData.selectionIndices.includes(word.globalIndex);
-              const isSearchResult = syncData.searchResults.includes(word.globalIndex);
-              const isCurrentResult = isSearchResult && syncData.searchResults[syncData.currentResultIndex] === word.globalIndex;
-              return (<span key={word.globalIndex} className={`rounded-sm transition-all duration-300 ${isHighlighted ? 'bg-yellow-400/60 dark:bg-yellow-300/50' : ''} ${isSelected ? 'bg-teal-500/30 ring-1 ring-teal-500/50' : ''} ${isSearchResult ? (isCurrentResult ? 'bg-teal-600 text-white' : 'bg-teal-600/15') : ''}`}>{word.text}</span>);
-            })}
+
+          <div className="flex flex-col items-end gap-1 opacity-40 relative z-10">
+             <p className="text-[10px] font-black text-white uppercase tracking-[0.4em]">VISION DE L'AIGLE TABERNACLE</p>
+             <p className="text-[8px] font-bold text-teal-600 uppercase tracking-widest">KOUFOLI - PNR - CONGO</p>
           </div>
        </div>
+
+       {/* Overlay Dictionnaire (si actif) */}
        {syncData.activeDefinition && (
-          <div className="fixed inset-0 z-[100000] bg-black/20 backdrop-blur-sm flex items-center justify-center p-20 animate-in fade-in duration-500">
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800/50 rounded-[60px] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-500 max-w-5xl w-full">
-                <div className="px-16 pt-8 pb-4 flex items-center gap-8 border-b border-zinc-100 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50">
-                  <div className="w-24 h-24 flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-[32px] border border-teal-600/20 shadow-lg"><BookOpenCheck className="w-12 h-12" /></div>
-                  <div><h3 className="text-xl font-black text-zinc-500 uppercase tracking-[0.4em]">Dictionnaire</h3><p className="text-6xl font-black text-zinc-900 dark:text-white leading-none mt-2">{syncData.activeDefinition.word}</p></div>
+          <div className="fixed inset-0 z-[100000] bg-black/40 backdrop-blur-md flex items-center justify-center p-20 animate-in fade-in duration-500">
+            <div className="bg-zinc-900 border border-white/10 rounded-[60px] shadow-[0_0_100px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden animate-in zoom-in-95 duration-500 max-w-5xl w-full">
+                <div className="px-16 pt-10 pb-6 flex items-center gap-10 border-b border-white/5 bg-zinc-950/50">
+                  <div className="w-24 h-24 flex items-center justify-center bg-teal-600/10 text-teal-500 rounded-[32px] border border-teal-500/20 shadow-xl"><BookOpenCheck className="w-12 h-12" /></div>
+                  <div><h3 className="text-xl font-black text-zinc-500 uppercase tracking-[0.4em]">Dictionnaire</h3><p className="text-7xl font-black text-white leading-none mt-2">{syncData.activeDefinition.word}</p></div>
                 </div>
-                <div className="px-16 py-12 space-y-12">
-                  <div className="space-y-6">
-                    <div className="flex items-center gap-4 text-teal-600"><Quote className="w-8 h-8" /><h4 className="text-xl font-black uppercase tracking-[0.3em]">Définition</h4></div>
-                    <div className="p-10 bg-teal-600/5 border border-teal-600/10 rounded-[40px]"><p className="text-4xl leading-tight text-zinc-800 dark:text-zinc-100 font-medium serif-text italic">{syncData.activeDefinition.definition}</p></div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-12">
-                      {syncData.activeDefinition.etymology && (
-                        <div className="space-y-4">
-                          <div className="flex items-center gap-4 text-teal-600"><Feather className="w-6 h-6" /><h4 className="text-lg font-black uppercase tracking-[0.3em]">Étymologie</h4></div>
-                          <p className="text-2xl leading-relaxed text-zinc-600 dark:text-zinc-400 serif-text italic px-2">{syncData.activeDefinition.etymology}</p>
-                        </div>
-                      )}
-                      {syncData.activeDefinition.synonyms && syncData.activeDefinition.synonyms.length > 0 && (
-                        <div className="space-y-6">
-                          <div className="flex items-center gap-4 text-amber-600"><Milestone className="w-6 h-6" /><h4 className="text-lg font-black uppercase tracking-[0.3em]">Synonymes</h4></div>
-                          <div className="flex flex-wrap gap-4 px-2">{syncData.activeDefinition.synonyms.map((s, i) => (<span key={i} className="px-6 py-2 bg-amber-600/5 dark:bg-amber-400/10 text-amber-700 dark:text-amber-300 rounded-2xl text-xl font-bold border border-amber-600/10">{s}</span>))}</div>
-                        </div>
-                      )}
-                  </div>
+                <div className="px-16 py-14 space-y-12">
+                    <div className="p-12 bg-white/5 border border-white/10 rounded-[40px] shadow-inner">
+                      <p className="text-5xl leading-tight text-white font-medium serif-text italic text-center">{syncData.activeDefinition.definition}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-16 px-4">
+                        {syncData.activeDefinition.etymology && (
+                          <div className="space-y-4">
+                            <div className="flex items-center gap-4 text-teal-500"><Feather className="w-8 h-8" /><h4 className="text-2xl font-black uppercase tracking-[0.3em]">Étymologie</h4></div>
+                            <p className="text-3xl leading-relaxed text-zinc-400 serif-text italic">{syncData.activeDefinition.etymology}</p>
+                          </div>
+                        )}
+                        {syncData.activeDefinition.synonyms && syncData.activeDefinition.synonyms.length > 0 && (
+                          <div className="space-y-6">
+                            <div className="flex items-center gap-4 text-amber-500"><Milestone className="w-8 h-8" /><h4 className="text-2xl font-black uppercase tracking-[0.3em]">Synonymes</h4></div>
+                            <div className="flex flex-wrap gap-5">{syncData.activeDefinition.synonyms.map((s, i) => (<span key={i} className="px-8 py-3 bg-amber-500/10 text-amber-400 rounded-2xl text-2xl font-bold border border-amber-500/20">{s}</span>))}</div>
+                          </div>
+                        )}
+                    </div>
                 </div>
             </div>
           </div>
