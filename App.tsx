@@ -90,6 +90,19 @@ const ProjectionView = memo(() => {
     else document.documentElement.classList.remove('dark');
   }, [syncData.theme]);
 
+  // Calcul dynamique de la taille de police pour que tout le texte tienne sur l'écran
+  const adaptiveFontSize = useMemo(() => {
+    if (!syncData.isSlideMode) return `${syncData.fontSize * 1.5}px`;
+    const charCount = syncData.text.length;
+    // Buckets de taille basée sur le nombre de caractères pour assurer que ça rentre
+    if (charCount < 50) return '8.5vh';
+    if (charCount < 150) return '7vh';
+    if (charCount < 300) return '5.5vh';
+    if (charCount < 600) return '4.2vh';
+    if (charCount < 1000) return '3.2vh';
+    return '2.5vh';
+  }, [syncData.text, syncData.isSlideMode, syncData.fontSize]);
+
   if (syncData.blackout) return <div className="fixed inset-0 bg-black z-[99999] cursor-none transition-opacity duration-300" />;
 
   if (!syncData.text) {
@@ -102,21 +115,20 @@ const ProjectionView = memo(() => {
     );
   }
 
-  // Si nous sommes en mode Slide, on affiche le paragraphe centré
   if (syncData.isSlideMode) {
     return (
       <div className="fixed inset-0 bg-black flex flex-col items-center justify-center p-12 text-center select-none cursor-none overflow-hidden">
-        <div className="animate-in fade-in zoom-in duration-500 flex flex-col items-center max-w-7xl">
-          <div className="serif-text font-bold text-white leading-tight mb-16" style={{ fontSize: 'clamp(3rem, 5vw, 8rem)' }}>
+        <div className="animate-in fade-in zoom-in duration-500 flex flex-col items-center w-full max-w-[92vw]">
+          <div className="serif-text font-bold text-white leading-[1.3] text-justify w-full mb-20" style={{ fontSize: adaptiveFontSize }}>
             {syncData.text}
           </div>
           
-          <div className="absolute bottom-12 flex flex-col items-center gap-2 opacity-40">
-            <h2 className="text-teal-500 text-xl font-black uppercase tracking-[0.3em]">{syncData.title}</h2>
-            <div className="flex items-center gap-4 text-zinc-400 text-sm font-bold uppercase tracking-widest">
-              <span>{syncData.date}</span>
-              <span className="w-1 h-1 bg-zinc-700 rounded-full" />
-              <span>{syncData.city}</span>
+          <div className="absolute bottom-10 left-12 right-12 flex flex-col items-start gap-1 border-t border-white/10 pt-6">
+            <h2 className="text-teal-500 text-3xl font-black uppercase tracking-[0.3em] drop-shadow-lg">{syncData.title}</h2>
+            <div className="flex items-center gap-6 text-zinc-400 text-lg font-bold uppercase tracking-widest opacity-80">
+              <div className="flex items-center gap-2"><Calendar className="w-5 h-5" /><span>{syncData.date}</span></div>
+              <span className="w-1.5 h-1.5 bg-zinc-700 rounded-full" />
+              <div className="flex items-center gap-2"><MapPin className="w-5 h-5" /><span>{syncData.city}</span></div>
             </div>
           </div>
         </div>
@@ -124,7 +136,6 @@ const ProjectionView = memo(() => {
     );
   }
 
-  // Fallback Affichage Complet (Reader Mode)
   return (
     <div ref={scrollRef} className="fixed inset-0 bg-white dark:bg-zinc-950 overflow-y-auto serif-text leading-relaxed py-10 px-6 md:px-10 scroll-smooth no-scrollbar select-none cursor-none transition-colors duration-500">
        <div className="w-full max-w-[96%] mx-auto whitespace-pre-wrap text-justify pb-[60vh]">
@@ -138,7 +149,7 @@ const ProjectionView = memo(() => {
               </div>
             </div>
           </div>
-          <div className="text-zinc-900 dark:text-zinc-100 font-medium leading-[1.6] transition-all duration-300" style={{ fontSize: `${syncData.fontSize * 1.5}px` }}>
+          <div className="text-zinc-900 dark:text-zinc-100 font-medium leading-[1.6] transition-all duration-300" style={{ fontSize: adaptiveFontSize }}>
             {syncData.text}
           </div>
        </div>
