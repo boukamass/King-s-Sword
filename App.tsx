@@ -1,4 +1,3 @@
-
 import React, { useCallback, useRef, useState, useEffect, useMemo, memo } from 'react';
 import { useAppStore } from './store';
 import Sidebar from './components/Sidebar';
@@ -61,12 +60,16 @@ const ProjectionView = memo(() => {
     blackout: boolean; 
     theme: string;
     highlights: Highlight[];
-    isSlideMode: boolean;
+    selectionIndices: number[];
+    searchResults: number[];
+    currentResultIndex: number;
+    activeDefinition: WordDefinition | null;
+    projectedMode?: boolean;
   }>({
     title: '', date: '', city: '', text: '', fontSize: 24, blackout: false, theme: 'system',
-    highlights: [], isSlideMode: false
+    highlights: [], selectionIndices: [], searchResults: [], currentResultIndex: -1, activeDefinition: null
   });
-  
+  const [scrollPercent, setScrollPercent] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -76,9 +79,12 @@ const ProjectionView = memo(() => {
         setSyncData({ 
             title: e.data.title || '', date: e.data.date || '', city: e.data.city || '', text: e.data.text || '', 
             fontSize: e.data.fontSize || 24, blackout: e.data.blackout ?? false, theme: e.data.theme || 'system',
-            highlights: e.data.highlights || [], isSlideMode: e.data.isSlideMode || false
+            highlights: e.data.highlights || [], selectionIndices: e.data.selectionIndices || [],
+            searchResults: e.data.searchResults || [], currentResultIndex: e.data.currentResultIndex ?? -1, 
+            activeDefinition: e.data.activeDefinition || null,
+            projectedMode: e.data.projectedMode || false
         });
-      }
+      } else if (e.data.type === 'scroll') setScrollPercent(e.data.scrollPercent);
     };
     channel.postMessage({ type: 'ready' });
     return () => channel.close();
@@ -90,19 +96,28 @@ const ProjectionView = memo(() => {
     else document.documentElement.classList.remove('dark');
   }, [syncData.theme]);
 
-  // Algorithme de remplissage auto-ajustable pour confiner le texte dans 90vh
-  const adaptiveFontSize = useMemo(() => {
-    if (!syncData.isSlideMode) return `${syncData.fontSize * 1.8}px`;
-    const charCount = syncData.text.length;
-    
-    // On bride l'échelle pour éviter tout débordement horizontal ou vertical
-    // Utilisation d'un coefficient conservateur pour garantir la visibilité à 100%
-    const baseSize = 98; 
-    const scaleFactor = Math.sqrt(charCount);
-    const size = Math.max(3.0, Math.min(13.8, (baseSize / scaleFactor) * 1.5));
-    
-    return `${size}vmin`;
-  }, [syncData.text, syncData.isSlideMode]);
+  useEffect(() => {
+    if (scrollRef.current && !syncData.projectedMode) {
+      const target = scrollRef.current;
+      target.scrollTop = scrollPercent * (target.scrollHeight - target.clientHeight);
+    }
+  }, [scrollPercent, syncData.projectedMode]);
+
+  const words = useMemo(() => {
+    if (!syncData.text) return [];
+    const allWords: { text: string; globalIndex: number }[] = [];
+    let globalIndex = 0;
+    syncData.text.split(/(\n\s*\n)/).forEach(seg => {
+        seg.split(/(\s+)/).forEach(token => { if (token !== "") allWords.push({ text: token, globalIndex: globalIndex++ }); });
+    });
+    return allWords;
+  }, [syncData.text]);
+
+  const highlightMap = useMemo(() => {
+    const map = new Map<number, Highlight>();
+    syncData.highlights.forEach(h => { for (let i = h.start; i <= h.end; i++) map.set(i, h); });
+    return map;
+  }, [syncData.highlights]);
 
   if (syncData.blackout) return <div className="fixed inset-0 bg-black z-[99999] cursor-none transition-opacity duration-300" />;
 
@@ -111,71 +126,80 @@ const ProjectionView = memo(() => {
       <div className="fixed inset-0 bg-white dark:bg-zinc-950 flex flex-col items-center justify-center p-20 text-center animate-pulse">
          <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-32 h-32 opacity-10 mb-8 grayscale" />
          <p className="text-[14px] font-black uppercase tracking-[0.6em] text-zinc-400">King's Sword Projection</p>
-         <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500 mt-2 opacity-50">En attente de contenu...</p>
-      </div>
-    );
-  }
-
-  if (syncData.isSlideMode) {
-    return (
-      <div className="fixed inset-0 bg-black flex flex-col select-none cursor-none overflow-hidden h-screen w-screen transition-all duration-700">
-        {/* ZONE DE TEXTE SACRÉ : 90% DE LA HAUTEUR STRICTE */}
-        <div className="flex-[9] w-full flex items-center justify-center p-8 overflow-hidden">
-          <div className="w-full max-w-[98vw] max-h-full flex items-center justify-center overflow-hidden">
-            <div 
-              className="serif-text font-bold text-white leading-[1.5] text-justify w-full animate-in fade-in duration-700" 
-              style={{ fontSize: adaptiveFontSize }}
-            >
-              {syncData.text}
-            </div>
-          </div>
-        </div>
-        
-        {/* ZONE DE TITRE : 10% DE LA HAUTEUR STRICTE */}
-        <div className="flex-[1] min-h-[10vh] border-t border-white/10 bg-gradient-to-r from-zinc-900/40 to-black/60 backdrop-blur-xl flex items-center justify-between px-12 shrink-0 z-50 overflow-hidden">
-          <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-            <h2 className="text-teal-500 text-lg font-black uppercase tracking-[0.3em] truncate drop-shadow-md leading-none">
-              {syncData.title}
-            </h2>
-            <div className="flex items-center gap-4 text-zinc-400 text-[9px] font-bold uppercase tracking-widest mt-1.5 opacity-60">
-              <span className="flex items-center gap-1.5"><Calendar className="w-3 h-3 text-teal-600/50" />{syncData.date}</span>
-              <span className="w-1 h-1 bg-zinc-700 rounded-full" />
-              <span className="flex items-center gap-1.5 truncate"><MapPin className="w-3 h-3 text-teal-600/50" />{syncData.city}</span>
-            </div>
-          </div>
-          <div className="shrink-0 flex items-center ml-8 opacity-30">
-             <div className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
-                <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-3.5 h-3.5 grayscale" />
-             </div>
-          </div>
-        </div>
+         <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500 mt-2 opacity-50">En attente...</p>
       </div>
     );
   }
 
   return (
-    <div ref={scrollRef} className="fixed inset-0 bg-white dark:bg-zinc-950 overflow-y-auto serif-text leading-relaxed py-10 px-6 md:px-10 scroll-smooth no-scrollbar select-none cursor-none transition-colors duration-500 h-screen w-screen">
-       <div className="w-full max-w-[96%] mx-auto whitespace-pre-wrap text-justify pb-[60vh]">
-          <div className="flex items-center gap-6 mb-10 border-b border-zinc-100 dark:border-zinc-800/50 pb-8">
-            <div className="w-20 h-20 flex items-center justify-center bg-teal-600/5 dark:bg-teal-600/10 rounded-[24px] border border-teal-600/20 shadow-xl shrink-0"><img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-10 h-10" /></div>
-            <div className="flex-1 min-w-0">
-              <h1 className="text-5xl font-black text-zinc-900 dark:text-zinc-50 tracking-tighter mb-2 leading-tight">{syncData.title}</h1>
-              <div className="flex items-center gap-6 text-xl font-bold text-zinc-400 uppercase tracking-[0.15em]">
-                {syncData.date && <div className="flex items-center gap-2"><Calendar className="w-5 h-5 text-teal-600" /><span className="font-mono">{syncData.date}</span></div>}
-                {syncData.city && <div className="flex items-center gap-2 truncate"><MapPin className="w-5 h-5 text-teal-600" /><span className="truncate">{syncData.city}</span></div>}
+    <div ref={scrollRef} className={`fixed inset-0 bg-white dark:bg-zinc-950 overflow-y-auto serif-text leading-relaxed py-10 px-6 md:px-10 scroll-smooth no-scrollbar select-none cursor-none transition-colors duration-500 ${syncData.projectedMode ? 'flex items-center justify-center' : ''}`}>
+       <div className={`w-full mx-auto whitespace-pre-wrap text-justify transition-all duration-700 ${syncData.projectedMode ? 'max-w-7xl animate-in zoom-in-95 fade-in pb-0 text-center' : 'max-w-[96%] pb-[60vh]'}`}>
+          {!syncData.projectedMode && (
+            <div className="flex items-center gap-6 mb-10 border-b border-zinc-100 dark:border-zinc-800/50 pb-8">
+              <div className="w-20 h-20 flex items-center justify-center bg-teal-600/5 dark:bg-teal-600/10 rounded-[24px] border border-teal-600/20 shadow-xl shrink-0"><img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-10 h-10" /></div>
+              <div className="flex-1 min-w-0">
+                <h1 className="text-5xl font-black text-zinc-900 dark:text-zinc-50 tracking-tighter mb-2 leading-tight">{syncData.title}</h1>
+                <div className="flex items-center gap-6 text-xl font-bold text-zinc-400 uppercase tracking-[0.15em]">
+                  {syncData.date && <div className="flex items-center gap-2"><Calendar className="w-5 h-5 text-teal-600" /><span className="font-mono">{syncData.date}</span></div>}
+                  {syncData.city && <div className="flex items-center gap-2 truncate"><MapPin className="w-5 h-5 text-teal-600" /><span className="truncate">{syncData.city}</span></div>}
+                </div>
               </div>
             </div>
-          </div>
-          <div className="text-zinc-900 dark:text-zinc-100 font-medium leading-[1.6] transition-all duration-300" style={{ fontSize: adaptiveFontSize }}>
-            {syncData.text}
+          )}
+          
+          <div 
+            className={`text-zinc-900 dark:text-zinc-100 font-medium transition-all duration-300 ${syncData.projectedMode ? 'leading-[1.4] py-12' : 'leading-[1.6]'}`} 
+            style={{ fontSize: `clamp(${syncData.fontSize * (syncData.projectedMode ? 2.5 : 1.5)}px, ${syncData.fontSize * (syncData.projectedMode ? 0.25 : 0.12)}vw, ${syncData.fontSize * (syncData.projectedMode ? 5 : 3)}px)` }}
+          >
+            {words.map(word => {
+              const isHighlighted = highlightMap.has(word.globalIndex);
+              const isSelected = syncData.selectionIndices.includes(word.globalIndex);
+              const isSearchResult = syncData.searchResults.includes(word.globalIndex);
+              const isCurrentResult = isSearchResult && syncData.searchResults[syncData.currentResultIndex] === word.globalIndex;
+              
+              // On ignore l'affichage du chiffre au début si on est en mode projeté pour plus de clarté visuelle
+              if (syncData.projectedMode && word.globalIndex === 0 && /^\d+/.test(word.text)) return null;
+
+              return (<span key={word.globalIndex} className={`rounded-sm transition-all duration-300 ${isHighlighted ? 'bg-yellow-400/60 dark:bg-yellow-300/50' : ''} ${isSelected && !syncData.projectedMode ? 'bg-teal-500/30 ring-1 ring-teal-500/50' : ''} ${isSearchResult ? (isCurrentResult ? 'bg-teal-600 text-white' : 'bg-teal-600/15') : ''}`}>{word.text}</span>);
+            })}
           </div>
        </div>
+       {syncData.activeDefinition && (
+          <div className="fixed inset-0 z-[100000] bg-black/20 backdrop-blur-sm flex items-center justify-center p-20 animate-in fade-in duration-500">
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800/50 rounded-[60px] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-500 max-w-5xl w-full">
+                <div className="px-16 pt-8 pb-4 flex items-center gap-8 border-b border-zinc-100 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50">
+                  <div className="w-24 h-24 flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-[32px] border border-teal-600/20 shadow-lg"><BookOpenCheck className="w-12 h-12" /></div>
+                  <div><h3 className="text-xl font-black text-zinc-500 uppercase tracking-[0.4em]">Dictionnaire</h3><p className="text-6xl font-black text-zinc-900 dark:text-white leading-none mt-2">{syncData.activeDefinition.word}</p></div>
+                </div>
+                <div className="px-16 py-12 space-y-12">
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-4 text-teal-600"><Quote className="w-8 h-8" /><h4 className="text-xl font-black uppercase tracking-[0.3em]">Définition</h4></div>
+                    <div className="p-10 bg-teal-600/5 border border-teal-600/10 rounded-[40px]"><p className="text-4xl leading-tight text-zinc-800 dark:text-zinc-100 font-medium serif-text italic">{syncData.activeDefinition.definition}</p></div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-12">
+                      {syncData.activeDefinition.etymology && (
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-4 text-teal-600"><Feather className="w-6 h-6" /><h4 className="text-lg font-black uppercase tracking-[0.3em]">Étymologie</h4></div>
+                          <p className="text-2xl leading-relaxed text-zinc-600 dark:text-zinc-400 serif-text italic px-2">{syncData.activeDefinition.etymology}</p>
+                        </div>
+                      )}
+                      {syncData.activeDefinition.synonyms && syncData.activeDefinition.synonyms.length > 0 && (
+                        <div className="space-y-6">
+                          <div className="flex items-center gap-4 text-amber-600"><Milestone className="w-6 h-6" /><h4 className="text-lg font-black uppercase tracking-[0.3em]">Synonymes</h4></div>
+                          <div className="flex flex-wrap gap-4 px-2">{syncData.activeDefinition.synonyms.map((s, i) => (<span key={i} className="px-6 py-2 bg-amber-600/5 dark:bg-amber-400/10 text-amber-700 dark:text-amber-300 rounded-2xl text-xl font-bold border border-amber-600/10">{s}</span>))}</div>
+                        </div>
+                      )}
+                  </div>
+                </div>
+            </div>
+          </div>
+       )}
     </div>
   );
 });
 
 const MaskView = memo(() => {
-    return <div className="fixed inset-0 bg-black z-[999999] cursor-none h-screen w-screen" />;
+    return <div className="fixed inset-0 bg-black z-[999999] cursor-none" />;
 });
 
 const App: React.FC = () => {
@@ -253,7 +277,7 @@ const App: React.FC = () => {
     } else if (activeHandle.current === 'ai') {
       const w = Math.max(40, Math.min(800, window.innerWidth - e.clientX));
       if (w < 60) { if (aiOpen) setAiOpen(false); }
-      else { if (!aiOpen && w > 40) setAiWidth(w); }
+      else { if (!aiOpen && w > 40) setAiOpen(true); setAiWidth(w); }
     }
   }, [sidebarOpen, aiOpen, notesOpen, aiWidth, setSidebarWidth, setAiWidth, setNotesWidth, setSidebarOpen, setAiOpen, setNotesOpen]);
 
