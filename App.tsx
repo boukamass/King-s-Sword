@@ -90,15 +90,16 @@ const ProjectionView = memo(() => {
     else document.documentElement.classList.remove('dark');
   }, [syncData.theme]);
 
-  // Algorithme de calcul de taille de police adaptative maximale (Fluid Typography)
+  // Algorithme de calcul de taille de police adaptative maximale (90% de la hauteur)
   const adaptiveFontSize = useMemo(() => {
     if (!syncData.isSlideMode) return `${syncData.fontSize * 1.8}px`;
     const charCount = syncData.text.length;
     
-    // Maximisation de l'espace : on utilise une base plus large (115vmin)
-    const baseSize = 115; 
+    // Maximisation de l'espace : base de calcul aggressive sur 120vmin
+    // pour que le texte occupe tout l'espace 90% sans déborder.
+    const baseSize = 120; 
     const scaleFactor = Math.sqrt(charCount);
-    const size = Math.max(2.5, Math.min(16, (baseSize / scaleFactor) * 1.6));
+    const size = Math.max(2.8, Math.min(18, (baseSize / scaleFactor) * 1.7));
     
     return `${size}vmin`;
   }, [syncData.text, syncData.isSlideMode]);
@@ -117,22 +118,32 @@ const ProjectionView = memo(() => {
 
   if (syncData.isSlideMode) {
     return (
-      <div className="fixed inset-0 bg-black flex flex-col items-center justify-center p-4 select-none cursor-none overflow-hidden h-screen w-screen border-0">
-        <div className="animate-in fade-in zoom-in duration-500 flex flex-col items-center w-full h-full justify-between">
-          {/* Conteneur de texte flexible - Occupation maximale horizontale et verticale */}
-          <div className="flex-1 flex items-center justify-center w-full max-w-[98vw]">
-            <div className="serif-text font-bold text-white leading-[1.3] text-justify w-full" style={{ fontSize: adaptiveFontSize }}>
+      <div className="fixed inset-0 bg-black flex flex-col select-none cursor-none overflow-hidden h-screen w-screen">
+        {/* ZONE DE TEXTE SACRÉ : 90% de la hauteur */}
+        <div className="h-[90vh] flex items-center justify-center p-2 animate-in fade-in zoom-in duration-500">
+          <div className="w-[98vw] max-h-full flex items-center justify-center">
+            <div className="serif-text font-bold text-white leading-relaxed text-justify w-full" style={{ fontSize: adaptiveFontSize }}>
               {syncData.text}
             </div>
           </div>
-          
-          {/* Pied de page métadonnées ultra-compact */}
-          <div className="w-full mt-2 flex flex-col items-start gap-0.5 border-t-2 border-teal-600/20 pt-2 shrink-0 max-w-[98vw]">
-            <h2 className="text-teal-500 text-2xl font-black uppercase tracking-[0.3em] drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] leading-none">{syncData.title}</h2>
-            <div className="flex items-center gap-6 text-zinc-300 text-sm font-bold uppercase tracking-widest opacity-80 mt-1">
-              <div className="flex items-center gap-2"><Calendar className="w-4 h-4 text-teal-500" /><span>{syncData.date}</span></div>
-              <span className="w-1 h-1 bg-zinc-600 rounded-full" />
-              <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-teal-500" /><span>{syncData.city}</span></div>
+        </div>
+        
+        {/* ZONE DE TITRE / METADONNÉES : 10% de la hauteur */}
+        <div className="h-[10vh] border-t-2 border-teal-600/30 bg-black/40 flex items-center justify-between px-10 shrink-0">
+          <div className="flex flex-col">
+            <h2 className="text-teal-500 text-xl font-black uppercase tracking-[0.4em] drop-shadow-md leading-none">
+              {syncData.title}
+            </h2>
+          </div>
+          <div className="flex items-center gap-8 text-zinc-300 text-base font-bold uppercase tracking-[0.2em] opacity-80">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-teal-600" />
+              <span>{syncData.date}</span>
+            </div>
+            <span className="w-1.5 h-1.5 bg-zinc-600 rounded-full" />
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-teal-600" />
+              <span>{syncData.city}</span>
             </div>
           </div>
         </div>
@@ -240,7 +251,7 @@ const App: React.FC = () => {
     } else if (activeHandle.current === 'ai') {
       const w = Math.max(40, Math.min(800, window.innerWidth - e.clientX));
       if (w < 60) { if (aiOpen) setAiOpen(false); }
-      else { if (!aiOpen && w > 40) setAiOpen(true); setAiWidth(w); }
+      else { if (!aiOpen && w > 40) setAiWidth(w); }
     }
   }, [sidebarOpen, aiOpen, notesOpen, aiWidth, setSidebarWidth, setAiWidth, setNotesWidth, setSidebarOpen, setAiOpen, setNotesOpen]);
 
