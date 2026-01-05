@@ -90,17 +90,19 @@ const ProjectionView = memo(() => {
     else document.documentElement.classList.remove('dark');
   }, [syncData.theme]);
 
-  // Calcul dynamique de la taille de police pour que tout le texte tienne sur l'écran
+  // Algorithme de calcul de taille de police adaptative pour maximiser l'espace écran sans scroll
   const adaptiveFontSize = useMemo(() => {
     if (!syncData.isSlideMode) return `${syncData.fontSize * 1.5}px`;
     const charCount = syncData.text.length;
-    // Buckets de taille basée sur le nombre de caractères pour assurer que ça rentre
-    if (charCount < 50) return '8.5vh';
-    if (charCount < 150) return '7vh';
-    if (charCount < 300) return '5.5vh';
-    if (charCount < 600) return '4.2vh';
+    
+    // Échelle fluide basée sur la densité de caractères
+    if (charCount < 50) return '9.5vh';
+    if (charCount < 120) return '8.2vh';
+    if (charCount < 250) return '6.8vh';
+    if (charCount < 450) return '5.4vh';
+    if (charCount < 700) return '4.2vh';
     if (charCount < 1000) return '3.2vh';
-    return '2.5vh';
+    return '2.6vh';
   }, [syncData.text, syncData.isSlideMode, syncData.fontSize]);
 
   if (syncData.blackout) return <div className="fixed inset-0 bg-black z-[99999] cursor-none transition-opacity duration-300" />;
@@ -117,18 +119,20 @@ const ProjectionView = memo(() => {
 
   if (syncData.isSlideMode) {
     return (
-      <div className="fixed inset-0 bg-black flex flex-col items-center justify-center p-12 text-center select-none cursor-none overflow-hidden">
-        <div className="animate-in fade-in zoom-in duration-500 flex flex-col items-center w-full max-w-[92vw]">
-          <div className="serif-text font-bold text-white leading-[1.3] text-justify w-full mb-20" style={{ fontSize: adaptiveFontSize }}>
-            {syncData.text}
+      <div className="fixed inset-0 bg-black flex flex-col items-center justify-center p-14 text-center select-none cursor-none overflow-hidden h-screen w-screen">
+        <div className="animate-in fade-in zoom-in duration-500 flex flex-col items-center w-full max-w-[94vw] h-full justify-between py-10">
+          <div className="flex-1 flex items-center justify-center w-full">
+            <div className="serif-text font-bold text-white leading-[1.25] text-justify w-full" style={{ fontSize: adaptiveFontSize }}>
+              {syncData.text}
+            </div>
           </div>
           
-          <div className="absolute bottom-10 left-12 right-12 flex flex-col items-start gap-1 border-t border-white/10 pt-6">
-            <h2 className="text-teal-500 text-3xl font-black uppercase tracking-[0.3em] drop-shadow-lg">{syncData.title}</h2>
-            <div className="flex items-center gap-6 text-zinc-400 text-lg font-bold uppercase tracking-widest opacity-80">
-              <div className="flex items-center gap-2"><Calendar className="w-5 h-5" /><span>{syncData.date}</span></div>
-              <span className="w-1.5 h-1.5 bg-zinc-700 rounded-full" />
-              <div className="flex items-center gap-2"><MapPin className="w-5 h-5" /><span>{syncData.city}</span></div>
+          <div className="w-full mt-10 flex flex-col items-start gap-1 border-t border-white/20 pt-8 shrink-0">
+            <h2 className="text-teal-500 text-4xl font-black uppercase tracking-[0.35em] drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)]">{syncData.title}</h2>
+            <div className="flex items-center gap-8 text-zinc-300 text-xl font-bold uppercase tracking-widest opacity-90 mt-2">
+              <div className="flex items-center gap-3"><Calendar className="w-6 h-6 text-teal-600" /><span>{syncData.date}</span></div>
+              <span className="w-2 h-2 bg-zinc-600 rounded-full" />
+              <div className="flex items-center gap-3"><MapPin className="w-6 h-6 text-teal-600" /><span>{syncData.city}</span></div>
             </div>
           </div>
         </div>
@@ -137,7 +141,7 @@ const ProjectionView = memo(() => {
   }
 
   return (
-    <div ref={scrollRef} className="fixed inset-0 bg-white dark:bg-zinc-950 overflow-y-auto serif-text leading-relaxed py-10 px-6 md:px-10 scroll-smooth no-scrollbar select-none cursor-none transition-colors duration-500">
+    <div ref={scrollRef} className="fixed inset-0 bg-white dark:bg-zinc-950 overflow-y-auto serif-text leading-relaxed py-10 px-6 md:px-10 scroll-smooth no-scrollbar select-none cursor-none transition-colors duration-500 h-screen w-screen">
        <div className="w-full max-w-[96%] mx-auto whitespace-pre-wrap text-justify pb-[60vh]">
           <div className="flex items-center gap-6 mb-10 border-b border-zinc-100 dark:border-zinc-800/50 pb-8">
             <div className="w-20 h-20 flex items-center justify-center bg-teal-600/5 dark:bg-teal-600/10 rounded-[24px] border border-teal-600/20 shadow-xl shrink-0"><img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-10 h-10" /></div>
@@ -158,7 +162,7 @@ const ProjectionView = memo(() => {
 });
 
 const MaskView = memo(() => {
-    return <div className="fixed inset-0 bg-black z-[999999] cursor-none" />;
+    return <div className="fixed inset-0 bg-black z-[999999] cursor-none h-screen w-screen" />;
 });
 
 const App: React.FC = () => {
