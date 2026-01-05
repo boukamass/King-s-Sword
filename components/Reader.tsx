@@ -291,14 +291,14 @@ const Reader: React.FC = () => {
                   <div 
                     key={sIdx} 
                     onClick={() => projectSlide(segTrim, sIdx)}
-                    className={`relative p-2.5 -mx-4 my-0.5 rounded-[16px] cursor-pointer transition-all duration-300 group/slide border-l-4 ${
+                    className={`relative p-2 -mx-4 my-0.5 rounded-[12px] cursor-pointer transition-all duration-300 group/slide border-l-4 ${
                       activeSlideIndex === sIdx 
-                        ? 'bg-teal-600/10 dark:bg-teal-600/20 border-teal-600 shadow-md' 
+                        ? 'bg-teal-600/10 dark:bg-teal-600/20 border-teal-600 shadow-sm' 
                         : 'bg-transparent border-transparent hover:bg-zinc-100 dark:hover:bg-zinc-900/50 hover:border-zinc-300 dark:hover:border-zinc-700'
                     }`}
                   >
-                    <div className="absolute -left-12 top-3 opacity-0 group-hover/slide:opacity-100 transition-opacity">
-                      <Presentation className={`w-4.5 h-4.5 ${activeSlideIndex === sIdx ? 'text-teal-600' : 'text-zinc-400'}`} />
+                    <div className="absolute -left-10 top-2 opacity-0 group-hover/slide:opacity-100 transition-opacity">
+                      <Presentation className={`w-4 h-4 ${activeSlideIndex === sIdx ? 'text-teal-600' : 'text-zinc-400'}`} />
                     </div>
                     {words.filter(w => w.segmentIndex === sIdx).map(word => (
                       <WordComponent 

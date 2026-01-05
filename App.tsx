@@ -90,20 +90,21 @@ const ProjectionView = memo(() => {
     else document.documentElement.classList.remove('dark');
   }, [syncData.theme]);
 
-  // Algorithme de calcul de taille de police adaptative pour maximiser l'espace écran sans scroll
+  // Algorithme de calcul de taille de police adaptative maximale (Fluid Typography)
+  // On calcule la taille pour que le texte occupe la quasi totalité du viewport
   const adaptiveFontSize = useMemo(() => {
-    if (!syncData.isSlideMode) return `${syncData.fontSize * 1.5}px`;
+    if (!syncData.isSlideMode) return `${syncData.fontSize * 1.8}px`;
     const charCount = syncData.text.length;
     
-    // Échelle fluide basée sur la densité de caractères
-    if (charCount < 50) return '9.5vh';
-    if (charCount < 120) return '8.2vh';
-    if (charCount < 250) return '6.8vh';
-    if (charCount < 450) return '5.4vh';
-    if (charCount < 700) return '4.2vh';
-    if (charCount < 1000) return '3.2vh';
-    return '2.6vh';
-  }, [syncData.text, syncData.isSlideMode, syncData.fontSize]);
+    // Formule fluide : On réduit la taille proportionnellement à la racine du nombre de caractères
+    // pour maximiser l'occupation de surface (Largeur x Hauteur)
+    // 95vmin est notre base de calcul pour s'assurer que ça ne déborde jamais
+    const baseSize = 95; 
+    const scaleFactor = Math.sqrt(charCount);
+    const size = Math.max(2.2, Math.min(14, (baseSize / scaleFactor) * 1.5));
+    
+    return `${size}vmin`;
+  }, [syncData.text, syncData.isSlideMode]);
 
   if (syncData.blackout) return <div className="fixed inset-0 bg-black z-[99999] cursor-none transition-opacity duration-300" />;
 
@@ -119,20 +120,22 @@ const ProjectionView = memo(() => {
 
   if (syncData.isSlideMode) {
     return (
-      <div className="fixed inset-0 bg-black flex flex-col items-center justify-center p-14 text-center select-none cursor-none overflow-hidden h-screen w-screen">
-        <div className="animate-in fade-in zoom-in duration-500 flex flex-col items-center w-full max-w-[94vw] h-full justify-between py-10">
-          <div className="flex-1 flex items-center justify-center w-full">
-            <div className="serif-text font-bold text-white leading-[1.25] text-justify w-full" style={{ fontSize: adaptiveFontSize }}>
+      <div className="fixed inset-0 bg-black flex flex-col items-center justify-center p-10 select-none cursor-none overflow-hidden h-screen w-screen border-0">
+        <div className="animate-in fade-in zoom-in duration-500 flex flex-col items-center w-full h-full justify-between py-6">
+          {/* Conteneur de texte flexible qui occupe tout l'espace central */}
+          <div className="flex-1 flex items-center justify-center w-full max-w-[96vw]">
+            <div className="serif-text font-bold text-white leading-[1.2] text-justify w-full" style={{ fontSize: adaptiveFontSize }}>
               {syncData.text}
             </div>
           </div>
           
-          <div className="w-full mt-10 flex flex-col items-start gap-1 border-t border-white/20 pt-8 shrink-0">
-            <h2 className="text-teal-500 text-4xl font-black uppercase tracking-[0.35em] drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)]">{syncData.title}</h2>
-            <div className="flex items-center gap-8 text-zinc-300 text-xl font-bold uppercase tracking-widest opacity-90 mt-2">
-              <div className="flex items-center gap-3"><Calendar className="w-6 h-6 text-teal-600" /><span>{syncData.date}</span></div>
-              <span className="w-2 h-2 bg-zinc-600 rounded-full" />
-              <div className="flex items-center gap-3"><MapPin className="w-6 h-6 text-teal-600" /><span>{syncData.city}</span></div>
+          {/* Pied de page métadonnées fixe et élégant */}
+          <div className="w-full mt-8 flex flex-col items-start gap-1 border-t-2 border-teal-600/30 pt-6 shrink-0 max-w-[96vw]">
+            <h2 className="text-teal-500 text-4xl font-black uppercase tracking-[0.4em] drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)]">{syncData.title}</h2>
+            <div className="flex items-center gap-10 text-zinc-200 text-2xl font-bold uppercase tracking-widest mt-2">
+              <div className="flex items-center gap-3"><Calendar className="w-7 h-7 text-teal-500" /><span>{syncData.date}</span></div>
+              <span className="w-2 h-2 bg-zinc-500 rounded-full" />
+              <div className="flex items-center gap-3"><MapPin className="w-7 h-7 text-teal-500" /><span>{syncData.city}</span></div>
             </div>
           </div>
         </div>
