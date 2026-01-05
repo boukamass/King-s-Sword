@@ -197,28 +197,32 @@ const Reader: React.FC = () => {
   }, [sermon, fontSize, isExternalMaskOpen, theme]);
 
   const toggleExternalProjection = () => {
-    if (isExternalProjectionOpen && (externalProjectionWindow || true)) {
-      if (externalProjectionWindow) externalProjectionWindow.close();
-      externalProjectionWindow = null;
+    if (isExternalProjectionOpen) {
+      if (externalProjectionWindow) {
+        externalProjectionWindow.close();
+        externalProjectionWindow = null;
+      }
       setExternalProjectionOpen(false);
     } else {
       const url = new URL(window.location.href);
       url.searchParams.set('projection', 'true');
       externalProjectionWindow = window.open(url.toString(), 'KingsSwordProjection');
-      if (externalProjectionWindow) setExternalProjectionOpen(true);
+      setExternalProjectionOpen(true);
     }
   };
 
   const toggleExternalMask = () => {
-    if (isExternalMaskOpen && (externalMaskWindow || true)) {
-      if (externalMaskWindow) externalMaskWindow.close();
-      externalMaskWindow = null;
+    if (isExternalMaskOpen) {
+      if (externalMaskWindow) {
+        externalMaskWindow.close();
+        externalMaskWindow = null;
+      }
       setExternalMaskOpen(false);
     } else {
       const url = new URL(window.location.href);
       url.searchParams.set('mask', 'true');
       externalMaskWindow = window.open(url.toString(), 'KingsSwordMask');
-      if (externalMaskWindow) setExternalMaskOpen(true);
+      setExternalMaskOpen(true);
     }
   };
 
@@ -291,7 +295,7 @@ const Reader: React.FC = () => {
                   <div 
                     key={sIdx} 
                     onClick={() => projectSlide(segTrim, sIdx)}
-                    className={`relative p-1 -mx-4 my-[0.5px] rounded-[10px] cursor-pointer transition-all duration-300 group/slide border-l-4 ${
+                    className={`relative p-1 -mx-4 my-0 rounded-[10px] cursor-pointer transition-all duration-300 group/slide border-l-4 ${
                       activeSlideIndex === sIdx 
                         ? 'bg-teal-600/10 dark:bg-teal-600/20 border-teal-600' 
                         : 'bg-transparent border-transparent hover:bg-zinc-100 dark:hover:bg-zinc-900/50 hover:border-zinc-300 dark:hover:border-zinc-700'
@@ -314,7 +318,7 @@ const Reader: React.FC = () => {
               }
               
               return (
-                <div key={sIdx} className="my-[0.5px]">
+                <div key={sIdx} className="my-0">
                   {words.filter(w => w.segmentIndex === sIdx).map(word => (
                     <WordComponent 
                       key={word.globalIndex} 

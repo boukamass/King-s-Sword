@@ -90,17 +90,16 @@ const ProjectionView = memo(() => {
     else document.documentElement.classList.remove('dark');
   }, [syncData.theme]);
 
-  // Algorithme optimisé pour remplir 90% de la hauteur sans débordement
+  // Algorithme de remplissage auto-ajustable pour confiner le texte dans 90vh
   const adaptiveFontSize = useMemo(() => {
     if (!syncData.isSlideMode) return `${syncData.fontSize * 1.8}px`;
     const charCount = syncData.text.length;
     
-    // Calcul de surface optimisé pour éviter les coupures
-    // Base 105vmin pour une occupation équilibrée
-    const baseSize = 105; 
+    // On bride l'échelle pour éviter tout débordement horizontal ou vertical
+    // Utilisation d'un coefficient conservateur pour garantir la visibilité à 100%
+    const baseSize = 98; 
     const scaleFactor = Math.sqrt(charCount);
-    // On bride légèrement la taille maximale (14.5) pour éviter que les mots longs ne sortent horizontalement
-    const size = Math.max(2.8, Math.min(14.5, (baseSize / scaleFactor) * 1.55));
+    const size = Math.max(3.0, Math.min(13.8, (baseSize / scaleFactor) * 1.5));
     
     return `${size}vmin`;
   }, [syncData.text, syncData.isSlideMode]);
@@ -120,11 +119,11 @@ const ProjectionView = memo(() => {
   if (syncData.isSlideMode) {
     return (
       <div className="fixed inset-0 bg-black flex flex-col select-none cursor-none overflow-hidden h-screen w-screen transition-all duration-700">
-        {/* ZONE DE TEXTE SACRÉ : 90% de la hauteur, sans débordement */}
-        <div className="h-[90vh] w-full flex items-center justify-center px-8 py-4 overflow-hidden relative">
-          <div className="w-full max-w-[98vw] h-full flex items-center justify-center overflow-hidden">
+        {/* ZONE DE TEXTE SACRÉ : 90% DE LA HAUTEUR STRICTE */}
+        <div className="flex-[9] w-full flex items-center justify-center p-8 overflow-hidden">
+          <div className="w-full max-w-[98vw] max-h-full flex items-center justify-center overflow-hidden">
             <div 
-              className="serif-text font-bold text-white leading-[1.4] text-justify w-full animate-in fade-in duration-700" 
+              className="serif-text font-bold text-white leading-[1.5] text-justify w-full animate-in fade-in duration-700" 
               style={{ fontSize: adaptiveFontSize }}
             >
               {syncData.text}
@@ -132,21 +131,21 @@ const ProjectionView = memo(() => {
           </div>
         </div>
         
-        {/* ZONE DE TITRE / METADONNÉES : 10% de la hauteur, design moderne et discret */}
-        <div className="h-[10vh] border-t border-white/10 bg-gradient-to-r from-zinc-900/50 to-black/50 backdrop-blur-md flex items-center justify-between px-12 shrink-0 z-50">
+        {/* ZONE DE TITRE : 10% DE LA HAUTEUR STRICTE */}
+        <div className="flex-[1] min-h-[10vh] border-t border-white/10 bg-gradient-to-r from-zinc-900/40 to-black/60 backdrop-blur-xl flex items-center justify-between px-12 shrink-0 z-50 overflow-hidden">
           <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-            <h2 className="text-teal-500 text-lg font-black uppercase tracking-[0.3em] truncate drop-shadow-sm leading-tight">
+            <h2 className="text-teal-500 text-lg font-black uppercase tracking-[0.3em] truncate drop-shadow-md leading-none">
               {syncData.title}
             </h2>
-            <div className="flex items-center gap-4 text-zinc-400 text-[10px] font-bold uppercase tracking-widest opacity-70">
+            <div className="flex items-center gap-4 text-zinc-400 text-[9px] font-bold uppercase tracking-widest mt-1.5 opacity-60">
               <span className="flex items-center gap-1.5"><Calendar className="w-3 h-3 text-teal-600/50" />{syncData.date}</span>
               <span className="w-1 h-1 bg-zinc-700 rounded-full" />
               <span className="flex items-center gap-1.5 truncate"><MapPin className="w-3 h-3 text-teal-600/50" />{syncData.city}</span>
             </div>
           </div>
-          <div className="shrink-0 flex items-center ml-8">
-             <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
-                <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-4 h-4 opacity-40 grayscale" />
+          <div className="shrink-0 flex items-center ml-8 opacity-30">
+             <div className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
+                <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-3.5 h-3.5 grayscale" />
              </div>
           </div>
         </div>
