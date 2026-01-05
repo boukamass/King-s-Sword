@@ -90,16 +90,17 @@ const ProjectionView = memo(() => {
     else document.documentElement.classList.remove('dark');
   }, [syncData.theme]);
 
-  // Algorithme de calcul de taille de police adaptative maximale (90% de la hauteur)
+  // Algorithme optimisé pour remplir 90% de la hauteur sans débordement
   const adaptiveFontSize = useMemo(() => {
     if (!syncData.isSlideMode) return `${syncData.fontSize * 1.8}px`;
     const charCount = syncData.text.length;
     
-    // Maximisation de l'espace : base de calcul aggressive sur 120vmin
-    // pour que le texte occupe tout l'espace 90% sans déborder.
-    const baseSize = 120; 
+    // Calcul de surface optimisé pour éviter les coupures
+    // Base 105vmin pour une occupation équilibrée
+    const baseSize = 105; 
     const scaleFactor = Math.sqrt(charCount);
-    const size = Math.max(2.8, Math.min(18, (baseSize / scaleFactor) * 1.7));
+    // On bride légèrement la taille maximale (14.5) pour éviter que les mots longs ne sortent horizontalement
+    const size = Math.max(2.8, Math.min(14.5, (baseSize / scaleFactor) * 1.55));
     
     return `${size}vmin`;
   }, [syncData.text, syncData.isSlideMode]);
@@ -118,33 +119,35 @@ const ProjectionView = memo(() => {
 
   if (syncData.isSlideMode) {
     return (
-      <div className="fixed inset-0 bg-black flex flex-col select-none cursor-none overflow-hidden h-screen w-screen">
-        {/* ZONE DE TEXTE SACRÉ : 90% de la hauteur */}
-        <div className="h-[90vh] flex items-center justify-center p-2 animate-in fade-in zoom-in duration-500">
-          <div className="w-[98vw] max-h-full flex items-center justify-center">
-            <div className="serif-text font-bold text-white leading-relaxed text-justify w-full" style={{ fontSize: adaptiveFontSize }}>
+      <div className="fixed inset-0 bg-black flex flex-col select-none cursor-none overflow-hidden h-screen w-screen transition-all duration-700">
+        {/* ZONE DE TEXTE SACRÉ : 90% de la hauteur, sans débordement */}
+        <div className="h-[90vh] w-full flex items-center justify-center px-8 py-4 overflow-hidden relative">
+          <div className="w-full max-w-[98vw] h-full flex items-center justify-center overflow-hidden">
+            <div 
+              className="serif-text font-bold text-white leading-[1.4] text-justify w-full animate-in fade-in duration-700" 
+              style={{ fontSize: adaptiveFontSize }}
+            >
               {syncData.text}
             </div>
           </div>
         </div>
         
-        {/* ZONE DE TITRE / METADONNÉES : 10% de la hauteur */}
-        <div className="h-[10vh] border-t-2 border-teal-600/30 bg-black/40 flex items-center justify-between px-10 shrink-0">
-          <div className="flex flex-col">
-            <h2 className="text-teal-500 text-xl font-black uppercase tracking-[0.4em] drop-shadow-md leading-none">
+        {/* ZONE DE TITRE / METADONNÉES : 10% de la hauteur, design moderne et discret */}
+        <div className="h-[10vh] border-t border-white/10 bg-gradient-to-r from-zinc-900/50 to-black/50 backdrop-blur-md flex items-center justify-between px-12 shrink-0 z-50">
+          <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+            <h2 className="text-teal-500 text-lg font-black uppercase tracking-[0.3em] truncate drop-shadow-sm leading-tight">
               {syncData.title}
             </h2>
+            <div className="flex items-center gap-4 text-zinc-400 text-[10px] font-bold uppercase tracking-widest opacity-70">
+              <span className="flex items-center gap-1.5"><Calendar className="w-3 h-3 text-teal-600/50" />{syncData.date}</span>
+              <span className="w-1 h-1 bg-zinc-700 rounded-full" />
+              <span className="flex items-center gap-1.5 truncate"><MapPin className="w-3 h-3 text-teal-600/50" />{syncData.city}</span>
+            </div>
           </div>
-          <div className="flex items-center gap-8 text-zinc-300 text-base font-bold uppercase tracking-[0.2em] opacity-80">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-teal-600" />
-              <span>{syncData.date}</span>
-            </div>
-            <span className="w-1.5 h-1.5 bg-zinc-600 rounded-full" />
-            <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-teal-600" />
-              <span>{syncData.city}</span>
-            </div>
+          <div className="shrink-0 flex items-center ml-8">
+             <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
+                <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-4 h-4 opacity-40 grayscale" />
+             </div>
           </div>
         </div>
       </div>
