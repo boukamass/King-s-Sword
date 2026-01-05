@@ -61,15 +61,12 @@ const ProjectionView = memo(() => {
     blackout: boolean; 
     theme: string;
     highlights: Highlight[];
-    selectionIndices: number[];
-    searchResults: number[];
-    currentResultIndex: number;
-    activeDefinition: WordDefinition | null;
+    isSlideMode: boolean;
   }>({
     title: '', date: '', city: '', text: '', fontSize: 24, blackout: false, theme: 'system',
-    highlights: [], selectionIndices: [], searchResults: [], currentResultIndex: -1, activeDefinition: null
+    highlights: [], isSlideMode: false
   });
-  const [scrollPercent, setScrollPercent] = useState(0);
+  
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -79,10 +76,9 @@ const ProjectionView = memo(() => {
         setSyncData({ 
             title: e.data.title || '', date: e.data.date || '', city: e.data.city || '', text: e.data.text || '', 
             fontSize: e.data.fontSize || 24, blackout: e.data.blackout ?? false, theme: e.data.theme || 'system',
-            highlights: e.data.highlights || [], selectionIndices: e.data.selectionIndices || [],
-            searchResults: e.data.searchResults || [], currentResultIndex: e.data.currentResultIndex ?? -1, activeDefinition: e.data.activeDefinition || null
+            highlights: e.data.highlights || [], isSlideMode: e.data.isSlideMode || false
         });
-      } else if (e.data.type === 'scroll') setScrollPercent(e.data.scrollPercent);
+      }
     };
     channel.postMessage({ type: 'ready' });
     return () => channel.close();
@@ -94,29 +90,6 @@ const ProjectionView = memo(() => {
     else document.documentElement.classList.remove('dark');
   }, [syncData.theme]);
 
-  useEffect(() => {
-    if (scrollRef.current) {
-      const target = scrollRef.current;
-      target.scrollTop = scrollPercent * (target.scrollHeight - target.clientHeight);
-    }
-  }, [scrollPercent]);
-
-  const words = useMemo(() => {
-    if (!syncData.text) return [];
-    const allWords: { text: string; globalIndex: number }[] = [];
-    let globalIndex = 0;
-    syncData.text.split(/(\n\s*\n)/).forEach(seg => {
-        seg.split(/(\s+)/).forEach(token => { if (token !== "") allWords.push({ text: token, globalIndex: globalIndex++ }); });
-    });
-    return allWords;
-  }, [syncData.text]);
-
-  const highlightMap = useMemo(() => {
-    const map = new Map<number, Highlight>();
-    syncData.highlights.forEach(h => { for (let i = h.start; i <= h.end; i++) map.set(i, h); });
-    return map;
-  }, [syncData.highlights]);
-
   if (syncData.blackout) return <div className="fixed inset-0 bg-black z-[99999] cursor-none transition-opacity duration-300" />;
 
   if (!syncData.text) {
@@ -124,11 +97,34 @@ const ProjectionView = memo(() => {
       <div className="fixed inset-0 bg-white dark:bg-zinc-950 flex flex-col items-center justify-center p-20 text-center animate-pulse">
          <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-32 h-32 opacity-10 mb-8 grayscale" />
          <p className="text-[14px] font-black uppercase tracking-[0.6em] text-zinc-400">King's Sword Projection</p>
-         <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500 mt-2 opacity-50">En attente...</p>
+         <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500 mt-2 opacity-50">En attente de contenu...</p>
       </div>
     );
   }
 
+  // Si nous sommes en mode Slide, on affiche le paragraphe centré
+  if (syncData.isSlideMode) {
+    return (
+      <div className="fixed inset-0 bg-black flex flex-col items-center justify-center p-12 text-center select-none cursor-none overflow-hidden">
+        <div className="animate-in fade-in zoom-in duration-500 flex flex-col items-center max-w-7xl">
+          <div className="serif-text font-bold text-white leading-tight mb-16" style={{ fontSize: 'clamp(3rem, 5vw, 8rem)' }}>
+            {syncData.text}
+          </div>
+          
+          <div className="absolute bottom-12 flex flex-col items-center gap-2 opacity-40">
+            <h2 className="text-teal-500 text-xl font-black uppercase tracking-[0.3em]">{syncData.title}</h2>
+            <div className="flex items-center gap-4 text-zinc-400 text-sm font-bold uppercase tracking-widest">
+              <span>{syncData.date}</span>
+              <span className="w-1 h-1 bg-zinc-700 rounded-full" />
+              <span>{syncData.city}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Fallback Affichage Complet (Reader Mode)
   return (
     <div ref={scrollRef} className="fixed inset-0 bg-white dark:bg-zinc-950 overflow-y-auto serif-text leading-relaxed py-10 px-6 md:px-10 scroll-smooth no-scrollbar select-none cursor-none transition-colors duration-500">
        <div className="w-full max-w-[96%] mx-auto whitespace-pre-wrap text-justify pb-[60vh]">
@@ -142,46 +138,10 @@ const ProjectionView = memo(() => {
               </div>
             </div>
           </div>
-          <div className="text-zinc-900 dark:text-zinc-100 font-medium leading-[1.6] transition-all duration-300" style={{ fontSize: `clamp(${syncData.fontSize * 1.5}px, ${syncData.fontSize * 0.12}vw, ${syncData.fontSize * 3}px)` }}>
-            {words.map(word => {
-              const isHighlighted = highlightMap.has(word.globalIndex);
-              const isSelected = syncData.selectionIndices.includes(word.globalIndex);
-              const isSearchResult = syncData.searchResults.includes(word.globalIndex);
-              const isCurrentResult = isSearchResult && syncData.searchResults[syncData.currentResultIndex] === word.globalIndex;
-              return (<span key={word.globalIndex} className={`rounded-sm transition-all duration-300 ${isHighlighted ? 'bg-yellow-400/60 dark:bg-yellow-300/50' : ''} ${isSelected ? 'bg-teal-500/30 ring-1 ring-teal-500/50' : ''} ${isSearchResult ? (isCurrentResult ? 'bg-teal-600 text-white' : 'bg-teal-600/15') : ''}`}>{word.text}</span>);
-            })}
+          <div className="text-zinc-900 dark:text-zinc-100 font-medium leading-[1.6] transition-all duration-300" style={{ fontSize: `${syncData.fontSize * 1.5}px` }}>
+            {syncData.text}
           </div>
        </div>
-       {syncData.activeDefinition && (
-          <div className="fixed inset-0 z-[100000] bg-black/20 backdrop-blur-sm flex items-center justify-center p-20 animate-in fade-in duration-500">
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800/50 rounded-[60px] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-500 max-w-5xl w-full">
-                <div className="px-16 pt-8 pb-4 flex items-center gap-8 border-b border-zinc-100 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50">
-                  <div className="w-24 h-24 flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-[32px] border border-teal-600/20 shadow-lg"><BookOpenCheck className="w-12 h-12" /></div>
-                  <div><h3 className="text-xl font-black text-zinc-500 uppercase tracking-[0.4em]">Dictionnaire</h3><p className="text-6xl font-black text-zinc-900 dark:text-white leading-none mt-2">{syncData.activeDefinition.word}</p></div>
-                </div>
-                <div className="px-16 py-12 space-y-12">
-                  <div className="space-y-6">
-                    <div className="flex items-center gap-4 text-teal-600"><Quote className="w-8 h-8" /><h4 className="text-xl font-black uppercase tracking-[0.3em]">Définition</h4></div>
-                    <div className="p-10 bg-teal-600/5 border border-teal-600/10 rounded-[40px]"><p className="text-4xl leading-tight text-zinc-800 dark:text-zinc-100 font-medium serif-text italic">{syncData.activeDefinition.definition}</p></div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-12">
-                      {syncData.activeDefinition.etymology && (
-                        <div className="space-y-4">
-                          <div className="flex items-center gap-4 text-teal-600"><Feather className="w-6 h-6" /><h4 className="text-lg font-black uppercase tracking-[0.3em]">Étymologie</h4></div>
-                          <p className="text-2xl leading-relaxed text-zinc-600 dark:text-zinc-400 serif-text italic px-2">{syncData.activeDefinition.etymology}</p>
-                        </div>
-                      )}
-                      {syncData.activeDefinition.synonyms && syncData.activeDefinition.synonyms.length > 0 && (
-                        <div className="space-y-6">
-                          <div className="flex items-center gap-4 text-amber-600"><Milestone className="w-6 h-6" /><h4 className="text-lg font-black uppercase tracking-[0.3em]">Synonymes</h4></div>
-                          <div className="flex flex-wrap gap-4 px-2">{syncData.activeDefinition.synonyms.map((s, i) => (<span key={i} className="px-6 py-2 bg-amber-600/5 dark:bg-amber-400/10 text-amber-700 dark:text-amber-300 rounded-2xl text-xl font-bold border border-amber-600/10">{s}</span>))}</div>
-                        </div>
-                      )}
-                  </div>
-                </div>
-            </div>
-          </div>
-       )}
     </div>
   );
 });

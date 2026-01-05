@@ -34,33 +34,23 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
   }
 
-  // Gestion de l'ouverture des fenêtres pour la projection et le masquage
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     const isProjection = url.includes('projection=true');
     const isMask = url.includes('mask=true');
 
     if (isProjection || isMask) {
       const displays = screen.getAllDisplays();
-      
-      // On identifie sur quel écran se trouve l'application principale
       const currentDisplay = screen.getDisplayMatching(mainWindow.getBounds());
-      
-      // On cherche l'écran "externe" (tout écran qui n'est pas celui de l'app)
       let targetDisplay = displays.find(d => d.id !== currentDisplay.id);
 
-      // Si on ne trouve pas d'écran externe distinct (mode dupliqué ou écran unique), 
-      // on utilise l'écran courant par défaut pour éviter de bloquer l'action,
-      // mais on privilégie toujours l'écran secondaire si disponible.
-      if (!targetDisplay) {
-        targetDisplay = currentDisplay;
-      }
+      // Si pas de second écran, on utilise l'écran courant
+      if (!targetDisplay) targetDisplay = currentDisplay;
 
       const windowOptions = {
         fullscreen: true,
         autoHideMenuBar: true,
         backgroundColor: '#000000',
         title: isMask ? "King's Sword - Masque" : "King's Sword - Projection",
-        // Positionnement absolu sur les coordonnées de l'écran cible
         x: targetDisplay.bounds.x,
         y: targetDisplay.bounds.y,
         width: targetDisplay.bounds.width,
@@ -69,9 +59,9 @@ function createWindow() {
         movable: false,
         resizable: false,
         closable: true,
-        alwaysOnTop: isMask, // Le masque doit être au-dessus de tout sur le 2nd écran
+        alwaysOnTop: isMask,
         skipTaskbar: true,
-        focusable: !isMask, // Le masque ne vole pas le focus pour laisser l'utilisateur travailler
+        focusable: !isMask,
         webPreferences: {
           nodeIntegration: false,
           contextIsolation: true,
@@ -95,17 +85,10 @@ function createWindow() {
   });
 }
 
-// Logicielle de mise à jour
-autoUpdater.on('checking-for-update', () => { console.log('Vérification des mises à jour...'); });
 autoUpdater.on('update-available', (info) => {
-  console.log('Mise à jour disponible:', info.version);
   if (mainWindow) mainWindow.webContents.send('update_available');
 });
-autoUpdater.on('update-not-available', (info) => { console.log('Pas de mise à jour disponible.'); });
-autoUpdater.on('error', (err) => { console.log('Erreur auto-updater:', err); });
-autoUpdater.on('download-progress', (progressObj) => { console.log('Téléchargé ' + progressObj.percent + '%'); });
 autoUpdater.on('update-downloaded', (info) => {
-  console.log('Mise à jour téléchargée');
   if (mainWindow) mainWindow.webContents.send('update_downloaded');
 });
 
