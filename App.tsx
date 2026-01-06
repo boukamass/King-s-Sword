@@ -104,60 +104,74 @@ const ProjectionView = memo(() => {
     );
   }
 
-  // Algorithme d'Auto-Ajustement du Texte et Interlignes
+  // Algorithme d'Auto-Ajustement optimisé pour l'espace vertical et horizontal
   const chars = syncData.text.length || 1;
-  const calculatedSize = Math.max(3.2, Math.min(14.5, (98 / Math.sqrt(chars)) * 1.55));
-  const calculatedLineHeight = Math.max(1.1, Math.min(1.4, 1.6 - (calculatedSize / 18)));
+  // Calcul plus agressif pour remplir l'écran en sans-serif
+  const calculatedSize = Math.max(3.5, Math.min(18, (105 / Math.sqrt(chars)) * 1.65));
+  // Interligne dynamique pour la lisibilité
+  const calculatedLineHeight = Math.max(1.05, Math.min(1.35, 1.5 - (calculatedSize / 22)));
 
   return (
     <div className="fixed inset-0 bg-black flex flex-col items-center select-none cursor-none overflow-hidden h-screen w-screen font-sans">
-       {/* Zone de Texte Sacré (90%) */}
+       {/* Zone de Texte Sacré (90%) - Sans-serif, élégant et aligné à gauche */}
        <div className="h-[90%] w-full flex items-center justify-start px-20 sm:px-32">
           <div 
-            className="text-white font-bold transition-all duration-300 text-left"
+            className="text-white font-bold transition-all duration-300 text-left font-sans tracking-tight"
             style={{ 
               fontSize: `${calculatedSize}vmin`,
               lineHeight: calculatedLineHeight,
-              textShadow: '0 4px 30px rgba(0,0,0,0.5)',
+              textShadow: '0 4px 40px rgba(0,0,0,0.8)',
               wordBreak: 'break-word',
-              width: '100%'
+              width: '100%',
+              maxWidth: '100%'
             }}
           >
             {syncData.text}
           </div>
        </div>
 
-       {/* Zone d'Information (10%) - Bandeau inférieur élégant */}
-       <div className="h-[10%] w-full bg-gradient-to-b from-zinc-950 to-black border-t border-white/10 backdrop-blur-2xl flex items-center justify-between px-12 shrink-0">
+       {/* Zone d'Information (10%) - Bandeau inférieur avec logo à gauche du titre */}
+       <div className="h-[10%] w-full bg-gradient-to-b from-zinc-900 to-black border-t border-white/5 backdrop-blur-3xl flex items-center justify-between px-16 shrink-0 z-50">
           <div className="flex items-center gap-6">
-             <div className="w-[6vmin] h-[6vmin] rounded-full bg-teal-600/20 border border-teal-600/30 flex items-center justify-center shadow-lg overflow-hidden shrink-0">
-                <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-[3.5vmin] h-[3.5vmin] grayscale brightness-200" />
+             {/* Logo circulaire élégant à gauche */}
+             <div className="relative group">
+                <div className="absolute inset-0 bg-teal-500/20 blur-xl rounded-full scale-125"></div>
+                <div className="w-[6.5vmin] h-[6.5vmin] rounded-full bg-zinc-950 border border-white/10 flex items-center justify-center shadow-2xl relative overflow-hidden ring-2 ring-teal-500/20">
+                   <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-[3.8vmin] h-[3.8vmin] brightness-150 grayscale-0" />
+                </div>
              </div>
-             <h1 className="text-[2.5vmin] font-black text-teal-500 tracking-tighter drop-shadow-md uppercase">
-                {syncData.title}
-             </h1>
+             
+             <div className="flex flex-col">
+                <h1 className="text-[2.6vmin] font-black text-white tracking-tighter drop-shadow-lg uppercase leading-tight">
+                   {syncData.title}
+                </h1>
+                <div className="h-0.5 w-12 bg-teal-500/40 rounded-full mt-1"></div>
+             </div>
           </div>
-          <div className="flex items-center gap-8 text-[1.5vmin] font-bold text-zinc-500 uppercase tracking-[0.3em]">
-             <div className="flex items-center gap-3">
-                <Calendar className="w-[2vmin] h-[2vmin] text-teal-600/40" />
-                <span className="font-mono">{syncData.date}</span>
+
+          <div className="flex items-center gap-12 text-[1.6vmin] font-bold text-zinc-400 uppercase tracking-[0.25em]">
+             <div className="flex items-center gap-4 bg-white/5 px-5 py-2 rounded-2xl border border-white/5">
+                <Calendar className="w-[2.2vmin] h-[2.2vmin] text-teal-500" />
+                <span className="font-mono text-zinc-100">{syncData.date}</span>
              </div>
-             <div className="flex items-center gap-3">
-                <MapPin className="w-[2vmin] h-[2vmin] text-teal-600/40" />
-                <span>{syncData.city}</span>
+             <div className="flex items-center gap-4 bg-white/5 px-5 py-2 rounded-2xl border border-white/5">
+                <MapPin className="w-[2.2vmin] h-[2.2vmin] text-teal-500" />
+                <span className="text-zinc-100">{syncData.city}</span>
              </div>
           </div>
        </div>
 
        {syncData.activeDefinition && (
-          <div className="fixed inset-0 z-[100000] bg-black/95 flex items-center justify-center p-20 animate-in fade-in duration-500">
-            <div className="max-w-5xl w-full space-y-12 text-center">
-                <div className="flex items-center justify-center gap-10">
-                  <div className="w-24 h-24 flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-[32px] border border-teal-600/20"><BookOpenCheck className="w-12 h-12" /></div>
-                  <h3 className="text-7xl font-black text-white leading-none uppercase tracking-tight">{syncData.activeDefinition.word}</h3>
+          <div className="fixed inset-0 z-[100000] bg-black/95 flex items-center justify-center p-24 animate-in fade-in duration-500 backdrop-blur-3xl">
+            <div className="max-w-6xl w-full space-y-16 text-center animate-in zoom-in-95 duration-500">
+                <div className="flex items-center justify-center gap-12">
+                  <div className="w-28 h-28 flex items-center justify-center bg-teal-500/10 text-teal-500 rounded-[36px] border border-teal-500/20 shadow-[0_0_50px_rgba(20,184,166,0.1)]">
+                    <BookOpenCheck className="w-14 h-14" />
+                  </div>
+                  <h3 className="text-8xl font-black text-white leading-none uppercase tracking-tight drop-shadow-2xl">{syncData.activeDefinition.word}</h3>
                 </div>
-                <div className="p-16 bg-teal-600/10 border border-teal-600/20 rounded-[60px]">
-                  <p className="text-5xl leading-tight text-zinc-100 font-medium italic">{syncData.activeDefinition.definition}</p>
+                <div className="p-20 bg-zinc-900/50 border border-white/10 rounded-[80px] shadow-2xl backdrop-blur-2xl">
+                  <p className="text-5xl leading-snug text-zinc-50 font-medium italic font-sans">{syncData.activeDefinition.definition}</p>
                 </div>
             </div>
           </div>
