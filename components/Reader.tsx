@@ -43,6 +43,8 @@ import {
   Calendar,
   Feather,
   Milestone,
+  MonitorPlay,
+  // Added Library icon to fix "Cannot find name 'Library'" error
   Library
 } from 'lucide-react';
 
@@ -116,9 +118,9 @@ const Reader: React.FC = () => {
   
   const notes = useAppStore(s => s.notes);
   const activeNoteId = useAppStore(s => s.activeNoteId);
-  const setSelectedSermonId = useAppStore(s => s.setSelectedSermonId);
   const isExternalMaskOpen = useAppStore(s => s.isExternalMaskOpen);
   const setExternalMaskOpen = useAppStore(s => s.setExternalMaskOpen);
+  const projectionBlackout = useAppStore(s => s.projectionBlackout);
   const fontSize = useAppStore(s => s.fontSize);
   const setFontSize = useCallback((size: number) => {
     startTransition(() => {
@@ -136,6 +138,7 @@ const Reader: React.FC = () => {
   const lastSearchMode = useAppStore(s => s.lastSearchMode);
   const setSearchQuery = useAppStore(s => s.setSearchQuery);
   const setIsFullTextSearch = useAppStore(s => s.setIsFullTextSearch);
+  const setSelectedSermonId = useAppStore(s => s.setSelectedSermonId);
   const addNotification = useAppStore(s => s.addNotification);
   const theme = useAppStore(s => s.theme);
   const setTheme = useAppStore(s => s.setTheme);
@@ -156,6 +159,7 @@ const Reader: React.FC = () => {
   const [isPlayerExpanded, setIsPlayerExpanded] = useState(false);
   const [noteSelectorPayload, setNoteSelectorPayload] = useState<{ text: string; sermon: Sermon } | null>(null);
   const [isOSFullscreen, setIsOSFullscreen] = useState(false);
+  const [projectedSegmentIndex, setProjectedSegmentIndex] = useState<number | null>(null);
   
   const [activeDefinition, setActiveDefinition] = useState<WordDefinition | null>(null);
   const [isDefining, setIsDefining] = useState(false);
@@ -198,6 +202,40 @@ const Reader: React.FC = () => {
     };
   }, [setExternalMaskOpen]);
 
+  // Sync with projection channel
+  useEffect(() => {
+    if (broadcastChannel.current && sermon) {
+      const activeText = projectedSegmentIndex !== null 
+        ? segments[projectedSegmentIndex].trim()
+        : sermon.text;
+
+      broadcastChannel.current.postMessage({
+        type: 'sync',
+        title: sermon.title,
+        date: sermon.date,
+        city: sermon.city,
+        text: activeText,
+        fontSize,
+        theme,
+        blackout: projectionBlackout,
+        highlights: sermon.highlights || [],
+        selectionIndices: [],
+        searchResults,
+        currentResultIndex,
+        activeDefinition
+      });
+    }
+  }, [sermon, projectedSegmentIndex, fontSize, theme, projectionBlackout, searchResults, currentResultIndex, activeDefinition]);
+
+  const handleProjectSegment = (idx: number) => {
+    if (projectedSegmentIndex === idx) {
+      setProjectedSegmentIndex(null);
+    } else {
+      setProjectedSegmentIndex(idx);
+      addNotification("Paragraphe projeté", "success");
+    }
+  };
+
   const toggleExternalMask = () => {
     if (isExternalMaskOpen && externalMaskWindow && !externalMaskWindow.closed) {
       externalMaskWindow.close();
@@ -238,21 +276,29 @@ const Reader: React.FC = () => {
     return sermon.text.split(/(\n\s*\n)/); 
   }, [sermon?.id]);
 
-  const words: SimpleWord[] = useMemo(() => {
-    const allWords: SimpleWord[] = [];
-    let globalIndex = 0;
+  const structuredSegments = useMemo(() => {
+    const result: { words: SimpleWord[]; isNumbered: boolean; text: string }[] = [];
+    let globalIdx = 0;
+    
     segments.forEach((seg, segIdx) => {
-        const splitWords = seg.split(/(\s+)/);
-        splitWords.forEach((token) => {
+        const segWords: SimpleWord[] = [];
+        const tokens = seg.split(/(\s+)/);
+        tokens.forEach(token => {
             if (token !== "") {
-              allWords.push({ text: token, segmentIndex: segIdx, globalIndex: globalIndex++ });
+                segWords.push({ text: token, segmentIndex: segIdx, globalIndex: globalIdx++ });
             }
         });
+        
+        const isNumbered = /^\d+/.test(seg.trim());
+        result.push({ words: segWords, isNumbered, text: seg });
     });
-    return allWords;
+    return result;
   }, [segments]);
 
-  // Surlignage de la phrase recherchée (ambre) - Toujours calculé pour tout le sermon
+  const words = useMemo(() => {
+    return structuredSegments.flatMap(s => s.words);
+  }, [structuredSegments]);
+
   useEffect(() => {
     if (sermon && words.length > 0 && lastSearchQuery) {
         const regex = getAccentInsensitiveRegex(lastSearchQuery, lastSearchMode === SearchMode.EXACT_WORDS);
@@ -280,14 +326,13 @@ const Reader: React.FC = () => {
     }
   }, [sermon?.id, words, lastSearchQuery, lastSearchMode]);
 
-  // Reset scroll au début lors du changement de sermon
   useEffect(() => {
     if (sermon?.id && !jumpToText && scrollContainerRef.current) {
         scrollContainerRef.current.scrollTop = 0;
+        setProjectedSegmentIndex(null);
     }
   }, [sermon?.id]);
 
-  // Saut vers le texte spécifique lors de la navigation depuis la recherche
   useEffect(() => {
     if (jumpToText && sermon && words.length > 0) {
       const handleJump = () => {
@@ -721,20 +766,62 @@ const Reader: React.FC = () => {
           className={`absolute inset-0 overflow-y-auto custom-scrollbar serif-text leading-relaxed text-zinc-800 dark:text-zinc-300 transition-all duration-300 ${isOSFullscreen ? 'py-4 px-4 md:px-8' : 'py-16 px-6 sm:px-12 lg:px-20 xl:px-28'}`}
         >
           <div className={`w-full mx-auto printable-content whitespace-pre-wrap text-justify pb-64 ${isPending ? 'opacity-50' : ''} max-w-[95%]`} style={{ fontSize: `${fontSize}px` }}>
-            {words.map((word) => (
-              <WordComponent 
-                key={word.globalIndex} 
-                word={word} 
-                wordRef={(el: any) => { if(el) wordRefs.current.set(word.globalIndex, el); }} 
-                isSearchResult={checkIsSearchResult(word.globalIndex)} 
-                isCurrentResult={checkIsCurrentResult(word.globalIndex)} 
-                isSearchOriginMatch={checkIsSearchOriginMatch(word.globalIndex)}
-                citationColor={citationHighlightMap.get(word.globalIndex)?.colorClass}
-                highlight={highlightMap.get(word.globalIndex)}
-                onRemoveHighlight={handleRemoveHighlight}
-                onMouseUp={handleTextSelection}
-              />
-            ))}
+            {structuredSegments.map((seg, segIdx) => {
+              const isActiveProjection = projectedSegmentIndex === segIdx;
+              
+              if (seg.isNumbered) {
+                return (
+                  <div 
+                    key={segIdx}
+                    onClick={() => handleProjectSegment(segIdx)}
+                    className={`group/seg relative mb-8 p-6 rounded-[24px] border-l-[6px] transition-all duration-300 cursor-pointer shadow-sm hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] ${
+                      isActiveProjection 
+                        ? 'bg-teal-600/10 border-teal-600 ring-2 ring-teal-600/20' 
+                        : 'bg-white dark:bg-zinc-900/50 border-teal-600/20 hover:border-teal-600 dark:border-zinc-800'
+                    }`}
+                  >
+                    <div className="absolute -left-[45px] top-1/2 -translate-y-1/2 opacity-0 group-hover/seg:opacity-100 transition-all translate-x-4 group-hover/seg:translate-x-0 no-print">
+                        <div className="w-9 h-9 flex items-center justify-center bg-teal-600 text-white rounded-xl shadow-lg shadow-teal-600/30">
+                          <MonitorPlay className="w-4 h-4" />
+                        </div>
+                    </div>
+                    {seg.words.map((word) => (
+                      <WordComponent 
+                        key={word.globalIndex} 
+                        word={word} 
+                        wordRef={(el: any) => { if(el) wordRefs.current.set(word.globalIndex, el); }} 
+                        isSearchResult={checkIsSearchResult(word.globalIndex)} 
+                        isCurrentResult={checkIsCurrentResult(word.globalIndex)} 
+                        isSearchOriginMatch={checkIsSearchOriginMatch(word.globalIndex)}
+                        citationColor={citationHighlightMap.get(word.globalIndex)?.colorClass}
+                        highlight={highlightMap.get(word.globalIndex)}
+                        onRemoveHighlight={handleRemoveHighlight}
+                        onMouseUp={handleTextSelection}
+                      />
+                    ))}
+                  </div>
+                );
+              }
+
+              return (
+                <div key={segIdx} className="mb-4">
+                  {seg.words.map((word) => (
+                    <WordComponent 
+                      key={word.globalIndex} 
+                      word={word} 
+                      wordRef={(el: any) => { if(el) wordRefs.current.set(word.globalIndex, el); }} 
+                      isSearchResult={checkIsSearchResult(word.globalIndex)} 
+                      isCurrentResult={checkIsCurrentResult(word.globalIndex)} 
+                      isSearchOriginMatch={checkIsSearchOriginMatch(word.globalIndex)}
+                      citationColor={citationHighlightMap.get(word.globalIndex)?.colorClass}
+                      highlight={highlightMap.get(word.globalIndex)}
+                      onRemoveHighlight={handleRemoveHighlight}
+                      onMouseUp={handleTextSelection}
+                    />
+                  ))}
+                </div>
+              );
+            })}
           </div>
         </div>
         
