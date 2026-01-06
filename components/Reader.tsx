@@ -795,15 +795,26 @@ const Reader: React.FC = () => {
                   <div 
                     key={segIdx}
                     onClick={() => handleProjectSegment(segIdx)}
-                    className={`group/seg relative mb-0 p-6 rounded-[24px] border-l-[6px] transition-all duration-300 cursor-pointer shadow-sm hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] ${
+                    className={`group/seg relative mb-1.5 py-2.5 px-6 rounded-[20px] border-l-[5px] transition-all duration-300 cursor-pointer shadow-sm hover:shadow-xl hover:scale-[1.005] active:scale-[0.995] ${
                       isActiveProjection 
                         ? 'bg-teal-600/10 border-teal-600 ring-2 ring-teal-600/20' 
                         : 'bg-white dark:bg-zinc-900/50 border-teal-600/20 hover:border-teal-600 dark:border-zinc-800'
                     }`}
                   >
-                    <div className="absolute -left-[45px] top-1/2 -translate-y-1/2 opacity-0 group-hover/seg:opacity-100 transition-all translate-x-4 group-hover/seg:translate-x-0 no-print">
-                        <div className="w-9 h-9 flex items-center justify-center bg-teal-600 text-white rounded-xl shadow-lg shadow-teal-600/30">
+                    <div className="absolute -left-[54px] top-1/2 -translate-y-1/2 opacity-0 group-hover/seg:opacity-100 transition-all translate-x-4 group-hover/seg:translate-x-0 no-print flex flex-col gap-2">
+                        <div 
+                          onClick={(e) => { e.stopPropagation(); handleProjectSegment(segIdx); }}
+                          data-tooltip="Projeter ce paragraphe"
+                          className="w-9 h-9 flex items-center justify-center bg-teal-600 text-white rounded-xl shadow-lg shadow-teal-600/30 hover:scale-110 transition-transform"
+                        >
                           <MonitorPlay className="w-4 h-4" />
+                        </div>
+                        <div 
+                          onClick={(e) => { e.stopPropagation(); setNoteSelectorPayload({ text: seg.text.trim(), sermon }); }}
+                          data-tooltip="Ajouter aux notes"
+                          className="w-9 h-9 flex items-center justify-center bg-emerald-600 text-white rounded-xl shadow-lg shadow-emerald-600/30 hover:scale-110 transition-transform"
+                        >
+                          <NotebookPen className="w-4 h-4" />
                         </div>
                     </div>
                     {seg.words.map((word) => (
@@ -824,8 +835,10 @@ const Reader: React.FC = () => {
                 );
               }
 
+              if (seg.text.trim() === '') return null;
+
               return (
-                <div key={segIdx} className="mb-4">
+                <div key={segIdx} className="mb-4 px-6">
                   {seg.words.map((word) => (
                     <WordComponent 
                       key={word.globalIndex} 
