@@ -65,7 +65,7 @@ const SearchResults: React.FC = () => {
           if (!sermon.text) return;
           const paragraphs = sermon.text.split(/\\n\\s*\\n/);
           
-          paragraphs.forEach(p => {
+          paragraphs.forEach((p, pIdx) => {
             const pNorm = normalize(p);
             if (!pNorm) return;
 
@@ -91,6 +91,7 @@ const SearchResults: React.FC = () => {
                 date: sermon.date,
                 city: sermon.city,
                 paragraph: p.trim(),
+                paragraphIndex: pIdx + 1,
                 version: sermon.version
               });
             }
@@ -226,7 +227,7 @@ const SearchResults: React.FC = () => {
         }
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(12);
-        doc.text(`${i + 1}. ${res.title} (${res.date})`, margin, y);
+        doc.text(`${res.paragraphIndex}. ${res.title} (${res.date})`, margin, y);
         y += 6;
         doc.setFont('times', 'italic');
         doc.setFontSize(10);
@@ -246,7 +247,7 @@ const SearchResults: React.FC = () => {
     e.stopPropagation();
     const sermon = sermonsMap[res.sermonId] || { id: res.sermonId, title: res.title, date: res.date, city: res.city, text: '' };
     setNoteSelectorPayload({
-      text: res.paragraph,
+      text: `${res.paragraphIndex}. ${res.paragraph}`,
       sermon: sermon as Sermon
     });
   };
@@ -343,6 +344,7 @@ const SearchResults: React.FC = () => {
                 </div>
               </div>
               <div className="serif-text text-lg leading-relaxed text-zinc-600 dark:text-zinc-400 pl-8 border-l-2 border-zinc-100 dark:border-zinc-800 group-hover:border-teal-500 transition-all duration-500">
+                <span className="font-mono text-teal-600 mr-2 font-bold">{res.paragraphIndex}.</span>
                 {highlightText(res.paragraph, searchQuery, searchMode)}
               </div>
             </div>

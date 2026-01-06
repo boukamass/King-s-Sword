@@ -1,4 +1,3 @@
-
 // Add React import to the list of imports from 'react'
 import React, { useState, useRef, useEffect, useMemo, memo, useDeferredValue, useTransition, useCallback } from 'react';
 import { useAppStore } from '../store';
@@ -413,8 +412,8 @@ const Sidebar: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-2">
-            <button
+          <div className="flex items-center justify-between gap-2 px-1">
+            <div 
               onClick={() => {
                 const newVal = !isFullTextSearch;
                 setIsFullTextSearch(newVal);
@@ -422,16 +421,16 @@ const Sidebar: React.FC = () => {
                   setSearchQuery(internalQuery);
                 }
               }}
-              data-tooltip="Recherche intégrale"
-              className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl border text-[8px] font-black uppercase tracking-widest transition-all duration-300 ease-out tooltip-right group/search-btn active:scale-95 ${
-                isFullTextSearch
-                  ? 'bg-teal-600 text-white border-teal-600 shadow-xl shadow-teal-600/20'
-                  : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-teal-500/50 hover:bg-teal-50/30 dark:hover:bg-teal-950/20 shadow-sm'
-              }`}
+              data-tooltip="Activer/Désactiver la recherche intégrale"
+              className="flex items-center gap-2.5 cursor-pointer group/toggle select-none tooltip-right"
             >
-              <Search className={`w-2.5 h-2.5 transition-all duration-300 ease-out group-hover/search-btn:rotate-[-15deg] group-hover/search-btn:scale-110`} />
-              <span>{t.full_text_search}</span>
-            </button>
+              <div className={`relative w-8 h-4.5 rounded-full transition-all duration-500 flex items-center px-0.5 ${isFullTextSearch ? 'bg-teal-600 shadow-lg shadow-teal-600/20' : 'bg-zinc-200 dark:bg-zinc-700 shadow-inner'}`}>
+                <div className={`w-3.5 h-3.5 bg-white rounded-full shadow-md transition-all duration-500 transform ${isFullTextSearch ? 'translate-x-3.5 scale-100' : 'translate-x-0 scale-90'}`} />
+              </div>
+              <span className={`text-[9px] font-black uppercase tracking-widest transition-colors duration-500 ${isFullTextSearch ? 'text-teal-600' : 'text-zinc-400 dark:text-zinc-500'}`}>
+                {t.full_text_search}
+              </span>
+            </div>
 
             <button 
               onClick={() => setShowFilters(!showFilters)}
