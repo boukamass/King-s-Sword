@@ -104,49 +104,41 @@ const ProjectionView = memo(() => {
     );
   }
 
-  // Algorithme d'Auto-Ajustement du Texte optimisé pour l'occupation de l'espace
+  // Algorithme d'Auto-Ajustement du Texte
   const chars = syncData.text.length || 1;
-  // On augmente la base de calcul pour utiliser plus d'espace
-  const calculatedSize = Math.max(3.2, Math.min(16, (105 / Math.sqrt(chars)) * 1.6));
-  // Interligne dynamique pour la lisibilité : plus le texte est gros, plus on resserre légèrement pour rester équilibré
-  const calculatedLineHeight = Math.max(1.15, Math.min(1.5, 1.6 - (calculatedSize / 25)));
+  const calculatedSize = Math.max(2.8, Math.min(13.5, (95 / Math.sqrt(chars)) * 1.45));
 
   return (
     <div className="fixed inset-0 bg-black flex flex-col items-center select-none cursor-none overflow-hidden h-screen w-screen serif-text">
-       {/* Zone de Texte Sacré (90%) - Centrage parfait et occupation max */}
-       <div className="h-[90%] w-full flex items-center justify-center px-12 sm:px-20 lg:px-32">
+       {/* Zone de Texte Sacré (90%) */}
+       <div className="h-[90%] w-full flex items-center justify-center px-16 sm:px-24">
           <div 
-            className="text-white font-bold transition-all duration-300 text-center w-full"
+            className="text-white font-bold transition-all duration-300 text-justify"
             style={{ 
               fontSize: `${calculatedSize}vmin`,
-              lineHeight: calculatedLineHeight,
-              textShadow: '0 4px 40px rgba(0,0,0,0.8)',
-              wordBreak: 'break-word',
-              maxHeight: '85vh',
-              overflow: 'hidden'
+              lineHeight: '1.4',
+              textShadow: '0 4px 30px rgba(0,0,0,0.5)',
+              wordBreak: 'break-word'
             }}
           >
             {syncData.text}
           </div>
        </div>
 
-       {/* Zone d'Information (10%) - Bandeau inférieur élégant avec logo inclus */}
-       <div className="h-[10%] w-full bg-gradient-to-b from-zinc-950 to-black border-t border-white/10 backdrop-blur-2xl flex items-center justify-between px-16 shrink-0">
-          <div className="flex items-center gap-6">
-             <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-[4.5vmin] h-[4.5vmin] grayscale brightness-150" />
-             <div className="flex flex-col">
-                <h1 className="text-[2.8vmin] font-black text-teal-500 tracking-tighter drop-shadow-md uppercase truncate max-w-[50vw]">
-                   {syncData.title}
-                </h1>
-             </div>
+       {/* Zone d'Information (10%) - Bandeau inférieur élégant */}
+       <div className="h-[10%] w-full bg-gradient-to-b from-zinc-950 to-black border-t border-white/10 backdrop-blur-2xl flex items-center justify-between px-12 shrink-0">
+          <div className="flex flex-col">
+             <h1 className="text-[2.5vmin] font-black text-teal-500 tracking-tighter drop-shadow-md uppercase">
+                {syncData.title}
+             </h1>
           </div>
-          <div className="flex items-center gap-12 text-[1.6vmin] font-bold text-zinc-500 uppercase tracking-[0.3em]">
+          <div className="flex items-center gap-8 text-[1.5vmin] font-bold text-zinc-500 uppercase tracking-[0.3em]">
              <div className="flex items-center gap-3">
-                <Calendar className="w-[2.2vmin] h-[2.2vmin] text-teal-600/60" />
+                <Calendar className="w-[2vmin] h-[2vmin] text-teal-600/40" />
                 <span className="font-mono">{syncData.date}</span>
              </div>
              <div className="flex items-center gap-3">
-                <MapPin className="w-[2.2vmin] h-[2.2vmin] text-teal-600/60" />
+                <MapPin className="w-[2vmin] h-[2vmin] text-teal-600/40" />
                 <span>{syncData.city}</span>
              </div>
           </div>
