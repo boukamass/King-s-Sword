@@ -252,6 +252,52 @@ const Reader: React.FC = () => {
     return allWords;
   }, [segments]);
 
+  // Surlignage de la phrase recherchée (ambre) - Toujours calculé pour tout le sermon
+  useEffect(() => {
+    if (sermon && words.length > 0 && lastSearchQuery) {
+        const queryNorm = normalizeText(lastSearchQuery);
+        const queryWordsNorm = queryNorm.split(/\s+/).filter(Boolean);
+        const contentWords = words.filter(w => /\S/.test(w.text));
+        const matchIndices: number[] = [];
+
+        if (lastSearchMode === SearchMode.EXACT_PHRASE) {
+            const fullNormString = contentWords.map(w => normalizeText(w.text)).join(' ');
+            let searchPos = 0;
+            while (true) {
+                const foundPos = fullNormString.indexOf(queryNorm, searchPos);
+                if (foundPos === -1) break;
+                
+                let currentCharPos = 0;
+                for (let i = 0; i < contentWords.length; i++) {
+                    const wordNorm = normalizeText(contentWords[i].text);
+                    if (currentCharPos + wordNorm.length > foundPos && currentCharPos < foundPos + queryNorm.length) {
+                        matchIndices.push(contentWords[i].globalIndex);
+                    }
+                    currentCharPos += wordNorm.length + 1;
+                }
+                searchPos = foundPos + 1;
+            }
+        } else {
+            for (let k = 0; k < contentWords.length; k++) {
+                if (queryWordsNorm.some(qw => normalizeText(contentWords[k].text).includes(qw))) {
+                    matchIndices.push(contentWords[k].globalIndex);
+                }
+            }
+        }
+        setSearchOriginMatchIndices(matchIndices);
+    } else {
+        setSearchOriginMatchIndices([]);
+    }
+  }, [sermon?.id, words, lastSearchQuery, lastSearchMode]);
+
+  // Reset scroll au début lors du changement de sermon
+  useEffect(() => {
+    if (sermon?.id && !jumpToText && scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = 0;
+    }
+  }, [sermon?.id]);
+
+  // Saut vers le texte spécifique lors de la navigation depuis la recherche
   useEffect(() => {
     if (jumpToText && sermon && words.length > 0) {
       const handleJump = () => {
@@ -259,9 +305,7 @@ const Reader: React.FC = () => {
         const contentWords = words.filter(w => /\S/.test(w.text));
         
         let foundStartIndex = -1;
-        let foundEndIndex = -1;
 
-        // Étape 1 : Trouver le bloc (paragraphe) vers lequel sauter
         for (let i = 0; i <= contentWords.length - jumpWords.length; i++) {
           let matchCount = 0;
           for (let j = 0; j < jumpWords.length; j++) {
@@ -273,7 +317,6 @@ const Reader: React.FC = () => {
           }
           if (matchCount > jumpWords.length * 0.7) {
             foundStartIndex = contentWords[i].globalIndex;
-            foundEndIndex = contentWords[i + jumpWords.length - 1].globalIndex;
             break;
           }
         }
@@ -283,55 +326,6 @@ const Reader: React.FC = () => {
             const firstEl = wordRefs.current.get(foundStartIndex);
             if (firstEl) {
               firstEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              
-              // Étape 2 : Identifier les indices à marquer en ambre dans ce bloc
-              const matchIndices: number[] = [];
-              if (lastSearchQuery) {
-                  const queryNorm = normalizeText(lastSearchQuery);
-                  const queryWordsNorm = queryNorm.split(/\s+/).filter(Boolean);
-                  
-                  // On restreint la recherche de marquage aux mots du bloc trouvé
-                  const blockContentWords = contentWords.filter(w => w.globalIndex >= foundStartIndex && w.globalIndex <= foundEndIndex);
-                  
-                  if (lastSearchMode === SearchMode.EXACT_PHRASE) {
-                    // Mode Phrase : On cherche la séquence exacte de mots normalisés
-                    const blockNormString = blockContentWords.map(w => normalizeText(w.text)).join(' ');
-                    
-                    const phraseIndex = blockNormString.indexOf(queryNorm);
-                    if (phraseIndex !== -1) {
-                      // On a trouvé le début de la phrase dans la chaîne concaténée.
-                      // On doit maintenant mapper les caractères de blockNormString vers les indices globaux.
-                      let currentCharPos = 0;
-                      for (let i = 0; i < blockContentWords.length; i++) {
-                        const wordNorm = normalizeText(blockContentWords[i].text);
-                        // Si le mot est dans l'intervalle de la phrase trouvée
-                        if (currentCharPos >= phraseIndex && currentCharPos < phraseIndex + queryNorm.length) {
-                           matchIndices.push(blockContentWords[i].globalIndex);
-                        } else if (currentCharPos + wordNorm.length > phraseIndex && currentCharPos < phraseIndex + queryNorm.length) {
-                           // Cas où le mot chevauche le début ou la fin (très probable avec normalize)
-                           matchIndices.push(blockContentWords[i].globalIndex);
-                        }
-                        currentCharPos += wordNorm.length + 1; // +1 pour l'espace du join
-                      }
-                    } else {
-                      // Fallback au cas où le join exact échoue (ponctuation complexe)
-                      for (let k = 0; k < blockContentWords.length; k++) {
-                        if (queryWordsNorm.some(qw => normalizeText(blockContentWords[k].text).includes(qw))) {
-                          matchIndices.push(blockContentWords[k].globalIndex);
-                        }
-                      }
-                    }
-                  } else {
-                    // Mode Mots/Exacts : Marquer tous les mots individuels présents
-                    for (let k = 0; k < blockContentWords.length; k++) {
-                      if (queryWordsNorm.some(qw => normalizeText(blockContentWords[k].text).includes(qw))) {
-                        matchIndices.push(blockContentWords[k].globalIndex);
-                      }
-                    }
-                  }
-              }
-
-              setSearchOriginMatchIndices(matchIndices);
               window.getSelection()?.removeAllRanges();
             }
           }, 400); 
@@ -340,7 +334,7 @@ const Reader: React.FC = () => {
       };
       handleJump();
     }
-  }, [jumpToText, sermon, words, lastSearchQuery, lastSearchMode, setJumpToText]);
+  }, [jumpToText, sermon, words, setJumpToText]);
 
   const highlightMap = useMemo(() => {
     const map = new Map<number, Highlight>();
@@ -457,11 +451,10 @@ const Reader: React.FC = () => {
         y: rect.top - readerRect.top,
         isTop: rect.top < 150 
       });
-      if (searchOriginMatchIndices.length > 0) setSearchOriginMatchIndices([]);
     } else {
       setSelection(null);
     }
-  }, [searchOriginMatchIndices]);
+  }, []);
 
   const handleHighlight = useCallback(() => {
     const sel = window.getSelection();
