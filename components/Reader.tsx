@@ -773,7 +773,7 @@ const Reader: React.FC = () => {
                   <div 
                     key={segIdx}
                     onClick={() => handleProjectSegment(segIdx)}
-                    className={`group/seg relative mb-[5px] p-6 rounded-[24px] border-l-[6px] transition-all duration-300 cursor-pointer shadow-sm hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] ${
+                    className={`group/seg relative mb-0 p-6 rounded-[24px] border-l-[6px] transition-all duration-300 cursor-pointer shadow-sm hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] ${
                       isActiveProjection 
                         ? 'bg-teal-600/10 border-teal-600 ring-2 ring-teal-600/20' 
                         : 'bg-white dark:bg-zinc-900/50 border-teal-600/20 hover:border-teal-600 dark:border-zinc-800'
