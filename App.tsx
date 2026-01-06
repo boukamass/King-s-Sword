@@ -104,21 +104,23 @@ const ProjectionView = memo(() => {
     );
   }
 
-  // Algorithme d'Auto-Ajustement du Texte
+  // Algorithme d'Auto-Ajustement du Texte et Interlignes
   const chars = syncData.text.length || 1;
-  const calculatedSize = Math.max(2.8, Math.min(13.5, (95 / Math.sqrt(chars)) * 1.45));
+  const calculatedSize = Math.max(3.2, Math.min(14.5, (98 / Math.sqrt(chars)) * 1.55));
+  const calculatedLineHeight = Math.max(1.1, Math.min(1.4, 1.6 - (calculatedSize / 18)));
 
   return (
-    <div className="fixed inset-0 bg-black flex flex-col items-center select-none cursor-none overflow-hidden h-screen w-screen serif-text">
+    <div className="fixed inset-0 bg-black flex flex-col items-center select-none cursor-none overflow-hidden h-screen w-screen font-sans">
        {/* Zone de Texte Sacré (90%) */}
-       <div className="h-[90%] w-full flex items-center justify-center px-16 sm:px-24">
+       <div className="h-[90%] w-full flex items-center justify-start px-20 sm:px-32">
           <div 
-            className="text-white font-bold transition-all duration-300 text-justify"
+            className="text-white font-bold transition-all duration-300 text-left"
             style={{ 
               fontSize: `${calculatedSize}vmin`,
-              lineHeight: '1.4',
+              lineHeight: calculatedLineHeight,
               textShadow: '0 4px 30px rgba(0,0,0,0.5)',
-              wordBreak: 'break-word'
+              wordBreak: 'break-word',
+              width: '100%'
             }}
           >
             {syncData.text}
@@ -127,7 +129,10 @@ const ProjectionView = memo(() => {
 
        {/* Zone d'Information (10%) - Bandeau inférieur élégant */}
        <div className="h-[10%] w-full bg-gradient-to-b from-zinc-950 to-black border-t border-white/10 backdrop-blur-2xl flex items-center justify-between px-12 shrink-0">
-          <div className="flex flex-col">
+          <div className="flex items-center gap-6">
+             <div className="w-[6vmin] h-[6vmin] rounded-full bg-teal-600/20 border border-teal-600/30 flex items-center justify-center shadow-lg overflow-hidden shrink-0">
+                <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-[3.5vmin] h-[3.5vmin] grayscale brightness-200" />
+             </div>
              <h1 className="text-[2.5vmin] font-black text-teal-500 tracking-tighter drop-shadow-md uppercase">
                 {syncData.title}
              </h1>
@@ -152,7 +157,7 @@ const ProjectionView = memo(() => {
                   <h3 className="text-7xl font-black text-white leading-none uppercase tracking-tight">{syncData.activeDefinition.word}</h3>
                 </div>
                 <div className="p-16 bg-teal-600/10 border border-teal-600/20 rounded-[60px]">
-                  <p className="text-5xl leading-tight text-zinc-100 font-medium italic serif-text">{syncData.activeDefinition.definition}</p>
+                  <p className="text-5xl leading-tight text-zinc-100 font-medium italic">{syncData.activeDefinition.definition}</p>
                 </div>
             </div>
           </div>
