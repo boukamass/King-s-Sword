@@ -104,49 +104,55 @@ const ProjectionView = memo(() => {
     );
   }
 
-  return (
-    <div className="fixed inset-0 bg-white dark:bg-zinc-950 flex flex-col items-center justify-center p-12 serif-text text-center select-none cursor-none transition-colors duration-1000 overflow-hidden">
-       {/* Background Decoration */}
-       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80vw] h-[80vh] bg-teal-600/[0.03] dark:bg-teal-600/[0.05] blur-[150px] rounded-full pointer-events-none" />
+  // Algorithme d'Auto-Ajustement du Texte
+  const chars = syncData.text.length || 1;
+  const calculatedSize = Math.max(2.8, Math.min(13.5, (95 / Math.sqrt(chars)) * 1.45));
 
-       <div className="relative w-full max-w-7xl animate-in fade-in zoom-in-95 duration-700 ease-out">
-          <div className="mb-16 border-b border-zinc-100 dark:border-zinc-800 pb-8 opacity-40 hover:opacity-100 transition-opacity">
-            <h1 className="text-4xl font-black text-zinc-900 dark:text-zinc-50 tracking-tighter mb-4 leading-tight">{syncData.title}</h1>
-            <div className="flex items-center justify-center gap-8 text-lg font-bold text-zinc-400 uppercase tracking-[0.2em]">
-              <div className="flex items-center gap-2"><Calendar className="w-5 h-5 text-teal-600" /><span className="font-mono">{syncData.date}</span></div>
-              <div className="flex items-center gap-2"><MapPin className="w-5 h-5 text-teal-600" /><span>{syncData.city}</span></div>
-            </div>
-          </div>
-          
+  return (
+    <div className="fixed inset-0 bg-black flex flex-col items-center select-none cursor-none overflow-hidden h-screen w-screen serif-text">
+       {/* Zone de Texte Sacré (90%) */}
+       <div className="h-[90%] w-full flex items-center justify-center px-16 sm:px-24">
           <div 
-            className="text-zinc-900 dark:text-zinc-100 font-medium leading-[1.3] transition-all duration-500 serif-text text-center"
+            className="text-white font-bold transition-all duration-300 text-justify"
             style={{ 
-              fontSize: `clamp(${syncData.fontSize * 1.5}px, 6vw, ${syncData.fontSize * 5}px)`,
-              textShadow: '0 4px 30px rgba(0,0,0,0.1)'
+              fontSize: `${calculatedSize}vmin`,
+              lineHeight: '1.4',
+              textShadow: '0 4px 30px rgba(0,0,0,0.5)',
+              wordBreak: 'break-word'
             }}
           >
             {syncData.text}
           </div>
        </div>
 
-       {/* Floating Footer Info */}
-       <div className="absolute bottom-10 left-10 flex items-center gap-4 opacity-20">
-          <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-10 h-10 grayscale" />
-          <div className="text-left">
-            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400">King's Sword</p>
-            <p className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest">Vision de l'Aigle Tabernacle</p>
+       {/* Zone d'Information (10%) - Bandeau inférieur élégant */}
+       <div className="h-[10%] w-full bg-gradient-to-b from-zinc-950 to-black border-t border-white/10 backdrop-blur-2xl flex items-center justify-between px-12 shrink-0">
+          <div className="flex flex-col">
+             <h1 className="text-[2.5vmin] font-black text-teal-500 tracking-tighter drop-shadow-md uppercase">
+                {syncData.title}
+             </h1>
+          </div>
+          <div className="flex items-center gap-8 text-[1.5vmin] font-bold text-zinc-500 uppercase tracking-[0.3em]">
+             <div className="flex items-center gap-3">
+                <Calendar className="w-[2vmin] h-[2vmin] text-teal-600/40" />
+                <span className="font-mono">{syncData.date}</span>
+             </div>
+             <div className="flex items-center gap-3">
+                <MapPin className="w-[2vmin] h-[2vmin] text-teal-600/40" />
+                <span>{syncData.city}</span>
+             </div>
           </div>
        </div>
 
        {syncData.activeDefinition && (
-          <div className="fixed inset-0 z-[100000] bg-white/95 dark:bg-zinc-950/95 flex items-center justify-center p-20 animate-in fade-in duration-500">
-            <div className="max-w-5xl w-full space-y-12">
+          <div className="fixed inset-0 z-[100000] bg-black/95 flex items-center justify-center p-20 animate-in fade-in duration-500">
+            <div className="max-w-5xl w-full space-y-12 text-center">
                 <div className="flex items-center justify-center gap-10">
                   <div className="w-24 h-24 flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-[32px] border border-teal-600/20"><BookOpenCheck className="w-12 h-12" /></div>
-                  <h3 className="text-7xl font-black text-zinc-900 dark:text-white leading-none uppercase tracking-tight">{syncData.activeDefinition.word}</h3>
+                  <h3 className="text-7xl font-black text-white leading-none uppercase tracking-tight">{syncData.activeDefinition.word}</h3>
                 </div>
-                <div className="p-16 bg-teal-600/5 border border-teal-600/10 rounded-[60px]">
-                  <p className="text-5xl leading-tight text-zinc-800 dark:text-zinc-100 font-medium italic serif-text">{syncData.activeDefinition.definition}</p>
+                <div className="p-16 bg-teal-600/10 border border-teal-600/20 rounded-[60px]">
+                  <p className="text-5xl leading-tight text-zinc-100 font-medium italic serif-text">{syncData.activeDefinition.definition}</p>
                 </div>
             </div>
           </div>

@@ -235,6 +235,22 @@ const Reader: React.FC = () => {
     }
   };
 
+  const handleOpenProjection = () => {
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('projection', 'true');
+      url.hash = '';
+      const projWindow = window.open(url.toString(), 'KingsSwordProjection');
+      if (projWindow) {
+        addNotification("Fenêtre de projection ouverte", "success");
+      } else {
+        addNotification("Action bloquée : vérifiez les fenêtres surgissantes", "error");
+      }
+    } catch (err) {
+      addNotification("Erreur de projection", "error");
+    }
+  };
+
   const toggleExternalMask = () => {
     if (isExternalMaskOpen && externalMaskWindow && !externalMaskWindow.closed) {
       externalMaskWindow.close();
@@ -702,6 +718,12 @@ const Reader: React.FC = () => {
                 <ChevronLeft className="w-3 h-3 inline mr-1" /> {t.reader_exit_search}
               </button>
             )}
+
+            <ActionButton 
+              onClick={handleOpenProjection} 
+              icon={MonitorPlay} 
+              tooltip="Ouvrir la fenêtre de projection" 
+            />
 
             <ActionButton 
               onClick={toggleExternalMask} 
