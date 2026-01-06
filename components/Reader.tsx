@@ -255,34 +255,24 @@ const Reader: React.FC = () => {
   // Surlignage de la phrase recherchée (ambre) - Toujours calculé pour tout le sermon
   useEffect(() => {
     if (sermon && words.length > 0 && lastSearchQuery) {
-        const queryNorm = normalizeText(lastSearchQuery);
-        const queryWordsNorm = queryNorm.split(/\s+/).filter(Boolean);
-        const contentWords = words.filter(w => /\S/.test(w.text));
+        const regex = getAccentInsensitiveRegex(lastSearchQuery, lastSearchMode === SearchMode.EXACT_WORDS);
+        const fullSermonText = words.map(w => w.text).join('');
         const matchIndices: number[] = [];
 
-        if (lastSearchMode === SearchMode.EXACT_PHRASE) {
-            const fullNormString = contentWords.map(w => normalizeText(w.text)).join(' ');
-            let searchPos = 0;
-            while (true) {
-                const foundPos = fullNormString.indexOf(queryNorm, searchPos);
-                if (foundPos === -1) break;
-                
-                let currentCharPos = 0;
-                for (let i = 0; i < contentWords.length; i++) {
-                    const wordNorm = normalizeText(contentWords[i].text);
-                    if (currentCharPos + wordNorm.length > foundPos && currentCharPos < foundPos + queryNorm.length) {
-                        matchIndices.push(contentWords[i].globalIndex);
-                    }
-                    currentCharPos += wordNorm.length + 1;
+        let match;
+        while ((match = regex.exec(fullSermonText)) !== null) {
+            const startChar = match.index;
+            const endChar = match.index + match[0].length;
+            
+            let currentChar = 0;
+            for (let i = 0; i < words.length; i++) {
+                const wordLen = words[i].text.length;
+                if (currentChar + wordLen > startChar && currentChar < endChar) {
+                    matchIndices.push(words[i].globalIndex);
                 }
-                searchPos = foundPos + 1;
+                currentChar += wordLen;
             }
-        } else {
-            for (let k = 0; k < contentWords.length; k++) {
-                if (queryWordsNorm.some(qw => normalizeText(contentWords[k].text).includes(qw))) {
-                    matchIndices.push(contentWords[k].globalIndex);
-                }
-            }
+            if (regex.lastIndex === match.index) regex.lastIndex++;
         }
         setSearchOriginMatchIndices(matchIndices);
     } else {
@@ -301,35 +291,32 @@ const Reader: React.FC = () => {
   useEffect(() => {
     if (jumpToText && sermon && words.length > 0) {
       const handleJump = () => {
-        const jumpWords = jumpToText.split(/\s+/).filter(w => w.length > 0);
-        const contentWords = words.filter(w => /\S/.test(w.text));
-        
-        let foundStartIndex = -1;
+        const regex = getAccentInsensitiveRegex(jumpToText, false);
+        const fullSermonText = words.map(w => w.text).join('');
+        const match = regex.exec(fullSermonText);
 
-        for (let i = 0; i <= contentWords.length - jumpWords.length; i++) {
-          let matchCount = 0;
-          for (let j = 0; j < jumpWords.length; j++) {
-            const wordText = normalizeText(contentWords[i + j].text);
-            const targetText = normalizeText(jumpWords[j]);
-            if (wordText === targetText || wordText.includes(targetText) || targetText.includes(wordText)) {
-              matchCount++;
-            }
+        if (match) {
+          const startChar = match.index;
+          let foundStartIndex = -1;
+          let currentChar = 0;
+          for (let i = 0; i < words.length; i++) {
+              if (currentChar >= startChar) {
+                  foundStartIndex = words[i].globalIndex;
+                  break;
+              }
+              currentChar += words[i].text.length;
           }
-          if (matchCount > jumpWords.length * 0.7) {
-            foundStartIndex = contentWords[i].globalIndex;
-            break;
-          }
-        }
 
-        if (foundStartIndex !== -1) {
-          setTimeout(() => {
-            const firstEl = wordRefs.current.get(foundStartIndex);
-            if (firstEl) {
-              firstEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              window.getSelection()?.removeAllRanges();
-            }
-          }, 400); 
-          setJumpToText(null);
+          if (foundStartIndex !== -1) {
+            setTimeout(() => {
+              const firstEl = wordRefs.current.get(foundStartIndex);
+              if (firstEl) {
+                firstEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                window.getSelection()?.removeAllRanges();
+              }
+            }, 400); 
+            setJumpToText(null);
+          }
         }
       };
       handleJump();
@@ -353,21 +340,25 @@ const Reader: React.FC = () => {
     const relevantCitations = activeNote.citations.filter(c => c.sermon_id === sermon.id);
     if (relevantCitations.length === 0) return map;
 
-    const contentWords = words.filter(w => /\S/.test(w.text));
-    const sermonWordsNormalized = contentWords.map(w => normalizeText(w.text));
+    const fullSermonText = words.map(w => w.text).join('');
 
     for (const citation of relevantCitations) {
-        const searchWordsNormalized = normalizeText(citation.quoted_text).split(' ').filter(Boolean);
-        if (searchWordsNormalized.length === 0) continue;
-        for (let i = 0; i <= sermonWordsNormalized.length - searchWordsNormalized.length; i++) {
-            const sermonSlice = sermonWordsNormalized.slice(i, i + searchWordsNormalized.length);
-            if (JSON.stringify(sermonSlice) === JSON.stringify(searchWordsNormalized)) {
-                const startGlobalIndex = contentWords[i].globalIndex;
-                const endGlobalIndex = contentWords[i + searchWordsNormalized.length - 1].globalIndex;
-                const colorClass = PALETTE_HIGHLIGHT_COLORS[activeNote.color || 'default'];
-                for (let k = startGlobalIndex; k <= endGlobalIndex; k++) map.set(k, { colorClass });
-                i += searchWordsNormalized.length - 1;
+        const regex = getAccentInsensitiveRegex(citation.quoted_text, false);
+        let match;
+        while ((match = regex.exec(fullSermonText)) !== null) {
+            const startChar = match.index;
+            const endChar = match.index + match[0].length;
+            const colorClass = PALETTE_HIGHLIGHT_COLORS[activeNote.color || 'default'];
+            
+            let currentChar = 0;
+            for (let i = 0; i < words.length; i++) {
+                const wordLen = words[i].text.length;
+                if (currentChar + wordLen > startChar && currentChar < endChar) {
+                    map.set(words[i].globalIndex, { colorClass });
+                }
+                currentChar += wordLen;
             }
+            if (regex.lastIndex === match.index) regex.lastIndex++;
         }
     }
     return map;
@@ -376,12 +367,21 @@ const Reader: React.FC = () => {
   useEffect(() => {
     if (readerSearchQuery.length > 2) {
       startTransition(() => {
-        const queryNormalized = normalizeText(readerSearchQuery);
+        const regex = getAccentInsensitiveRegex(readerSearchQuery, false);
+        const fullSermonText = words.map(w => w.text).join('');
         const results = [];
-        for (let i = 0; i < words.length; i++) {
-            if (/\S/.test(words[i].text) && normalizeText(words[i].text).includes(queryNormalized)) {
-                results.push(words[i].globalIndex);
+        
+        let match;
+        while ((match = regex.exec(fullSermonText)) !== null) {
+            let currentChar = 0;
+            for (let i = 0; i < words.length; i++) {
+                if (currentChar >= match.index) {
+                    results.push(words[i].globalIndex);
+                    break;
+                }
+                currentChar += words[i].text.length;
             }
+            if (regex.lastIndex === match.index) regex.lastIndex++;
         }
         setSearchResults(results);
         setCurrentResultIndex(results.length > 0 ? 0 : -1);

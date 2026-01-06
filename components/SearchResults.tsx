@@ -152,24 +152,7 @@ const SearchResults: React.FC = () => {
 
   const highlightText = (text: string, query: string, mode: SearchMode) => {
     if (!query) return text;
-    const queryNormalized = normalizeText(query.trim());
-    const queryWords = queryNormalized.split(/\s+/).filter(w => w.length > 0);
-    
-    let regex: RegExp;
-    if (mode === SearchMode.EXACT_PHRASE) {
-      regex = getAccentInsensitiveRegex(queryNormalized, false);
-    } else if (mode === SearchMode.EXACT_WORDS || mode === SearchMode.DIVERSE) {
-      const patterns = queryWords.map(w => {
-        const p = w.split('').map(char => {
-          const map: Record<string, string> = {'a':'[aàáâãäå]','e':'[eèéêë]','i':'[iìíîï]','o':'[oòóôõö]','u':'[uùúûü]','y':'[yýÿ]','c':'[cç]','n':'[nñ]'};
-          return map[char] || (/[a-z]/.test(char) ? char : `\\${char}`);
-        }).join('');
-        return p;
-      });
-      regex = new RegExp(`(${patterns.join('|')})`, 'gi');
-    } else {
-      regex = getAccentInsensitiveRegex(queryNormalized, false);
-    }
+    const regex = getAccentInsensitiveRegex(query, mode === SearchMode.EXACT_WORDS);
 
     const parts = text.split(regex);
     return (

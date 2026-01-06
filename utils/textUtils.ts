@@ -8,14 +8,13 @@ export const normalizeText = (str: string): string => {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
-    .replace(/[.,;:“”"?!()]/g, "") // Remove most punctuation, keep hyphen and apostrophe
-    .replace(/\s+/g, ' ') // Collapse whitespace
+    .replace(/[.,;:“”"?!()]/g, "") // Supprime la ponctuation pour la comparaison de base
+    .replace(/\s+/g, ' ')
     .trim();
 };
 
 /**
- * Génère une expression régulière qui ignore les accents pour un texte donné.
- * Exemple: "peche" -> /[p][eèéêë][cç][h][eèéêë]/gi
+ * Génère une expression régulière qui ignore les accents et la ponctuation intermédiaire.
  */
 export const getAccentInsensitiveRegex = (query: string, isExactWord = false): RegExp => {
   const map: Record<string, string> = {
@@ -29,14 +28,20 @@ export const getAccentInsensitiveRegex = (query: string, isExactWord = false): R
     'n': '[nñ]',
   };
   
+  // On remplace les espaces par un pattern qui accepte n'importe quelle ponctuation ou espace
+  const punctuationPattern = "[\\s.,;:!–?\"“”'()\\n\\r]+";
+  
   const pattern = query
     .toLowerCase()
-    .split('')
-    .map(char => map[char] || (/[a-z]/.test(char) ? char : `\\${char}`))
-    .join('');
+    .trim()
+    .split(/\s+/)
+    .map(word => 
+      word.split('').map(char => map[char] || (/[a-z0-9]/.test(char) ? char : `\\${char}`)).join('')
+    )
+    .join(punctuationPattern);
     
   if (isExactWord) {
-    return new RegExp(`\\b${pattern}\\b`, 'gi');
+    return new RegExp(`(^|[^a-z0-9À-ÿ])(${pattern})($|[^a-z0-9À-ÿ])`, 'gi');
   }
   return new RegExp(`(${pattern})`, 'gi');
 };
