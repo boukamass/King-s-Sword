@@ -149,44 +149,35 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   initializeDB: async () => {
     set({ isLoading: true, loadingMessage: "Accès à la base..." });
+    const hasSqlite = await isDatabaseReady();
+    set({ isSqliteAvailable: hasSqlite });
+    
     try {
-      const hasSqlite = await isDatabaseReady();
-      set({ isSqliteAvailable: hasSqlite });
-
-      if (hasSqlite) {
-        const count = await getSermonsCount();
-        if (count === 0) {
-          set({ loadingMessage: "Première importation...", loadingProgress: 10 });
-          const response = await fetch('library.json');
-          if (!response.ok) throw new Error(`Impossible de charger library.json: ${response.statusText}`);
-          const incoming: Sermon[] = await response.json();
-          set({ loadingProgress: 40, loadingMessage: "Indexation SQLite..." });
-          await bulkAddSermons(incoming);
-        }
-      } else {
+      if (!hasSqlite) {
         const response = await fetch('library.json');
         const data: Sermon[] = await response.json();
         const map = new Map();
         data.forEach(s => map.set(s.id, s));
         const notes = await getAllNotes();
-        set({ sermons: data, sermonsMap: map, notes });
-        set({ isLoading: false }); // Sortie anticipée pour le mode web
+        set({ sermons: data, sermonsMap: map, notes, isLoading: false });
         return;
       }
 
-      // Cette partie s'exécute pour une base existante OU après une nouvelle importation
-      const metadata = await getAllSermonsMetadata();
-      const map = new Map();
-      metadata.forEach(s => map.set(s.id, s));
-      const notes = await getAllNotes();
-      set({ sermons: metadata, sermonsMap: map, notes });
-
+      const count = await getSermonsCount();
+      if (count === 0) {
+        await get().resetLibrary();
+      } else {
+        const metadata = await getAllSermonsMetadata();
+        const map = new Map();
+        metadata.forEach(s => map.set(s.id, s));
+        const notes = await getAllNotes();
+        set({ sermons: metadata, sermonsMap: map, notes });
+      }
     } catch (error) {
-      console.error("Initialization Error:", error);
-      const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
-      get().addNotification(`Échec de l'importation: ${errorMessage}`, 'error');
+      console.error(error);
+      get().addNotification("Erreur d'initialisation", 'error');
     } finally {
-      set({ isLoading: false, loadingMessage: null });
+      set({ isLoading: false });
     }
   },
 
@@ -194,7 +185,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ isLoading: true, loadingMessage: "Importation...", loadingProgress: 10 });
     try {
       const response = await fetch('library.json');
-      if (!response.ok) throw new Error(`Erreur HTTP: ${response.status}`);
       const incoming: Sermon[] = await response.json();
       
       if (get().isSqliteAvailable) {
@@ -202,13 +192,12 @@ export const useAppStore = create<AppState>((set, get) => ({
         await bulkAddSermons(incoming);
       }
       
-      const metadata = await getAllSermonsMetadata();
+      const metadata = incoming.map(({text, ...meta}) => meta);
       const map = new Map();
       metadata.forEach(s => map.set(s.id, s));
-      set({ sermons: metadata, sermonsMap: map, loadingProgress: 100 });
-      get().addNotification("Bibliothèque actualisée.", 'success');
+      set({ sermons: metadata as any, sermonsMap: map, loadingProgress: 100 });
     } catch (error) {
-      get().addNotification("Échec de l'actualisation.", 'error');
+      get().addNotification("Échec de l'importation.", 'error');
     } finally {
       set({ isLoading: false });
     }
