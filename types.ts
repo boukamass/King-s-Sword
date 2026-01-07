@@ -69,6 +69,7 @@ export interface ElectronAPI {
   onUpdateDownloaded: (callback: () => void) => void;
   restartApp: () => void;
   printPage: () => void;
+  getLibrary: () => Promise<Sermon[]>;
   db: {
     isReady: () => Promise<boolean>;
     getSermonsMetadata: () => Promise<Omit<Sermon, 'text'>[]>;

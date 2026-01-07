@@ -10,7 +10,8 @@ import {
   deleteNoteFromDB,
   syncNotesOrder,
   getSermonsCount,
-  isDatabaseReady
+  isDatabaseReady,
+  fetchLibrary
 } from './services/db';
 
 export interface SearchResult {
@@ -154,8 +155,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     
     try {
       if (!hasSqlite) {
-        const response = await fetch('library.json');
-        const data: Sermon[] = await response.json();
+        const data: Sermon[] = await fetchLibrary();
         const map = new Map();
         data.forEach(s => map.set(s.id, s));
         const notes = await getAllNotes();
@@ -175,7 +175,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
     } catch (error) {
       console.error(error);
-      get().addNotification("Erreur d'initialisation", 'error');
+      get().addNotification("Échec de l'importation.", 'error');
     } finally {
       set({ isLoading: false });
     }
@@ -184,8 +184,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   resetLibrary: async () => {
     set({ isLoading: true, loadingMessage: "Importation...", loadingProgress: 10 });
     try {
-      const response = await fetch('library.json');
-      const incoming: Sermon[] = await response.json();
+      const incoming: Sermon[] = await fetchLibrary();
       
       if (get().isSqliteAvailable) {
         set({ loadingProgress: 40, loadingMessage: "Indexation SQLite..." });
