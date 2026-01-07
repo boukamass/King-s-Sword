@@ -1,4 +1,4 @@
-
+// Add React import to the list of imports from 'react'
 import React, { useState, useRef, useEffect, useMemo, memo, useDeferredValue, useTransition, useCallback } from 'react';
 import { useAppStore } from '../store';
 import { translations } from '../translations';
@@ -21,7 +21,71 @@ import {
   Info
 } from 'lucide-react';
 
-// Composant d'élément de liste ultra-performant
+interface DropdownProps {
+  value: string | null;
+  onChange: (val: string | null) => void;
+  options: string[];
+  placeholder: string;
+  className?: string;
+}
+
+const ModernDropdown: React.FC<DropdownProps> = memo(({ value, onChange, options, placeholder, className = "" }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div className={`relative flex-1 min-w-[100px] ${className}`} ref={containerRef}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full flex items-center justify-between text-[9px] font-black uppercase tracking-wider p-2 rounded-lg border transition-all duration-300 ${
+          isOpen 
+            ? 'bg-white border-teal-600 ring-4 ring-teal-600/10 text-teal-600 shadow-lg' 
+            : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 hover:border-teal-500/50 text-zinc-900 dark:text-zinc-100 shadow-sm'
+        }`}
+      >
+        <span className="truncate pr-1">{value || placeholder}</span>
+        <ChevronDown className={`w-2.5 h-2.5 transition-transform duration-300 ${isOpen ? 'rotate-180 text-teal-600' : 'text-zinc-400'}`} />
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 right-0 mt-1 py-1 bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 rounded-xl shadow-2xl z-[100] animate-in fade-in zoom-in-95 duration-200 overflow-hidden backdrop-blur-xl">
+          <div className="max-h-[160px] overflow-y-auto custom-scrollbar">
+            <button
+              onClick={() => { onChange(null); setIsOpen(false); }}
+              className="w-full text-left px-3 py-1.5 text-[9px] font-black uppercase tracking-wider text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors"
+            >
+              {placeholder}
+            </button>
+            {options.map((opt) => (
+              <button
+                key={opt}
+                onClick={() => { onChange(opt); setIsOpen(false); }}
+                className={`w-full text-left px-3 py-1.5 text-[9px] font-black uppercase tracking-wider transition-all ${
+                  value === opt 
+                    ? 'text-teal-600 bg-teal-600/5 dark:bg-teal-600/10' 
+                    : 'text-zinc-800 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700'
+                }`}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
+
 const SermonItem = memo(({ 
   sermon, 
   isSelected, 
@@ -36,175 +100,435 @@ const SermonItem = memo(({
   onToggleContext: () => void;
 }) => (
   <div 
-    className={`group flex items-center gap-3 p-3 rounded-xl transition-all duration-200 cursor-pointer mb-1 border-l-4 ${
+    className={`group flex items-center gap-3 p-3 rounded-xl transition-all duration-200 cursor-pointer mb-1 h-[68px] ${
       isSelected 
-        ? 'bg-teal-600/5 dark:bg-teal-600/10 border-teal-600 shadow-sm' 
-        : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/40 border-transparent hover:border-zinc-200 dark:hover:border-zinc-700'
+        ? 'bg-teal-600/10 dark:bg-teal-600/20 ring-1 ring-teal-600/20 shadow-md' 
+        : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/40 border border-transparent hover:border-zinc-100 dark:hover:border-zinc-800'
     }`}
     onClick={onSelect}
   >
     <div 
       onClick={(e) => { e.stopPropagation(); onToggleContext(); }}
-      className={`w-4 h-4 rounded-md border transition-all flex items-center justify-center shrink-0 ${
+      data-tooltip="Ajouter au contexte IA"
+      className={`w-4 h-4 rounded-md border transition-all flex items-center justify-center shrink-0 tooltip-right ${
         isContextSelected 
-          ? 'bg-teal-600 border-teal-600 text-white' 
-          : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700'
+          ? 'bg-teal-600 border-teal-600 text-white shadow-lg shadow-teal-600/20' 
+          : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 group-hover:border-teal-600/50'
       }`}
     >
-      {isContextSelected && <Sparkles className="w-2.5 h-2.5" />}
+      {isContextSelected && <Sparkles className="w-2.5 h-2.5 stroke-[3]" />}
     </div>
 
     <div className="flex-1 min-w-0">
       <div className="flex items-center justify-between gap-1 mb-1">
-        <span className={`text-[12px] font-extrabold truncate ${isSelected ? 'text-teal-600' : 'text-zinc-900 dark:text-zinc-100'}`}>
-          {sermon.title}
+        <span className={`text-[12px] font-extrabold truncate transition-colors ${isSelected ? 'text-teal-600 dark:text-blue-400' : 'text-zinc-900 dark:text-zinc-100'}`}>
+          {sermon.title || "Sermon sans titre"}
         </span>
-        <span className="text-[7px] font-black bg-zinc-100 dark:bg-zinc-800 text-zinc-500 px-1.5 py-0.5 rounded-lg border border-zinc-200 dark:border-zinc-700 uppercase">
-          {sermon.version || 'VGR'}
-        </span>
+        <div className="flex items-center gap-1 shrink-0">
+          {sermon.audio_url && <Headphones className="w-2.5 h-2.5 text-teal-500 tooltip-right" data-tooltip="Audio disponible" />}
+          {sermon.version && (
+            <span className="text-[7px] font-black bg-zinc-100 dark:bg-zinc-800 text-zinc-500 px-1.5 py-0.5 rounded-lg border border-zinc-200 dark:border-zinc-700 uppercase tracking-tighter">
+              {sermon.version}
+            </span>
+          )}
+        </div>
       </div>
       <div className="flex items-center gap-2 text-[8px] text-zinc-400 font-bold uppercase tracking-widest">
+        <Calendar className="w-2 h-2 text-teal-600/50" />
         <span className="font-mono">{sermon.date}</span>
-        <span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full" />
+        <span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-0.5" />
+        <MapPin className="w-2 h-2 text-teal-600/50" />
         <span className="truncate">{sermon.city}</span>
       </div>
     </div>
   </div>
 ));
 
+const SearchModeButton = memo(({ mode, label, tooltip, currentMode, setMode }: { 
+  mode: SearchMode; 
+  label: string; 
+  tooltip: string;
+  currentMode: SearchMode;
+  setMode: (mode: SearchMode) => void;
+}) => (
+  <button
+    onClick={() => setMode(mode)}
+    data-tooltip={tooltip}
+    className={`flex-1 text-center px-1 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all duration-300 tooltip-bottom ${
+      currentMode === mode
+        ? 'bg-teal-600 text-white shadow-xl shadow-teal-600/20 ring-1 ring-teal-600'
+        : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/60 dark:hover:bg-zinc-700/50'
+    }`}
+  >
+    {mode === SearchMode.EXACT_PHRASE ? "Phrase" : mode === SearchMode.DIVERSE ? "Mots" : "Exacts"}
+  </button>
+));
+
 const Sidebar: React.FC = () => {
   const [isPending, startTransition] = useTransition();
-  const { 
-    sermons, 
-    selectedSermonId, 
-    setSelectedSermonId, 
-    contextSermonIds, 
-    toggleContextSermon, 
-    searchQuery, 
-    setSearchQuery, 
-    isFullTextSearch, 
-    setIsFullTextSearch, 
-    isSearching, 
-    sidebarOpen, 
-    toggleSidebar, 
-    resetLibrary,
-    cityFilter,
-    yearFilter,
-    versionFilter,
-    timeFilter,
-    setCityFilter,
-    setYearFilter,
-    setVersionFilter,
-    setTimeFilter,
-    languageFilter
-  } = useAppStore();
+  const sermons = useAppStore(s => s.sermons);
+  const selectedSermonId = useAppStore(s => s.selectedSermonId);
+  const setSelectedSermonId = useAppStore(s => s.setSelectedSermonId);
+  const contextSermonIds = useAppStore(s => s.contextSermonIds);
+  const toggleContextSermon = useAppStore(s => s.toggleContextSermon);
+  
+  const searchQuery = useAppStore(s => s.searchQuery);
+  const searchMode = useAppStore(s => s.searchMode);
+  const setSearchMode = useAppStore(s => s.setSearchMode);
+  const isFullTextSearch = useAppStore(s => s.isFullTextSearch);
+  const setIsFullTextSearch = useAppStore(s => s.setIsFullTextSearch);
+  const isSearching = useAppStore(s => s.isSearching);
+  
+  const cityFilter = useAppStore(s => s.cityFilter);
+  const yearFilter = useAppStore(s => s.yearFilter);
+  const languageFilter = useAppStore(s => s.languageFilter);
+  const versionFilter = useAppStore(s => s.versionFilter);
+  const timeFilter = useAppStore(s => s.timeFilter);
+  
+  const sidebarOpen = useAppStore(s => s.sidebarOpen);
+  const toggleSidebar = useAppStore(s => s.toggleSidebar);
+  const resetLibrary = useAppStore(s => s.resetLibrary);
 
   const [internalQuery, setInternalQuery] = useState(searchQuery);
   const deferredSearchQuery = useDeferredValue(searchQuery);
+  const [showFilters, setShowFilters] = useState(false);
+  const [isFooterVisible, setIsFooterVisible] = useState(true);
+  
+  // Infinite Scroll State
   const [displayLimit, setDisplayLimit] = useState(40);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  const t = translations[languageFilter === 'Anglais' ? 'en' : 'fr'];
+  const lang = languageFilter === 'Anglais' ? 'en' : 'fr';
+  const t = translations[lang];
 
-  // Filtrage ultra-rapide avec mémorisation
+  const setSearchQuery = useCallback((q: string) => {
+    startTransition(() => {
+      useAppStore.getState().setSearchQuery(q);
+      setDisplayLimit(40);
+    });
+  }, []);
+
+  const setCityFilter = useCallback((val: string | null) => startTransition(() => {
+    useAppStore.getState().setCityFilter(val);
+    setDisplayLimit(40);
+  }), []);
+
+  const setYearFilter = useCallback((val: string | null) => startTransition(() => {
+    useAppStore.getState().setYearFilter(val);
+    setDisplayLimit(40);
+  }), []);
+
+  const setVersionFilter = useCallback((val: string | null) => startTransition(() => {
+    useAppStore.getState().setVersionFilter(val);
+    setDisplayLimit(40);
+  }), []);
+
+  const setTimeFilter = useCallback((val: string | null) => startTransition(() => {
+    useAppStore.getState().setTimeFilter(val);
+    setDisplayLimit(40);
+  }), []);
+
+  const dynamicYears = useMemo(() => {
+    const years = new Set<string>();
+    for (let i = 0; i < sermons.length; i++) {
+        const d = sermons[i].date;
+        if (d && d.length >= 4) {
+            const year = d.substring(0, 4);
+            if (/^\d{4}$/.test(year)) years.add(year);
+        }
+    }
+    return Array.from(years).sort((a, b) => b.localeCompare(a));
+  }, [sermons]);
+
+  const dynamicCities = useMemo(() => {
+    const cities = new Set<string>();
+    for (let i = 0; i < sermons.length; i++) {
+        if (sermons[i].city) cities.add(sermons[i].city);
+    }
+    return Array.from(cities).sort();
+  }, [sermons]);
+
+  const dynamicVersions = useMemo(() => {
+    const versions = new Set<string>();
+    for (let i = 0; i < sermons.length; i++) {
+        if (sermons[i].version) versions.add(sermons[i].version);
+    }
+    return Array.from(versions).sort();
+  }, [sermons]);
+
+  const dynamicTimes = useMemo(() => {
+    const times = new Set<string>();
+    for (let i = 0; i < sermons.length; i++) {
+        if (sermons[i].time) times.add(sermons[i].time);
+    }
+    return Array.from(times).sort();
+  }, [sermons]);
+
+  useEffect(() => {
+    setInternalQuery(searchQuery);
+  }, [searchQuery]);
+
+  const activeFiltersCount = [yearFilter, cityFilter, versionFilter, timeFilter].filter(f => f !== null).length;
+
   const filteredSermons = useMemo(() => {
     const q = isFullTextSearch ? "" : normalizeText(deferredSearchQuery);
     if (!q && !cityFilter && !yearFilter && !versionFilter && !timeFilter) return sermons;
 
     return sermons.filter(s => {
-      if (q && !normalizeText(s.title).includes(q)) return false;
+      if (q) {
+        const titleText = (s as any)._normalizedTitle || normalizeText(s.title || '');
+        if (!titleText.includes(q)) return false;
+      }
       if (cityFilter && s.city !== cityFilter) return false;
-      if (yearFilter && !s.date.startsWith(yearFilter)) return false;
+      if (yearFilter && (!s.date || !s.date.startsWith(yearFilter))) return false;
       if (versionFilter && s.version !== versionFilter) return false;
       if (timeFilter && s.time !== timeFilter) return false;
       return true;
     });
   }, [sermons, deferredSearchQuery, cityFilter, yearFilter, versionFilter, timeFilter, isFullTextSearch]);
 
-  const visibleSermons = useMemo(() => filteredSermons.slice(0, displayLimit), [filteredSermons, displayLimit]);
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setInternalQuery(val);
-    startTransition(() => {
-      if (!isFullTextSearch) setSearchQuery(val);
-      setDisplayLimit(40);
-    });
-  };
+  const visibleSermons = useMemo(() => {
+    return filteredSermons.slice(0, displayLimit);
+  }, [filteredSermons, displayLimit]);
 
   const handleScroll = useCallback(() => {
     if (!scrollContainerRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
-    if (scrollTop + clientHeight >= scrollHeight - 300) {
-      if (displayLimit < filteredSermons.length) setDisplayLimit(p => p + 40);
+    if (scrollTop + clientHeight >= scrollHeight - 400) {
+      if (displayLimit < filteredSermons.length) {
+        setDisplayLimit(prev => prev + 40);
+      }
     }
   }, [displayLimit, filteredSermons.length]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setInternalQuery(val);
+    if (!isFullTextSearch) {
+      setSearchQuery(val);
+    }
+  };
+
+  const triggerSearch = () => {
+    setSearchQuery(internalQuery);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      triggerSearch();
+    }
+  };
 
   if (!sidebarOpen) return null;
 
   return (
-    <div className="w-full h-full border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col overflow-hidden">
-      <div className="h-14 px-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between shrink-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl">
-        <div className="flex flex-col">
-          <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-900 dark:text-zinc-100">{t.sidebar_subtitle}</h2>
-          <p className="text-[7px] font-black text-teal-600 uppercase mt-0.5">{filteredSermons.length} sermons</p>
+    <div className={`w-full border-r border-zinc-200/50 dark:border-zinc-800 bg-white dark:bg-zinc-900 h-full flex flex-col overflow-hidden transition-all duration-500 ${isPending ? 'cursor-wait' : ''}`}>
+      <div className={`h-14 border-b border-zinc-100 dark:border-zinc-800/50 flex items-center shrink-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl z-50 transition-all duration-500 px-4 justify-between`}>
+        <button 
+          onClick={toggleSidebar} 
+          className={`flex items-center gap-2 hover:opacity-80 transition-all active:scale-95 min-w-0 group tooltip-br`}
+          data-tooltip="Réduire la bibliothèque"
+        >
+          <div className="w-7 h-7 flex items-center justify-center bg-teal-600/10 rounded-lg border border-teal-600/20 shadow-sm shrink-0 group-hover:border-teal-600/40 transition-all duration-300">
+            <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-3.5 h-3.5 grayscale group-hover:grayscale-0 group-hover:scale-110 group-hover:rotate-[-5deg] transition-all duration-300" />
+          </div>
+          <div className="text-left truncate animate-in fade-in slide-in-from-left-2 duration-500">
+            <h2 className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-950 dark:text-zinc-50 leading-tight truncate group-hover:text-teal-600 transition-colors">
+              {t.sidebar_subtitle}
+            </h2>
+            <p className="text-[7px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-widest mt-0.5">
+              {filteredSermons.length} {t.sermon_count}
+            </p>
+          </div>
+        </button>
+        <div className="flex items-center gap-1 animate-in fade-in duration-500">
+          <button 
+            onClick={(e) => { e.stopPropagation(); if (confirm("Actualiser la bibliothèque ?")) resetLibrary(); }}
+            data-tooltip="Actualiser"
+            className="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-teal-600 transition-all rounded-lg hover:bg-teal-50 dark:hover:bg-teal-900/20 active:scale-95 tooltip-bottom"
+          >
+            <RefreshCw className={`w-3 h-3 ${isPending ? 'animate-spin' : ''}`} />
+          </button>
+          <button 
+            onClick={toggleSidebar} 
+            data-tooltip={t.tooltip_close}
+            className="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-red-500 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 active:scale-95 tooltip-bottom"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
-        <button onClick={toggleSidebar} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-red-500 rounded-lg"><X className="w-4 h-4" /></button>
       </div>
 
-      <div className="p-4 space-y-3 border-b border-zinc-50 dark:border-zinc-800/50 bg-zinc-50/20 dark:bg-zinc-900/20">
-        <div className="relative group">
-          <input
-            type="text"
-            placeholder={t.search_placeholder}
-            value={internalQuery}
-            onChange={handleInputChange}
-            className="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-bold focus:ring-4 focus:ring-teal-600/5 outline-none transition-all"
-          />
-          <Search className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400 group-focus-within:text-teal-600" />
+      <div className="flex-1 flex flex-col overflow-hidden animate-in fade-in duration-700">
+        <div className="p-4 space-y-4 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/30 dark:bg-zinc-900/40 transition-colors duration-500">
+          <div className="relative group/search-input flex items-center">
+            <input
+              type="text"
+              placeholder={isFullTextSearch ? "Appuyez sur Entrée..." : t.search_placeholder}
+              className={`w-full pl-9 pr-20 py-2.5 bg-white dark:bg-zinc-800 border rounded-xl text-xs font-bold text-zinc-950 dark:text-white focus:outline-none focus:ring-4 transition-all shadow-sm ${
+                isFullTextSearch 
+                  ? 'border-teal-600/30 dark:border-teal-600/30 focus:border-teal-600 focus:ring-teal-600/10 ring-2 ring-teal-600/5' 
+                  : 'border-zinc-200/60 dark:border-zinc-700/60 focus:border-teal-500 focus:ring-teal-500/10'
+              }`}
+              value={internalQuery}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+            />
+            <Search className={`absolute left-3 w-3.5 h-3.5 transition-all duration-300 ease-out group-hover/search-input:scale-110 group-hover/search-input:rotate-[-10deg] ${isFullTextSearch ? 'text-teal-600' : 'text-teal-600'}`} />
+            
+            <div className="absolute right-1.5 flex items-center gap-1">
+              {internalQuery && (
+                <button 
+                  onClick={() => { setInternalQuery(''); setSearchQuery(''); }}
+                  data-tooltip="Effacer"
+                  className="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors tooltip-bottom"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+              {isFullTextSearch && (
+                <button 
+                  onClick={triggerSearch}
+                  disabled={isSearching}
+                  data-tooltip="Lancer la recherche intégrale"
+                  className="w-7 h-7 flex items-center justify-center bg-teal-600 text-white rounded-lg hover:bg-teal-700 active:scale-90 transition-all shadow-lg shadow-teal-600/20 disabled:opacity-50 tooltip-bottom group/search-btn"
+                >
+                  {isSearching ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <ArrowRight className="w-4 h-4 transition-all duration-300 ease-out group-hover/search-btn:translate-x-0.5 group-hover/search-btn:scale-110" />
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-2 px-1">
+            <div 
+              onClick={() => {
+                const newVal = !isFullTextSearch;
+                setIsFullTextSearch(newVal);
+                if (!newVal) {
+                  setSearchQuery(internalQuery);
+                }
+              }}
+              data-tooltip="Activer/Désactiver la recherche intégrale"
+              className="flex items-center gap-2.5 cursor-pointer group/toggle select-none tooltip-right"
+            >
+              <div className={`relative w-8 h-4.5 rounded-full transition-all duration-500 flex items-center px-0.5 ${isFullTextSearch ? 'bg-teal-600 shadow-lg shadow-teal-600/20' : 'bg-zinc-200 dark:bg-zinc-700 shadow-inner'}`}>
+                <div className={`w-3.5 h-3.5 bg-white rounded-full shadow-md transition-all duration-500 transform ${isFullTextSearch ? 'translate-x-3.5 scale-100' : 'translate-x-0 scale-90'}`} />
+              </div>
+              <span className={`text-[9px] font-black uppercase tracking-widest transition-colors duration-500 ${isFullTextSearch ? 'text-teal-600' : 'text-zinc-400 dark:text-zinc-500'}`}>
+                {t.full_text_search}
+              </span>
+            </div>
+
+            <button 
+              onClick={() => setShowFilters(!showFilters)}
+              data-tooltip={showFilters ? "Masquer filtres" : "Afficher filtres"}
+              className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl border text-[8px] font-black uppercase tracking-widest transition-all duration-300 ease-out tooltip-left group/filter-btn active:scale-95 ${
+                showFilters || activeFiltersCount > 0
+                  ? 'bg-teal-600 text-white border-teal-600 shadow-xl shadow-teal-600/20'
+                  : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-teal-500/50 hover:bg-teal-50/30 dark:hover:bg-teal-950/20 shadow-sm'
+              }`}
+            >
+              <Filter className={`w-2.5 h-2.5 transition-all duration-300 ease-out group-hover/filter-btn:rotate-[15deg] group-hover/filter-btn:scale-110 ${showFilters ? 'rotate-180' : ''}`} />
+              <span>Filtres</span>
+              {activeFiltersCount > 0 && (
+                <span className="w-3.5 h-3.5 flex items-center justify-center bg-white text-teal-600 rounded-full text-[7px] animate-in zoom-in duration-300 group-hover/filter-btn:scale-110 font-black">{activeFiltersCount}</span>
+              )}
+            </button>
+          </div>
+
+          {isFullTextSearch && (
+            <div className="flex items-stretch gap-1 bg-zinc-100/50 dark:bg-zinc-800/50 p-1 rounded-xl animate-in fade-in duration-300 border border-zinc-200/30 dark:border-zinc-700/30">
+              <SearchModeButton mode={SearchMode.EXACT_PHRASE} label="Phrase" tooltip={t.search_mode_exact_phrase} currentMode={searchMode} setMode={setSearchMode} />
+              <SearchModeButton mode={SearchMode.DIVERSE} label="Mots" tooltip={t.search_mode_diverse} currentMode={searchMode} setMode={setSearchMode} />
+              <SearchModeButton mode={SearchMode.EXACT_WORDS} label="Exacts" tooltip={t.search_mode_exact_words} currentMode={searchMode} setMode={setSearchMode} />
+            </div>
+          )}
+
+          {showFilters && (
+            <div className="flex flex-wrap gap-2 pt-3 border-t border-zinc-200 dark:border-zinc-700/50 animate-in slide-in-from-top-1 duration-300">
+              <ModernDropdown value={yearFilter} onChange={setYearFilter} options={dynamicYears} placeholder={t.filter_year} />
+              <ModernDropdown value={cityFilter} onChange={setCityFilter} options={dynamicCities} placeholder={t.filter_city} />
+              <ModernDropdown value={versionFilter} onChange={setVersionFilter} options={dynamicVersions} placeholder={t.filter_version} />
+              <ModernDropdown value={timeFilter} onChange={setTimeFilter} options={dynamicTimes} placeholder={t.filter_time} />
+            </div>
+          )}
+        </div>
+
+        <div 
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1"
+        >
+          {filteredSermons.length === 0 && (
+            <div className="p-12 text-center text-zinc-400 text-[10px] font-black uppercase tracking-[0.3em] opacity-30">
+              {t.no_results}
+            </div>
+          )}
+          {visibleSermons.map((sermon) => (
+            <SermonItem 
+              key={sermon.id}
+              sermon={sermon}
+              isSelected={selectedSermonId === sermon.id}
+              isContextSelected={contextSermonIds.includes(sermon.id)}
+              onSelect={() => setSelectedSermonId(sermon.id)}
+              onToggleContext={() => toggleContextSermon(sermon.id)}
+            />
+          ))}
+          {displayLimit < filteredSermons.length && (
+            <div className="py-8 flex justify-center h-[68px]">
+              <Loader2 className="w-5 h-5 animate-spin text-zinc-300" />
+            </div>
+          )}
         </div>
         
-        <div className="flex items-center gap-2">
-            <div 
-              onClick={() => setIsFullTextSearch(!isFullTextSearch)}
-              className="flex items-center gap-2 cursor-pointer select-none flex-1"
-            >
-              <div className={`w-8 h-4.5 rounded-full transition-all flex items-center px-0.5 ${isFullTextSearch ? 'bg-teal-600' : 'bg-zinc-300 dark:bg-zinc-700'}`}>
-                <div className={`w-3.5 h-3.5 bg-white rounded-full transition-all transform ${isFullTextSearch ? 'translate-x-3.5' : 'translate-x-0'}`} />
-              </div>
-              <span className={`text-[9px] font-black uppercase tracking-widest ${isFullTextSearch ? 'text-teal-600' : 'text-zinc-400'}`}>{t.full_text_search}</span>
-            </div>
-            {isFullTextSearch && (
-              <button 
-                onClick={() => setSearchQuery(internalQuery)} 
-                className="px-3 py-1.5 bg-teal-600 text-white rounded-lg text-[9px] font-black uppercase shadow-lg shadow-teal-600/20"
-              >
-                Chercher
-              </button>
-            )}
-        </div>
-      </div>
+        <div className={`border-t border-zinc-100 dark:border-zinc-800/50 bg-zinc-50/40 dark:bg-zinc-950/40 no-print group/footer transition-all duration-500 shrink-0 relative ${isFooterVisible ? 'py-6 px-4' : 'py-2 px-4'}`}>
+          <button 
+            onClick={() => setIsFooterVisible(!isFooterVisible)}
+            className="absolute -top-3 left-1/2 -translate-x-1/2 w-6 h-6 flex items-center justify-center bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full text-zinc-400 hover:text-teal-600 shadow-sm transition-all z-[60] active:scale-90"
+            data-tooltip={isFooterVisible ? "Masquer les détails" : "Afficher les détails"}
+          >
+            {isFooterVisible ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+          </button>
 
-      <div 
-        ref={scrollContainerRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto custom-scrollbar p-3"
-      >
-        {visibleSermons.map(s => (
-          <SermonItem 
-            key={s.id}
-            sermon={s}
-            isSelected={selectedSermonId === s.id}
-            isContextSelected={contextSermonIds.includes(s.id)}
-            onSelect={() => setSelectedSermonId(s.id)}
-            onToggleContext={() => toggleContextSermon(s.id)}
-          />
-        ))}
-        {isPending && (
-          <div className="py-4 flex justify-center">
-            <Loader2 className="w-5 h-5 animate-spin text-teal-600/50" />
-          </div>
-        )}
+          {isFooterVisible ? (
+            <div className="text-center animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <div className="flex flex-col items-center mb-3 gap-1">
+                <p className="text-[10px] font-black text-zinc-900 dark:text-zinc-50 uppercase tracking-[0.25em]">
+                  KING'S SWORD <span className="text-teal-600 dark:text-blue-400 ml-1">v1.0.1</span>
+                </p>
+                <div className="h-0.5 w-8 bg-teal-600/20 dark:bg-blue-400/20 rounded-full" />
+                <p className="text-[8px] font-black text-teal-600 uppercase tracking-widest opacity-80 leading-none">
+                  VISION DE L'AIGLE TABERNACLE
+                </p>
+              </div>
+              
+              <div className="pt-1.5 border-t border-zinc-200/30 dark:border-zinc-800/30 opacity-40 group-hover/footer:opacity-100 transition-all duration-500 space-y-1">
+                <div className="flex items-center justify-center gap-1.5 text-[7px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">
+                  <MapPin className="w-1.5 h-1.5 text-teal-600" />
+                  <span>Koufoli, PNR, Congo</span>
+                </div>
+                <p className="text-[7px] font-black text-zinc-800 dark:text-zinc-100 uppercase tracking-[0.3em] text-center leading-none">
+                  © 2024 Bienvenu Sédin MASSAMBA
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-4 animate-in fade-in duration-500">
+               <div className="flex items-center gap-1.5">
+                  <span className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">KS v1.0.1</span>
+               </div>
+               <div className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full" />
+               <div className="flex items-center gap-1.5">
+                  <Info className="w-2.5 h-2.5 text-teal-600 opacity-40" />
+                  <span className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">Vision de l'Aigle</span>
+               </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
