@@ -31,7 +31,7 @@ interface AppState {
   selectedSermonId: string | null;
   activeNoteId: string | null;
   contextSermonIds: string[];
-  manualContextIds: string[]; // Nouveau : IDs ajoutés manuellement via le bouton Sparkle
+  manualContextIds: string[];
   sidebarOpen: boolean;
   aiOpen: boolean;
   notesOpen: boolean;
@@ -154,6 +154,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     
     try {
       if (!hasSqlite) {
+        console.warn("SQLite non détecté, mode Web/Fallback activé.");
         const response = await fetch('library.json');
         const data: Sermon[] = await response.json();
         const map = new Map();
@@ -174,7 +175,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         set({ sermons: metadata, sermonsMap: map, notes });
       }
     } catch (error) {
-      console.error(error);
+      console.error("DB Init Error:", error);
       get().addNotification("Erreur d'initialisation", 'error');
     } finally {
       set({ isLoading: false });
@@ -184,20 +185,27 @@ export const useAppStore = create<AppState>((set, get) => ({
   resetLibrary: async () => {
     set({ isLoading: true, loadingMessage: "Importation...", loadingProgress: 10 });
     try {
-      const response = await fetch('library.json');
+      const response = await fetch('./library.json');
+      if (!response.ok) throw new Error(`Fichier library.json introuvable (${response.status})`);
+      
       const incoming: Sermon[] = await response.json();
       
       if (get().isSqliteAvailable) {
         set({ loadingProgress: 40, loadingMessage: "Indexation SQLite..." });
-        await bulkAddSermons(incoming);
+        const result = await bulkAddSermons(incoming) as any;
+        if (result && result.error) {
+          throw new Error(result.error);
+        }
       }
       
       const metadata = incoming.map(({text, ...meta}) => meta);
       const map = new Map();
       metadata.forEach(s => map.set(s.id, s));
       set({ sermons: metadata as any, sermonsMap: map, loadingProgress: 100 });
-    } catch (error) {
-      get().addNotification("Échec de l'importation.", 'error');
+      get().addNotification("Bibliothèque importée", "success");
+    } catch (error: any) {
+      console.error("Import failure:", error);
+      get().addNotification(`Échec de l'importation : ${error.message}`, 'error');
     } finally {
       set({ isLoading: false });
     }
@@ -223,7 +231,6 @@ export const useAppStore = create<AppState>((set, get) => ({
         set({ activeSermon: fullSermon });
       }
       
-      // Mettre à jour contextSermonIds : sermon actif + sélections manuelles
       const manual = get().manualContextIds;
       const newContext = Array.from(new Set([id, ...manual].filter(Boolean) as string[]));
       set({ contextSermonIds: newContext });

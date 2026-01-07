@@ -64,12 +64,17 @@ function initDatabase() {
       );
     `);
   } catch (err) {
-    console.error(`[DB] Erreur: ${err.message}`);
+    console.error(`[DB] Erreur initialisation: ${err.message}`);
     db = null;
   }
 }
 
-const checkDb = () => { if (!db) throw new Error("SQLite non disponible"); };
+const checkDb = () => { 
+  if (!db) {
+    initDatabase(); // Tentative de réinitialisation si db est null
+    if (!db) throw new Error("Moteur de base de données SQLite indisponible.");
+  }
+};
 
 ipcMain.handle('db:isReady', () => !!db);
 
@@ -94,14 +99,11 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 30, offset = 0 }) => 
 
   const terms = sqlQuery.split(/\s+/).filter(v => v).map(v => v.replace(/"/g, '""'));
 
-  // Formatage de la requête pour FTS5
   if (mode === 'EXACT_PHRASE') {
     sqlQuery = `"${terms.join(' ')}"`;
   } else if (mode === 'DIVERSE') {
-    // "Mots" -> logique OR pour des résultats plus variés
     sqlQuery = terms.join(' OR ');
-  } else { // Correspond à EXACT_WORDS
-    // "Exacts" -> logique AND, tous les mots doivent être présents
+  } else { 
     sqlQuery = terms.join(' AND ');
   }
 
@@ -128,58 +130,39 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 30, offset = 0 }) => 
 ipcMain.handle('db:importSermons', (event, sermons) => {
   checkDb();
 
-  // Supprime les tables pour garantir un schéma propre à chaque réimportation complète.
-  db.exec(`
-    DROP TABLE IF EXISTS paragraphs_fts;
-    DROP TABLE IF EXISTS paragraphs;
-    DROP TABLE IF EXISTS sermons;
-  `);
+  try {
+    const transaction = db.transaction((data) => {
+      // Nettoyage au lieu de Drop pour éviter de casser les connexions actives
+      db.prepare('DELETE FROM paragraphs_fts').run();
+      db.prepare('DELETE FROM paragraphs').run();
+      db.prepare('DELETE FROM sermons').run();
 
-  // Recrée les tables avec le schéma correct.
-  db.exec(`
-    CREATE TABLE sermons (
-      id TEXT PRIMARY KEY, 
-      title TEXT, 
-      date TEXT, 
-      city TEXT, 
-      version TEXT, 
-      time TEXT, 
-      audio_url TEXT
-    );
-    CREATE TABLE paragraphs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT, 
-      sermon_id TEXT, 
-      paragraph_index INTEGER, 
-      content TEXT, 
-      FOREIGN KEY(sermon_id) REFERENCES sermons(id) ON DELETE CASCADE
-    );
-    CREATE VIRTUAL TABLE paragraphs_fts USING fts5(
-      content, 
-      sermon_id UNINDEXED, 
-      paragraph_index UNINDEXED
-    );
-  `);
+      const insS = db.prepare('INSERT INTO sermons (id, title, date, city, version, time, audio_url) VALUES (?, ?, ?, ?, ?, ?, ?)');
+      const insP = db.prepare('INSERT INTO paragraphs (sermon_id, paragraph_index, content) VALUES (?, ?, ?)');
+      const insFTS = db.prepare('INSERT INTO paragraphs_fts (content, sermon_id, paragraph_index) VALUES (?, ?, ?)');
+      
+      for (const s of data) {
+        if (!s.id || !s.text) continue; // Sécurité : ignorer les entrées vides ou malformées
 
-  const transaction = db.transaction((data) => {
-    const insS = db.prepare('INSERT INTO sermons (id, title, date, city, version, time, audio_url) VALUES (?, ?, ?, ?, ?, ?, ?)');
-    const insP = db.prepare('INSERT INTO paragraphs (sermon_id, paragraph_index, content) VALUES (?, ?, ?)');
-    const insFTS = db.prepare('INSERT INTO paragraphs_fts (content, sermon_id, paragraph_index) VALUES (?, ?, ?)');
-    
-    for (const s of data) {
-      insS.run(s.id, s.title, s.date, s.city, s.version || 'VGR', s.time || 'Soir', s.audio_url || '');
-      const segments = s.text.split(/\n\s*\n/);
-      segments.forEach((p, i) => {
-        const content = p.trim();
-        if (content) {
-          insP.run(s.id, i + 1, content);
-          insFTS.run(content, s.id, i + 1);
-        }
-      });
-    }
-  });
+        insS.run(s.id, s.title || 'Sans titre', s.date || '0000-00-00', s.city || '', s.version || 'VGR', s.time || 'Soir', s.audio_url || '');
+        
+        const segments = s.text.split(/\n\s*\n/);
+        segments.forEach((p, i) => {
+          const content = p.trim();
+          if (content) {
+            insP.run(s.id, i + 1, content);
+            insFTS.run(content, s.id, i + 1);
+          }
+        });
+      }
+    });
 
-  transaction(sermons);
-  return { success: true };
+    transaction(sermons);
+    return { success: true, count: sermons.length };
+  } catch (e) {
+    console.error(`[DB] Erreur fatale importation: ${e.message}`);
+    return { success: false, error: e.message };
+  }
 });
 
 ipcMain.handle('db:getNotes', () => {
