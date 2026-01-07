@@ -8,7 +8,6 @@ const Database = require('better-sqlite3');
 const isDev = !app.isPackaged;
 let mainWindow;
 let db;
-let projectionWindow = null;
 
 function initDatabase() {
   try {
@@ -71,51 +70,6 @@ function initDatabase() {
 }
 
 const checkDb = () => { if (!db) throw new Error("SQLite non disponible"); };
-
-ipcMain.handle('open-projection-window', () => {
-  if (projectionWindow && !projectionWindow.isDestroyed()) {
-    projectionWindow.focus();
-    const projBounds = projectionWindow.getBounds();
-    const primaryBounds = screen.getPrimaryDisplay().bounds;
-    const onSecond = projBounds.x !== primaryBounds.x || projBounds.y !== primaryBounds.y;
-    return { onSecondScreen: onSecond };
-  }
-  
-  const displays = screen.getAllDisplays();
-  const externalDisplay = displays.find(d => d.id !== screen.getPrimaryDisplay().id);
-  const targetDisplay = externalDisplay || screen.getPrimaryDisplay();
-  
-  projectionWindow = new BrowserWindow({
-    x: targetDisplay.bounds.x,
-    y: targetDisplay.bounds.y,
-    width: targetDisplay.bounds.width,
-    height: targetDisplay.bounds.height,
-    fullscreen: true,
-    autoHideMenuBar: true,
-    frame: false,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      webSecurity: false 
-    },
-    title: "King's Sword Projection"
-  });
-
-  const startUrl = isDev
-    ? 'http://localhost:5173'
-    : `file://${path.join(__dirname, 'dist/index.html')}`;
-
-  const projectionUrl = new URL(startUrl);
-  projectionUrl.searchParams.set('projection', 'true');
-  
-  projectionWindow.loadURL(projectionUrl.toString());
-  
-  projectionWindow.on('closed', () => {
-    projectionWindow = null;
-  });
-
-  return { onSecondScreen: !!externalDisplay };
-});
 
 ipcMain.handle('db:isReady', () => !!db);
 
