@@ -28,9 +28,9 @@ export const getSermonById = async (id: string): Promise<Sermon | null> => {
   return window.electronAPI.db.getSermonFull(id);
 };
 
-export const bulkAddSermons = async (sermons: Sermon[]): Promise<void> => {
-  if (!isElectron) return;
-  await window.electronAPI.db.importSermons(sermons);
+export const bulkAddSermons = async (sermons: Sermon[]): Promise<{ success: boolean; error?: string }> => {
+  if (!isElectron) return { success: false, error: "Mode Web: SQLite non disponible" };
+  return window.electronAPI.db.importSermons(sermons);
 };
 
 export const searchSermons = async (params: { query: string; mode: SearchMode; limit: number; offset: number }): Promise<any[]> => {

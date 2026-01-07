@@ -31,7 +31,7 @@ interface AppState {
   selectedSermonId: string | null;
   activeNoteId: string | null;
   contextSermonIds: string[];
-  manualContextIds: string[]; // Nouveau : IDs ajoutés manuellement via le bouton Sparkle
+  manualContextIds: string[]; 
   sidebarOpen: boolean;
   aiOpen: boolean;
   notesOpen: boolean;
@@ -155,6 +155,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       if (!hasSqlite) {
         const response = await fetch('library.json');
+        if (!response.ok) throw new Error("library.json introuvable");
         const data: Sermon[] = await response.json();
         const map = new Map();
         data.forEach(s => map.set(s.id, s));
@@ -173,9 +174,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         const notes = await getAllNotes();
         set({ sermons: metadata, sermonsMap: map, notes });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      get().addNotification("Erreur d'initialisation", 'error');
+      get().addNotification(`Erreur: ${error.message || "Base de données inaccessible"}`, 'error');
     } finally {
       set({ isLoading: false });
     }
@@ -185,19 +186,26 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ isLoading: true, loadingMessage: "Importation...", loadingProgress: 10 });
     try {
       const response = await fetch('library.json');
+      if (!response.ok) throw new Error("Fichier library.json introuvable sur le disque.");
+      
       const incoming: Sermon[] = await response.json();
       
       if (get().isSqliteAvailable) {
         set({ loadingProgress: 40, loadingMessage: "Indexation SQLite..." });
-        await bulkAddSermons(incoming);
+        const result = await bulkAddSermons(incoming);
+        if (!result.success) {
+          throw new Error(result.error || "Erreur inconnue lors de l'écriture SQL.");
+        }
       }
       
       const metadata = incoming.map(({text, ...meta}) => meta);
       const map = new Map();
       metadata.forEach(s => map.set(s.id, s));
       set({ sermons: metadata as any, sermonsMap: map, loadingProgress: 100 });
-    } catch (error) {
-      get().addNotification("Échec de l'importation.", 'error');
+      get().addNotification("Bibliothèque synchronisée.", 'success');
+    } catch (error: any) {
+      console.error(error);
+      get().addNotification(`Échec de l'importation : ${error.message || "Erreur inconnue"}`, 'error');
     } finally {
       set({ isLoading: false });
     }
@@ -223,7 +231,6 @@ export const useAppStore = create<AppState>((set, get) => ({
         set({ activeSermon: fullSermon });
       }
       
-      // Mettre à jour contextSermonIds : sermon actif + sélections manuelles
       const manual = get().manualContextIds;
       const newContext = Array.from(new Set([id, ...manual].filter(Boolean) as string[]));
       set({ contextSermonIds: newContext });
