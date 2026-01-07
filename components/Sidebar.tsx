@@ -1,3 +1,4 @@
+
 // Add React import to the list of imports from 'react'
 import React, { useState, useRef, useEffect, useMemo, memo, useDeferredValue, useTransition, useCallback } from 'react';
 import { useAppStore } from '../store';
@@ -169,7 +170,7 @@ const Sidebar: React.FC = () => {
   const sermons = useAppStore(s => s.sermons);
   const selectedSermonId = useAppStore(s => s.selectedSermonId);
   const setSelectedSermonId = useAppStore(s => s.setSelectedSermonId);
-  const contextSermonIds = useAppStore(s => s.contextSermonIds);
+  const manualContextIds = useAppStore(s => s.manualContextIds);
   const toggleContextSermon = useAppStore(s => s.toggleContextSermon);
   
   const searchQuery = useAppStore(s => s.searchQuery);
@@ -452,9 +453,9 @@ const Sidebar: React.FC = () => {
 
           {isFullTextSearch && (
             <div className="flex items-stretch gap-1 bg-zinc-100/30 dark:bg-zinc-800/30 p-1.5 rounded-xl animate-in slide-in-from-top-1 duration-300 border border-zinc-200/40 dark:border-zinc-700/40 shadow-inner">
-              <SearchModeButton mode={SearchMode.EXACT_PHRASE} label="Phrase" tooltip={t.search_mode_exact_phrase} currentMode={searchMode} setMode={setSearchMode} />
-              <SearchModeButton mode={SearchMode.DIVERSE} label="Mots" tooltip={t.search_mode_diverse} currentMode={searchMode} setMode={setSearchMode} />
-              <SearchModeButton mode={SearchMode.EXACT_WORDS} label="Exacts" tooltip={t.search_mode_exact_words} currentMode={searchMode} setMode={setSearchMode} />
+              <SearchModeButton mode={SearchMode.EXACT_PHRASE} label={t.search_mode_exact_phrase} tooltip={t.search_mode_exact_phrase} currentMode={searchMode} setMode={setSearchMode} />
+              <SearchModeButton mode={SearchMode.DIVERSE} label={t.search_mode_diverse} tooltip={t.search_mode_diverse} currentMode={searchMode} setMode={setSearchMode} />
+              <SearchModeButton mode={SearchMode.EXACT_WORDS} label={t.search_mode_exact_words} tooltip={t.search_mode_exact_words} currentMode={searchMode} setMode={setSearchMode} />
             </div>
           )}
 
@@ -483,7 +484,7 @@ const Sidebar: React.FC = () => {
               key={sermon.id}
               sermon={sermon}
               isSelected={selectedSermonId === sermon.id}
-              isContextSelected={contextSermonIds.includes(sermon.id)}
+              isContextSelected={manualContextIds.includes(sermon.id)}
               onSelect={() => setSelectedSermonId(sermon.id)}
               onToggleContext={() => toggleContextSermon(sermon.id)}
             />

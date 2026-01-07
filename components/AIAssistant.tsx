@@ -25,6 +25,7 @@ import {
 const AIAssistant: React.FC = () => {
   const { 
     contextSermonIds, 
+    selectedSermonId,
     toggleContextSermon,
     clearContextSermons,
     sermons, 
@@ -106,7 +107,7 @@ const AIAssistant: React.FC = () => {
     try {
       const fullSermons = await Promise.all(contextSermonIds.map(id => getSermonById(id)));
       const validSermons = fullSermons.filter((s): s is Sermon => !!s);
-      const mainSermon = validSermons[0];
+      const mainSermon = validSermons.find(s => s.id === selectedSermonId) || validSermons[0];
 
       if (!mainSermon) throw new Error("Aucun sermon sélectionné.");
 
@@ -178,25 +179,33 @@ const AIAssistant: React.FC = () => {
 
          <div className="flex gap-2.5 overflow-x-auto pb-1.5 custom-scrollbar no-scrollbar-buttons pr-2">
             {selectedSermonsMetadata.length > 0 ? (
-              selectedSermonsMetadata.map((s) => (
-                <div key={s.id} className="flex-shrink-0 w-[180px] bg-white/80 dark:bg-zinc-800/80 backdrop-blur-xl border border-zinc-200 dark:border-zinc-700 rounded-xl p-2.5 shadow-sm relative group animate-in slide-in-from-right-3 duration-500">
-                   <div className="flex items-start gap-2.5">
-                      <div className="w-7 h-7 flex items-center justify-center bg-teal-600/5 dark:bg-teal-600/10 rounded-lg border border-teal-600/10 shrink-0">
-                         <BookOpen className="w-3 h-3 text-teal-600" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                         <p className="text-[9px] font-black text-zinc-800 dark:text-zinc-100 truncate leading-tight tracking-tight">{s.title}</p>
-                         <p className="text-[7px] font-bold text-zinc-400 mt-0.5 uppercase tracking-tighter">{s.date}</p>
-                      </div>
-                   </div>
-                   <button 
-                    onClick={() => toggleContextSermon(s.id)}
-                    className="absolute -top-1 -right-1 w-5 h-5 bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-full flex items-center justify-center text-zinc-400 hover:text-red-500 shadow-md opacity-0 group-hover:opacity-100 transition-all active:scale-90"
-                   >
-                     <MinusCircle className="w-3 h-3" />
-                   </button>
-                </div>
-              ))
+              selectedSermonsMetadata.map((s) => {
+                const isActive = s.id === selectedSermonId;
+                return (
+                  <div key={s.id} className={`flex-shrink-0 w-[180px] bg-white/80 dark:bg-zinc-800/80 backdrop-blur-xl border rounded-xl p-2.5 shadow-sm relative group animate-in slide-in-from-right-3 duration-500 ${isActive ? 'border-teal-600/40 ring-1 ring-teal-600/10' : 'border-zinc-200 dark:border-zinc-700'}`}>
+                     <div className="flex items-start gap-2.5">
+                        <div className={`w-7 h-7 flex items-center justify-center rounded-lg border shrink-0 ${isActive ? 'bg-teal-600/20 border-teal-600/30' : 'bg-teal-600/5 dark:bg-teal-600/10 border-teal-600/10'}`}>
+                           <BookOpen className={`w-3 h-3 ${isActive ? 'text-teal-700 dark:text-teal-400' : 'text-teal-600'}`} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                           <div className="flex items-center gap-1.5">
+                             <p className="text-[9px] font-black text-zinc-800 dark:text-zinc-100 truncate leading-tight tracking-tight">{s.title}</p>
+                             {isActive && <div className="w-1.5 h-1.5 bg-teal-600 rounded-full shrink-0" title="Sermon actuellement ouvert (Auto)" />}
+                           </div>
+                           <p className="text-[7px] font-bold text-zinc-400 mt-0.5 uppercase tracking-tighter">{s.date} {isActive ? '• OUVERT' : ''}</p>
+                        </div>
+                     </div>
+                     {!isActive && (
+                       <button 
+                        onClick={() => toggleContextSermon(s.id)}
+                        className="absolute -top-1 -right-1 w-5 h-5 bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-full flex items-center justify-center text-zinc-400 hover:text-red-500 shadow-md opacity-0 group-hover:opacity-100 transition-all active:scale-90"
+                       >
+                         <MinusCircle className="w-3 h-3" />
+                       </button>
+                     )}
+                  </div>
+                );
+              })
             ) : (
               <div className="w-full py-4 flex flex-col items-center justify-center border-2 border-dashed border-zinc-200/50 dark:border-zinc-800/50 rounded-xl opacity-30">
                  <Library className="w-5 h-5 mb-1.5 text-zinc-300" />

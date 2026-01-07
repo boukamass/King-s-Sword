@@ -121,12 +121,7 @@ const Reader: React.FC = () => {
   const setExternalMaskOpen = useAppStore(s => s.setExternalMaskOpen);
   const projectionBlackout = useAppStore(s => s.projectionBlackout);
   const fontSize = useAppStore(s => s.fontSize);
-  const setFontSize = useCallback((size: number) => {
-    startTransition(() => {
-      const safeSize = Math.max(8, Math.min(150, size));
-      useAppStore.getState().setFontSize(safeSize);
-    });
-  }, []);
+  const setFontSize = useAppStore(s => s.setFontSize);
   
   const languageFilter = useAppStore(s => s.languageFilter);
   const triggerStudyRequest = useAppStore(s => s.triggerStudyRequest);
@@ -741,18 +736,33 @@ const Reader: React.FC = () => {
             <ActionButton onClick={() => setTheme(theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light')} icon={ThemeIcon} tooltip="Changer Thème" active={theme !== 'system'} />
             <div className="hidden sm:block w-px h-5 bg-zinc-200 dark:bg-zinc-800/50 mx-1" />
             
-            <div onDoubleClick={() => setFontSize(20)} className="flex items-center bg-white/50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200/50 dark:border-zinc-800/50 shadow-sm overflow-hidden no-print">
-              <button onClick={() => setFontSize(fontSize - 2)} className="w-9 h-9 flex items-center justify-center text-zinc-400 hover:text-teal-600 transition-colors border-r border-zinc-200/50 dark:border-zinc-800/50 active:scale-95" data-tooltip={t.reader_zoom_out}><ZoomOut className="w-4 h-4" /></button>
+            <div className="flex items-center bg-white/50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200/50 dark:border-zinc-800/50 shadow-sm overflow-hidden no-print">
+              <button
+                onClick={() => setFontSize(size => size - 2)}
+                onDoubleClick={e => e.stopPropagation()}
+                className="w-9 h-9 flex items-center justify-center text-zinc-400 hover:text-teal-600 transition-colors border-r border-zinc-200/50 dark:border-zinc-800/50 active:scale-95"
+                data-tooltip={t.reader_zoom_out}
+              >
+                <ZoomOut className="w-4 h-4" />
+              </button>
               <input 
                 type="text" 
-                value={localFontSize} 
+                value={localFontSize}
+                onDoubleClick={() => setFontSize(20)}
                 onChange={e => { if (/^\d*$/.test(e.target.value)) setLocalFontSize(e.target.value); }} 
                 onBlur={() => { const val = parseInt(String(localFontSize), 10); if (!isNaN(val)) setFontSize(val); else setLocalFontSize(fontSize); }} 
                 onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} 
                 className="w-12 h-9 bg-transparent text-center text-[11px] font-black text-zinc-600 dark:text-zinc-300 outline-none focus:text-teal-600 cursor-pointer" 
                 data-tooltip="Taille police (Double-clic pour réinitialiser)" 
               />
-              <button onClick={() => setFontSize(fontSize + 2)} className="w-9 h-9 flex items-center justify-center text-zinc-400 hover:text-teal-600 transition-colors border-l border-zinc-200/50 dark:border-zinc-800/50 active:scale-95" data-tooltip={t.reader_zoom_in}><ZoomIn className="w-4 h-4" /></button>
+              <button
+                onClick={() => setFontSize(size => size + 2)}
+                onDoubleClick={e => e.stopPropagation()}
+                className="w-9 h-9 flex items-center justify-center text-zinc-400 hover:text-teal-600 transition-colors border-l border-zinc-200/50 dark:border-zinc-800/50 active:scale-95"
+                data-tooltip={t.reader_zoom_in}
+              >
+                <ZoomIn className="w-4 h-4" />
+              </button>
             </div>
         </div>
       </div>

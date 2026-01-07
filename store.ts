@@ -31,6 +31,7 @@ interface AppState {
   selectedSermonId: string | null;
   activeNoteId: string | null;
   contextSermonIds: string[];
+  manualContextIds: string[]; // Nouveau : IDs ajoutés manuellement via le bouton Sparkle
   sidebarOpen: boolean;
   aiOpen: boolean;
   notesOpen: boolean;
@@ -84,7 +85,7 @@ interface AppState {
   setYearFilter: (year: string | null) => void;
   setVersionFilter: (v: string | null) => void;
   setTimeFilter: (v: string | null) => void;
-  setFontSize: (size: number) => void;
+  setFontSize: (updater: number | ((size: number) => number)) => void;
   setTheme: (theme: 'light' | 'dark' | 'system') => void;
   addChatMessage: (key: string, message: ChatMessage) => void;
   toggleContextSermon: (id: string) => void;
@@ -113,6 +114,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectedSermonId: null,
   activeNoteId: null,
   contextSermonIds: [], 
+  manualContextIds: [],
   sidebarOpen: true,
   aiOpen: false,
   notesOpen: false,
@@ -203,14 +205,14 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setSelectedSermonId: async (id) => {
     if (!id) {
-      set({ selectedSermonId: null, activeSermon: null });
+      set({ selectedSermonId: null, activeSermon: null, contextSermonIds: get().manualContextIds });
       return;
     }
     
     const currentId = get().selectedSermonId;
-    if (currentId === id && get().activeSermon) return; // Déjà chargé
+    if (currentId === id && get().activeSermon) return; 
 
-    set({ selectedSermonId: id, activeSermon: null }); // Reset pour montrer le loader
+    set({ selectedSermonId: id, activeSermon: null }); 
     
     try {
       if (!get().isSqliteAvailable) {
@@ -221,15 +223,16 @@ export const useAppStore = create<AppState>((set, get) => ({
         set({ activeSermon: fullSermon });
       }
       
-      if (id && !get().contextSermonIds.includes(id)) {
-        set(s => ({ contextSermonIds: [...s.contextSermonIds, id] }));
-      }
+      // Mettre à jour contextSermonIds : sermon actif + sélections manuelles
+      const manual = get().manualContextIds;
+      const newContext = Array.from(new Set([id, ...manual].filter(Boolean) as string[]));
+      set({ contextSermonIds: newContext });
+
     } catch (error) {
       get().addNotification("Erreur de chargement", "error");
     }
   },
 
-  // ... autres méthodes conservées et optimisées ...
   addNote: async (note) => {
     const newNote: Note = {
       id: crypto.randomUUID(),
@@ -316,12 +319,29 @@ export const useAppStore = create<AppState>((set, get) => ({
   setYearFilter: (f) => set({ yearFilter: f }),
   setVersionFilter: (f) => set({ versionFilter: f }),
   setTimeFilter: (f) => set({ timeFilter: f }),
-  setFontSize: (s) => set({ fontSize: s }),
+  setFontSize: (updater) => set(state => {
+    const newSize = typeof updater === 'function' ? updater(state.fontSize) : updater;
+    return { fontSize: Math.max(8, Math.min(150, newSize)) };
+  }),
   setTheme: (t) => set({ theme: t }),
-  toggleContextSermon: (id) => set(s => ({
-    contextSermonIds: s.contextSermonIds.includes(id) ? s.contextSermonIds.filter(x => x !== id) : [...s.contextSermonIds, id]
-  })),
-  clearContextSermons: () => set({ contextSermonIds: [] }),
+  
+  toggleContextSermon: (id) => set(s => {
+    const isManual = s.manualContextIds.includes(id);
+    const newManual = isManual 
+      ? s.manualContextIds.filter(x => x !== id) 
+      : [...s.manualContextIds, id];
+    
+    const activeId = s.selectedSermonId;
+    const newContext = Array.from(new Set([activeId, ...newManual].filter(Boolean) as string[]));
+    
+    return { manualContextIds: newManual, contextSermonIds: newContext };
+  }),
+
+  clearContextSermons: () => set(s => {
+    const activeId = s.selectedSermonId;
+    return { manualContextIds: [], contextSermonIds: activeId ? [activeId] : [] };
+  }),
+
   triggerStudyRequest: (t) => set({ pendingStudyRequest: t, aiOpen: true }),
   setJumpToText: (t) => set({ jumpToText: t }),
   updateSermonHighlights: (id, h) => {},

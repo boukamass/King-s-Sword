@@ -13,24 +13,55 @@ function initDatabase() {
   try {
     const dbPath = path.join(app.getPath('userData'), 'kings_sword_v2.db');
     db = new Database(dbPath);
-    // Optimisations PRAGMA pour la vitesse
+    // Optimisations PRAGMA
     db.pragma('journal_mode = WAL');
     db.pragma('synchronous = NORMAL');
     db.pragma('temp_store = MEMORY');
-    db.pragma('cache_size = -2000'); // 2MB de cache
     
     db.exec(`
-      CREATE TABLE IF NOT EXISTS sermons (id TEXT PRIMARY KEY, title TEXT, date TEXT, city TEXT, version TEXT, time TEXT, audio_url TEXT);
-      CREATE TABLE IF NOT EXISTS paragraphs (id TEXT PRIMARY KEY, sermon_id TEXT, paragraph_index INTEGER, content TEXT, FOREIGN KEY(sermon_id) REFERENCES sermons(id) ON DELETE CASCADE);
-      CREATE VIRTUAL TABLE IF NOT EXISTS paragraphs_fts USING fts5(content, sermon_id UNINDEXED, paragraph_index UNINDEXED, content='paragraphs', content_rowid='id');
+      CREATE TABLE IF NOT EXISTS sermons (
+        id TEXT PRIMARY KEY, 
+        title TEXT, 
+        date TEXT, 
+        city TEXT, 
+        version TEXT, 
+        time TEXT, 
+        audio_url TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS paragraphs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, 
+        sermon_id TEXT, 
+        paragraph_index INTEGER, 
+        content TEXT, 
+        FOREIGN KEY(sermon_id) REFERENCES sermons(id) ON DELETE CASCADE
+      );
+
+      CREATE VIRTUAL TABLE IF NOT EXISTS paragraphs_fts USING fts5(
+        content, 
+        sermon_id UNINDEXED, 
+        paragraph_index UNINDEXED
+      );
       
-      -- Déclencheurs pour garder l'index FTS à jour
-      CREATE TRIGGER IF NOT EXISTS paragraphs_ai AFTER INSERT ON paragraphs BEGIN
-        INSERT INTO paragraphs_fts(rowid, content, sermon_id, paragraph_index) VALUES (new.rowid, new.content, new.sermon_id, new.paragraph_index);
-      END;
-      
-      CREATE TABLE IF NOT EXISTS notes (id TEXT PRIMARY KEY, title TEXT, content TEXT, color TEXT, "order" INTEGER, creation_date TEXT);
-      CREATE TABLE IF NOT EXISTS citations (id TEXT PRIMARY KEY, note_id TEXT, sermon_id TEXT, sermon_title_snapshot TEXT, sermon_date_snapshot TEXT, quoted_text TEXT, date_added TEXT, FOREIGN KEY(note_id) REFERENCES notes(id) ON DELETE CASCADE);
+      CREATE TABLE IF NOT EXISTS notes (
+        id TEXT PRIMARY KEY, 
+        title TEXT, 
+        content TEXT, 
+        color TEXT, 
+        "order" INTEGER, 
+        creation_date TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS citations (
+        id TEXT PRIMARY KEY, 
+        note_id TEXT, 
+        sermon_id TEXT, 
+        sermon_title_snapshot TEXT, 
+        sermon_date_snapshot TEXT, 
+        quoted_text TEXT, 
+        date_added TEXT, 
+        FOREIGN KEY(note_id) REFERENCES notes(id) ON DELETE CASCADE
+      );
     `);
   } catch (err) {
     console.error(`[DB] Erreur: ${err.message}`);
@@ -44,7 +75,6 @@ ipcMain.handle('db:isReady', () => !!db);
 
 ipcMain.handle('db:getSermonsMetadata', () => {
   if (!db) return [];
-  // On ne récupère que ce qui est nécessaire pour la liste
   return db.prepare('SELECT id, title, date, city, version FROM sermons ORDER BY date DESC').all();
 });
 
@@ -62,13 +92,20 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 30, offset = 0 }) => 
   let sqlQuery = query.trim();
   if (!sqlQuery || sqlQuery.length < 2) return [];
 
-  // Nettoyage et formatage pour FTS5
-  if (mode === 'EXACT_PHRASE') sqlQuery = `"${sqlQuery.replace(/"/g, '""')}"`;
-  else if (mode === 'DIVERSE') sqlQuery = sqlQuery.split(/\s+/).filter(v => v).map(v => `${v}*`).join(' AND ');
-  else sqlQuery = `${sqlQuery.replace(/"/g, '""')}*`;
+  const terms = sqlQuery.split(/\s+/).filter(v => v).map(v => v.replace(/"/g, '""'));
+
+  // Formatage de la requête pour FTS5
+  if (mode === 'EXACT_PHRASE') {
+    sqlQuery = `"${terms.join(' ')}"`;
+  } else if (mode === 'DIVERSE') {
+    // "Mots" -> logique OR pour des résultats plus variés
+    sqlQuery = terms.join(' OR ');
+  } else { // Correspond à EXACT_WORDS
+    // "Exacts" -> logique AND, tous les mots doivent être présents
+    sqlQuery = terms.join(' AND ');
+  }
 
   try {
-    // Jointure optimisée pour récupérer les métadonnées en une seule fois
     const stmt = db.prepare(`
       SELECT 
         f.rowid as paragraphId, 
@@ -79,7 +116,6 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 30, offset = 0 }) => 
       FROM paragraphs_fts f
       JOIN sermons s ON f.sermon_id = s.id
       WHERE paragraphs_fts MATCH ? 
-      ORDER BY rank
       LIMIT ? OFFSET ?
     `);
     return stmt.all(sqlQuery, limit, offset);
@@ -91,13 +127,43 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 30, offset = 0 }) => 
 
 ipcMain.handle('db:importSermons', (event, sermons) => {
   checkDb();
+
+  // Supprime les tables pour garantir un schéma propre à chaque réimportation complète.
+  db.exec(`
+    DROP TABLE IF EXISTS paragraphs_fts;
+    DROP TABLE IF EXISTS paragraphs;
+    DROP TABLE IF EXISTS sermons;
+  `);
+
+  // Recrée les tables avec le schéma correct.
+  db.exec(`
+    CREATE TABLE sermons (
+      id TEXT PRIMARY KEY, 
+      title TEXT, 
+      date TEXT, 
+      city TEXT, 
+      version TEXT, 
+      time TEXT, 
+      audio_url TEXT
+    );
+    CREATE TABLE paragraphs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, 
+      sermon_id TEXT, 
+      paragraph_index INTEGER, 
+      content TEXT, 
+      FOREIGN KEY(sermon_id) REFERENCES sermons(id) ON DELETE CASCADE
+    );
+    CREATE VIRTUAL TABLE paragraphs_fts USING fts5(
+      content, 
+      sermon_id UNINDEXED, 
+      paragraph_index UNINDEXED
+    );
+  `);
+
   const transaction = db.transaction((data) => {
-    db.prepare('DELETE FROM paragraphs').run();
-    db.prepare('DELETE FROM sermons').run();
-    db.prepare('DELETE FROM paragraphs_fts').run();
-    
     const insS = db.prepare('INSERT INTO sermons (id, title, date, city, version, time, audio_url) VALUES (?, ?, ?, ?, ?, ?, ?)');
-    const insP = db.prepare('INSERT INTO paragraphs (id, sermon_id, paragraph_index, content) VALUES (?, ?, ?, ?)');
+    const insP = db.prepare('INSERT INTO paragraphs (sermon_id, paragraph_index, content) VALUES (?, ?, ?)');
+    const insFTS = db.prepare('INSERT INTO paragraphs_fts (content, sermon_id, paragraph_index) VALUES (?, ?, ?)');
     
     for (const s of data) {
       insS.run(s.id, s.title, s.date, s.city, s.version || 'VGR', s.time || 'Soir', s.audio_url || '');
@@ -105,16 +171,17 @@ ipcMain.handle('db:importSermons', (event, sermons) => {
       segments.forEach((p, i) => {
         const content = p.trim();
         if (content) {
-          insP.run(`${s.id}_${i}`, s.id, i + 1, content);
+          insP.run(s.id, i + 1, content);
+          insFTS.run(content, s.id, i + 1);
         }
       });
     }
   });
+
   transaction(sermons);
   return { success: true };
 });
 
-// ... reste du fichier (notes, etc.) conservé ...
 ipcMain.handle('db:getNotes', () => {
   if (!db) return [];
   const ns = db.prepare('SELECT * FROM notes ORDER BY "order" ASC').all();
