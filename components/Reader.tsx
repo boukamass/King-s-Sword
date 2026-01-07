@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo, useCallback, memo, useTransition } from 'react';
 import { useAppStore } from '../store';
 import { translations } from '../translations';
@@ -291,34 +292,23 @@ const Reader: React.FC = () => {
   }, [sermon?.id]);
 
   const structuredSegments = useMemo(() => {
-    const result: { words: SimpleWord[]; isNumbered: boolean; text: string; hasSpecial: boolean }[] = [];
+    const result: { words: SimpleWord[]; isNumbered: boolean; text: string }[] = [];
     let globalIdx = 0;
     
-    // Convert current special states to Sets for O(1) lookups
-    const specialIndices = new Set([
-        ...searchResults, 
-        ...searchOriginMatchIndices, 
-        ...(sermon?.highlights?.flatMap(h => Array.from({length: h.end - h.start + 1}, (_, i) => h.start + i)) || [])
-    ]);
-
     segments.forEach((seg, segIdx) => {
         const segWords: SimpleWord[] = [];
         const tokens = seg.split(/(\s+)/);
-        let hasSpecial = false;
-
         tokens.forEach(token => {
             if (token !== "") {
-                const idx = globalIdx++;
-                segWords.push({ text: token, segmentIndex: segIdx, globalIndex: idx });
-                if (specialIndices.has(idx)) hasSpecial = true;
+                segWords.push({ text: token, segmentIndex: segIdx, globalIndex: globalIdx++ });
             }
         });
         
         const isNumbered = /^\d+/.test(seg.trim());
-        result.push({ words: segWords, isNumbered, text: seg, hasSpecial });
+        result.push({ words: segWords, isNumbered, text: seg });
     });
     return result;
-  }, [segments, searchResults, searchOriginMatchIndices, sermon?.highlights]);
+  }, [segments]);
 
   const words = useMemo(() => {
     return structuredSegments.flatMap(s => s.words);
@@ -791,6 +781,7 @@ const Reader: React.FC = () => {
 
       <div className={`flex-1 relative overflow-hidden flex justify-center`}>
         <div 
+          onScroll={() => {}} 
           ref={scrollContainerRef} 
           onMouseUp={handleTextSelection} 
           className={`absolute inset-0 overflow-y-auto custom-scrollbar serif-text leading-relaxed text-zinc-800 dark:text-zinc-300 transition-all duration-300 ${isOSFullscreen ? 'py-4 px-4 md:px-8' : 'py-16 px-6 sm:px-12 lg:px-20 xl:px-28'}`}
@@ -799,50 +790,17 @@ const Reader: React.FC = () => {
             {structuredSegments.map((seg, segIdx) => {
               const isActiveProjection = projectedSegmentIndex === segIdx;
               
-              const baseStyles = seg.isNumbered 
-                ? `group/seg relative mb-1.5 py-2.5 px-6 rounded-[20px] border-l-[5px] transition-all duration-300 cursor-pointer shadow-sm hover:shadow-xl hover:scale-[1.005] active:scale-[0.995] ${
-                    isActiveProjection 
-                      ? 'bg-teal-600/10 border-teal-600 ring-2 ring-teal-600/20' 
-                      : 'bg-white dark:bg-zinc-900/50 border-teal-600/20 hover:border-teal-600 dark:border-zinc-800'
-                  }`
-                : "mb-4 px-6";
-
-              if (seg.text.trim() === '') return null;
-
-              // Rendu intelligent : Si le paragraphe n'a rien de spécial, on affiche du texte brut (gain performance énorme)
-              if (!seg.hasSpecial) {
+              if (seg.isNumbered) {
                 return (
-                  <div key={segIdx} className={baseStyles} onClick={seg.isNumbered ? () => handleProjectSegment(segIdx) : undefined}>
-                    {seg.isNumbered && (
-                       <div className="absolute -left-[54px] top-1/2 -translate-y-1/2 opacity-0 group-hover/seg:opacity-100 transition-all translate-x-4 group-hover/seg:translate-x-0 no-print flex flex-col gap-2">
-                        <div 
-                          onClick={(e) => { e.stopPropagation(); handleProjectSegment(segIdx); }}
-                          data-tooltip="Projeter ce paragraphe"
-                          className="w-9 h-9 flex items-center justify-center bg-teal-600 text-white rounded-xl shadow-lg shadow-teal-600/30 hover:scale-110 transition-transform"
-                        >
-                          <MonitorPlay className="w-4 h-4" />
-                        </div>
-                        <div 
-                          onClick={(e) => { e.stopPropagation(); setNoteSelectorPayload({ text: seg.text.trim(), sermon }); }}
-                          data-tooltip="Ajouter aux notes"
-                          className="w-9 h-9 flex items-center justify-center bg-emerald-600 text-white rounded-xl shadow-lg shadow-emerald-600/30 hover:scale-110 transition-transform"
-                        >
-                          <NotebookPen className="w-4 h-4" />
-                        </div>
-                      </div>
-                    )}
-                    {seg.text}
-                  </div>
-                );
-              }
-
-              return (
-                <div 
-                  key={segIdx}
-                  onClick={seg.isNumbered ? () => handleProjectSegment(segIdx) : undefined}
-                  className={baseStyles}
-                >
-                  {seg.isNumbered && (
+                  <div 
+                    key={segIdx}
+                    onClick={() => handleProjectSegment(segIdx)}
+                    className={`group/seg relative mb-1.5 py-2.5 px-6 rounded-[20px] border-l-[5px] transition-all duration-300 cursor-pointer shadow-sm hover:shadow-xl hover:scale-[1.005] active:scale-[0.995] ${
+                      isActiveProjection 
+                        ? 'bg-teal-600/10 border-teal-600 ring-2 ring-teal-600/20' 
+                        : 'bg-white dark:bg-zinc-900/50 border-teal-600/20 hover:border-teal-600 dark:border-zinc-800'
+                    }`}
+                  >
                     <div className="absolute -left-[54px] top-1/2 -translate-y-1/2 opacity-0 group-hover/seg:opacity-100 transition-all translate-x-4 group-hover/seg:translate-x-0 no-print flex flex-col gap-2">
                         <div 
                           onClick={(e) => { e.stopPropagation(); handleProjectSegment(segIdx); }}
@@ -859,7 +817,28 @@ const Reader: React.FC = () => {
                           <NotebookPen className="w-4 h-4" />
                         </div>
                     </div>
-                  )}
+                    {seg.words.map((word) => (
+                      <WordComponent 
+                        key={word.globalIndex} 
+                        word={word} 
+                        wordRef={(el: any) => { if(el) wordRefs.current.set(word.globalIndex, el); }} 
+                        isSearchResult={checkIsSearchResult(word.globalIndex)} 
+                        isCurrentResult={checkIsCurrentResult(word.globalIndex)} 
+                        isSearchOriginMatch={checkIsSearchOriginMatch(word.globalIndex)}
+                        citationColor={citationHighlightMap.get(word.globalIndex)?.colorClass}
+                        highlight={highlightMap.get(word.globalIndex)}
+                        onRemoveHighlight={handleRemoveHighlight}
+                        onMouseUp={handleTextSelection}
+                      />
+                    ))}
+                  </div>
+                );
+              }
+
+              if (seg.text.trim() === '') return null;
+
+              return (
+                <div key={segIdx} className="mb-4 px-6">
                   {seg.words.map((word) => (
                     <WordComponent 
                       key={word.globalIndex} 

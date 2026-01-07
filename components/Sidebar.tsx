@@ -29,7 +29,7 @@ interface DropdownProps {
   className?: string;
 }
 
-const ModernDropdown: React.FC<DropdownProps> = memo(({ value, onChange, options, placeholder, className = "" }) => {
+const ModernDropdown: React.FC<DropdownProps> = ({ value, onChange, options, placeholder, className = "" }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -84,7 +84,7 @@ const ModernDropdown: React.FC<DropdownProps> = memo(({ value, onChange, options
       )}
     </div>
   );
-});
+};
 
 const SermonItem = memo(({ 
   sermon, 
@@ -100,7 +100,7 @@ const SermonItem = memo(({
   onToggleContext: () => void;
 }) => (
   <div 
-    className={`group flex items-center gap-3 p-3 rounded-xl transition-all duration-200 cursor-pointer mb-1 h-[68px] ${
+    className={`group flex items-center gap-3 p-3 rounded-xl transition-all duration-200 cursor-pointer mb-1 ${
       isSelected 
         ? 'bg-teal-600/10 dark:bg-teal-600/20 ring-1 ring-teal-600/20 shadow-md' 
         : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/40 border border-transparent hover:border-zinc-100 dark:hover:border-zinc-800'
@@ -195,7 +195,7 @@ const Sidebar: React.FC = () => {
   const [isFooterVisible, setIsFooterVisible] = useState(true);
   
   // Infinite Scroll State
-  const [displayLimit, setDisplayLimit] = useState(40);
+  const [displayLimit, setDisplayLimit] = useState(50);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const lang = languageFilter === 'Anglais' ? 'en' : 'fr';
@@ -204,64 +204,64 @@ const Sidebar: React.FC = () => {
   const setSearchQuery = useCallback((q: string) => {
     startTransition(() => {
       useAppStore.getState().setSearchQuery(q);
-      setDisplayLimit(40);
+      setDisplayLimit(50);
     });
   }, []);
 
   const setCityFilter = useCallback((val: string | null) => startTransition(() => {
     useAppStore.getState().setCityFilter(val);
-    setDisplayLimit(40);
+    setDisplayLimit(50);
   }), []);
 
   const setYearFilter = useCallback((val: string | null) => startTransition(() => {
     useAppStore.getState().setYearFilter(val);
-    setDisplayLimit(40);
+    setDisplayLimit(50);
   }), []);
 
   const setVersionFilter = useCallback((val: string | null) => startTransition(() => {
     useAppStore.getState().setVersionFilter(val);
-    setDisplayLimit(40);
+    setDisplayLimit(50);
   }), []);
 
   const setTimeFilter = useCallback((val: string | null) => startTransition(() => {
     useAppStore.getState().setTimeFilter(val);
-    setDisplayLimit(40);
+    setDisplayLimit(50);
   }), []);
 
   const dynamicYears = useMemo(() => {
-    const years = new Set<string>();
+    const set = new Set<string>();
     for (let i = 0; i < sermons.length; i++) {
         const d = sermons[i].date;
         if (d && d.length >= 4) {
             const year = d.substring(0, 4);
-            if (/^\d{4}$/.test(year)) years.add(year);
+            if (/^\d{4}$/.test(year)) set.add(year);
         }
     }
-    return Array.from(years).sort((a, b) => b.localeCompare(a));
+    return Array.from(set).sort((a, b) => b.localeCompare(a));
   }, [sermons]);
 
   const dynamicCities = useMemo(() => {
-    const cities = new Set<string>();
+    const set = new Set<string>();
     for (let i = 0; i < sermons.length; i++) {
-        if (sermons[i].city) cities.add(sermons[i].city);
+        if (sermons[i].city) set.add(sermons[i].city);
     }
-    return Array.from(cities).sort();
+    return Array.from(set).sort();
   }, [sermons]);
 
   const dynamicVersions = useMemo(() => {
-    const versions = new Set<string>();
+    const set = new Set<string>();
     for (let i = 0; i < sermons.length; i++) {
-        if (sermons[i].version) versions.add(sermons[i].version);
+        if (sermons[i].version) set.add(sermons[i].version);
     }
-    return Array.from(versions).sort();
+    return Array.from(set).sort();
   }, [sermons]);
 
   const dynamicTimes = useMemo(() => {
-    const times = new Set<string>();
+    const set = new Set<string>();
     for (let i = 0; i < sermons.length; i++) {
-        if (sermons[i].time) times.add(sermons[i].time);
+        if (sermons[i].time) set.add(sermons[i].time);
     }
-    return Array.from(times).sort();
+    return Array.from(set).sort();
   }, [sermons]);
 
   useEffect(() => {
@@ -271,18 +271,27 @@ const Sidebar: React.FC = () => {
   const activeFiltersCount = [yearFilter, cityFilter, versionFilter, timeFilter].filter(f => f !== null).length;
 
   const filteredSermons = useMemo(() => {
+    // Normalisation de la requête une seule fois pour tout le filtrage
     const q = isFullTextSearch ? "" : normalizeText(deferredSearchQuery);
+    
+    // Si aucun filtre n'est actif, on retourne tout de suite pour gagner du temps
     if (!q && !cityFilter && !yearFilter && !versionFilter && !timeFilter) return sermons;
 
     return sermons.filter(s => {
+      if (!s) return false;
+      
+      // Filtrage par texte (sur titre normalisé pré-calculé)
       if (q) {
         const titleText = (s as any)._normalizedTitle || normalizeText(s.title || '');
         if (!titleText.includes(q)) return false;
       }
+
+      // Filtrages rapides par égalité stricte
       if (cityFilter && s.city !== cityFilter) return false;
       if (yearFilter && (!s.date || !s.date.startsWith(yearFilter))) return false;
       if (versionFilter && s.version !== versionFilter) return false;
       if (timeFilter && s.time !== timeFilter) return false;
+      
       return true;
     });
   }, [sermons, deferredSearchQuery, cityFilter, yearFilter, versionFilter, timeFilter, isFullTextSearch]);
@@ -294,9 +303,9 @@ const Sidebar: React.FC = () => {
   const handleScroll = useCallback(() => {
     if (!scrollContainerRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
-    if (scrollTop + clientHeight >= scrollHeight - 400) {
+    if (scrollTop + clientHeight >= scrollHeight - 300) {
       if (displayLimit < filteredSermons.length) {
-        setDisplayLimit(prev => prev + 40);
+        setDisplayLimit(prev => prev + 50);
       }
     }
   }, [displayLimit, filteredSermons.length]);
@@ -479,7 +488,7 @@ const Sidebar: React.FC = () => {
             />
           ))}
           {displayLimit < filteredSermons.length && (
-            <div className="py-8 flex justify-center h-[68px]">
+            <div className="py-8 flex justify-center">
               <Loader2 className="w-5 h-5 animate-spin text-zinc-300" />
             </div>
           )}
