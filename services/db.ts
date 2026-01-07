@@ -12,16 +12,6 @@ export const isDatabaseReady = async (): Promise<boolean> => {
   }
 };
 
-export const fetchLibrary = async (): Promise<Sermon[]> => {
-  if (isElectron && window.electronAPI.getLibrary) {
-    return window.electronAPI.getLibrary();
-  } else {
-    const response = await fetch('library.json');
-    if (!response.ok) throw new Error('Impossible de charger la bibliothèque de sermons.');
-    return response.json();
-  }
-};
-
 export const getAllSermonsMetadata = async (): Promise<Omit<Sermon, 'text'>[]> => {
   if (!isElectron) return [];
   return window.electronAPI.db.getSermonsMetadata();

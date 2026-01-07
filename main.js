@@ -71,20 +71,6 @@ function initDatabase() {
 
 const checkDb = () => { if (!db) throw new Error("SQLite non disponible"); };
 
-ipcMain.handle('get-library-data', () => {
-  try {
-    const libraryPath = isDev
-      ? path.join(process.cwd(), 'public', 'library.json')
-      : path.join(__dirname, 'dist', 'library.json');
-      
-    const data = fs.readFileSync(libraryPath, 'utf8');
-    return JSON.parse(data);
-  } catch (error) {
-    console.error("Erreur de lecture de library.json:", error);
-    return [];
-  }
-});
-
 ipcMain.handle('db:isReady', () => !!db);
 
 ipcMain.handle('db:getSermonsMetadata', () => {
