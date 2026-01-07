@@ -154,13 +154,13 @@ const SearchModeButton = memo(({ mode, label, tooltip, currentMode, setMode }: {
   <button
     onClick={() => setMode(mode)}
     data-tooltip={tooltip}
-    className={`flex-1 text-center px-1 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all duration-300 tooltip-bottom ${
+    className={`flex-1 text-center px-1 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all duration-300 tooltip-bottom border ${
       currentMode === mode
-        ? 'bg-teal-600 text-white shadow-xl shadow-teal-600/20 ring-1 ring-teal-600'
-        : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/60 dark:hover:bg-zinc-700/50'
+        ? 'bg-teal-600 text-white border-teal-600 shadow-lg shadow-teal-600/20'
+        : 'bg-white dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:border-teal-500/50 hover:bg-zinc-50 dark:hover:bg-zinc-700/50'
     }`}
   >
-    {mode === SearchMode.EXACT_PHRASE ? "Phrase" : mode === SearchMode.DIVERSE ? "Mots" : "Exacts"}
+    {label}
   </button>
 ));
 
@@ -373,41 +373,42 @@ const Sidebar: React.FC = () => {
           <div className="relative group/search-input flex items-center">
             <input
               type="text"
-              placeholder={isFullTextSearch ? "Appuyez sur Entrée..." : t.search_placeholder}
-              className={`w-full pl-9 pr-20 py-2.5 bg-white dark:bg-zinc-800 border rounded-xl text-xs font-bold text-zinc-950 dark:text-white focus:outline-none focus:ring-4 transition-all shadow-sm ${
+              placeholder={isFullTextSearch ? "Appuyez sur Entrée pour chercher partout..." : t.search_placeholder}
+              className={`w-full pl-9 pr-12 py-2.5 bg-white dark:bg-zinc-800 border rounded-xl text-xs font-bold text-zinc-950 dark:text-white focus:outline-none focus:ring-4 transition-all shadow-sm ${
                 isFullTextSearch 
-                  ? 'border-teal-600/30 dark:border-teal-600/30 focus:border-teal-600 focus:ring-teal-600/10 ring-2 ring-teal-600/5' 
+                  ? 'border-teal-600 dark:border-teal-500 focus:ring-teal-600/10' 
                   : 'border-zinc-200/60 dark:border-zinc-700/60 focus:border-teal-500 focus:ring-teal-500/10'
               }`}
               value={internalQuery}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
             />
-            <Search className={`absolute left-3 w-3.5 h-3.5 transition-all duration-300 ease-out group-hover/search-input:scale-110 group-hover/search-input:rotate-[-10deg] ${isFullTextSearch ? 'text-teal-600' : 'text-teal-600'}`} />
+            <Search className={`absolute left-3 w-3.5 h-3.5 transition-all duration-300 ease-out group-hover/search-input:scale-110 group-hover/search-input:rotate-[-10deg] ${isFullTextSearch ? 'text-teal-600' : 'text-zinc-400'}`} />
             
             <div className="absolute right-1.5 flex items-center gap-1">
-              {internalQuery && (
-                <button 
-                  onClick={() => { setInternalQuery(''); setSearchQuery(''); }}
-                  data-tooltip="Effacer"
-                  className="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors tooltip-bottom"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-              {isFullTextSearch && (
+              {isFullTextSearch ? (
                 <button 
                   onClick={triggerSearch}
                   disabled={isSearching}
                   data-tooltip="Lancer la recherche intégrale"
-                  className="w-7 h-7 flex items-center justify-center bg-teal-600 text-white rounded-lg hover:bg-teal-700 active:scale-90 transition-all shadow-lg shadow-teal-600/20 disabled:opacity-50 tooltip-bottom group/search-btn"
+                  className="w-8 h-8 flex items-center justify-center bg-teal-600 text-white rounded-lg hover:bg-teal-700 active:scale-90 transition-all shadow-lg shadow-teal-600/20 disabled:opacity-50 tooltip-bottom group/search-btn"
                 >
                   {isSearching ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
-                    <ArrowRight className="w-4 h-4 transition-all duration-300 ease-out group-hover/search-btn:translate-x-0.5 group-hover/search-btn:scale-110" />
+                    <ArrowRight className="w-4 h-4 transition-all duration-300 ease-out group-hover/search-btn:translate-x-0.5" />
                   )}
                 </button>
+              ) : (
+                internalQuery && (
+                  <button 
+                    onClick={() => { setInternalQuery(''); setSearchQuery(''); }}
+                    data-tooltip="Effacer"
+                    className="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors tooltip-bottom"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )
               )}
             </div>
           </div>
@@ -450,7 +451,7 @@ const Sidebar: React.FC = () => {
           </div>
 
           {isFullTextSearch && (
-            <div className="flex items-stretch gap-1 bg-zinc-100/50 dark:bg-zinc-800/50 p-1 rounded-xl animate-in fade-in duration-300 border border-zinc-200/30 dark:border-zinc-700/30">
+            <div className="flex items-stretch gap-1 bg-zinc-100/30 dark:bg-zinc-800/30 p-1.5 rounded-xl animate-in slide-in-from-top-1 duration-300 border border-zinc-200/40 dark:border-zinc-700/40 shadow-inner">
               <SearchModeButton mode={SearchMode.EXACT_PHRASE} label="Phrase" tooltip={t.search_mode_exact_phrase} currentMode={searchMode} setMode={setSearchMode} />
               <SearchModeButton mode={SearchMode.DIVERSE} label="Mots" tooltip={t.search_mode_diverse} currentMode={searchMode} setMode={setSearchMode} />
               <SearchModeButton mode={SearchMode.EXACT_WORDS} label="Exacts" tooltip={t.search_mode_exact_words} currentMode={searchMode} setMode={setSearchMode} />

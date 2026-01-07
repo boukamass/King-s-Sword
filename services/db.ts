@@ -1,5 +1,5 @@
 
-import { Sermon, Note } from '../types';
+import { Sermon, Note, SearchMode } from '../types';
 
 const isElectron = !!window.electronAPI;
 
@@ -31,6 +31,16 @@ export const getSermonById = async (id: string): Promise<Sermon | null> => {
 export const bulkAddSermons = async (sermons: Sermon[]): Promise<void> => {
   if (!isElectron) return;
   await window.electronAPI.db.importSermons(sermons);
+};
+
+export const searchSermons = async (params: { query: string; mode: SearchMode; limit: number; offset: number }): Promise<any[]> => {
+  if (!isElectron) return [];
+  try {
+    return await window.electronAPI.db.search(params);
+  } catch (error) {
+    console.error("Search API Error:", error);
+    return [];
+  }
 };
 
 // Notes & Citations

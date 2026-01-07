@@ -761,7 +761,7 @@ const Reader: React.FC = () => {
         <div className="absolute top-14 left-0 right-0 z-[30] px-4 md:px-8 py-3 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl border-b border-zinc-100 dark:border-zinc-800/50 flex justify-center">
            <div className="flex items-center gap-4 w-full max-w-2xl">
              <div className="relative flex-1 group/reader-search">
-               <input autoFocus type="text" placeholder={t.reader_search_placeholder} value={readerSearchQuery} onChange={e => setReaderSearchQuery(e.target.value)} className="w-full pl-10 pr-10 py-2.5 bg-zinc-100/50 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-zinc-800/50 rounded-2xl text-sm font-bold outline-none" />
+               <input autoFocus type="text" placeholder={t.reader_search_placeholder} value={readerSearchQuery} onChange={e => setReaderSearchQuery(e.target.value)} className="w-full pl-10 pr-10 py-2.5 bg-zinc-100/50 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-zinc-800/50 rounded-2xl text-sm font-bold text-zinc-900 dark:text-zinc-100 outline-none" />
                <Search className="absolute left-3.5 top-3 w-4 h-4 text-zinc-400 group-focus-within/reader-search:text-teal-600" />
                {readerSearchQuery && <button onClick={() => { setReaderSearchQuery(''); setSearchResults([]); }} className="absolute right-3 top-2.5 w-6 h-6 flex items-center justify-center text-zinc-400 hover:text-red-500 rounded-lg"><X className="w-3.5 h-3.5" /></button>}
              </div>
