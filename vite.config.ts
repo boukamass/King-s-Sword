@@ -4,20 +4,33 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
   // Charge les variables d'environnement (y compris API_KEY du fichier .env)
-  // fix: Cast process to any to bypass the missing 'cwd' property error in TypeScript environments that don't recognize it on the global process object
   const env = loadEnv(mode, (process as any).cwd(), '');
   
   return {
     plugins: [react()],
     base: './', // Crucial pour Electron : permet de charger les assets via file://
     define: {
-      // Injecte la clé API de l'environnement de build directement dans le code
-      // On donne la priorité à la variable d'environnement système, puis au fichier .env
-      'process.env.API_KEY': JSON.stringify(env.API_KEY || process.env.API_KEY)
+      // Injecte la clé API pour l'utilisation dans le Renderer process
+      'process.env.API_KEY': JSON.stringify(env.API_KEY || process.env.API_KEY),
+      // NODE_ENV est utile pour certaines bibliothèques
+      'process.env.NODE_ENV': JSON.stringify(mode),
     },
     build: {
       outDir: 'dist',
       emptyOutDir: true,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom'],
+            'vendor-utils': ['marked', 'jspdf', 'docx', 'zustand'],
+            'vendor-genai': ['@google/genai']
+          }
+        }
+      }
+    },
+    optimizeDeps: {
+      // Force l'inclusion de certaines dépendances qui pourraient poser problème en ESM direct
+      include: ['react', 'react-dom', 'zustand', 'lucide-react', 'marked']
     }
   };
 });

@@ -1,14 +1,14 @@
 
 export interface TranscriptSegment {
-  startTime: number; // in seconds
-  endTime: number;   // in seconds
+  startTime: number;
+  endTime: number;
   text: string;
 }
 
 export interface Highlight {
   id: string;
-  start: number; // globalIndex of start word
-  end: number;   // globalIndex of end word
+  start: number;
+  end: number;
 }
 
 export interface Sermon {
@@ -21,7 +21,7 @@ export interface Sermon {
   audio_url?: string;
   text: string;
   highlights?: Highlight[];
-  _normalizedTitle?: string; // Cache pour la recherche ultra-rapide
+  _normalizedTitle?: string;
 }
 
 export interface Citation {
@@ -69,6 +69,18 @@ export interface ElectronAPI {
   onUpdateDownloaded: (callback: () => void) => void;
   restartApp: () => void;
   printPage: () => void;
+  db: {
+    getSermonsMetadata: () => Promise<Omit<Sermon, 'text'>[]>;
+    getSermonFull: (id: string) => Promise<Sermon | null>;
+    search: (params: { query: string; mode: SearchMode; limit: number; offset: number }) => Promise<any[]>;
+    importSermons: (sermons: Sermon[]) => Promise<{ success: boolean; count: number }>;
+    getParagraphContent: (id: string) => Promise<any>;
+    // Fix: Added missing note-related methods exposed in preload.js
+    getNotes: () => Promise<Note[]>;
+    saveNote: (note: Note) => Promise<{ success: boolean }>;
+    deleteNote: (id: string) => Promise<{ success: boolean }>;
+    reorderNotes: (notes: Note[]) => Promise<{ success: boolean }>;
+  };
 }
 
 declare global {
