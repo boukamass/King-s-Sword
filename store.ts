@@ -25,7 +25,7 @@ export interface SearchResult {
 
 interface AppState {
   sermons: Omit<Sermon, 'text'>[];
-  sermonsMap: Record<string, Omit<Sermon, 'text'>>;
+  sermonsMap: Map<string, Omit<Sermon, 'text'>>;
   activeSermon: Sermon | null; 
   notes: Note[];
   selectedSermonId: string | null;
@@ -107,7 +107,7 @@ interface AppState {
 
 export const useAppStore = create<AppState>((set, get) => ({
   sermons: [],
-  sermonsMap: {},
+  sermonsMap: new Map(),
   activeSermon: null,
   notes: [], 
   selectedSermonId: null,
@@ -146,59 +146,53 @@ export const useAppStore = create<AppState>((set, get) => ({
   isSqliteAvailable: true,
 
   initializeDB: async () => {
-    set({ isLoading: true, loadingMessage: "Vérification système..." });
+    set({ isLoading: true, loadingMessage: "Accès à la base..." });
     const hasSqlite = await isDatabaseReady();
     set({ isSqliteAvailable: hasSqlite });
     
     try {
       if (!hasSqlite) {
-        // FALLBACK: Mode Web/JSON car SQLite est cassé ou absent
-        console.log("[Store] Basculement en mode Fallback (JSON)");
         const response = await fetch('library.json');
         const data: Sermon[] = await response.json();
-        const map: any = {};
-        data.forEach(s => map[s.id] = s);
+        const map = new Map();
+        data.forEach(s => map.set(s.id, s));
         const notes = await getAllNotes();
         set({ sermons: data, sermonsMap: map, notes, isLoading: false });
-        if (!!window.electronAPI) {
-            get().addNotification("Mode réduit : moteur SQLite indisponible.", "error");
-        }
         return;
       }
 
-      // Mode Electron SQLITE Standard
       const count = await getSermonsCount();
       if (count === 0) {
         await get().resetLibrary();
       } else {
         const metadata = await getAllSermonsMetadata();
-        const map: any = {};
-        metadata.forEach(s => map[s.id] = s);
+        const map = new Map();
+        metadata.forEach(s => map.set(s.id, s));
         const notes = await getAllNotes();
         set({ sermons: metadata, sermonsMap: map, notes });
       }
     } catch (error) {
       console.error(error);
-      get().addNotification("Erreur lors de l'accès aux données.", 'error');
+      get().addNotification("Erreur d'initialisation", 'error');
     } finally {
       set({ isLoading: false });
     }
   },
 
   resetLibrary: async () => {
-    set({ isLoading: true, loadingMessage: "Importation...", loadingProgress: 20 });
+    set({ isLoading: true, loadingMessage: "Importation...", loadingProgress: 10 });
     try {
       const response = await fetch('library.json');
       const incoming: Sermon[] = await response.json();
       
       if (get().isSqliteAvailable) {
-        set({ loadingProgress: 50, loadingMessage: "Indexation SQLite..." });
+        set({ loadingProgress: 40, loadingMessage: "Indexation SQLite..." });
         await bulkAddSermons(incoming);
       }
       
       const metadata = incoming.map(({text, ...meta}) => meta);
-      const map: any = {};
-      metadata.forEach(s => map[s.id] = s);
+      const map = new Map();
+      metadata.forEach(s => map.set(s.id, s));
       set({ sermons: metadata as any, sermonsMap: map, loadingProgress: 100 });
     } catch (error) {
       get().addNotification("Échec de l'importation.", 'error');
@@ -212,23 +206,30 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ selectedSermonId: null, activeSermon: null });
       return;
     }
-    set({ selectedSermonId: id });
+    
+    const currentId = get().selectedSermonId;
+    if (currentId === id && get().activeSermon) return; // Déjà chargé
+
+    set({ selectedSermonId: id, activeSermon: null }); // Reset pour montrer le loader
+    
     try {
       if (!get().isSqliteAvailable) {
-        const s = (get().sermonsMap as any)[id] as Sermon;
+        const s = get().sermonsMap.get(id) as Sermon;
         set({ activeSermon: s });
       } else {
         const fullSermon = await getSermonById(id);
         set({ activeSermon: fullSermon });
       }
+      
       if (id && !get().contextSermonIds.includes(id)) {
         set(s => ({ contextSermonIds: [...s.contextSermonIds, id] }));
       }
     } catch (error) {
-      get().addNotification("Erreur lecture données", "error");
+      get().addNotification("Erreur de chargement", "error");
     }
   },
 
+  // ... autres méthodes conservées et optimisées ...
   addNote: async (note) => {
     const newNote: Note = {
       id: crypto.randomUUID(),
@@ -240,20 +241,23 @@ export const useAppStore = create<AppState>((set, get) => ({
       order: get().notes.length,
       ...note
     };
-    const updatedNotes = [...get().notes, newNote];
-    set({ notes: updatedNotes });
+    set(state => ({ notes: [...state.notes, newNote] }));
     await saveNoteToDB(newNote);
   },
 
   updateNote: async (id, updates) => {
-    const updatedNotes = get().notes.map(n => n.id === id ? { ...n, ...updates } : n);
-    set({ notes: updatedNotes });
-    const note = updatedNotes.find(n => n.id === id);
+    set(state => ({ 
+      notes: state.notes.map(n => n.id === id ? { ...n, ...updates } : n) 
+    }));
+    const note = get().notes.find(n => n.id === id);
     if (note) await saveNoteToDB(note);
   },
 
   deleteNote: async (id) => {
-    set(state => ({ notes: state.notes.filter(n => n.id !== id), activeNoteId: state.activeNoteId === id ? null : state.activeNoteId }));
+    set(state => ({ 
+      notes: state.notes.filter(n => n.id !== id), 
+      activeNoteId: state.activeNoteId === id ? null : state.activeNoteId 
+    }));
     await deleteNoteFromDB(id);
   },
 

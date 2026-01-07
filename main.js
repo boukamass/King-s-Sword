@@ -13,17 +13,27 @@ function initDatabase() {
   try {
     const dbPath = path.join(app.getPath('userData'), 'kings_sword_v2.db');
     db = new Database(dbPath);
+    // Optimisations PRAGMA pour la vitesse
     db.pragma('journal_mode = WAL');
     db.pragma('synchronous = NORMAL');
+    db.pragma('temp_store = MEMORY');
+    db.pragma('cache_size = -2000'); // 2MB de cache
+    
     db.exec(`
       CREATE TABLE IF NOT EXISTS sermons (id TEXT PRIMARY KEY, title TEXT, date TEXT, city TEXT, version TEXT, time TEXT, audio_url TEXT);
       CREATE TABLE IF NOT EXISTS paragraphs (id TEXT PRIMARY KEY, sermon_id TEXT, paragraph_index INTEGER, content TEXT, FOREIGN KEY(sermon_id) REFERENCES sermons(id) ON DELETE CASCADE);
       CREATE VIRTUAL TABLE IF NOT EXISTS paragraphs_fts USING fts5(content, sermon_id UNINDEXED, paragraph_index UNINDEXED, content='paragraphs', content_rowid='id');
+      
+      -- Déclencheurs pour garder l'index FTS à jour
+      CREATE TRIGGER IF NOT EXISTS paragraphs_ai AFTER INSERT ON paragraphs BEGIN
+        INSERT INTO paragraphs_fts(rowid, content, sermon_id, paragraph_index) VALUES (new.rowid, new.content, new.sermon_id, new.paragraph_index);
+      END;
+      
       CREATE TABLE IF NOT EXISTS notes (id TEXT PRIMARY KEY, title TEXT, content TEXT, color TEXT, "order" INTEGER, creation_date TEXT);
       CREATE TABLE IF NOT EXISTS citations (id TEXT PRIMARY KEY, note_id TEXT, sermon_id TEXT, sermon_title_snapshot TEXT, sermon_date_snapshot TEXT, quoted_text TEXT, date_added TEXT, FOREIGN KEY(note_id) REFERENCES notes(id) ON DELETE CASCADE);
     `);
   } catch (err) {
-    console.error(`[DB] Erreur module natif: ${err.message}`);
+    console.error(`[DB] Erreur: ${err.message}`);
     db = null;
   }
 }
@@ -34,7 +44,8 @@ ipcMain.handle('db:isReady', () => !!db);
 
 ipcMain.handle('db:getSermonsMetadata', () => {
   if (!db) return [];
-  return db.prepare('SELECT id, title, date, city, version, time, audio_url FROM sermons ORDER BY date DESC').all();
+  // On ne récupère que ce qui est nécessaire pour la liste
+  return db.prepare('SELECT id, title, date, city, version FROM sermons ORDER BY date DESC').all();
 });
 
 ipcMain.handle('db:getSermonFull', (event, id) => {
@@ -46,45 +57,77 @@ ipcMain.handle('db:getSermonFull', (event, id) => {
   return sermon;
 });
 
-ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0 }) => {
+ipcMain.handle('db:search', (event, { query, mode, limit = 30, offset = 0 }) => {
   if (!db) return [];
   let sqlQuery = query.trim();
-  if (!sqlQuery) return [];
-  if (mode === 'EXACT_PHRASE') sqlQuery = `"${sqlQuery}"`;
-  else if (mode === 'DIVERSE') sqlQuery = sqlQuery.split(/\s+/).filter(v => v).map(v => `${v}*`).join(' AND ');
-  else sqlQuery = `${sqlQuery}*`;
+  if (!sqlQuery || sqlQuery.length < 2) return [];
 
-  return db.prepare(`
-    SELECT rowid as paragraphId, sermon_id as sermonId, paragraph_index as paragraphIndex, 
-    snippet(paragraphs_fts, 0, '<mark class="bg-teal-600/30">', '</mark>', '...', 32) as snippet
-    FROM paragraphs_fts WHERE content MATCH ? LIMIT ? OFFSET ?
-  `).all(sqlQuery, limit, offset).map(res => ({ ...res, ...db.prepare('SELECT title, date, city FROM sermons WHERE id = ?').get(res.sermonId) }));
+  // Nettoyage et formatage pour FTS5
+  if (mode === 'EXACT_PHRASE') sqlQuery = `"${sqlQuery.replace(/"/g, '""')}"`;
+  else if (mode === 'DIVERSE') sqlQuery = sqlQuery.split(/\s+/).filter(v => v).map(v => `${v}*`).join(' AND ');
+  else sqlQuery = `${sqlQuery.replace(/"/g, '""')}*`;
+
+  try {
+    // Jointure optimisée pour récupérer les métadonnées en une seule fois
+    const stmt = db.prepare(`
+      SELECT 
+        f.rowid as paragraphId, 
+        f.sermon_id as sermonId, 
+        f.paragraph_index as paragraphIndex, 
+        snippet(paragraphs_fts, 0, '<mark class="bg-teal-600/30 text-teal-900 dark:text-teal-100 font-bold px-0.5 rounded">', '</mark>', '...', 32) as snippet,
+        s.title, s.date, s.city
+      FROM paragraphs_fts f
+      JOIN sermons s ON f.sermon_id = s.id
+      WHERE paragraphs_fts MATCH ? 
+      ORDER BY rank
+      LIMIT ? OFFSET ?
+    `);
+    return stmt.all(sqlQuery, limit, offset);
+  } catch (e) {
+    console.error("SQL Search Error:", e);
+    return [];
+  }
 });
 
 ipcMain.handle('db:importSermons', (event, sermons) => {
   checkDb();
-  db.transaction((data) => {
+  const transaction = db.transaction((data) => {
+    db.prepare('DELETE FROM paragraphs').run();
     db.prepare('DELETE FROM sermons').run();
-    const insS = db.prepare('INSERT INTO sermons VALUES (?, ?, ?, ?, ?, ?, ?)');
-    const insP = db.prepare('INSERT INTO paragraphs VALUES (?, ?, ?, ?)');
+    db.prepare('DELETE FROM paragraphs_fts').run();
+    
+    const insS = db.prepare('INSERT INTO sermons (id, title, date, city, version, time, audio_url) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    const insP = db.prepare('INSERT INTO paragraphs (id, sermon_id, paragraph_index, content) VALUES (?, ?, ?, ?)');
+    
     for (const s of data) {
       insS.run(s.id, s.title, s.date, s.city, s.version || 'VGR', s.time || 'Soir', s.audio_url || '');
-      s.text.split(/\n\s*\n/).forEach((p, i) => insP.run(`${s.id}_${i}`, s.id, i + 1, p.trim()));
+      const segments = s.text.split(/\n\s*\n/);
+      segments.forEach((p, i) => {
+        const content = p.trim();
+        if (content) {
+          insP.run(`${s.id}_${i}`, s.id, i + 1, content);
+        }
+      });
     }
-  })(sermons);
+  });
+  transaction(sermons);
   return { success: true };
 });
 
+// ... reste du fichier (notes, etc.) conservé ...
 ipcMain.handle('db:getNotes', () => {
   if (!db) return [];
   const ns = db.prepare('SELECT * FROM notes ORDER BY "order" ASC').all();
-  ns.forEach(n => n.citations = db.prepare('SELECT * FROM citations WHERE note_id = ?').all(n.id));
+  ns.forEach(n => {
+    n.creationDate = n.creation_date;
+    n.citations = db.prepare('SELECT * FROM citations WHERE note_id = ?').all(n.id);
+  });
   return ns;
 });
 
 ipcMain.handle('db:saveNote', (event, note) => {
   checkDb();
-  db.prepare('INSERT INTO notes VALUES (@id, @title, @content, @color, @order, @creation_date) ON CONFLICT(id) DO UPDATE SET title=excluded.title, content=excluded.content, color=excluded.color, "order"=excluded."order"').run({ ...note, creation_date: note.creationDate });
+  db.prepare('INSERT INTO notes (id, title, content, color, "order", creation_date) VALUES (@id, @title, @content, @color, @order, @creationDate) ON CONFLICT(id) DO UPDATE SET title=excluded.title, content=excluded.content, color=excluded.color, "order"=excluded."order"').run(note);
   db.prepare('DELETE FROM citations WHERE note_id = ?').run(note.id);
   const insC = db.prepare('INSERT INTO citations VALUES (?, ?, ?, ?, ?, ?, ?)');
   note.citations.forEach(c => insC.run(c.id || Math.random().toString(), note.id, c.sermon_id, c.sermon_title_snapshot, c.sermon_date_snapshot, c.quoted_text, c.date_added || new Date().toISOString()));
