@@ -185,18 +185,16 @@ ipcMain.handle('db:importSermons', (event, sermons) => {
   try {
     checkDb();
 
-    // Suppression sécurisée des anciennes données
-    db.exec(`
-      DELETE FROM paragraphs_fts;
-      DELETE FROM paragraphs;
-      DELETE FROM sermons;
-    `);
-
-    const insertSermon = db.prepare('INSERT INTO sermons (id, title, date, city, version, time, audio_url) VALUES (?, ?, ?, ?, ?, ?, ?)');
-    const insertPara = db.prepare('INSERT INTO paragraphs (sermon_id, paragraph_index, content) VALUES (?, ?, ?)');
-    const insertFTS = db.prepare('INSERT INTO paragraphs_fts (content, sermon_id, paragraph_index) VALUES (?, ?, ?)');
-
+    // Suppression sécurisée des anciennes données dans une transaction
     const transaction = db.transaction((data) => {
+      db.prepare('DELETE FROM paragraphs_fts').run();
+      db.prepare('DELETE FROM paragraphs').run();
+      db.prepare('DELETE FROM sermons').run();
+
+      const insertSermon = db.prepare('INSERT INTO sermons (id, title, date, city, version, time, audio_url) VALUES (?, ?, ?, ?, ?, ?, ?)');
+      const insertPara = db.prepare('INSERT INTO paragraphs (sermon_id, paragraph_index, content) VALUES (?, ?, ?)');
+      const insertFTS = db.prepare('INSERT INTO paragraphs_fts (content, sermon_id, paragraph_index) VALUES (?, ?, ?)');
+
       for (const s of data) {
         if (!s.id || !s.text) continue;
         
@@ -211,10 +209,11 @@ ipcMain.handle('db:importSermons', (event, sermons) => {
           }
         });
       }
+      return data.length;
     });
 
-    transaction(sermons);
-    return { success: true };
+    const count = transaction(sermons);
+    return { success: true, count };
   } catch (error) {
     console.error("[DB Import Error]:", error);
     return { success: false, error: error.message };
@@ -240,7 +239,7 @@ ipcMain.handle('db:saveNote', (event, note) => {
     checkDb();
     db.prepare('INSERT INTO notes (id, title, content, color, "order", creation_date) VALUES (@id, @title, @content, @color, @order, @creationDate) ON CONFLICT(id) DO UPDATE SET title=excluded.title, content=excluded.content, color=excluded.color, "order"=excluded."order"').run(note);
     db.prepare('DELETE FROM citations WHERE note_id = ?').run(note.id);
-    const insC = db.prepare('INSERT INTO citations VALUES (?, ?, ?, ?, ?, ?, ?)');
+    const insC = db.prepare('INSERT INTO citations (id, note_id, sermon_id, sermon_title_snapshot, sermon_date_snapshot, quoted_text, date_added) VALUES (?, ?, ?, ?, ?, ?, ?)');
     note.citations.forEach(c => insC.run(c.id || Math.random().toString(), note.id, c.sermon_id, c.sermon_title_snapshot, c.sermon_date_snapshot, c.quoted_text, c.date_added || new Date().toISOString()));
     return { success: true };
   } catch (e) {

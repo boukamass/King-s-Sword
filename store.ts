@@ -194,7 +194,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         set({ loadingProgress: 40, loadingMessage: "Indexation SQLite..." });
         const result = await bulkAddSermons(incoming);
         if (!result.success) {
-          throw new Error(result.error || "Erreur inconnue lors de l'écriture SQL.");
+          throw new Error(result.error || "Échec de l'écriture SQL.");
         }
       }
       
@@ -205,7 +205,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       get().addNotification("Bibliothèque synchronisée.", 'success');
     } catch (error: any) {
       console.error(error);
-      get().addNotification(`Échec de l'importation : ${error.message || "Erreur inconnue"}`, 'error');
+      get().addNotification(`Échec de l'importation : ${error.message}`, 'error');
     } finally {
       set({ isLoading: false });
     }
