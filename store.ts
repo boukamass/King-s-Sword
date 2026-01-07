@@ -148,12 +148,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   isSqliteAvailable: true,
 
   initializeDB: async () => {
-    set({ isLoading: true, loadingMessage: "Accès à la base..." });
+    set({ isLoading: true, loadingMessage: "Vérification base..." });
     const hasSqlite = await isDatabaseReady();
     set({ isSqliteAvailable: hasSqlite });
     
     try {
       if (!hasSqlite) {
+        console.warn("[App] Mode Web détecté, chargement via library.json");
         const response = await fetch('library.json');
         if (!response.ok) throw new Error("library.json introuvable");
         const data: Sermon[] = await response.json();
@@ -166,6 +167,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       const count = await getSermonsCount();
       if (count === 0) {
+        console.log("[App] Base vide, lancement de l'importation initiale...");
         await get().resetLibrary();
       } else {
         const metadata = await getAllSermonsMetadata();
@@ -175,26 +177,26 @@ export const useAppStore = create<AppState>((set, get) => ({
         set({ sermons: metadata, sermonsMap: map, notes });
       }
     } catch (error: any) {
-      console.error(error);
-      get().addNotification(`Erreur: ${error.message || "Base de données inaccessible"}`, 'error');
+      console.error("[App Init Error]", error);
+      get().addNotification(`Démarrage : ${error.message || "Erreur de base de données"}`, 'error');
     } finally {
       set({ isLoading: false });
     }
   },
 
   resetLibrary: async () => {
-    set({ isLoading: true, loadingMessage: "Importation...", loadingProgress: 10 });
+    set({ isLoading: true, loadingMessage: "Extraction library.json...", loadingProgress: 10 });
     try {
       const response = await fetch('library.json');
-      if (!response.ok) throw new Error("Fichier library.json introuvable sur le disque.");
+      if (!response.ok) throw new Error("Fichier library.json introuvable.");
       
       const incoming: Sermon[] = await response.json();
       
       if (get().isSqliteAvailable) {
-        set({ loadingProgress: 40, loadingMessage: "Indexation SQLite..." });
+        set({ loadingProgress: 40, loadingMessage: "Indexation SQLite (Patientez)..." });
         const result = await bulkAddSermons(incoming);
         if (!result.success) {
-          throw new Error(result.error || "Échec de l'écriture SQL.");
+          throw new Error(result.error || "Erreur lors de l'écriture SQLite");
         }
       }
       
@@ -204,7 +206,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ sermons: metadata as any, sermonsMap: map, loadingProgress: 100 });
       get().addNotification("Bibliothèque synchronisée.", 'success');
     } catch (error: any) {
-      console.error(error);
+      console.error("[Reset Library Error]", error);
       get().addNotification(`Échec de l'importation : ${error.message}`, 'error');
     } finally {
       set({ isLoading: false });

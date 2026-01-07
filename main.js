@@ -12,12 +12,19 @@ let projectionWindow = null;
 
 function initDatabase() {
   try {
-    const dbPath = path.join(app.getPath('userData'), 'kings_sword_v2.db');
-    db = new Database(dbPath);
-    // Optimisations PRAGMA pour la performance
+    const userDataPath = app.getPath('userData');
+    if (!fs.existsSync(userDataPath)) {
+      fs.mkdirSync(userDataPath, { recursive: true });
+    }
+
+    const dbPath = path.join(userDataPath, 'kings_sword_v2.db');
+    db = new Database(dbPath, { verbose: isDev ? console.log : null });
+    
+    // Optimisations PRAGMA
     db.pragma('journal_mode = WAL');
     db.pragma('synchronous = NORMAL');
     db.pragma('temp_store = MEMORY');
+    db.pragma('foreign_keys = ON');
     
     db.exec(`
       CREATE TABLE IF NOT EXISTS sermons (
@@ -64,8 +71,9 @@ function initDatabase() {
         FOREIGN KEY(note_id) REFERENCES notes(id) ON DELETE CASCADE
       );
     `);
+    console.log("[DB] Initialisée avec succès à :", dbPath);
   } catch (err) {
-    console.error(`[DB] Erreur d'initialisation: ${err.message}`);
+    console.error(`[DB Error] Échec de l'initialisation :`, err);
     db = null;
   }
 }
@@ -73,7 +81,7 @@ function initDatabase() {
 const checkDb = () => { 
   if (!db) {
     initDatabase();
-    if (!db) throw new Error("Base de données SQLite non disponible (Erreur d'initialisation)");
+    if (!db) throw new Error("Base de données SQLite non disponible (Erreur système)");
   }
 };
 
@@ -185,8 +193,11 @@ ipcMain.handle('db:importSermons', (event, sermons) => {
   try {
     checkDb();
 
-    // Suppression sécurisée des anciennes données dans une transaction
+    // Désactivation temporaire des FK pour la rapidité de purge
+    db.pragma('foreign_keys = OFF');
+
     const transaction = db.transaction((data) => {
+      // Nettoyage complet
       db.prepare('DELETE FROM paragraphs_fts').run();
       db.prepare('DELETE FROM paragraphs').run();
       db.prepare('DELETE FROM sermons').run();
@@ -200,21 +211,21 @@ ipcMain.handle('db:importSermons', (event, sermons) => {
         
         insertSermon.run(s.id, s.title || 'Sans titre', s.date || '0000-00-00', s.city || '', s.version || 'VGR', s.time || 'Soir', s.audio_url || '');
         
-        const segments = s.text.split(/\n\s*\n/);
+        const segments = s.text.split(/\n\s*\n/).filter(p => p.trim().length > 0);
         segments.forEach((p, i) => {
           const content = p.trim();
-          if (content) {
-            insertPara.run(s.id, i + 1, content);
-            insertFTS.run(content, s.id, i + 1);
-          }
+          insertPara.run(s.id, i + 1, content);
+          insertFTS.run(content, s.id, i + 1);
         });
       }
       return data.length;
     });
 
     const count = transaction(sermons);
+    db.pragma('foreign_keys = ON');
     return { success: true, count };
   } catch (error) {
+    db.pragma('foreign_keys = ON');
     console.error("[DB Import Error]:", error);
     return { success: false, error: error.message };
   }
