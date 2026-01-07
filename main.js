@@ -234,6 +234,40 @@ function createWindow() {
       webSecurity: false 
     },
   });
+
+  // Gestion de l'ouverture des fenêtres (Projection/Masque) sur le deuxième écran
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    const parsedUrl = new URL(url);
+    const isProjection = parsedUrl.searchParams.get('projection') === 'true';
+    const isMask = parsedUrl.searchParams.get('mask') === 'true';
+
+    if (isProjection || isMask) {
+      const displays = screen.getAllDisplays();
+      // On cherche le deuxième écran (celui qui n'est pas à l'origine 0,0 ou simplement le index 1)
+      const externalDisplay = displays.length > 1 ? displays[1] : displays[0];
+
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          x: externalDisplay.bounds.x,
+          y: externalDisplay.bounds.y,
+          width: externalDisplay.bounds.width,
+          height: externalDisplay.bounds.height,
+          fullscreen: true,
+          autoHideMenuBar: true,
+          backgroundColor: '#000000',
+          webPreferences: {
+            preload: path.join(__dirname, 'preload.js'),
+            contextIsolation: true,
+            nodeIntegration: false,
+            webSecurity: false
+          }
+        }
+      };
+    }
+    return { action: 'allow' };
+  });
+
   if (isDev) mainWindow.loadURL('http://localhost:5173');
   else mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
 }
