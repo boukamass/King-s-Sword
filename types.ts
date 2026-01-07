@@ -69,6 +69,8 @@ export interface ElectronAPI {
   onUpdateDownloaded: (callback: () => void) => void;
   restartApp: () => void;
   printPage: () => void;
+  getLibrary: () => Promise<Sermon[]>;
+  openProjectionWindow: () => Promise<{ onSecondScreen: boolean }>;
   db: {
     isReady: () => Promise<boolean>;
     getSermonsMetadata: () => Promise<Omit<Sermon, 'text'>[]>;

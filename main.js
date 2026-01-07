@@ -8,6 +8,7 @@ const Database = require('better-sqlite3');
 const isDev = !app.isPackaged;
 let mainWindow;
 let db;
+let projectionWindow = null;
 
 function initDatabase() {
   try {
@@ -70,6 +71,69 @@ function initDatabase() {
 }
 
 const checkDb = () => { if (!db) throw new Error("SQLite non disponible"); };
+
+ipcMain.handle('get-library-data', () => {
+  try {
+    const libraryPath = isDev
+      ? path.join(process.cwd(), 'public', 'library.json')
+      : path.join(__dirname, 'dist', 'library.json');
+      
+    if (fs.existsSync(libraryPath)) {
+      const data = fs.readFileSync(libraryPath, 'utf8');
+      return JSON.parse(data);
+    }
+    return [];
+  } catch (error) {
+    console.error("Erreur de lecture de library.json:", error);
+    return [];
+  }
+});
+
+ipcMain.handle('open-projection-window', () => {
+  if (projectionWindow && !projectionWindow.isDestroyed()) {
+    projectionWindow.focus();
+    const projBounds = projectionWindow.getBounds();
+    const primaryBounds = screen.getPrimaryDisplay().bounds;
+    const onSecond = projBounds.x !== primaryBounds.x || projBounds.y !== primaryBounds.y;
+    return { onSecondScreen: onSecond };
+  }
+  
+  const displays = screen.getAllDisplays();
+  // On cherche un écran qui n'est pas l'écran principal
+  const externalDisplay = displays.find(d => d.id !== screen.getPrimaryDisplay().id);
+  const targetDisplay = externalDisplay || screen.getPrimaryDisplay();
+  
+  projectionWindow = new BrowserWindow({
+    x: targetDisplay.bounds.x,
+    y: targetDisplay.bounds.y,
+    width: targetDisplay.bounds.width,
+    height: targetDisplay.bounds.height,
+    fullscreen: true,
+    autoHideMenuBar: true,
+    frame: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      webSecurity: false 
+    },
+    title: "King's Sword Projection"
+  });
+
+  const startUrl = isDev
+    ? 'http://localhost:5173'
+    : `file://${path.join(__dirname, 'dist/index.html')}`;
+
+  const projectionUrl = new URL(startUrl);
+  projectionUrl.searchParams.set('projection', 'true');
+  
+  projectionWindow.loadURL(projectionUrl.toString());
+  
+  projectionWindow.on('closed', () => {
+    projectionWindow = null;
+  });
+
+  return { onSecondScreen: !!externalDisplay };
+});
 
 ipcMain.handle('db:isReady', () => !!db);
 
@@ -167,14 +231,16 @@ ipcMain.handle('db:importSermons', (event, sermons) => {
     
     for (const s of data) {
       insS.run(s.id, s.title, s.date, s.city, s.version || 'VGR', s.time || 'Soir', s.audio_url || '');
-      const segments = s.text.split(/\n\s*\n/);
-      segments.forEach((p, i) => {
-        const content = p.trim();
-        if (content) {
-          insP.run(s.id, i + 1, content);
-          insFTS.run(content, s.id, i + 1);
-        }
-      });
+      if (s.text) {
+        const segments = s.text.split(/\n\s*\n/);
+        segments.forEach((p, i) => {
+          const content = p.trim();
+          if (content) {
+            insP.run(s.id, i + 1, content);
+            insFTS.run(content, s.id, i + 1);
+          }
+        });
+      }
     }
   });
 
