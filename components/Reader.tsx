@@ -737,14 +737,7 @@ const Reader: React.FC = () => {
             <div className="hidden sm:block w-px h-5 bg-zinc-200 dark:bg-zinc-800/50 mx-1" />
             
             <div className="flex items-center bg-white/50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200/50 dark:border-zinc-800/50 shadow-sm overflow-hidden no-print">
-              <button
-                onClick={() => setFontSize(size => size - 2)}
-                onDoubleClick={e => e.stopPropagation()}
-                className="w-9 h-9 flex items-center justify-center text-zinc-400 hover:text-teal-600 transition-colors border-r border-zinc-200/50 dark:border-zinc-800/50 active:scale-95"
-                data-tooltip={t.reader_zoom_out}
-              >
-                <ZoomOut className="w-4 h-4" />
-              </button>
+              <button onClick={() => setFontSize(size => size - 2)} className="w-9 h-9 flex items-center justify-center text-zinc-400 hover:text-teal-600 transition-colors border-r border-zinc-200/50 dark:border-zinc-800/50 active:scale-95" data-tooltip={t.reader_zoom_out}><ZoomOut className="w-4 h-4" /></button>
               <input 
                 type="text" 
                 value={localFontSize}
@@ -755,14 +748,7 @@ const Reader: React.FC = () => {
                 className="w-12 h-9 bg-transparent text-center text-[11px] font-black text-zinc-600 dark:text-zinc-300 outline-none focus:text-teal-600 cursor-pointer" 
                 data-tooltip="Taille police (Double-clic pour réinitialiser)" 
               />
-              <button
-                onClick={() => setFontSize(size => size + 2)}
-                onDoubleClick={e => e.stopPropagation()}
-                className="w-9 h-9 flex items-center justify-center text-zinc-400 hover:text-teal-600 transition-colors border-l border-zinc-200/50 dark:border-zinc-800/50 active:scale-95"
-                data-tooltip={t.reader_zoom_in}
-              >
-                <ZoomIn className="w-4 h-4" />
-              </button>
+              <button onClick={() => setFontSize(size => size + 2)} className="w-9 h-9 flex items-center justify-center text-zinc-400 hover:text-teal-600 transition-colors border-l border-zinc-200/50 dark:border-zinc-800/50 active:scale-95" data-tooltip={t.reader_zoom_in}><ZoomIn className="w-4 h-4" /></button>
             </div>
         </div>
       </div>
