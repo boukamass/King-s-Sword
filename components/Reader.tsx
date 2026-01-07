@@ -230,28 +230,19 @@ const Reader: React.FC = () => {
     }
   };
 
-  const handleOpenProjection = async () => {
-    if (window.electronAPI?.openProjectionWindow) {
-      const result = await window.electronAPI.openProjectionWindow();
-      if (result.onSecondScreen) {
-        addNotification("Projection lancée sur l'écran secondaire.", "success");
+  const handleOpenProjection = () => {
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('projection', 'true');
+      url.hash = '';
+      const projWindow = window.open(url.toString(), 'KingsSwordProjection');
+      if (projWindow) {
+        addNotification("Fenêtre de projection ouverte", "success");
       } else {
-        addNotification("Projection sur l'écran principal (second écran non détecté).", "success");
+        addNotification("Action bloquée : vérifiez les fenêtres surgissantes", "error");
       }
-    } else {
-      try {
-        const url = new URL(window.location.href);
-        url.searchParams.set('projection', 'true');
-        url.hash = '';
-        const projWindow = window.open(url.toString(), 'KingsSwordProjection');
-        if (projWindow) {
-          addNotification("Fenêtre de projection ouverte", "success");
-        } else {
-          addNotification("Action bloquée : vérifiez les fenêtres surgissantes", "error");
-        }
-      } catch (err) {
-        addNotification("Erreur de projection", "error");
-      }
+    } catch (err) {
+      addNotification("Erreur de projection", "error");
     }
   };
 
