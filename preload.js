@@ -7,7 +7,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onUpdateDownloaded: (callback) => ipcRenderer.on('update_downloaded', callback),
   restartApp: () => ipcRenderer.send('restart_app'),
   printPage: () => ipcRenderer.send('print-page'),
-  getLibrary: () => ipcRenderer.invoke('get-library-data'),
   openProjectionWindow: () => ipcRenderer.invoke('open-projection-window'),
   db: {
     isReady: () => ipcRenderer.invoke('db:isReady'),
