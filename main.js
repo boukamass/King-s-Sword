@@ -5,81 +5,32 @@ const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
 const Database = require('better-sqlite3');
 
-// Détection officielle Electron
 const isDev = !app.isPackaged;
-
 let mainWindow;
 let db;
 
-console.log("--------------------------------------------------");
-console.log(`[Main] Démarrage...`);
-console.log(`[Main] Mode détecté: ${isDev ? 'DÉVELOPPEMENT' : 'PRODUCTION'}`);
-console.log("--------------------------------------------------");
-
-// --- INITIALISATION SQLITE ---
 function initDatabase() {
   try {
     const dbPath = path.join(app.getPath('userData'), 'kings_sword_v2.db');
-    console.log(`[DB] Chemin base de données: ${dbPath}`);
     db = new Database(dbPath);
     db.pragma('journal_mode = WAL');
     db.pragma('synchronous = NORMAL');
-
     db.exec(`
-      CREATE TABLE IF NOT EXISTS sermons (
-        id TEXT PRIMARY KEY,
-        title TEXT,
-        date TEXT,
-        city TEXT,
-        version TEXT,
-        time TEXT,
-        audio_url TEXT
-      );
-      CREATE TABLE IF NOT EXISTS paragraphs (
-        id TEXT PRIMARY KEY,
-        sermon_id TEXT,
-        paragraph_index INTEGER,
-        content TEXT,
-        FOREIGN KEY(sermon_id) REFERENCES sermons(id) ON DELETE CASCADE
-      );
-      CREATE VIRTUAL TABLE IF NOT EXISTS paragraphs_fts USING fts5(
-        content,
-        sermon_id UNINDEXED,
-        paragraph_index UNINDEXED,
-        content='paragraphs',
-        content_rowid='id'
-      );
-      CREATE TABLE IF NOT EXISTS notes (
-        id TEXT PRIMARY KEY,
-        title TEXT,
-        content TEXT,
-        color TEXT,
-        "order" INTEGER,
-        creation_date TEXT
-      );
-      CREATE TABLE IF NOT EXISTS citations (
-        id TEXT PRIMARY KEY,
-        note_id TEXT,
-        sermon_id TEXT,
-        sermon_title_snapshot TEXT,
-        sermon_date_snapshot TEXT,
-        quoted_text TEXT,
-        date_added TEXT,
-        FOREIGN KEY(note_id) REFERENCES notes(id) ON DELETE CASCADE
-      );
+      CREATE TABLE IF NOT EXISTS sermons (id TEXT PRIMARY KEY, title TEXT, date TEXT, city TEXT, version TEXT, time TEXT, audio_url TEXT);
+      CREATE TABLE IF NOT EXISTS paragraphs (id TEXT PRIMARY KEY, sermon_id TEXT, paragraph_index INTEGER, content TEXT, FOREIGN KEY(sermon_id) REFERENCES sermons(id) ON DELETE CASCADE);
+      CREATE VIRTUAL TABLE IF NOT EXISTS paragraphs_fts USING fts5(content, sermon_id UNINDEXED, paragraph_index UNINDEXED, content='paragraphs', content_rowid='id');
+      CREATE TABLE IF NOT EXISTS notes (id TEXT PRIMARY KEY, title TEXT, content TEXT, color TEXT, "order" INTEGER, creation_date TEXT);
+      CREATE TABLE IF NOT EXISTS citations (id TEXT PRIMARY KEY, note_id TEXT, sermon_id TEXT, sermon_title_snapshot TEXT, sermon_date_snapshot TEXT, quoted_text TEXT, date_added TEXT, FOREIGN KEY(note_id) REFERENCES notes(id) ON DELETE CASCADE);
     `);
-    console.log(`[DB] Tables vérifiées avec succès.`);
   } catch (err) {
-    console.error(`[DB] ERREUR CRITIQUE: Impossible de charger le module natif SQLite.`);
-    console.error(`[DB] Raison: ${err.message}`);
-    db = null; // Sécurité
+    console.error(`[DB] Erreur module natif: ${err.message}`);
+    db = null;
   }
 }
 
-// --- IPC HANDLERS AVEC SÉCURITÉ ---
-const checkDb = () => {
-  if (!db) throw new Error("La base de données n'est pas disponible (erreur de module natif).");
-};
+const checkDb = () => { if (!db) throw new Error("SQLite non disponible"); };
+
+ipcMain.handle('db:isReady', () => !!db);
 
 ipcMain.handle('db:getSermonsMetadata', () => {
   if (!db) return [];
@@ -87,7 +38,7 @@ ipcMain.handle('db:getSermonsMetadata', () => {
 });
 
 ipcMain.handle('db:getSermonFull', (event, id) => {
-  checkDb();
+  if (!db) return null;
   const sermon = db.prepare('SELECT * FROM sermons WHERE id = ?').get(id);
   if (!sermon) return null;
   const paragraphs = db.prepare('SELECT content FROM paragraphs WHERE sermon_id = ? ORDER BY paragraph_index ASC').all();
@@ -96,7 +47,7 @@ ipcMain.handle('db:getSermonFull', (event, id) => {
 });
 
 ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0 }) => {
-  checkDb();
+  if (!db) return [];
   let sqlQuery = query.trim();
   if (!sqlQuery) return [];
   if (mode === 'EXACT_PHRASE') sqlQuery = `"${sqlQuery}"`;
@@ -154,7 +105,6 @@ ipcMain.handle('db:reorderNotes', (event, notes) => {
 
 function createWindow() {
   initDatabase();
-  
   mainWindow = new BrowserWindow({
     width: 1280, height: 800,
     backgroundColor: '#09090b',
@@ -165,19 +115,8 @@ function createWindow() {
       webSecurity: false 
     },
   });
-
-  if (isDev) {
-    mainWindow.loadURL('http://localhost:5173');
-    mainWindow.webContents.openDevTools();
-  } else {
-    mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
-  }
-
-  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
-    if (isDev && validatedURL.includes('localhost')) {
-      setTimeout(() => { if (!mainWindow.isDestroyed()) mainWindow.loadURL('http://localhost:5173'); }, 2000);
-    }
-  });
+  if (isDev) mainWindow.loadURL('http://localhost:5173');
+  else mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
 }
 
 app.whenReady().then(createWindow);

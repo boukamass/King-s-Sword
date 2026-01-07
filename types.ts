@@ -70,12 +70,12 @@ export interface ElectronAPI {
   restartApp: () => void;
   printPage: () => void;
   db: {
+    isReady: () => Promise<boolean>;
     getSermonsMetadata: () => Promise<Omit<Sermon, 'text'>[]>;
     getSermonFull: (id: string) => Promise<Sermon | null>;
     search: (params: { query: string; mode: SearchMode; limit: number; offset: number }) => Promise<any[]>;
     importSermons: (sermons: Sermon[]) => Promise<{ success: boolean; count: number }>;
     getParagraphContent: (id: string) => Promise<any>;
-    // Fix: Added missing note-related methods exposed in preload.js
     getNotes: () => Promise<Note[]>;
     saveNote: (note: Note) => Promise<{ success: boolean }>;
     deleteNote: (id: string) => Promise<{ success: boolean }>;

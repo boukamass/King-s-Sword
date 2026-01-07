@@ -9,9 +9,9 @@ import {
   saveNoteToDB,
   deleteNoteFromDB,
   syncNotesOrder,
-  getSermonsCount
+  getSermonsCount,
+  isDatabaseReady
 } from './services/db';
-import { normalizeText } from './utils/textUtils';
 
 export interface SearchResult {
   paragraphId: string;
@@ -44,6 +44,8 @@ interface AppState {
   isFullTextSearch: boolean;
   cityFilter: string | null;
   yearFilter: string | null;
+  versionFilter: string | null;
+  timeFilter: string | null;
   languageFilter: string;
   fontSize: number;
   theme: 'light' | 'dark' | 'system';
@@ -53,6 +55,13 @@ interface AppState {
   jumpToText: string | null;
   projectionBlackout: boolean;
   isExternalMaskOpen: boolean;
+  sidebarWidth: number;
+  aiWidth: number;
+  notesWidth: number;
+  navigatedFromSearch: boolean;
+  lastSearchQuery: string;
+  lastSearchMode: SearchMode;
+  isSqliteAvailable: boolean;
 
   initializeDB: () => Promise<void>;
   resetLibrary: () => Promise<void>;
@@ -73,6 +82,8 @@ interface AppState {
   setNotesOpen: (v: boolean) => void;
   setCityFilter: (city: string | null) => void;
   setYearFilter: (year: string | null) => void;
+  setVersionFilter: (v: string | null) => void;
+  setTimeFilter: (v: string | null) => void;
   setFontSize: (size: number) => void;
   setTheme: (theme: 'light' | 'dark' | 'system') => void;
   addChatMessage: (key: string, message: ChatMessage) => void;
@@ -88,6 +99,10 @@ interface AppState {
   updateSermonHighlights: (id: string, highlights: Highlight[]) => void;
   setProjectionBlackout: (v: boolean) => void;
   setExternalMaskOpen: (v: boolean) => void;
+  setSidebarWidth: (w: number) => void;
+  setAiWidth: (w: number) => void;
+  setNotesWidth: (w: number) => void;
+  setNavigatedFromSearch: (v: boolean) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -111,6 +126,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   isFullTextSearch: false,
   cityFilter: null,
   yearFilter: null,
+  versionFilter: null,
+  timeFilter: null,
   languageFilter: 'Français',
   fontSize: 20,
   theme: 'system',
@@ -120,10 +137,36 @@ export const useAppStore = create<AppState>((set, get) => ({
   jumpToText: null,
   projectionBlackout: false,
   isExternalMaskOpen: false,
+  sidebarWidth: 320,
+  aiWidth: 400,
+  notesWidth: 350,
+  navigatedFromSearch: false,
+  lastSearchQuery: '',
+  lastSearchMode: SearchMode.EXACT_PHRASE,
+  isSqliteAvailable: true,
 
   initializeDB: async () => {
-    set({ isLoading: true, loadingMessage: "Accès SQLite..." });
+    set({ isLoading: true, loadingMessage: "Vérification système..." });
+    const hasSqlite = await isDatabaseReady();
+    set({ isSqliteAvailable: hasSqlite });
+    
     try {
+      if (!hasSqlite) {
+        // FALLBACK: Mode Web/JSON car SQLite est cassé ou absent
+        console.log("[Store] Basculement en mode Fallback (JSON)");
+        const response = await fetch('library.json');
+        const data: Sermon[] = await response.json();
+        const map: any = {};
+        data.forEach(s => map[s.id] = s);
+        const notes = await getAllNotes();
+        set({ sermons: data, sermonsMap: map, notes, isLoading: false });
+        if (!!window.electronAPI) {
+            get().addNotification("Mode réduit : moteur SQLite indisponible.", "error");
+        }
+        return;
+      }
+
+      // Mode Electron SQLITE Standard
       const count = await getSermonsCount();
       if (count === 0) {
         await get().resetLibrary();
@@ -135,7 +178,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         set({ sermons: metadata, sermonsMap: map, notes });
       }
     } catch (error) {
-      get().addNotification("Erreur de connexion SQLite", 'error');
+      console.error(error);
+      get().addNotification("Erreur lors de l'accès aux données.", 'error');
     } finally {
       set({ isLoading: false });
     }
@@ -146,12 +190,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const response = await fetch('library.json');
       const incoming: Sermon[] = await response.json();
-      set({ loadingProgress: 50, loadingMessage: "Indexation FTS5..." });
-      await bulkAddSermons(incoming);
-      const metadata = await getAllSermonsMetadata();
+      
+      if (get().isSqliteAvailable) {
+        set({ loadingProgress: 50, loadingMessage: "Indexation SQLite..." });
+        await bulkAddSermons(incoming);
+      }
+      
+      const metadata = incoming.map(({text, ...meta}) => meta);
       const map: any = {};
       metadata.forEach(s => map[s.id] = s);
-      set({ sermons: metadata, sermonsMap: map, loadingProgress: 100 });
+      set({ sermons: metadata as any, sermonsMap: map, loadingProgress: 100 });
     } catch (error) {
       get().addNotification("Échec de l'importation.", 'error');
     } finally {
@@ -166,13 +214,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     set({ selectedSermonId: id });
     try {
-      const fullSermon = await getSermonById(id);
-      set({ activeSermon: fullSermon });
+      if (!get().isSqliteAvailable) {
+        const s = (get().sermonsMap as any)[id] as Sermon;
+        set({ activeSermon: s });
+      } else {
+        const fullSermon = await getSermonById(id);
+        set({ activeSermon: fullSermon });
+      }
       if (id && !get().contextSermonIds.includes(id)) {
         set(s => ({ contextSermonIds: [...s.contextSermonIds, id] }));
       }
     } catch (error) {
-      get().addNotification("Erreur lecture SQLite", "error");
+      get().addNotification("Erreur lecture données", "error");
     }
   },
 
@@ -257,6 +310,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   setNotesOpen: (v) => set({ notesOpen: v }),
   setCityFilter: (f) => set({ cityFilter: f }),
   setYearFilter: (f) => set({ yearFilter: f }),
+  setVersionFilter: (f) => set({ versionFilter: f }),
+  setTimeFilter: (f) => set({ timeFilter: f }),
   setFontSize: (s) => set({ fontSize: s }),
   setTheme: (t) => set({ theme: t }),
   toggleContextSermon: (id) => set(s => ({
@@ -265,7 +320,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   clearContextSermons: () => set({ contextSermonIds: [] }),
   triggerStudyRequest: (t) => set({ pendingStudyRequest: t, aiOpen: true }),
   setJumpToText: (t) => set({ jumpToText: t }),
-  updateSermonHighlights: (id, h) => {}, // Facultatif
+  updateSermonHighlights: (id, h) => {},
   setProjectionBlackout: (v) => set({ projectionBlackout: v }),
-  setExternalMaskOpen: (v) => set({ isExternalMaskOpen: v })
+  setExternalMaskOpen: (v) => set({ isExternalMaskOpen: v }),
+  setSidebarWidth: (w) => set({ sidebarWidth: w }),
+  setAiWidth: (w) => set({ aiWidth: w }),
+  setNotesWidth: (w) => set({ notesWidth: w }),
+  setNavigatedFromSearch: (v) => set({ navigatedFromSearch: v })
 }));
