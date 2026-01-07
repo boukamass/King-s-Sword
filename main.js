@@ -71,7 +71,7 @@ function initDatabase() {
 
 const checkDb = () => { 
   if (!db) {
-    initDatabase(); // Tentative de réinitialisation si db est null
+    initDatabase();
     if (!db) throw new Error("Moteur de base de données SQLite indisponible.");
   }
 };
@@ -132,7 +132,7 @@ ipcMain.handle('db:importSermons', (event, sermons) => {
 
   try {
     const transaction = db.transaction((data) => {
-      // Nettoyage au lieu de Drop pour éviter de casser les connexions actives
+      // Nettoyage complet avant ré-import
       db.prepare('DELETE FROM paragraphs_fts').run();
       db.prepare('DELETE FROM paragraphs').run();
       db.prepare('DELETE FROM sermons').run();
@@ -142,10 +142,11 @@ ipcMain.handle('db:importSermons', (event, sermons) => {
       const insFTS = db.prepare('INSERT INTO paragraphs_fts (content, sermon_id, paragraph_index) VALUES (?, ?, ?)');
       
       for (const s of data) {
-        if (!s.id || !s.text) continue; // Sécurité : ignorer les entrées vides ou malformées
+        if (!s.id || !s.text) continue;
 
         insS.run(s.id, s.title || 'Sans titre', s.date || '0000-00-00', s.city || '', s.version || 'VGR', s.time || 'Soir', s.audio_url || '');
         
+        // On découpe par double saut de ligne pour les paragraphes
         const segments = s.text.split(/\n\s*\n/);
         segments.forEach((p, i) => {
           const content = p.trim();

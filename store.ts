@@ -183,18 +183,20 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   resetLibrary: async () => {
-    set({ isLoading: true, loadingMessage: "Importation...", loadingProgress: 10 });
+    set({ isLoading: true, loadingMessage: "Récupération des données...", loadingProgress: 10 });
     try {
+      // Fetch library.json depuis le dossier public
       const response = await fetch('./library.json');
-      if (!response.ok) throw new Error(`Fichier library.json introuvable (${response.status})`);
+      if (!response.ok) throw new Error(`Fichier library.json introuvable (Status: ${response.status})`);
       
       const incoming: Sermon[] = await response.json();
       
       if (get().isSqliteAvailable) {
         set({ loadingProgress: 40, loadingMessage: "Indexation SQLite..." });
-        const result = await bulkAddSermons(incoming) as any;
-        if (result && result.error) {
-          throw new Error(result.error);
+        const result = await bulkAddSermons(incoming);
+        
+        if (!result.success) {
+          throw new Error(result.error || "L'indexation a échoué.");
         }
       }
       
@@ -202,12 +204,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       const map = new Map();
       metadata.forEach(s => map.set(s.id, s));
       set({ sermons: metadata as any, sermonsMap: map, loadingProgress: 100 });
-      get().addNotification("Bibliothèque importée", "success");
+      get().addNotification("Bibliothèque importée avec succès", "success");
     } catch (error: any) {
       console.error("Import failure:", error);
       get().addNotification(`Échec de l'importation : ${error.message}`, 'error');
     } finally {
-      set({ isLoading: false });
+      set({ isLoading: false, loadingMessage: null });
     }
   },
 
@@ -236,7 +238,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ contextSermonIds: newContext });
 
     } catch (error) {
-      get().addNotification("Erreur de chargement", "error");
+      get().addNotification("Erreur lors du chargement du sermon", "error");
     }
   },
 
