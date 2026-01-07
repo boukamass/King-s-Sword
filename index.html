@@ -3,91 +3,32 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#09090b">
   <title>King's Sword - Étude de Sermons</title>
-  <link rel="icon" type="image/png" href="./favicon-32x32.png">
   <script>
-    /**
-     * Polyfills critiques pour l'environnement navigateur/Electron Renderer.
-     * On définit 'global' directement sur window avant tout chargement de module.
-     * On évite d'utiliser 'typeof global' car Vite peut le remplacer par 'typeof window'
-     * lors de la phase de build, ce qui rendrait le polyfill inopérant.
-     */
     window.global = window;
-    window.process = window.process || {
+    window.process = {
       env: { NODE_ENV: 'development' },
       browser: true,
       version: '',
-      nextTick: function(fn) { setTimeout(fn, 0); },
-      cwd: function() { return '/'; }
+      nextTick: (fn) => setTimeout(fn, 0)
     };
   </script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            zinc: {
-              950: '#09090b',
-            }
-          }
-        }
-      }
+      theme: { extend: { colors: { zinc: { 950: '#09090b' } } } }
     }
   </script>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&family=Newsreader:italic,wght@0,400;1,400&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
   <style>
-    body {
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      overflow: hidden;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-      overscroll-behavior-y: none;
-    }
-    .serif-text { font-family: 'Newsreader', serif; }
-    .font-mono { font-family: 'JetBrains Mono', monospace; }
-    
-    /* Barres de défilement plus épaisses et ergonomiques (12px) */
-    .custom-scrollbar::-webkit-scrollbar { width: 12px; height: 12px; }
-    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { 
-      background: rgba(161, 161, 170, 0.4); 
-      border-radius: 12px; 
-      border: 3px solid transparent; 
-      background-clip: content-box; 
-    }
-    .dark .custom-scrollbar::-webkit-scrollbar-thumb { 
-      background: rgba(63, 63, 70, 0.6); 
-      border: 3px solid transparent; 
-      background-clip: content-box; 
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: rgba(161, 161, 170, 0.6); }
-    .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: rgba(63, 63, 70, 0.8); }
-
-    /* Nouveaux styles de sélection à fort contraste */
-    ::selection {
-      background-color: rgba(34, 211, 238, 0.5); /* cyan-400/50 */
-      color: #09090b; /* zinc-950 */
-    }
-    .dark ::selection {
-      color: #fafafa; /* zinc-50 */
-    }
-
-    [data-tooltip] { cursor: pointer; }
-
-    .overflow-visible-important { overflow: visible !important; }
-
-    .prose-styles { font-size: 1em; line-height: 1.6; }
-    .prose-styles p { margin-bottom: 0.8em; }
-    .prose-styles h1, .prose-styles h2, .prose-styles h3 { margin-top: 1.5em; margin-bottom: 0.5em; font-weight: 800; }
-    
-    @media print {
-      body { overflow: visible !important; background: white !important; }
-      .no-print { display: none !important; }
-      .printable-content-scroll-area { position: static !important; overflow: visible !important; height: auto !important; }
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background: #09090b; color: white; margin: 0; }
+    #root:empty::after {
+      content: "Chargement de l'interface...";
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      font-size: 10px; text-transform: uppercase; letter-spacing: 0.5em; opacity: 0.3;
     }
   </style>
 <script type="importmap">
@@ -109,8 +50,8 @@
 }
 </script>
 </head>
-<body class="bg-white dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 transition-colors duration-200">
+<body>
   <div id="root"></div>
-  <script type="module" src="/index.tsx"></script>
+  <script type="module" src="./index.tsx"></script>
 </body>
 </html>
