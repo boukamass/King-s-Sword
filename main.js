@@ -5,64 +5,74 @@ const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
 const Database = require('better-sqlite3');
 
-// Détection robuste du mode développement
-const isDev = !app.isPackaged || process.env.NODE_ENV === 'development';
+// Détection officielle Electron : si l'app n'est pas "packagée", on est en dev.
+const isDev = !app.isPackaged;
 
 let mainWindow;
 let db;
 
-console.log(`[Main] Application démarrée en mode: ${isDev ? 'DÉVELOPPEMENT' : 'PRODUCTION'}`);
+console.log("--------------------------------------------------");
+console.log(`[Main] Démarrage...`);
+console.log(`[Main] app.isPackaged: ${app.isPackaged}`);
+console.log(`[Main] Mode détecté: ${isDev ? 'DÉVELOPPEMENT' : 'PRODUCTION'}`);
+console.log("--------------------------------------------------");
 
 // --- INITIALISATION SQLITE ---
 function initDatabase() {
-  const dbPath = path.join(app.getPath('userData'), 'kings_sword_v2.db');
-  db = new Database(dbPath);
-  db.pragma('journal_mode = WAL');
-  db.pragma('synchronous = NORMAL');
+  try {
+    const dbPath = path.join(app.getPath('userData'), 'kings_sword_v2.db');
+    console.log(`[DB] Chemin base de données: ${dbPath}`);
+    db = new Database(dbPath);
+    db.pragma('journal_mode = WAL');
+    db.pragma('synchronous = NORMAL');
 
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS sermons (
-      id TEXT PRIMARY KEY,
-      title TEXT,
-      date TEXT,
-      city TEXT,
-      version TEXT,
-      time TEXT,
-      audio_url TEXT
-    );
-    CREATE TABLE IF NOT EXISTS paragraphs (
-      id TEXT PRIMARY KEY,
-      sermon_id TEXT,
-      paragraph_index INTEGER,
-      content TEXT,
-      FOREIGN KEY(sermon_id) REFERENCES sermons(id) ON DELETE CASCADE
-    );
-    CREATE VIRTUAL TABLE IF NOT EXISTS paragraphs_fts USING fts5(
-      content,
-      sermon_id UNINDEXED,
-      paragraph_index UNINDEXED,
-      content='paragraphs',
-      content_rowid='id'
-    );
-    CREATE TABLE IF NOT EXISTS notes (
-      id TEXT PRIMARY KEY,
-      title TEXT,
-      content TEXT,
-      color TEXT,
-      "order" INTEGER,
-      creation_date TEXT
-    );
-    CREATE TABLE IF NOT EXISTS citations (
-      id TEXT PRIMARY KEY,
-      note_id TEXT,
-      sermon_id TEXT,
-      sermon_title_snapshot TEXT,
-      sermon_date_snapshot TEXT,
-      quoted_text TEXT,
-      date_added TEXT,
-      FOREIGN KEY(note_id) REFERENCES notes(id) ON DELETE CASCADE
-    );
-  `);
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS sermons (
+        id TEXT PRIMARY KEY,
+        title TEXT,
+        date TEXT,
+        city TEXT,
+        version TEXT,
+        time TEXT,
+        audio_url TEXT
+      );
+      CREATE TABLE IF NOT EXISTS paragraphs (
+        id TEXT PRIMARY KEY,
+        sermon_id TEXT,
+        paragraph_index INTEGER,
+        content TEXT,
+        FOREIGN KEY(sermon_id) REFERENCES sermons(id) ON DELETE CASCADE
+      );
+      CREATE VIRTUAL TABLE IF NOT EXISTS paragraphs_fts USING fts5(
+        content,
+        sermon_id UNINDEXED,
+        paragraph_index UNINDEXED,
+        content='paragraphs',
+        content_rowid='id'
+      );
+      CREATE TABLE IF NOT EXISTS notes (
+        id TEXT PRIMARY KEY,
+        title TEXT,
+        content TEXT,
+        color TEXT,
+        "order" INTEGER,
+        creation_date TEXT
+      );
+      CREATE TABLE IF NOT EXISTS citations (
+        id TEXT PRIMARY KEY,
+        note_id TEXT,
+        sermon_id TEXT,
+        sermon_title_snapshot TEXT,
+        sermon_date_snapshot TEXT,
+        quoted_text TEXT,
+        date_added TEXT,
+        FOREIGN KEY(note_id) REFERENCES notes(id) ON DELETE CASCADE
+      );
+    `);
+    console.log(`[DB] Tables vérifiées avec succès.`);
+  } catch (err) {
+    console.error(`[DB] Erreur fatale initialisation:`, err);
+  }
 }
 
 // --- IPC HANDLERS ---
@@ -116,6 +126,7 @@ ipcMain.handle('db:reorderNotes', (event, notes) => (db.transaction(items => ite
 
 function createWindow() {
   initDatabase();
+  
   mainWindow = new BrowserWindow({
     width: 1280, height: 800,
     backgroundColor: '#09090b',
@@ -123,27 +134,38 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
+      webSecurity: false // Utile en dev pour charger des assets locaux si besoin
     },
   });
 
   if (isDev) {
-    console.log("[Main] Chargement de l'URL Vite: http://localhost:5173");
-    mainWindow.loadURL('http://localhost:5173').catch(err => {
-        console.error("[Main] Échec du chargement de Vite, tentative de rechargement...", err);
-        setTimeout(() => mainWindow.loadURL('http://localhost:5173'), 2000);
-    });
+    console.log("[Main] Tentative de chargement de Vite: http://localhost:5173");
+    mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
+    const indexPath = path.join(__dirname, 'dist', 'index.html');
+    console.log(`[Main] Chargement du fichier prod: ${indexPath}`);
+    mainWindow.loadFile(indexPath);
   }
 
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
-    console.log(`[Main] Erreur de chargement: ${errorCode} - ${errorDescription} pour ${validatedURL}`);
+    console.log(`[Main] Échec de chargement (${errorCode}): ${errorDescription}`);
+    console.log(`[Main] URL tentée: ${validatedURL}`);
+    
+    // Si Vite n'est pas encore prêt, on réessaie
     if (isDev && validatedURL.includes('localhost')) {
-      setTimeout(() => mainWindow.loadURL('http://localhost:5173'), 1000);
+      console.log("[Main] Le serveur Vite semble indisponible, nouvel essai dans 2s...");
+      setTimeout(() => {
+        if (!mainWindow.isDestroyed()) mainWindow.loadURL('http://localhost:5173');
+      }, 2000);
     }
   });
 }
 
 app.whenReady().then(createWindow);
-app.on('window-all-closed', () => process.platform !== 'darwin' && app.quit());
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit();
+});
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) createWindow();
+});
