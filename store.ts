@@ -10,7 +10,8 @@ import {
   deleteNoteFromDB,
   syncNotesOrder,
   getSermonsCount,
-  isDatabaseReady
+  isDatabaseReady,
+  fetchLibrary
 } from './services/db';
 
 export interface SearchResult {
@@ -31,7 +32,7 @@ interface AppState {
   selectedSermonId: string | null;
   activeNoteId: string | null;
   contextSermonIds: string[];
-  manualContextIds: string[]; 
+  manualContextIds: string[]; // Nouveau : IDs ajoutés manuellement via le bouton Sparkle
   sidebarOpen: boolean;
   aiOpen: boolean;
   notesOpen: boolean;
@@ -148,16 +149,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   isSqliteAvailable: true,
 
   initializeDB: async () => {
-    set({ isLoading: true, loadingMessage: "Vérification base..." });
+    set({ isLoading: true, loadingMessage: "Accès à la base..." });
     const hasSqlite = await isDatabaseReady();
     set({ isSqliteAvailable: hasSqlite });
     
     try {
       if (!hasSqlite) {
-        console.warn("[App] Mode Web détecté, chargement via library.json");
-        const response = await fetch('library.json');
-        if (!response.ok) throw new Error("library.json introuvable");
-        const data: Sermon[] = await response.json();
+        const data: Sermon[] = await fetchLibrary();
         const map = new Map();
         data.forEach(s => map.set(s.id, s));
         const notes = await getAllNotes();
@@ -167,7 +165,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       const count = await getSermonsCount();
       if (count === 0) {
-        console.log("[App] Base vide, lancement de l'importation initiale...");
         await get().resetLibrary();
       } else {
         const metadata = await getAllSermonsMetadata();
@@ -176,38 +173,30 @@ export const useAppStore = create<AppState>((set, get) => ({
         const notes = await getAllNotes();
         set({ sermons: metadata, sermonsMap: map, notes });
       }
-    } catch (error: any) {
-      console.error("[App Init Error]", error);
-      get().addNotification(`Démarrage : ${error.message || "Erreur de base de données"}`, 'error');
+    } catch (error) {
+      console.error(error);
+      get().addNotification("Échec de l'importation.", 'error');
     } finally {
       set({ isLoading: false });
     }
   },
 
   resetLibrary: async () => {
-    set({ isLoading: true, loadingMessage: "Extraction library.json...", loadingProgress: 10 });
+    set({ isLoading: true, loadingMessage: "Importation...", loadingProgress: 10 });
     try {
-      const response = await fetch('library.json');
-      if (!response.ok) throw new Error("Fichier library.json introuvable.");
-      
-      const incoming: Sermon[] = await response.json();
+      const incoming: Sermon[] = await fetchLibrary();
       
       if (get().isSqliteAvailable) {
-        set({ loadingProgress: 40, loadingMessage: "Indexation SQLite (Patientez)..." });
-        const result = await bulkAddSermons(incoming);
-        if (!result.success) {
-          throw new Error(result.error || "Erreur lors de l'écriture SQLite");
-        }
+        set({ loadingProgress: 40, loadingMessage: "Indexation SQLite..." });
+        await bulkAddSermons(incoming);
       }
       
       const metadata = incoming.map(({text, ...meta}) => meta);
       const map = new Map();
       metadata.forEach(s => map.set(s.id, s));
       set({ sermons: metadata as any, sermonsMap: map, loadingProgress: 100 });
-      get().addNotification("Bibliothèque synchronisée.", 'success');
-    } catch (error: any) {
-      console.error("[Reset Library Error]", error);
-      get().addNotification(`Échec de l'importation : ${error.message}`, 'error');
+    } catch (error) {
+      get().addNotification("Échec de l'importation.", 'error');
     } finally {
       set({ isLoading: false });
     }
@@ -233,6 +222,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         set({ activeSermon: fullSermon });
       }
       
+      // Mettre à jour contextSermonIds : sermon actif + sélections manuelles
       const manual = get().manualContextIds;
       const newContext = Array.from(new Set([id, ...manual].filter(Boolean) as string[]));
       set({ contextSermonIds: newContext });

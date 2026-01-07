@@ -12,6 +12,16 @@ export const isDatabaseReady = async (): Promise<boolean> => {
   }
 };
 
+export const fetchLibrary = async (): Promise<Sermon[]> => {
+  if (isElectron && window.electronAPI.getLibrary) {
+    return window.electronAPI.getLibrary();
+  } else {
+    const response = await fetch('library.json');
+    if (!response.ok) throw new Error('Impossible de charger la bibliothèque de sermons.');
+    return response.json();
+  }
+};
+
 export const getAllSermonsMetadata = async (): Promise<Omit<Sermon, 'text'>[]> => {
   if (!isElectron) return [];
   return window.electronAPI.db.getSermonsMetadata();
@@ -28,9 +38,9 @@ export const getSermonById = async (id: string): Promise<Sermon | null> => {
   return window.electronAPI.db.getSermonFull(id);
 };
 
-export const bulkAddSermons = async (sermons: Sermon[]): Promise<{ success: boolean; error?: string }> => {
-  if (!isElectron) return { success: false, error: "Mode Web: SQLite non disponible" };
-  return window.electronAPI.db.importSermons(sermons);
+export const bulkAddSermons = async (sermons: Sermon[]): Promise<void> => {
+  if (!isElectron) return;
+  await window.electronAPI.db.importSermons(sermons);
 };
 
 export const searchSermons = async (params: { query: string; mode: SearchMode; limit: number; offset: number }): Promise<any[]> => {
