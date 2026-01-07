@@ -5,7 +5,7 @@ const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
 const Database = require('better-sqlite3');
 
-// Détection officielle Electron : si l'app n'est pas "packagée", on est en dev.
+// Détection officielle Electron
 const isDev = !app.isPackaged;
 
 let mainWindow;
@@ -13,7 +13,6 @@ let db;
 
 console.log("--------------------------------------------------");
 console.log(`[Main] Démarrage...`);
-console.log(`[Main] app.isPackaged: ${app.isPackaged}`);
 console.log(`[Main] Mode détecté: ${isDev ? 'DÉVELOPPEMENT' : 'PRODUCTION'}`);
 console.log("--------------------------------------------------");
 
@@ -71,20 +70,33 @@ function initDatabase() {
     `);
     console.log(`[DB] Tables vérifiées avec succès.`);
   } catch (err) {
-    console.error(`[DB] Erreur fatale initialisation:`, err);
+    console.error(`[DB] ERREUR CRITIQUE: Impossible de charger le module natif SQLite.`);
+    console.error(`[DB] Raison: ${err.message}`);
+    db = null; // Sécurité
   }
 }
 
-// --- IPC HANDLERS ---
-ipcMain.handle('db:getSermonsMetadata', () => db.prepare('SELECT id, title, date, city, version, time, audio_url FROM sermons ORDER BY date DESC').all());
+// --- IPC HANDLERS AVEC SÉCURITÉ ---
+const checkDb = () => {
+  if (!db) throw new Error("La base de données n'est pas disponible (erreur de module natif).");
+};
+
+ipcMain.handle('db:getSermonsMetadata', () => {
+  if (!db) return [];
+  return db.prepare('SELECT id, title, date, city, version, time, audio_url FROM sermons ORDER BY date DESC').all();
+});
+
 ipcMain.handle('db:getSermonFull', (event, id) => {
+  checkDb();
   const sermon = db.prepare('SELECT * FROM sermons WHERE id = ?').get(id);
   if (!sermon) return null;
   const paragraphs = db.prepare('SELECT content FROM paragraphs WHERE sermon_id = ? ORDER BY paragraph_index ASC').all();
   sermon.text = paragraphs.map(p => p.content).join('\n\n');
   return sermon;
 });
+
 ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0 }) => {
+  checkDb();
   let sqlQuery = query.trim();
   if (!sqlQuery) return [];
   if (mode === 'EXACT_PHRASE') sqlQuery = `"${sqlQuery}"`;
@@ -97,7 +109,9 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0 }) => 
     FROM paragraphs_fts WHERE content MATCH ? LIMIT ? OFFSET ?
   `).all(sqlQuery, limit, offset).map(res => ({ ...res, ...db.prepare('SELECT title, date, city FROM sermons WHERE id = ?').get(res.sermonId) }));
 });
+
 ipcMain.handle('db:importSermons', (event, sermons) => {
+  checkDb();
   db.transaction((data) => {
     db.prepare('DELETE FROM sermons').run();
     const insS = db.prepare('INSERT INTO sermons VALUES (?, ?, ?, ?, ?, ?, ?)');
@@ -109,20 +123,34 @@ ipcMain.handle('db:importSermons', (event, sermons) => {
   })(sermons);
   return { success: true };
 });
+
 ipcMain.handle('db:getNotes', () => {
+  if (!db) return [];
   const ns = db.prepare('SELECT * FROM notes ORDER BY "order" ASC').all();
   ns.forEach(n => n.citations = db.prepare('SELECT * FROM citations WHERE note_id = ?').all(n.id));
   return ns;
 });
+
 ipcMain.handle('db:saveNote', (event, note) => {
+  checkDb();
   db.prepare('INSERT INTO notes VALUES (@id, @title, @content, @color, @order, @creation_date) ON CONFLICT(id) DO UPDATE SET title=excluded.title, content=excluded.content, color=excluded.color, "order"=excluded."order"').run({ ...note, creation_date: note.creationDate });
   db.prepare('DELETE FROM citations WHERE note_id = ?').run(note.id);
   const insC = db.prepare('INSERT INTO citations VALUES (?, ?, ?, ?, ?, ?, ?)');
   note.citations.forEach(c => insC.run(c.id || Math.random().toString(), note.id, c.sermon_id, c.sermon_title_snapshot, c.sermon_date_snapshot, c.quoted_text, c.date_added || new Date().toISOString()));
   return { success: true };
 });
-ipcMain.handle('db:deleteNote', (event, id) => (db.prepare('DELETE FROM notes WHERE id = ?').run(id), { success: true }));
-ipcMain.handle('db:reorderNotes', (event, notes) => (db.transaction(items => items.forEach((it, i) => db.prepare('UPDATE notes SET "order" = ? WHERE id = ?').run(i, it.id)))(notes), { success: true }));
+
+ipcMain.handle('db:deleteNote', (event, id) => {
+  checkDb();
+  db.prepare('DELETE FROM notes WHERE id = ?').run(id);
+  return { success: true };
+});
+
+ipcMain.handle('db:reorderNotes', (event, notes) => {
+  checkDb();
+  db.transaction(items => items.forEach((it, i) => db.prepare('UPDATE notes SET "order" = ? WHERE id = ?').run(i, it.id)))(notes);
+  return { success: true };
+});
 
 function createWindow() {
   initDatabase();
@@ -134,38 +162,23 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: false // Utile en dev pour charger des assets locaux si besoin
+      webSecurity: false 
     },
   });
 
   if (isDev) {
-    console.log("[Main] Tentative de chargement de Vite: http://localhost:5173");
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
   } else {
-    const indexPath = path.join(__dirname, 'dist', 'index.html');
-    console.log(`[Main] Chargement du fichier prod: ${indexPath}`);
-    mainWindow.loadFile(indexPath);
+    mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
   }
 
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
-    console.log(`[Main] Échec de chargement (${errorCode}): ${errorDescription}`);
-    console.log(`[Main] URL tentée: ${validatedURL}`);
-    
-    // Si Vite n'est pas encore prêt, on réessaie
     if (isDev && validatedURL.includes('localhost')) {
-      console.log("[Main] Le serveur Vite semble indisponible, nouvel essai dans 2s...");
-      setTimeout(() => {
-        if (!mainWindow.isDestroyed()) mainWindow.loadURL('http://localhost:5173');
-      }, 2000);
+      setTimeout(() => { if (!mainWindow.isDestroyed()) mainWindow.loadURL('http://localhost:5173'); }, 2000);
     }
   });
 }
 
 app.whenReady().then(createWindow);
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
-app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) createWindow();
-});
+app.on('window-all-closed', () => process.platform !== 'darwin' && app.quit());
