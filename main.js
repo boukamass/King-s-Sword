@@ -213,14 +213,17 @@ ipcMain.handle('db:importSermons', (event, sermons) => {
     
     for (const s of data) {
       insS.run(s.id, s.title, s.date, s.city, s.version || 'VGR', s.time || 'Soir', s.audio_url || '');
-      const segments = s.text.split(/\n\s*\n/);
-      segments.forEach((p, i) => {
-        const content = p.trim();
-        if (content) {
-          insP.run(s.id, i + 1, content);
-          insFTS.run(content, s.id, i + 1);
-        }
-      });
+      
+      if (s.text && typeof s.text === 'string') {
+        const segments = s.text.split(/\n\s*\n/);
+        segments.forEach((p, i) => {
+          const content = p.trim();
+          if (content) {
+            insP.run(s.id, i + 1, content);
+            insFTS.run(content, s.id, i + 1);
+          }
+        });
+      }
     }
   });
 
