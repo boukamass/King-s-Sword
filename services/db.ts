@@ -43,64 +43,15 @@ export const initDB = (): Promise<boolean> => {
 };
 
 /**
- * Récupère le nombre total de sermons en base.
- */
-export const getSermonsCount = (): Promise<number> => {
-  return new Promise((resolve, reject) => {
-    if (!db) return reject("Base non initialisée.");
-    const transaction = db.transaction(SERMONS_STORE_NAME, 'readonly');
-    const store = transaction.objectStore(SERMONS_STORE_NAME);
-    const request = store.count();
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject("Erreur de comptage.");
-  });
-};
-
-/**
- * Récupère une page de métadonnées de sermons (pagination DB).
- */
-export const getSermonsMetadataPage = (offset: number, limit: number): Promise<Omit<Sermon, 'text'>[]> => {
-  return new Promise((resolve, reject) => {
-    if (!db) return reject("Base non initialisée.");
-    const transaction = db.transaction(SERMONS_STORE_NAME, 'readonly');
-    const store = transaction.objectStore(SERMONS_STORE_NAME);
-    const results: any[] = [];
-    let skipped = 0;
-    const request = store.openCursor();
-    
-    request.onsuccess = (event) => {
-      const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
-      if (!cursor) {
-        resolve(results);
-        return;
-      }
-      if (skipped < offset) {
-        cursor.advance(offset - skipped);
-        skipped = offset;
-        return;
-      }
-      const { text, ...metadata } = cursor.value;
-      results.push(metadata);
-      if (results.length < limit) {
-        cursor.continue();
-      } else {
-        resolve(results);
-      }
-    };
-    request.onerror = () => reject('Erreur de lecture paginée.');
-  });
-};
-
-/**
- * Récupère tous les sermons mais SANS le champ 'text' pour économiser la RAM.
- * (Conservé pour compatibilité mais optimisé pour ne pas tout charger brutalement)
+ * Récupère uniquement les métadonnées de tous les sermons.
+ * Utilise un curseur pour éviter de cloner les objets textuels en mémoire.
  */
 export const getAllSermonsMetadata = (): Promise<Omit<Sermon, 'text'>[]> => {
   return new Promise((resolve, reject) => {
     if (!db) return reject("Base non initialisée.");
     const transaction = db.transaction(SERMONS_STORE_NAME, 'readonly');
     const store = transaction.objectStore(SERMONS_STORE_NAME);
-    const results: any[] = [];
+    const results: Omit<Sermon, 'text'>[] = [];
     const request = store.openCursor();
     
     request.onsuccess = (event) => {
@@ -117,6 +68,22 @@ export const getAllSermonsMetadata = (): Promise<Omit<Sermon, 'text'>[]> => {
   });
 };
 
+/**
+ * Récupère le nombre total de sermons.
+ */
+export const getSermonsCount = (): Promise<number> => {
+  return new Promise((resolve) => {
+    if (!db) return resolve(0);
+    const transaction = db.transaction(SERMONS_STORE_NAME, 'readonly');
+    const store = transaction.objectStore(SERMONS_STORE_NAME);
+    const request = store.count();
+    request.onsuccess = () => resolve(request.result);
+  });
+};
+
+/**
+ * Récupère un sermon complet par son ID (Texte inclus).
+ */
 export const getSermonById = (id: string): Promise<Sermon | null> => {
   return new Promise((resolve, reject) => {
     if (!db) return reject("Base non initialisée.");
@@ -128,21 +95,17 @@ export const getSermonById = (id: string): Promise<Sermon | null> => {
   });
 };
 
-// Utilisé pour le Web Worker de recherche intégrale
-export const getAllSermonsFull = (): Promise<Sermon[]> => {
-  return new Promise((resolve, reject) => {
-    if (!db) return reject("Base non initialisée.");
-    const transaction = db.transaction(SERMONS_STORE_NAME, 'readonly');
-    const store = transaction.objectStore(SERMONS_STORE_NAME);
-    const request = store.getAll();
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject('Erreur de lecture.');
-  });
+/**
+ * Récupère uniquement le texte d'un sermon pour économiser la RAM.
+ */
+export const getSermonTextById = async (id: string): Promise<string> => {
+  const sermon = await getSermonById(id);
+  return sermon?.text || "";
 };
 
 export const bulkAddSermons = (sermons: Sermon[], clearFirst: boolean): Promise<void> => {
   return new Promise((resolve, reject) => {
-    if (!db) return reject("La base de données n'est pas initialisée.");
+    if (!db) return reject("Base non initialisée.");
     const transaction = db.transaction(SERMONS_STORE_NAME, 'readwrite');
     const store = transaction.objectStore(SERMONS_STORE_NAME);
     
@@ -172,7 +135,7 @@ export const updateSermon = (sermon: Sermon): Promise<void> => {
 
 export const getAllNotes = (): Promise<Note[]> => {
   return new Promise((resolve, reject) => {
-    if (!db) return reject("La base de données n'est pas initialisée.");
+    if (!db) return reject("Base non initialisée.");
     const transaction = db.transaction(NOTES_STORE_NAME, 'readonly');
     const store = transaction.objectStore(NOTES_STORE_NAME);
     const request = store.getAll();
@@ -183,7 +146,7 @@ export const getAllNotes = (): Promise<Note[]> => {
 
 export const putNote = (note: Note): Promise<void> => {
   return new Promise((resolve, reject) => {
-    if (!db) return reject("La base de données n'est pas initialisée.");
+    if (!db) return reject("Base non initialisée.");
     const transaction = db.transaction(NOTES_STORE_NAME, 'readwrite');
     const store = transaction.objectStore(NOTES_STORE_NAME);
     const request = store.put(note);
@@ -194,7 +157,7 @@ export const putNote = (note: Note): Promise<void> => {
 
 export const deleteNoteFromDB = (id: string): Promise<void> => {
   return new Promise((resolve, reject) => {
-    if (!db) return reject("La base de données n'est pas initialisée.");
+    if (!db) return reject("Base non initialisée.");
     const transaction = db.transaction(NOTES_STORE_NAME, 'readwrite');
     const store = transaction.objectStore(NOTES_STORE_NAME);
     const request = store.delete(id);
