@@ -185,30 +185,48 @@ export const useAppStore = create<AppState>((set, get) => ({
   resetLibrary: async () => {
     set({ isLoading: true, loadingMessage: "Récupération des données...", loadingProgress: 10 });
     try {
-      // Fetch library.json depuis le dossier public
-      const response = await fetch('./library.json');
-      if (!response.ok) throw new Error(`Fichier library.json introuvable (Status: ${response.status})`);
+      // S'assurer du chemin absolu relatif à l'application
+      const response = await fetch('library.json');
+      if (!response.ok) {
+        throw new Error(`Le fichier library.json est manquant ou inaccessible (Status: ${response.status})`);
+      }
       
-      const incoming: Sermon[] = await response.json();
+      let incoming: Sermon[];
+      try {
+        incoming = await response.json();
+      } catch (parseError) {
+        throw new Error("Le format du fichier library.json est invalide.");
+      }
       
+      if (!Array.isArray(incoming)) {
+        throw new Error("Les données importées doivent être une liste de sermons.");
+      }
+
       if (get().isSqliteAvailable) {
         set({ loadingProgress: 40, loadingMessage: "Indexation SQLite..." });
         const result = await bulkAddSermons(incoming);
         
-        if (!result.success) {
-          throw new Error(result.error || "L'indexation a échoué.");
+        if (!result || !result.success) {
+          throw new Error(result?.error || "L'indexation SQLite a échoué.");
         }
       }
       
       const metadata = incoming.map(({text, ...meta}) => meta);
       const map = new Map();
       metadata.forEach(s => map.set(s.id, s));
-      set({ sermons: metadata as any, sermonsMap: map, loadingProgress: 100 });
+      
+      set({ 
+        sermons: metadata as any, 
+        sermonsMap: map, 
+        loadingProgress: 100,
+        isLoading: false,
+        loadingMessage: null
+      });
+      
       get().addNotification("Bibliothèque importée avec succès", "success");
     } catch (error: any) {
       console.error("Import failure:", error);
       get().addNotification(`Échec de l'importation : ${error.message}`, 'error');
-    } finally {
       set({ isLoading: false, loadingMessage: null });
     }
   },

@@ -11,9 +11,14 @@ let db;
 
 function initDatabase() {
   try {
-    const dbPath = path.join(app.getPath('userData'), 'kings_sword_v2.db');
+    const userDataPath = app.getPath('userData');
+    if (!fs.existsSync(userDataPath)) {
+      fs.mkdirSync(userDataPath, { recursive: true });
+    }
+    const dbPath = path.join(userDataPath, 'kings_sword_v2.db');
+    
     db = new Database(dbPath);
-    // Optimisations PRAGMA
+    // Optimisations PRAGMA pour la performance d'importation
     db.pragma('journal_mode = WAL');
     db.pragma('synchronous = NORMAL');
     db.pragma('temp_store = MEMORY');
@@ -64,7 +69,7 @@ function initDatabase() {
       );
     `);
   } catch (err) {
-    console.error(`[DB] Erreur initialisation: ${err.message}`);
+    console.error(`[DB] Erreur fatale initialisation: ${err.message}`);
     db = null;
   }
 }
@@ -72,7 +77,7 @@ function initDatabase() {
 const checkDb = () => { 
   if (!db) {
     initDatabase();
-    if (!db) throw new Error("Moteur de base de données SQLite indisponible.");
+    if (!db) throw new Error("Base de données indisponible. Vérifiez les permissions d'écriture.");
   }
 };
 
@@ -128,11 +133,11 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 30, offset = 0 }) => 
 });
 
 ipcMain.handle('db:importSermons', (event, sermons) => {
-  checkDb();
-
   try {
+    checkDb();
+    
     const transaction = db.transaction((data) => {
-      // Nettoyage complet avant ré-import
+      // Nettoyage atomique
       db.prepare('DELETE FROM paragraphs_fts').run();
       db.prepare('DELETE FROM paragraphs').run();
       db.prepare('DELETE FROM sermons').run();
@@ -144,9 +149,16 @@ ipcMain.handle('db:importSermons', (event, sermons) => {
       for (const s of data) {
         if (!s.id || !s.text) continue;
 
-        insS.run(s.id, s.title || 'Sans titre', s.date || '0000-00-00', s.city || '', s.version || 'VGR', s.time || 'Soir', s.audio_url || '');
+        insS.run(
+          s.id, 
+          s.title || 'Sermon sans titre', 
+          s.date || '0000-00-00', 
+          s.city || '', 
+          s.version || 'VGR', 
+          s.time || 'Inconnu', 
+          s.audio_url || ''
+        );
         
-        // On découpe par double saut de ligne pour les paragraphes
         const segments = s.text.split(/\n\s*\n/);
         segments.forEach((p, i) => {
           const content = p.trim();
@@ -177,24 +189,37 @@ ipcMain.handle('db:getNotes', () => {
 });
 
 ipcMain.handle('db:saveNote', (event, note) => {
-  checkDb();
-  db.prepare('INSERT INTO notes (id, title, content, color, "order", creation_date) VALUES (@id, @title, @content, @color, @order, @creationDate) ON CONFLICT(id) DO UPDATE SET title=excluded.title, content=excluded.content, color=excluded.color, "order"=excluded."order"').run(note);
-  db.prepare('DELETE FROM citations WHERE note_id = ?').run(note.id);
-  const insC = db.prepare('INSERT INTO citations VALUES (?, ?, ?, ?, ?, ?, ?)');
-  note.citations.forEach(c => insC.run(c.id || Math.random().toString(), note.id, c.sermon_id, c.sermon_title_snapshot, c.sermon_date_snapshot, c.quoted_text, c.date_added || new Date().toISOString()));
-  return { success: true };
+  try {
+    checkDb();
+    db.prepare('INSERT INTO notes (id, title, content, color, "order", creation_date) VALUES (@id, @title, @content, @color, @order, @creationDate) ON CONFLICT(id) DO UPDATE SET title=excluded.title, content=excluded.content, color=excluded.color, "order"=excluded."order"').run(note);
+    db.prepare('DELETE FROM citations WHERE note_id = ?').run(note.id);
+    const insC = db.prepare('INSERT INTO citations VALUES (?, ?, ?, ?, ?, ?, ?)');
+    note.citations.forEach(c => insC.run(c.id || Math.random().toString(), note.id, c.sermon_id, c.sermon_title_snapshot, c.sermon_date_snapshot, c.quoted_text, c.date_added || new Date().toISOString()));
+    return { success: true };
+  } catch (e) {
+    console.error("Save Note Error:", e);
+    return { success: false, error: e.message };
+  }
 });
 
 ipcMain.handle('db:deleteNote', (event, id) => {
-  checkDb();
-  db.prepare('DELETE FROM notes WHERE id = ?').run(id);
-  return { success: true };
+  try {
+    checkDb();
+    db.prepare('DELETE FROM notes WHERE id = ?').run(id);
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
 });
 
 ipcMain.handle('db:reorderNotes', (event, notes) => {
-  checkDb();
-  db.transaction(items => items.forEach((it, i) => db.prepare('UPDATE notes SET "order" = ? WHERE id = ?').run(i, it.id)))(notes);
-  return { success: true };
+  try {
+    checkDb();
+    db.transaction(items => items.forEach((it, i) => db.prepare('UPDATE notes SET "order" = ? WHERE id = ?').run(i, it.id)))(notes);
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
 });
 
 function createWindow() {

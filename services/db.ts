@@ -20,7 +20,7 @@ export const getAllSermonsMetadata = async (): Promise<Omit<Sermon, 'text'>[]> =
 export const getSermonsCount = async (): Promise<number> => {
   if (!isElectron) return 0;
   const meta = await window.electronAPI.db.getSermonsMetadata();
-  return meta.length;
+  return meta ? meta.length : 0;
 };
 
 export const getSermonById = async (id: string): Promise<Sermon | null> => {
@@ -30,7 +30,15 @@ export const getSermonById = async (id: string): Promise<Sermon | null> => {
 
 export const bulkAddSermons = async (sermons: Sermon[]): Promise<{ success: boolean; count: number; error?: string }> => {
   if (!isElectron) return { success: true, count: 0 };
-  return window.electronAPI.db.importSermons(sermons);
+  const result = await window.electronAPI.db.importSermons(sermons);
+  // Ensure we always return a valid object with the required count property
+  if (!result) return { success: false, count: 0, error: "Réponse IPC vide" };
+  
+  return {
+    success: result.success,
+    count: result.count ?? 0,
+    error: result.error
+  };
 };
 
 export const searchSermons = async (params: { query: string; mode: SearchMode; limit: number; offset: number }): Promise<any[]> => {

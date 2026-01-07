@@ -74,7 +74,8 @@ export interface ElectronAPI {
     getSermonsMetadata: () => Promise<Omit<Sermon, 'text'>[]>;
     getSermonFull: (id: string) => Promise<Sermon | null>;
     search: (params: { query: string; mode: SearchMode; limit: number; offset: number }) => Promise<any[]>;
-    importSermons: (sermons: Sermon[]) => Promise<{ success: boolean; count: number }>;
+    // Updated count to be optional to match main.js error handling
+    importSermons: (sermons: Sermon[]) => Promise<{ success: boolean; count?: number; error?: string }>;
     getParagraphContent: (id: string) => Promise<any>;
     getNotes: () => Promise<Note[]>;
     saveNote: (note: Note) => Promise<{ success: boolean }>;
