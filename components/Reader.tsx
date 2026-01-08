@@ -133,6 +133,7 @@ const WordComponent = memo(({
 });
 
 let externalMaskWindow: Window | null = null;
+let projectionWindow: Window | null = null;
 
 const Reader: React.FC = () => {
   const [isPending, startTransition] = useTransition();
@@ -183,6 +184,7 @@ const Reader: React.FC = () => {
   const [noteSelectorPayload, setNoteSelectorPayload] = useState<{ text: string; sermon: Sermon } | null>(null);
   const [isOSFullscreen, setIsOSFullscreen] = useState(false);
   const [projectedSegmentIndex, setProjectedSegmentIndex] = useState<number | null>(null);
+  const [isProjectionOpen, setIsProjectionOpen] = useState(false);
   
   const [activeDefinition, setActiveDefinition] = useState<WordDefinition | null>(null);
   const [isDefining, setIsDefining] = useState(false);
@@ -213,6 +215,10 @@ const Reader: React.FC = () => {
       if (externalMaskWindow && externalMaskWindow.closed) {
         setExternalMaskOpen(false);
         externalMaskWindow = null;
+      }
+      if (projectionWindow && projectionWindow.closed) {
+        projectionWindow = null;
+        setIsProjectionOpen(false);
       }
     }, 1000);
     const handleFullscreenChange = () => setIsOSFullscreen(!!document.fullscreenElement);
@@ -256,15 +262,30 @@ const Reader: React.FC = () => {
     }
   };
 
-  const handleOpenProjection = () => {
-    try {
-      const url = new URL(window.location.href);
-      url.searchParams.set('projection', 'true');
-      url.hash = '';
-      const projWindow = window.open(url.toString(), 'KingsSwordProjection');
-      if (projWindow) addNotification("Fenêtre de projection ouverte", "success");
-      else addNotification("Action bloquée", "error");
-    } catch (err) { addNotification("Erreur de projection", "error"); }
+  const toggleProjection = () => {
+    if (projectionWindow && !projectionWindow.closed) {
+      projectionWindow.close();
+      projectionWindow = null;
+      setIsProjectionOpen(false);
+      addNotification("Projection terminée", "success");
+    } else {
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('projection', 'true');
+        url.hash = '';
+        projectionWindow = window.open(url.toString(), 'KingsSwordProjection');
+        if (projectionWindow) {
+          setIsProjectionOpen(true);
+          addNotification("Fenêtre de projection ouverte", "success");
+        } else {
+          projectionWindow = null;
+          setIsProjectionOpen(false);
+          addNotification("Action bloquée par le navigateur", "error");
+        }
+      } catch (err) {
+        addNotification("Erreur de projection", "error");
+      }
+    }
   };
 
   const toggleExternalMask = () => {
@@ -828,7 +849,13 @@ const Reader: React.FC = () => {
             {navigatedFromSearch && (
               <button onClick={() => { setSearchQuery(lastSearchQuery); setIsFullTextSearch(true); setSelectedSermonId(null); setNavigatedFromSearch(false); setSearchOriginMatchIndices([]); }} className="px-3 py-1.5 bg-amber-600/10 text-amber-700 dark:text-amber-400 text-[9px] font-bold uppercase tracking-wider rounded-xl hover:bg-amber-600/20 transition-colors mr-2"><ChevronLeft className="w-3 h-3 inline mr-1" /> {t.reader_exit_search}</button>
             )}
-            <ActionButton onClick={handleOpenProjection} icon={MonitorPlay} tooltip="Projection" />
+            <ActionButton 
+              onClick={toggleProjection} 
+              icon={MonitorPlay} 
+              tooltip={isProjectionOpen ? "Arrêter la projection" : "Lancer la projection"}
+              active={isProjectionOpen}
+              special={isProjectionOpen}
+            />
             <ActionButton onClick={toggleExternalMask} icon={isExternalMaskOpen ? Eye : EyeOff} tooltip="Masquer" active={isExternalMaskOpen} special={isExternalMaskOpen} />
             <div className="hidden sm:block w-px h-5 bg-zinc-200 dark:bg-zinc-800/50 mx-1" />
             <ActionButton onClick={() => window.print()} icon={Printer} tooltip={t.print} />

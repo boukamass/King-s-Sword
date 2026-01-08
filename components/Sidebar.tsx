@@ -1,4 +1,3 @@
-
 // Add React import to the list of imports from 'react'
 import React, { useState, useRef, useEffect, useMemo, memo, useDeferredValue, useTransition, useCallback } from 'react';
 import { useAppStore } from '../store';
@@ -286,7 +285,6 @@ const Sidebar: React.FC = () => {
 
   const filteredSermons = useMemo(() => {
     const q = isFullTextSearch ? "" : normalizeText(deferredSearchQuery);
-    if (!q && !cityFilter && !yearFilter && !versionFilter && !timeFilter) return sermons;
 
     return sermons.filter(s => {
       if (!s) return false;
