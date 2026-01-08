@@ -28,7 +28,9 @@ const AIAssistant: React.FC = () => {
     selectedSermonId,
     toggleContextSermon,
     clearContextSermons,
-    sermons, 
+    sermons,
+    sermonsMap,
+    isSqliteAvailable,
     chatHistory, 
     addChatMessage, 
     toggleAI,
@@ -37,7 +39,7 @@ const AIAssistant: React.FC = () => {
     languageFilter,
     setSelectedSermonId,
     setJumpToText,
-    aiWidth
+    addNotification
   } = useAppStore();
   
   const lang = languageFilter === 'Anglais' ? 'en' : 'fr';
@@ -58,11 +60,9 @@ const AIAssistant: React.FC = () => {
   );
 
   const formatAIResponse = (text: string) => {
-    // Regex pour capturer les références [Réf: ID, Para. N] et les transformer en liens riches
     const formattedText = text.replace(/\[Réf:\s*([\w-]+),\s*Para\.\s*(\d+)\s*\]/gi, (match, sermonId, paraNum) => {
       const sermon = sermons.find(s => s.id === sermonId);
       if (sermon) {
-        // Inclusion du numéro de paragraphe, titre et date dans le lien
         return `<a href="#" data-sermon-id="${sermonId}" class="sermon-ref inline-flex items-center gap-1.5 px-2 py-0.5 bg-teal-600/5 dark:bg-teal-400/10 text-teal-700 dark:text-teal-300 rounded-md text-[9px] font-black hover:bg-teal-600/20 transition-all border border-teal-600/10 mx-1 align-middle shadow-sm"><span>Para. ${paraNum} - ${sermon.title} (${sermon.date})</span></a>`;
       }
       return match;
@@ -78,15 +78,13 @@ const AIAssistant: React.FC = () => {
         const sermonId = link.dataset.sermonId;
         if (sermons.some(s => s.id === sermonId)) {
             setSelectedSermonId(sermonId);
-
             const blockquote = link.closest('blockquote');
             if (blockquote) {
                 const quoteClone = blockquote.cloneNode(true) as HTMLElement;
-                quoteClone.querySelectorAll('a.sermon-ref').forEach(a => a.remove()); // Remove ref link from text
+                quoteClone.querySelectorAll('a.sermon-ref').forEach(a => a.remove());
                 const text = quoteClone.textContent?.trim();
                 if (text) setJumpToText(text);
             } else {
-                // Fallback for safety
                 const parent = link.closest('p, li');
                 if (parent) {
                     const text = parent.textContent?.replace(/\[.*?\]/g, '').trim();
@@ -110,21 +108,34 @@ const AIAssistant: React.FC = () => {
     }
   }, [pendingStudyRequest]);
 
+  // Fonction utilitaire pour récupérer les sermons complets avec texte
+  const getFullSermons = async (ids: string[]): Promise<Sermon[]> => {
+    const results = await Promise.all(ids.map(async id => {
+      // En mode Web (non-electron), le texte est déjà dans sermonsMap
+      if (!isSqliteAvailable) {
+        const fromMap = sermonsMap.get(id) as Sermon;
+        if (fromMap && fromMap.text) return fromMap;
+      }
+      // En mode Desktop, on interroge la DB
+      return await getSermonById(id);
+    }));
+    return results.filter((s): s is Sermon => !!s && !!s.text);
+  };
+
   const handleAutoStudy = async (text: string) => {
     setIsTyping(true);
     addChatMessage(chatKey, { role: 'user', content: `Analyser : "${text}"`, timestamp: new Date().toISOString() });
     
     try {
-      const fullSermons = await Promise.all(contextSermonIds.map(id => getSermonById(id)));
-      const validSermons = fullSermons.filter((s): s is Sermon => !!s);
+      const validSermons = await getFullSermons(contextSermonIds);
+      if (validSermons.length === 0) throw new Error("Aucun contenu textuel trouvé pour les sermons sélectionnés.");
+
       const mainSermon = validSermons.find(s => s.id === selectedSermonId) || validSermons[0];
-
-      if (!mainSermon) throw new Error("Aucun sermon sélectionné.");
-
       const r = await analyzeSelectionContext(text, mainSermon, validSermons);
       addChatMessage(chatKey, { role: 'assistant', content: r, timestamp: new Date().toISOString() });
     } catch (e: any) {
       addChatMessage(chatKey, { role: 'assistant', content: `Erreur d'analyse contextuelle : ${e.message}`, timestamp: new Date().toISOString() });
+      addNotification(e.message, 'error');
     } finally { setIsTyping(false); }
   };
 
@@ -135,15 +146,13 @@ const AIAssistant: React.FC = () => {
     addChatMessage(chatKey, { role: 'user', content: msg, timestamp: new Date().toISOString() });
     setIsTyping(true);
     try {
-      const fullSermons = await Promise.all(contextSermonIds.map(id => getSermonById(id)));
-      const validSermons = fullSermons.filter((s): s is Sermon => !!s);
+      const validSermons = await getFullSermons(contextSermonIds);
+      if (validSermons.length === 0) throw new Error("Le contenu des sermons n'est pas accessible. Essayez de les rouvrir.");
 
       const ctx = validSermons.map(s => {
-        const numberedText = s.text
-          ? s.text.split(/\n\s*\n/)
+        const numberedText = s.text.split(/\n\s*\n/)
               .map((p, i) => `[Para. ${i + 1}] ${p.trim()}`)
-              .join('\n')
-          : '';
+              .join('\n');
         return `[DOC ID: ${s.id}] - TITRE: ${s.title} (${s.date})\nCONTENU:\n${numberedText.substring(0, 18000)}`;
       }).join('\n\n---\n\n');
       
@@ -151,6 +160,7 @@ const AIAssistant: React.FC = () => {
       addChatMessage(chatKey, { role: 'assistant', content: r, timestamp: new Date().toISOString() });
     } catch (e: any) {
        addChatMessage(chatKey, { role: 'assistant', content: e.message, timestamp: new Date().toISOString() });
+       addNotification(e.message, 'error');
     } finally { setIsTyping(false); }
   };
 
@@ -158,7 +168,6 @@ const AIAssistant: React.FC = () => {
     <div className="w-full bg-white dark:bg-zinc-950 h-full flex flex-col min-w-0 border-l border-zinc-200 dark:border-zinc-800 transition-all duration-500 shadow-2xl relative">
       {noteSelectorData && <NoteSelectorModal selectionText={noteSelectorData.text} sermon={noteSelectorData.sermon} onClose={() => setNoteSelectorData(null)} />}
       
-      {/* Header Premium Interactif */}
       <div className="px-6 h-14 border-b border-zinc-100 dark:border-zinc-800/50 flex items-center justify-between shrink-0 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-3xl z-50">
         <button 
           onClick={toggleAI}
@@ -180,7 +189,6 @@ const AIAssistant: React.FC = () => {
         </button>
       </div>
 
-      {/* Resources Dock - Premium Glassmorphism */}
       <div className="shrink-0 bg-zinc-50/50 dark:bg-zinc-900/40 border-b border-zinc-100 dark:border-zinc-800/50 px-5 py-3">
          <div className="flex items-center justify-between mb-2 px-1">
             <div className="flex items-center gap-2 opacity-50">
@@ -230,7 +238,6 @@ const AIAssistant: React.FC = () => {
          </div>
       </div>
 
-      {/* Chat Space */}
       <div 
         ref={scrollRef} 
         className="flex-1 overflow-y-auto px-6 py-8 space-y-10 custom-scrollbar bg-white dark:bg-zinc-950 flex flex-col scroll-smooth transition-colors duration-500"
@@ -290,7 +297,6 @@ const AIAssistant: React.FC = () => {
         )}
       </div>
 
-      {/* Input Area */}
       <div className="p-4 bg-white dark:bg-zinc-950 border-t border-zinc-100 dark:border-zinc-800/50 no-print">
         <div className="relative flex items-end gap-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-[24px] border border-zinc-200 dark:border-zinc-800 px-4 py-3 focus-within:ring-4 focus-within:ring-teal-600/5 focus-within:border-teal-600/40 transition-all duration-500">
           <textarea

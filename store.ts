@@ -25,7 +25,7 @@ export interface SearchResult {
 
 interface AppState {
   sermons: Omit<Sermon, 'text'>[];
-  sermonsMap: Map<string, Omit<Sermon, 'text'>>;
+  sermonsMap: Map<string, Sermon | Omit<Sermon, 'text'>>;
   activeSermon: Sermon | null; 
   notes: Note[];
   selectedSermonId: string | null;
@@ -185,7 +185,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   resetLibrary: async () => {
     set({ isLoading: true, loadingMessage: "Récupération des données...", loadingProgress: 10 });
     try {
-      // S'assurer du chemin absolu relatif à l'application
       const response = await fetch('library.json');
       if (!response.ok) {
         throw new Error(`Le fichier library.json est manquant ou inaccessible (Status: ${response.status})`);
@@ -213,7 +212,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       
       const metadata = incoming.map(({text, ...meta}) => meta);
       const map = new Map();
-      metadata.forEach(s => map.set(s.id, s));
+      
+      // En mode Web, on garde le texte dans la map
+      if (!get().isSqliteAvailable) {
+        incoming.forEach(s => map.set(s.id, s));
+      } else {
+        metadata.forEach(s => map.set(s.id, s));
+      }
       
       set({ 
         sermons: metadata as any, 
