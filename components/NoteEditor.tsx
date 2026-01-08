@@ -6,7 +6,7 @@ import { Document, Packer, Paragraph, HeadingLevel, TextRun, AlignmentType } fro
 import saveAs from 'file-saver';
 import { marked } from 'marked';
 import { jsPDF } from 'jspdf';
-import { Printer, FileText, FileDown, Link2, ExternalLink, NotebookPen, Calendar, MapPin, Sparkles } from 'lucide-react';
+import { Printer, FileText, FileDown, Link2, ExternalLink, NotebookPen, Calendar, MapPin, Sparkles, Hash } from 'lucide-react';
 import { Citation } from '../types';
 
 const ActionButton = ({ onClick, icon: Icon, tooltip }: { onClick: () => void; icon: React.ElementType; tooltip: string }) => (
@@ -28,6 +28,7 @@ const NoteEditor: React.FC = () => {
         setActiveNoteId,
         setSelectedSermonId,
         setJumpToText,
+        setJumpToParagraph,
         languageFilter,
         addNotification,
     } = useAppStore();
@@ -64,10 +65,14 @@ const NoteEditor: React.FC = () => {
 
     if (!note) return null;
 
-    const handleJumpToCitation = (sermonId: string, quotedText?: string) => {
+    const handleJumpToCitation = (sermonId: string, quotedText?: string, paragraphIndex?: number) => {
         if(sermonId.startsWith('ia-response') || sermonId.startsWith('definition-')) return; 
         setSelectedSermonId(sermonId);
-        if (quotedText) setJumpToText(quotedText);
+        if (paragraphIndex) {
+            setJumpToParagraph(paragraphIndex);
+        } else if (quotedText) {
+            setJumpToText(quotedText);
+        }
         setActiveNoteId(null);
     };
 
@@ -129,7 +134,7 @@ const NoteEditor: React.FC = () => {
 
         const isVirtual = citation.sermon_id.startsWith('ia-') || citation.sermon_id.startsWith('definition') || citation.sermon_id.startsWith('search');
         if (!isVirtual) {
-            handleJumpToCitation(citation.sermon_id, citation.quoted_text);
+            handleJumpToCitation(citation.sermon_id, citation.quoted_text, citation.paragraph_index);
         }
     };
 
@@ -182,7 +187,8 @@ const NoteEditor: React.FC = () => {
                     doc.setFont('helvetica', 'bold');
                     doc.setFontSize(9);
                     doc.setTextColor(13, 148, 136);
-                    doc.text(`— ${citation.sermon_title_snapshot} (${citation.sermon_date_snapshot})`, pageWidth - margin, y, { align: 'right' });
+                    const refText = `${citation.sermon_title_snapshot} (${citation.sermon_date_snapshot})${citation.paragraph_index ? ` — Para. ${citation.paragraph_index}` : ''}`;
+                    doc.text(`— ${refText}`, pageWidth - margin, y, { align: 'right' });
                     y += 12;
                 }
             }
@@ -295,11 +301,17 @@ const NoteEditor: React.FC = () => {
                                                     {citation.sermon_title_snapshot}
                                                 </h4>
                                             </div>
-                                            <div className="flex items-center gap-4 text-[10px] font-black text-teal-600 dark:text-blue-400 uppercase tracking-widest opacity-60 italic">
-                                                <div className="flex items-center gap-1.5">
-                                                  <Calendar className="w-3 h-3" />
+                                            <div className="flex items-center gap-4 text-[10px] font-black text-teal-600 dark:text-blue-400 uppercase tracking-widest opacity-80">
+                                                <div className="flex items-center gap-3">
+                                                  <Calendar className="w-3.5 h-3.5 opacity-50" />
                                                   <span className="font-mono">{citation.sermon_date_snapshot}</span>
                                                 </div>
+                                                {citation.paragraph_index && (
+                                                  <div className="flex items-center gap-1.5 bg-teal-600 text-white px-3 py-1 rounded-xl shadow-lg shadow-teal-600/20 font-bold scale-110">
+                                                    <Hash className="w-3.5 h-3.5" />
+                                                    <span>Para. {citation.paragraph_index}</span>
+                                                  </div>
+                                                )}
                                             </div>
                                         </div>
 
@@ -313,7 +325,7 @@ const NoteEditor: React.FC = () => {
                                         {!isVirtual && (
                                             <div className="mt-8 flex items-center justify-end pt-5 border-t border-zinc-50 dark:border-zinc-800/50 no-print">
                                                 <div className="flex items-center gap-2 text-[10px] font-black text-teal-600 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0 tracking-widest">
-                                                    <span>VOIR LA SOURCE</span>
+                                                    <span>CONSULTER DANS LE LECTEUR</span>
                                                     <ExternalLink className="w-3.5 h-3.5" />
                                                 </div>
                                             </div>

@@ -8,10 +8,11 @@ import { X, Check } from 'lucide-react';
 interface NoteSelectorModalProps {
   selectionText: string;
   sermon: Sermon;
+  paragraphIndex?: number;
   onClose: () => void;
 }
 
-const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({ selectionText, sermon, onClose }) => {
+const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({ selectionText, sermon, paragraphIndex, onClose }) => {
   const { notes, addNote, addCitationToNote, addNotification, sermons } = useAppStore();
   const [view, setView] = useState<'list' | 'new_note'>('list');
   const [newNoteTitle, setNewNoteTitle] = useState('');
@@ -42,6 +43,7 @@ const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({ selectionText, se
       sermon_title_snapshot: sermon.title,
       sermon_date_snapshot: sermon.date,
       quoted_text: selectionText,
+      paragraph_index: paragraphIndex
     };
 
     addNote({
@@ -59,6 +61,7 @@ const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({ selectionText, se
       sermon_title_snapshot: sermon.title,
       sermon_date_snapshot: sermon.date,
       quoted_text: selectionText,
+      paragraph_index: paragraphIndex
     });
     addNotification(`Citation ajoutée à "${note.title}".`, 'success');
     onClose();
@@ -127,7 +130,7 @@ const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({ selectionText, se
                 <div className="text-[8px] font-black text-teal-600 uppercase tracking-widest mb-2">Aperçu</div>
                 <div className="prose-styles text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-300 line-clamp-3 serif-text italic" dangerouslySetInnerHTML={{ __html: renderPreview(selectionText) as string }} />
                 <div className="mt-2 flex items-center justify-end text-[8px] font-bold text-zinc-400 uppercase tracking-tighter">
-                   {sermon.title}
+                   {sermon.title} {paragraphIndex ? `(Para. ${paragraphIndex})` : ''}
                 </div>
             </div>
         </div>

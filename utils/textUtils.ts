@@ -45,3 +45,28 @@ export const getAccentInsensitiveRegex = (query: string, isExactWord = false): R
   }
   return new RegExp(`(${pattern})`, 'gi');
 };
+
+/**
+ * Génère une expression régulière pour surligner plusieurs mots indépendamment (Mode DIVERSE ou EXACT_WORDS).
+ */
+export const getMultiWordHighlightRegex = (query: string): RegExp => {
+  const words = query.trim().split(/\s+/).filter(w => w.length > 1);
+  if (words.length === 0) return new RegExp(query, 'gi');
+
+  const map: Record<string, string> = {
+    'a': '[aàáâãäå]',
+    'e': '[eèéêë]',
+    'i': '[iìíîï]',
+    'o': '[oòóôõö]',
+    'u': '[uùúûü]',
+    'y': '[yýÿ]',
+    'c': '[cç]',
+    'n': '[nñ]',
+  };
+
+  const wordPatterns = words.map(word => {
+    return word.toLowerCase().split('').map(char => map[char] || (/[a-z0-9]/.test(char) ? char : `\\${char}`)).join('');
+  });
+
+  return new RegExp(`(${wordPatterns.join('|')})`, 'gi');
+};

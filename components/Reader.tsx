@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo, useCallback, memo, useTransition } from 'react';
 import { useAppStore } from '../store';
 import { translations } from '../translations';
@@ -84,10 +83,9 @@ const WordComponent = memo(({
   onMouseUp 
 }: any) => {
   // Détermination de la couleur de fond
-  // Priorité : Résultat courant > Recherche > Match Origine > Citation > Manuel > IA
   const highlightColorClass = highlight 
     ? PALETTE_HIGHLIGHT_COLORS[highlight.color || 'amber']
-    : isJumpHighlight 
+    : (isJumpHighlight || isSearchOriginMatch || isSearchResult) 
       ? PALETTE_HIGHLIGHT_COLORS['amber'] 
       : '';
 
@@ -98,20 +96,17 @@ const WordComponent = memo(({
       onMouseUp={onMouseUp}
       className={`transition-all duration-300 ${citationColor || ''} ${
         isCurrentResult 
-          ? 'bg-teal-600 shadow-[0_0_12px_rgba(13,148,136,0.5)] text-white px-0.5 rounded-sm' 
-          : isSearchResult 
-            ? 'bg-teal-600/20 ring-1 ring-teal-600/30 px-0.5 rounded-sm' 
-            : isSearchOriginMatch
-              ? 'bg-amber-500/30 text-amber-900 dark:text-amber-300 ring-1 ring-amber-500/40 font-bold shadow-[0_0_8px_rgba(245,158,11,0.25)] px-0.5 rounded-sm'
-              : ''
-      }`}
+          ? 'bg-amber-600 shadow-[0_0_12px_rgba(245,158,11,0.5)] text-white px-0.5 rounded-sm font-bold' 
+          : (isSearchResult || isSearchOriginMatch || isJumpHighlight)
+            ? 'px-0.5 rounded-sm font-bold'
+            : ''
+      } ${isSearchOriginMatch || isSearchResult ? 'underline decoration-amber-600/40 underline-offset-2' : ''}`}
     >
       {word.text}
     </span>
   );
 
-  // Si on a un surlignage manuel ou IA, on encapsule dans un conteneur interactif identique
-  if (highlight || isJumpHighlight) {
+  if (highlight || isJumpHighlight || isSearchOriginMatch || isSearchResult) {
     const handleRemove = (e: React.MouseEvent) => {
       e.stopPropagation();
       if (highlight) {
@@ -124,7 +119,7 @@ const WordComponent = memo(({
     return (
       <span 
         onClick={handleRemove}
-        data-tooltip={highlight ? "Cliquer pour supprimer" : "Masquer le surlignage IA"}
+        data-tooltip={highlight ? "Cliquer pour supprimer" : "Masquer le surlignage intelligent"}
         data-tooltip-icon={highlight ? "trash" : "sparkles"}
         className={`${highlightColorClass} cursor-pointer hover:brightness-105 transition-all py-0.5`}
       >
@@ -213,17 +208,14 @@ const Reader: React.FC = () => {
 
   useEffect(() => {
     broadcastChannel.current = new BroadcastChannel('kings_sword_projection');
-
     const checkWindowStatus = setInterval(() => {
       if (externalMaskWindow && externalMaskWindow.closed) {
         setExternalMaskOpen(false);
         externalMaskWindow = null;
       }
     }, 1000);
-
     const handleFullscreenChange = () => setIsOSFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-
     return () => {
       broadcastChannel.current?.close();
       clearInterval(checkWindowStatus);
@@ -236,7 +228,6 @@ const Reader: React.FC = () => {
       const activeText = projectedSegmentIndex !== null 
         ? segments[projectedSegmentIndex].trim()
         : sermon.text;
-
       broadcastChannel.current.postMessage({
         type: 'sync',
         title: sermon.title,
@@ -270,14 +261,9 @@ const Reader: React.FC = () => {
       url.searchParams.set('projection', 'true');
       url.hash = '';
       const projWindow = window.open(url.toString(), 'KingsSwordProjection');
-      if (projWindow) {
-        addNotification("Fenêtre de projection ouverte", "success");
-      } else {
-        addNotification("Action bloquée : vérifiez les fenêtres surgissantes", "error");
-      }
-    } catch (err) {
-      addNotification("Erreur de projection", "error");
-    }
+      if (projWindow) addNotification("Fenêtre de projection ouverte", "success");
+      else addNotification("Action bloquée", "error");
+    } catch (err) { addNotification("Erreur de projection", "error"); }
   };
 
   const toggleExternalMask = () => {
@@ -291,83 +277,64 @@ const Reader: React.FC = () => {
         const url = new URL(window.location.href);
         url.searchParams.set('mask', 'true');
         url.hash = '';
-        const finalUrl = url.toString();
-        
-        externalMaskWindow = window.open(finalUrl, 'KingsSwordMask');
-        
+        externalMaskWindow = window.open(url.toString(), 'KingsSwordMask');
         if (externalMaskWindow) {
           setExternalMaskOpen(true);
           addNotification("Écran secondaire masqué.", "success");
-        } else {
-          addNotification("Action refusée : Aucun second écran détecté.", "error");
-        }
-      } catch (err) {
-        addNotification("Erreur lors du masquage.", "error");
-      }
+        } else addNotification("Action refusée", "error");
+      } catch (err) { addNotification("Erreur lors du masquage.", "error"); }
     }
   };
 
   const handleFullscreenToggle = useCallback(() => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen();
-    } else {
-      document.exitFullscreen();
-    }
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+    else document.exitFullscreen();
   }, []);
 
   const segments = useMemo(() => {
     if (!sermon || !sermon.text) return [];
-    return sermon.text.split(/(\n\s*\n)/); 
+    return sermon.text.split(/\n\s*\n/); 
   }, [sermon?.id]);
 
   const structuredSegments = useMemo(() => {
     const result: { words: SimpleWord[]; isNumbered: boolean; text: string }[] = [];
     let globalIdx = 0;
-    
     segments.forEach((seg, segIdx) => {
         const segWords: SimpleWord[] = [];
+        const content = seg.trim();
+        if (content === "") return;
+
         const tokens = seg.split(/(\s+)/);
         tokens.forEach(token => {
-            if (token !== "") {
-                segWords.push({ text: token, segmentIndex: segIdx, globalIndex: globalIdx++ });
-            }
+            if (token !== "") segWords.push({ text: token, segmentIndex: segIdx, globalIndex: globalIdx++ });
         });
-        
-        const isNumbered = /^\d+/.test(seg.trim());
+        const isNumbered = /^\d+/.test(content);
         result.push({ words: segWords, isNumbered, text: seg });
     });
     return result;
   }, [segments]);
 
-  const words = useMemo(() => {
-    return structuredSegments.flatMap(s => s.words);
-  }, [structuredSegments]);
+  const words = useMemo(() => structuredSegments.flatMap(s => s.words), [structuredSegments]);
 
   useEffect(() => {
     if (sermon && words.length > 0 && lastSearchQuery) {
         const regex = getAccentInsensitiveRegex(lastSearchQuery, lastSearchMode === SearchMode.EXACT_WORDS);
         const fullSermonText = words.map(w => w.text).join('');
         const matchIndices: number[] = [];
-
         let match;
         while ((match = regex.exec(fullSermonText)) !== null) {
             const startChar = match.index;
             const endChar = match.index + match[0].length;
-            
             let currentChar = 0;
             for (let i = 0; i < words.length; i++) {
                 const wordLen = words[i].text.length;
-                if (currentChar + wordLen > startChar && currentChar < endChar) {
-                    matchIndices.push(words[i].globalIndex);
-                }
+                if (currentChar + wordLen > startChar && currentChar < endChar) matchIndices.push(words[i].globalIndex);
                 currentChar += wordLen;
             }
             if (regex.lastIndex === match.index) regex.lastIndex++;
         }
         setSearchOriginMatchIndices(matchIndices);
-    } else {
-        setSearchOriginMatchIndices([]);
-    }
+    } else setSearchOriginMatchIndices([]);
   }, [sermon?.id, words, lastSearchQuery, lastSearchMode]);
 
   useEffect(() => {
@@ -380,22 +347,59 @@ const Reader: React.FC = () => {
 
   useEffect(() => {
     if (jumpToParagraph !== null && sermon && structuredSegments.length > 0) {
-        const segIdx = (jumpToParagraph - 1) * 2;
-        const segment = structuredSegments[segIdx];
+        const segmentIdx = jumpToParagraph - 1;
+        const segment = structuredSegments[segmentIdx];
         
         if (segment) {
             setTimeout(() => {
-                const segEl = segmentRefs.current.get(segIdx);
-                if (segEl) {
-                    segEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    const wordIndices = segment.words.map(w => w.globalIndex);
-                    setJumpHighlightIndices(wordIndices);
+                const segEl = segmentRefs.current.get(segmentIdx);
+                if (segEl || true) {
+                    let targetGlobalIndex = segment.words[0].globalIndex;
+                    let targetHighlightIndices: number[] = [];
+
+                    if (lastSearchQuery) {
+                        const regex = getAccentInsensitiveRegex(lastSearchQuery, lastSearchMode === SearchMode.EXACT_WORDS);
+                        const paraText = segment.words.map(w => w.text).join('');
+                        const match = regex.exec(paraText);
+                        
+                        if (match) {
+                            const startChar = match.index;
+                            const endChar = match.index + match[0].length;
+                            let currentChar = 0;
+                            let foundFirst = false;
+
+                            for (const w of segment.words) {
+                                const wLen = w.text.length;
+                                if (currentChar + wLen > startChar && currentChar < endChar) {
+                                    targetHighlightIndices.push(w.globalIndex);
+                                    if (!foundFirst) {
+                                        targetGlobalIndex = w.globalIndex;
+                                        foundFirst = true;
+                                    }
+                                }
+                                currentChar += wLen;
+                            }
+                        }
+                    }
+
+                    if (targetHighlightIndices.length > 0) {
+                        setJumpHighlightIndices(targetHighlightIndices);
+                    } else {
+                        setJumpHighlightIndices(segment.words.map(w => w.globalIndex));
+                    }
+
+                    const targetEl = wordRefs.current.get(targetGlobalIndex);
+                    if (targetEl) {
+                        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    } else if (segEl) {
+                        segEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
                 }
-            }, 100);
+            }, 150);
         }
         setJumpToParagraph(null);
     }
-  }, [jumpToParagraph, sermon, structuredSegments, setJumpToParagraph]);
+  }, [jumpToParagraph, sermon, structuredSegments, setJumpToParagraph, lastSearchQuery, lastSearchMode]);
 
   useEffect(() => {
     if (jumpToText && sermon && words.length > 0) {
@@ -403,7 +407,6 @@ const Reader: React.FC = () => {
         const fullSermonText = words.map(w => w.text).join('');
         const matchIndices: number[] = [];
         const match = regex.exec(fullSermonText);
-
         if (match) {
             const startChar = match.index;
             const endChar = match.index + match[0].length;
@@ -417,7 +420,6 @@ const Reader: React.FC = () => {
                 }
                 currentChar += wordLen;
             }
-            
             if (firstWordIndex !== -1) {
                 setJumpHighlightIndices(matchIndices);
                 setTimeout(() => {
@@ -447,7 +449,6 @@ const Reader: React.FC = () => {
     const relevantCitations = activeNote.citations.filter(c => c.sermon_id === sermon.id);
     if (relevantCitations.length === 0) return map;
     const fullSermonText = words.map(w => w.text).join('');
-
     for (const citation of relevantCitations) {
         const regex = getAccentInsensitiveRegex(citation.quoted_text, false);
         let match;
@@ -458,9 +459,7 @@ const Reader: React.FC = () => {
             let currentChar = 0;
             for (let i = 0; i < words.length; i++) {
                 const wordLen = words[i].text.length;
-                if (currentChar + wordLen > startChar && currentChar < endChar) {
-                    map.set(words[i].globalIndex, { colorClass });
-                }
+                if (currentChar + wordLen > startChar && currentChar < endChar) map.set(words[i].globalIndex, { colorClass });
                 currentChar += wordLen;
             }
             if (regex.lastIndex === match.index) regex.lastIndex++;
@@ -479,10 +478,7 @@ const Reader: React.FC = () => {
         while ((match = regex.exec(fullSermonText)) !== null) {
             let currentChar = 0;
             for (let i = 0; i < words.length; i++) {
-                if (currentChar >= match.index) {
-                    results.push(words[i].globalIndex);
-                    break;
-                }
+                if (currentChar >= match.index) { results.push(words[i].globalIndex); break; }
                 currentChar += words[i].text.length;
             }
             if (regex.lastIndex === match.index) regex.lastIndex++;
@@ -490,10 +486,7 @@ const Reader: React.FC = () => {
         setSearchResults(results);
         setCurrentResultIndex(results.length > 0 ? 0 : -1);
       });
-    } else {
-        setSearchResults([]);
-        setCurrentResultIndex(-1);
-    }
+    } else { setSearchResults([]); setCurrentResultIndex(-1); }
   }, [readerSearchQuery, words]);
 
   useEffect(() => {
@@ -502,7 +495,6 @@ const Reader: React.FC = () => {
       }
   }, [currentResultIndex, searchResults]);
 
-  // Handle audio playback toggle with React events to ensure context safety
   const togglePlay = useCallback(async (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (!audioRef.current) return;
@@ -511,17 +503,13 @@ const Reader: React.FC = () => {
         if (playPromiseRef.current) await playPromiseRef.current;
         playPromiseRef.current = audioRef.current.play();
         await playPromiseRef.current;
-      } else {
-        audioRef.current.pause();
-      }
+      } else audioRef.current.pause();
     } catch (err) { console.error(err); }
     finally { playPromiseRef.current = null; }
   }, []);
 
   const seek = (seconds: number) => {
-    if (audioRef.current) {
-        audioRef.current.currentTime = Math.max(0, Math.min(duration, audioRef.current.currentTime + seconds));
-    }
+    if (audioRef.current) audioRef.current.currentTime = Math.max(0, Math.min(duration, audioRef.current.currentTime + seconds));
   };
 
   const toggleMute = () => {
@@ -535,12 +523,8 @@ const Reader: React.FC = () => {
   const handleDownload = () => {
     if (sermon?.audio_url) {
         const link = document.createElement('a');
-        link.href = sermon.audio_url;
-        link.target = "_blank";
-        link.download = `${sermon.title}.mp3`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        link.href = sermon.audio_url; link.target = "_blank"; link.download = `${sermon.title}.mp3`;
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
     }
   };
 
@@ -556,27 +540,22 @@ const Reader: React.FC = () => {
         y: rect.top - readerRect.top,
         isTop: rect.top < 150 
       });
-    } else {
-      setSelection(null);
-    }
+    } else setSelection(null);
   }, []);
 
   const handleHighlight = useCallback(() => {
     const sel = window.getSelection();
     if (!sel || !sermon || sel.rangeCount === 0) return;
-    
     const range = sel.getRangeAt(0);
     const startNode = range.startContainer.parentElement?.closest('[data-global-index]');
     const endNode = range.endContainer.parentElement?.closest('[data-global-index]');
-    
     if (startNode && endNode) {
       const start = parseInt(startNode.getAttribute('data-global-index') || '0');
       const end = parseInt(endNode.getAttribute('data-global-index') || '0');
       const newHighlight: Highlight = { id: crypto.randomUUID(), start: Math.min(start, end), end: Math.max(start, end), color: 'amber' };
       updateSermonHighlights(sermon.id, [...(sermon.highlights || []), newHighlight]);
       addNotification("Surlignage ajouté", "success");
-      setSelection(null);
-      sel.removeAllRanges();
+      setSelection(null); sel.removeAllRanges();
     }
   }, [sermon, updateSermonHighlights, addNotification]);
 
@@ -588,7 +567,7 @@ const Reader: React.FC = () => {
 
   const handleRemoveJumpHighlight = useCallback(() => {
     setJumpHighlightIndices([]);
-    addNotification("Surlignage IA masqué", "success");
+    addNotification("Surlignage intelligent masqué", "success");
   }, [addNotification]);
 
   const handleCopy = useCallback(() => {
@@ -601,36 +580,17 @@ const Reader: React.FC = () => {
   const handleDefine = async () => {
     if (!selection) return;
     const word = selection.text.split(' ')[0].replace(/[.,;?!]/g, "");
-    setIsDefining(true);
-    setSelection(null);
+    setIsDefining(true); setSelection(null);
     try {
       const def = await getDefinition(word);
       setActiveDefinition(def);
-    } catch (err: any) {
-      addNotification(err.message || "Erreur de définition", "error");
-    } finally {
-      setIsDefining(false);
-    }
-  };
-
-  const closeSelectionMenu = () => {
-    setSelection(null);
-    window.getSelection()?.removeAllRanges();
+    } catch (err: any) { addNotification(err.message || "Erreur", "error"); }
+    finally { setIsDefining(false); }
   };
 
   const formatTime = (time: number) => {
     if (isNaN(time)) return '0:00';
     return `${Math.floor(time/60)}:${Math.floor(time%60).toString().padStart(2,'0')}`;
-  };
-
-  const handleAddDefinitionToNotes = () => {
-    if (!activeDefinition) return;
-    const content = `**Définition de "${activeDefinition.word}"**\n\n${activeDefinition.definition}\n\n*Étymologie : ${activeDefinition.etymology || 'N/A'}*\n*Synonymes : ${activeDefinition.synonyms?.join(', ') || 'Aucun'}*`;
-    setNoteSelectorPayload({ 
-      text: content, 
-      sermon: { id: `definition-${Date.now()}`, title: `Dictionnaire: ${activeDefinition.word}`, date: new Date().toISOString().split('T')[0], city: 'Dictionnaire', text: '' } 
-    });
-    setActiveDefinition(null);
   };
 
   const ThemeIcon = theme === 'light' ? Sun : theme === 'dark' ? Moon : Monitor;
@@ -644,11 +604,13 @@ const Reader: React.FC = () => {
       <div className="flex-1 flex flex-col h-full bg-white dark:bg-zinc-950 relative">
         <div className="px-6 h-14 border-b border-zinc-100 dark:border-zinc-900/50 flex items-center bg-white/60 dark:bg-zinc-950/70 backdrop-blur-2xl z-20 no-print">
           {!sidebarOpen && (
-             <button onClick={toggleSidebar} data-tooltip="Ouvrir la Bibliothèque" className="flex items-center gap-3 hover:opacity-80 transition-all active:scale-95 group shrink-0 mr-1">
+             <button onClick={toggleSidebar} data-tooltip="Bibliothèque" className="flex items-center gap-3 hover:opacity-80 active:scale-95 group shrink-0 mr-1">
                <div className="w-8 h-8 flex items-center justify-center bg-teal-600/10 rounded-lg border border-teal-600/20 shadow-sm shrink-0 group-hover:border-teal-600/40 transition-all duration-300">
                  <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-4 h-4 grayscale group-hover:grayscale-0 group-hover:scale-110 group-hover:rotate-[-5deg] transition-all duration-300" />
                </div>
-               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 group-hover:text-teal-600 transition-colors">Bibliothèque</span>
+               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-900 dark:text-zinc-100 group-hover:text-teal-600 transition-colors animate-in fade-in slide-in-from-left-2 duration-500">
+                 {t.sidebar_subtitle}
+               </span>
              </button>
           )}
         </div>
@@ -659,22 +621,13 @@ const Reader: React.FC = () => {
               <BookOpenCheck className="w-10 h-10 text-zinc-300 dark:text-zinc-700 group-hover:text-teal-600 transition-all duration-500" />
             </div>
           </div>
-          <div className="max-w-xs space-y-4">
-            <p className="text-[11px] font-black uppercase tracking-[0.4em] text-zinc-400 dark:text-zinc-600 animate-in slide-in-from-bottom-2 duration-700 delay-100">{t.reader_select_prompt}</p>
-          </div>
+          <p className="text-[11px] font-black uppercase tracking-[0.4em] text-zinc-400 dark:text-zinc-600 animate-in slide-in-from-bottom-2 duration-700 delay-100">{t.reader_select_prompt}</p>
         </div>
       </div>
     );
   }
 
-  if (!sermon) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-white dark:bg-zinc-950">
-        <Loader2 className="w-10 h-10 animate-spin text-teal-600" />
-        <p className="mt-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Ouverture...</p>
-      </div>
-    );
-  }
+  if (!sermon) return <div className="flex-1 flex flex-col items-center justify-center bg-white dark:bg-zinc-950"><Loader2 className="w-10 h-10 animate-spin text-teal-600" /></div>;
 
   return (
     <div ref={readerAreaRef} className={`flex-1 flex flex-col h-full relative bg-white dark:bg-zinc-950 transition-colors duration-200 overflow-visible-important`}>
@@ -695,35 +648,14 @@ const Reader: React.FC = () => {
             </div>
             <div className="flex-1 px-8 py-6 overflow-y-auto custom-scrollbar">
               {isDefining ? (
-                <div className="py-20 flex flex-col items-center justify-center gap-4"><Loader2 className="w-10 h-10 animate-spin text-teal-600" /><p className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Recherche...</p></div>
+                <div className="py-20 flex flex-col items-center justify-center gap-4"><Loader2 className="w-10 h-10 animate-spin text-teal-600" /></div>
               ) : activeDefinition && (
                 <div className="space-y-6">
-                  <div className="space-y-3"><div className="flex items-center gap-2 text-teal-600 dark:text-teal-400"><Quote className="w-3.5 h-3.5" /><h4 className="text-[9px] font-black uppercase tracking-[0.2em]">Définition</h4></div>
-                    <div className="p-4 bg-teal-600/5 dark:bg-teal-600/10 border border-teal-600/10 rounded-[20px] shadow-sm">
-                      <p className="text-[14px] leading-relaxed text-zinc-800 dark:text-zinc-100 font-medium serif-text italic">{activeDefinition.definition}</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {activeDefinition.etymology && (
-                        <div className="space-y-2"><div className="flex items-center gap-2 text-teal-600 dark:text-teal-400"><Feather className="w-3.5 h-3.5" /><h4 className="text-[9px] font-black uppercase tracking-[0.2em]">Étymologie</h4></div>
-                          <div className="px-4 py-3 bg-teal-600/[0.03] dark:bg-teal-400/[0.05] border border-teal-600/10 rounded-[18px]">
-                            <p className="text-[12px] leading-relaxed text-zinc-600 dark:text-zinc-400 serif-text italic">{activeDefinition.etymology}</p>
-                          </div>
-                        </div>
-                      )}
-                      {activeDefinition.synonyms && activeDefinition.synonyms.length > 0 && (
-                        <div className="space-y-2"><div className="flex items-center gap-2 text-amber-600 dark:text-amber-400"><Milestone className="w-3.5 h-3.5" /><h4 className="text-[9px] font-black uppercase tracking-[0.2em]">Synonymes</h4></div>
-                          <div className="flex flex-wrap gap-1.5">{activeDefinition.synonyms.map((syn, idx) => (
-                              <span key={idx} className="px-2.5 py-1 bg-amber-600/5 dark:bg-amber-400/10 text-amber-700 dark:text-amber-300 rounded-lg text-[11px] font-bold border border-amber-600/10">{syn}</span>
-                            ))}</div>
-                        </div>
-                      )}
+                  <div className="p-4 bg-teal-600/5 dark:bg-teal-600/10 border border-teal-600/10 rounded-[20px] shadow-sm">
+                    <p className="text-[14px] leading-relaxed text-zinc-800 dark:text-zinc-100 font-medium serif-text italic">{activeDefinition.definition}</p>
                   </div>
                 </div>
               )}
-            </div>
-            <div className="px-8 py-5 border-t border-zinc-100 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 shrink-0">
-              <button onClick={handleAddDefinitionToNotes} disabled={!activeDefinition} className="w-full py-3.5 bg-teal-600 text-white rounded-[18px] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-teal-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50"><NotebookPen className="w-4 h-4" />Journaliser</button>
             </div>
           </div>
         </div>
@@ -732,10 +664,15 @@ const Reader: React.FC = () => {
       <div className={`px-4 md:px-8 h-14 border-b border-zinc-100 dark:border-zinc-900/50 flex items-center justify-between shrink-0 bg-white/60 dark:bg-zinc-950/70 backdrop-blur-2xl z-20 no-print transition-all duration-300 overflow-visible-important`}>
         <div className="flex items-center gap-4 min-w-0 flex-1 overflow-visible-important">
           {(!sidebarOpen || isOSFullscreen) && (
-             <button onClick={toggleSidebar} data-tooltip="Ouvrir la Bibliothèque" className="flex items-center gap-3 hover:opacity-80 transition-all active:scale-95 group shrink-0 mr-1">
+             <button onClick={toggleSidebar} data-tooltip="Bibliothèque" className="flex items-center gap-3 hover:opacity-80 active:scale-95 group shrink-0 mr-1">
                <div className="w-8 h-8 flex items-center justify-center bg-teal-600/10 rounded-lg border border-teal-600/20 shadow-sm shrink-0 group-hover:border-teal-600/40 transition-all duration-300">
                  <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-4 h-4 grayscale group-hover:grayscale-0 group-hover:scale-110 group-hover:rotate-[-5deg] transition-all duration-300" />
                </div>
+               {!selectedSermonId && (
+                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-900 dark:text-zinc-100 group-hover:text-teal-600 transition-colors animate-in fade-in slide-in-from-left-2 duration-500">
+                   {t.sidebar_subtitle}
+                 </span>
+               )}
              </button>
           )}
           <div className="flex flex-col min-w-0 flex-1">
@@ -746,34 +683,97 @@ const Reader: React.FC = () => {
             </div>
           </div>
         </div>
-        
         <div className="flex items-center gap-2 shrink-0 ml-4 overflow-visible-important">
             {navigatedFromSearch && (
               <button onClick={() => { setSearchQuery(lastSearchQuery); setIsFullTextSearch(true); setSelectedSermonId(null); setNavigatedFromSearch(false); setSearchOriginMatchIndices([]); }} className="px-3 py-1.5 bg-amber-600/10 text-amber-700 dark:text-amber-400 text-[9px] font-bold uppercase tracking-wider rounded-xl hover:bg-amber-600/20 transition-colors mr-2"><ChevronLeft className="w-3 h-3 inline mr-1" /> {t.reader_exit_search}</button>
             )}
-            <ActionButton onClick={handleOpenProjection} icon={MonitorPlay} tooltip="Ouvrir la fenêtre de projection" />
-            <ActionButton onClick={toggleExternalMask} icon={isExternalMaskOpen ? Eye : EyeOff} tooltip={isExternalMaskOpen ? "Retirer le masque" : "Masquer l'écran secondaire"} active={isExternalMaskOpen} special={isExternalMaskOpen} />
+            <ActionButton onClick={handleOpenProjection} icon={MonitorPlay} tooltip="Projection" />
+            <ActionButton onClick={toggleExternalMask} icon={isExternalMaskOpen ? Eye : EyeOff} tooltip="Masquer" active={isExternalMaskOpen} special={isExternalMaskOpen} />
             <div className="hidden sm:block w-px h-5 bg-zinc-200 dark:bg-zinc-800/50 mx-1" />
             <ActionButton onClick={() => window.print()} icon={Printer} tooltip={t.print} />
-            <ActionButton onClick={() => { setIsSearchVisible(!isSearchVisible); if(isSearchVisible) setSearchResults([]); }} icon={Search} tooltip={t.reader_search_tooltip} active={isSearchVisible} />
-            <ActionButton onClick={handleFullscreenToggle} icon={isOSFullscreen ? Minimize : Maximize} tooltip={isOSFullscreen ? "Sortir du plein écran" : "Plein écran"} special={isOSFullscreen} />
+            <ActionButton onClick={() => { setIsSearchVisible(!isSearchVisible); if(isSearchVisible) { setSearchResults([]); setReaderSearchQuery(''); } }} icon={Search} tooltip={t.reader_search_tooltip} active={isSearchVisible} />
+            <ActionButton onClick={handleFullscreenToggle} icon={isOSFullscreen ? Minimize : Maximize} tooltip="Plein écran" special={isOSFullscreen} />
             <div className="hidden sm:block w-px h-5 bg-zinc-200 dark:bg-zinc-800/50 mx-1" />
-            <ActionButton onClick={() => setTheme(theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light')} icon={ThemeIcon} tooltip="Changer Thème" active={theme !== 'system'} />
+            <ActionButton onClick={() => setTheme(theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light')} icon={ThemeIcon} tooltip="Thème" active={theme !== 'system'} />
             <div className="hidden sm:block w-px h-5 bg-zinc-200 dark:bg-zinc-800/50 mx-1" />
             <div className="flex items-center bg-white/50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200/50 dark:border-zinc-800/50 shadow-sm overflow-hidden no-print">
-              <button onClick={() => setFontSize(size => size - 2)} className="w-9 h-9 flex items-center justify-center text-zinc-400 hover:text-teal-600 transition-colors border-r border-zinc-200/50 dark:border-zinc-800/50 active:scale-95" data-tooltip={t.reader_zoom_out}><ZoomOut className="w-4 h-4" /></button>
-              <input type="text" value={localFontSize} onDoubleClick={() => setFontSize(20)} onChange={e => { if (/^\d*$/.test(e.target.value)) setLocalFontSize(e.target.value); }} onBlur={() => { const val = parseInt(String(localFontSize), 10); if (!isNaN(val)) setFontSize(val); else setLocalFontSize(fontSize); }} onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} className="w-12 h-9 bg-transparent text-center text-[11px] font-black text-zinc-600 dark:text-zinc-300 outline-none focus:text-teal-600 cursor-pointer" data-tooltip="Taille police (Double-clic pour réinitialiser)" />
-              <button onClick={() => setFontSize(size => size + 2)} className="w-9 h-9 flex items-center justify-center text-zinc-400 hover:text-teal-600 transition-colors border-l border-zinc-200/50 dark:border-zinc-800/50 active:scale-95" data-tooltip={t.reader_zoom_in}><ZoomIn className="w-4 h-4" /></button>
+              <button onClick={() => setFontSize(size => size - 2)} className="w-9 h-9 flex items-center justify-center text-zinc-400 hover:text-teal-600 transition-colors border-r border-zinc-200/50 dark:border-zinc-800/50 active:scale-95"><ZoomOut className="w-4 h-4" /></button>
+              <input 
+                type="text" 
+                value={localFontSize} 
+                onChange={e => /^\d*$/.test(e.target.value) && setLocalFontSize(e.target.value)} 
+                onBlur={() => { const val = parseInt(String(localFontSize), 10); setFontSize(isNaN(val) ? fontSize : val); }} 
+                onDoubleClick={() => { 
+                    setFontSize(20); 
+                    setLocalFontSize(20); 
+                    addNotification("Taille réinitialisée à 20", "success");
+                }}
+                className="w-12 h-9 bg-transparent text-center text-[11px] font-black text-zinc-600 dark:text-zinc-300 outline-none cursor-pointer" 
+              />
+              <button onClick={() => setFontSize(size => size + 2)} className="w-9 h-9 flex items-center justify-center text-zinc-400 hover:text-teal-600 transition-colors border-l border-zinc-200/50 dark:border-zinc-800/50 active:scale-95"><ZoomIn className="w-4 h-4" /></button>
             </div>
         </div>
       </div>
 
+      {/* Barre de recherche interne au sermon - Nouvelle intégration sous l'en-tête, centrée */}
       {isSearchVisible && (
-        <div className="absolute top-14 left-0 right-0 z-[30] px-4 md:px-8 py-3 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl border-b border-zinc-100 dark:border-zinc-800/50 flex justify-center">
-           <div className="flex items-center gap-4 w-full max-w-2xl"><div className="relative flex-1 group/reader-search"><input autoFocus type="text" placeholder={t.reader_search_placeholder} value={readerSearchQuery} onChange={e => setReaderSearchQuery(e.target.value)} className="w-full pl-10 pr-10 py-2.5 bg-zinc-100/50 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-zinc-800/50 rounded-2xl text-sm font-bold text-zinc-900 dark:text-zinc-100 outline-none" /><Search className="absolute left-3.5 top-3 w-4 h-4 text-zinc-400 group-focus-within/reader-search:text-teal-600" />{readerSearchQuery && <button onClick={() => { setReaderSearchQuery(''); setSearchResults([]); }} className="absolute right-3 top-2.5 w-6 h-6 flex items-center justify-center text-zinc-400 hover:text-red-500 rounded-lg"><X className="w-3.5 h-3.5" /></button>}</div>
-             {searchResults.length > 0 && (<div className="flex items-center gap-3 shrink-0 animate-in fade-in zoom-in-95"><div className="flex flex-col items-center justify-center px-3 py-1 bg-teal-600/5 dark:bg-teal-600/10 rounded-xl border border-teal-600/10 min-w-[70px]"><span className="text-[10px] font-black text-teal-600">{currentResultIndex + 1} / {searchResults.length}</span></div><div className="flex items-center gap-1 bg-white dark:bg-zinc-900 p-1 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm"><button onClick={() => setCurrentResultIndex(prev => (prev > 0 ? prev - 1 : searchResults.length - 1))} className="w-8 h-8 flex items-center justify-center text-zinc-500 hover:text-teal-600 rounded-lg transition-all"><ChevronUp className="w-4 h-4" /></button><button onClick={() => setCurrentResultIndex(prev => (prev < searchResults.length - 1 ? prev + 1 : 0))} className="w-8 h-8 flex items-center justify-center text-zinc-500 hover:text-teal-600 rounded-lg transition-all"><ChevronDown className="w-4 h-4" /></button></div></div>)}
-             <button onClick={() => { setIsSearchVisible(false); setReaderSearchQuery(''); setSearchResults([]); }} className="w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-red-500 rounded-2xl transition-all active:scale-90"><X className="w-5 h-5" /></button>
-           </div>
+        <div className="h-12 border-b border-zinc-100 dark:border-zinc-800/50 bg-white/40 dark:bg-zinc-950/40 backdrop-blur-xl grid grid-cols-[1fr_2fr_1fr] items-center px-6 shrink-0 animate-in slide-in-from-top-1 fade-in duration-300 no-print">
+          <div className="flex items-center">
+            <Search className="w-3.5 h-3.5 text-teal-600/50" />
+          </div>
+          
+          <div className="flex justify-center">
+            <div className="relative w-full max-w-md group/search-field">
+              <input 
+                autoFocus
+                type="text" 
+                placeholder={t.reader_search_placeholder}
+                className="bg-zinc-100/50 dark:bg-zinc-800/50 px-4 py-1.5 rounded-xl border border-zinc-200/50 dark:border-zinc-700/50 text-xs font-bold outline-none text-zinc-900 dark:text-white w-full pr-8 placeholder:text-zinc-400 placeholder:font-normal focus:border-teal-500/50 transition-all"
+                value={readerSearchQuery}
+                onChange={(e) => setReaderSearchQuery(e.target.value)}
+              />
+              {readerSearchQuery && (
+                <button 
+                  onClick={() => { setReaderSearchQuery(''); setSearchResults([]); }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-zinc-400 hover:text-red-500 transition-colors active:scale-90"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+          
+          <div className="flex items-center justify-end gap-4">
+            {searchResults.length > 0 && (
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] font-black text-zinc-500 tabular-nums uppercase tracking-widest bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded-md">
+                  {currentResultIndex + 1} / {searchResults.length}
+                </span>
+                <div className="flex items-center gap-1 bg-white/50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200/50 dark:border-zinc-800/50 p-0.5 shadow-sm">
+                  <button 
+                    onClick={() => setCurrentResultIndex(prev => (prev > 0 ? prev - 1 : searchResults.length - 1))}
+                    className="w-7 h-7 flex items-center justify-center hover:bg-zinc-200/50 dark:hover:bg-zinc-700/50 rounded-md transition-colors active:scale-90"
+                    title="Précédent"
+                  >
+                    <ChevronUp className="w-4 h-4 text-zinc-500" />
+                  </button>
+                  <button 
+                    onClick={() => setCurrentResultIndex(prev => (prev < searchResults.length - 1 ? prev + 1 : 0))}
+                    className="w-7 h-7 flex items-center justify-center hover:bg-zinc-200/50 dark:hover:bg-zinc-700/50 rounded-md transition-colors active:scale-90"
+                    title="Suivant"
+                  >
+                    <ChevronDown className="w-4 h-4 text-zinc-500" />
+                  </button>
+                </div>
+              </div>
+            )}
+            <button 
+              onClick={() => { setIsSearchVisible(false); setSearchResults([]); setReaderSearchQuery(''); }}
+              className="w-8 h-8 flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-900/20 text-zinc-400 hover:text-red-500 rounded-xl transition-all active:scale-90"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -786,8 +786,8 @@ const Reader: React.FC = () => {
                 return (
                   <div key={segIdx} ref={(el: any) => { if (el) segmentRefs.current.set(segIdx, el); }} onClick={() => handleProjectSegment(segIdx)} className={`group/seg relative mb-1.5 py-2.5 px-6 rounded-[20px] border-l-[5px] transition-all duration-300 cursor-pointer shadow-sm hover:shadow-xl hover:scale-[1.005] active:scale-[0.995] ${isActiveProjection ? 'bg-teal-600/10 border-teal-600 ring-2 ring-teal-600/20' : 'bg-white dark:bg-zinc-900/50 border-teal-600/20 hover:border-teal-600 dark:border-zinc-800'}`}>
                     <div className="absolute -left-[54px] top-1/2 -translate-y-1/2 opacity-0 group-hover/seg:opacity-100 transition-all translate-x-4 group-hover/seg:translate-x-0 no-print flex flex-col gap-2">
-                        <div onClick={(e) => { e.stopPropagation(); handleProjectSegment(segIdx); }} data-tooltip="Projeter ce paragraphe" className="w-9 h-9 flex items-center justify-center bg-teal-600 text-white rounded-xl shadow-lg shadow-teal-600/30 hover:scale-110 transition-transform"><MonitorPlay className="w-4 h-4" /></div>
-                        <div onClick={(e) => { e.stopPropagation(); setNoteSelectorPayload({ text: seg.text.trim(), sermon }); }} data-tooltip="Ajouter aux notes" className="w-9 h-9 flex items-center justify-center bg-emerald-600 text-white rounded-xl shadow-lg shadow-emerald-600/30 hover:scale-110 transition-transform"><NotebookPen className="w-4 h-4" /></div>
+                        <div onClick={(e) => { e.stopPropagation(); handleProjectSegment(segIdx); }} data-tooltip="Projeter" className="w-9 h-9 flex items-center justify-center bg-teal-600 text-white rounded-xl shadow-lg hover:scale-110 transition-transform"><MonitorPlay className="w-4 h-4" /></div>
+                        <div onClick={(e) => { e.stopPropagation(); setNoteSelectorPayload({ text: seg.text.trim(), sermon }); }} data-tooltip="Annoter" className="w-9 h-9 flex items-center justify-center bg-emerald-600 text-white rounded-xl shadow-lg hover:scale-110 transition-transform"><NotebookPen className="w-4 h-4" /></div>
                     </div>
                     {seg.words.map((word) => (
                       <WordComponent key={word.globalIndex} word={word} wordRef={(el: any) => { if(el) wordRefs.current.set(word.globalIndex, el); }} isSearchResult={checkIsSearchResult(word.globalIndex)} isCurrentResult={checkIsCurrentResult(word.globalIndex)} isSearchOriginMatch={checkIsSearchOriginMatch(word.globalIndex)} isJumpHighlight={checkIsJumpHighlight(word.globalIndex)} citationColor={citationHighlightMap.get(word.globalIndex)?.colorClass} highlight={highlightMap.get(word.globalIndex)} onRemoveHighlight={handleRemoveHighlight} onRemoveJumpHighlight={handleRemoveJumpHighlight} onMouseUp={handleTextSelection} />
@@ -809,15 +809,27 @@ const Reader: React.FC = () => {
         {sermon.audio_url && (
           <div className="absolute bottom-6 left-0 right-0 flex justify-center no-print z-50 overflow-visible-important">
               <audio ref={audioRef} src={sermon.audio_url} onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)} onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)} onEnded={() => setIsPlaying(false)} onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)} />
-              <div onMouseEnter={() => setIsPlayerExpanded(true)} onMouseLeave={() => setIsPlayerExpanded(false)} className={`transition-all duration-500 flex items-center bg-white/95 dark:bg-zinc-900/95 backdrop-blur-2xl border border-zinc-200/50 dark:border-zinc-800/50 shadow-2xl rounded-full overflow-visible-important ${isPlayerExpanded ? 'w-[320px] sm:w-[580px] h-12 px-4' : 'w-10 h-10'} ${isOSFullscreen ? 'opacity-40 hover:opacity-100' : ''}`}>
+              <div onMouseEnter={() => setIsPlayerExpanded(true)} onMouseLeave={() => setIsPlayerExpanded(false)} className={`transition-all duration-500 flex items-center bg-white/95 dark:bg-zinc-900/95 backdrop-blur-2xl border border-zinc-200/50 dark:border-zinc-800/50 shadow-2xl rounded-full overflow-visible-important ${isPlayerExpanded ? 'w-[320px] sm:w-[620px] h-12 px-4' : 'w-10 h-10'} ${isOSFullscreen ? 'opacity-40 hover:opacity-100' : ''}`}>
                 {!isPlayerExpanded ? <div className="w-full h-full flex items-center justify-center text-zinc-400"><Headphones className="w-4 h-4 animate-pulse text-teal-600/40" /></div> : (
                   <div className="flex items-center gap-4 w-full h-full animate-in fade-in zoom-in-95 overflow-visible-important">
-                    <div className="flex items-center gap-0.5 overflow-visible-important"><button onClick={() => seek(-10)} data-tooltip="-10s" className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-teal-600"><RotateCcw className="w-3.5 h-3.5" /></button><button onClick={togglePlay} data-tooltip={isPlaying ? "Pause" : "Lecture"} className="w-9 h-9 flex items-center justify-center bg-teal-600 text-white rounded-xl active:scale-90">{isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current translate-x-0.5" />}</button><button onClick={() => seek(10)} data-tooltip="+10s" className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-teal-600"><RotateCw className="w-3.5 h-3.5" /></button></div>
-                    <div className="flex-1 flex flex-col justify-center gap-1 min-w-0">
-                      <div className="relative h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden"><div className="absolute top-0 left-0 h-full bg-teal-600" style={{ width: `${(currentTime/duration)*100}%` }} /><input type="range" min="0" max={duration} step="0.1" value={currentTime} onChange={e => { if(audioRef.current) audioRef.current.currentTime = parseFloat(e.target.value); }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" /></div>
-                      <div className="flex justify-between text-[8px] font-black text-zinc-500 uppercase tracking-tighter"><span>{formatTime(currentTime)}</span><span>{formatTime(duration)}</span></div>
+                    <div className="flex items-center gap-0.5">
+                      <button onClick={() => seek(-10)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-teal-600"><RotateCcw className="w-3.5 h-3.5" /></button>
+                      <button onClick={togglePlay} className="w-9 h-9 flex items-center justify-center bg-teal-600 text-white rounded-xl active:scale-90">{isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current translate-x-0.5" />}</button>
+                      <button onClick={() => seek(10)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-teal-600"><RotateCw className="w-3.5 h-3.5" /></button>
                     </div>
-                    <div className="hidden sm:flex items-center gap-1.5 px-2 border-l border-zinc-200 dark:border-zinc-800 ml-2 overflow-visible-important"><button onClick={toggleMute} data-tooltip={isMuted ? "Son" : "Muet"} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-teal-600">{isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}</button><button onClick={handleDownload} data-tooltip="Audio" className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-teal-600"><Download className="w-4 h-4" /></button></div>
+                    <div className="flex-1 flex flex-col justify-center gap-1 min-w-0">
+                      <div className="relative h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden"><div className="absolute top-0 left-0 h-full bg-teal-600" style={{ width: `${(currentTime/duration)*100}%` }} /><input type="range" min="0" max={duration} step="0.1" value={currentTime} onChange={e => audioRef.current && (audioRef.current.currentTime = parseFloat(e.target.value))} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" /></div>
+                      <div className="flex justify-between text-[8px] font-black text-zinc-500 tracking-tighter"><span>{formatTime(currentTime)}</span><span>{formatTime(duration)}</span></div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={toggleMute} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-teal-600 transition-colors">
+                        {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                      </button>
+                      <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-800 mx-1" />
+                      <button onClick={handleDownload} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-teal-600 transition-all active:scale-90" title="Télécharger l'audio">
+                        <Download className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -831,16 +843,16 @@ const Reader: React.FC = () => {
             <button onClick={handleHighlight} className="flex flex-col items-center gap-0.5 px-3 py-2 hover:bg-amber-500/10 text-zinc-600 dark:text-zinc-400 hover:text-amber-600 rounded-[18px] transition-all group">
               <Highlighter className="w-4 h-4 text-amber-500/60 group-hover:text-amber-500" /><span className="text-[7.5px] font-black uppercase tracking-widest">Surligner</span>
             </button>
-            <button onClick={() => { handleCopy(); closeSelectionMenu(); }} className="flex flex-col items-center gap-0.5 px-3 py-2 hover:bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 rounded-[18px] transition-all group">
+            <button onClick={() => { handleCopy(); setSelection(null); }} className="flex flex-col items-center gap-0.5 px-3 py-2 hover:bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 rounded-[18px] transition-all group">
               <Copy className="w-4 h-4 text-zinc-400/60 group-hover:text-zinc-500" /><span className="text-[7.5px] font-black uppercase tracking-widest">Copier</span>
             </button>
-            <button onClick={() => { handleDefine(); closeSelectionMenu(); }} className="flex flex-col items-center gap-0.5 px-3 py-2 hover:bg-teal-600/10 text-zinc-600 dark:text-zinc-400 hover:text-teal-600 rounded-[18px] transition-all group">
+            <button onClick={() => { handleDefine(); setSelection(null); }} className="flex flex-col items-center gap-0.5 px-3 py-2 hover:bg-teal-600/10 text-zinc-600 dark:text-zinc-400 hover:text-teal-600 rounded-[18px] transition-all group">
               <BookOpen className="w-4 h-4 text-teal-500/60 group-hover:text-teal-600" /><span className="text-[7.5px] font-black uppercase tracking-widest">Définir</span>
             </button>
-            <button onClick={() => { triggerStudyRequest(selection.text); closeSelectionMenu(); }} className="flex flex-col items-center gap-0.5 px-3 py-2 hover:bg-teal-600/10 text-zinc-600 dark:text-zinc-400 hover:text-teal-600 rounded-[18px] transition-all group">
+            <button onClick={() => { triggerStudyRequest(selection.text); setSelection(null); }} className="flex flex-col items-center gap-0.5 px-3 py-2 hover:bg-teal-600/10 text-zinc-600 dark:text-zinc-400 hover:text-teal-600 rounded-[18px] transition-all group">
               <Sparkles className="w-4 h-4 text-teal-600/60 group-hover:text-teal-600" /><span className="text-[7.5px] font-black uppercase tracking-widest">Étudier</span>
             </button>
-            <button onClick={() => { setNoteSelectorPayload({ text: selection.text, sermon }); closeSelectionMenu(); }} className="flex flex-col items-center gap-0.5 px-3 py-2 hover:bg-emerald-500/10 text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 rounded-[18px] transition-all group">
+            <button onClick={() => { setNoteSelectorPayload({ text: selection.text, sermon }); setSelection(null); }} className="flex flex-col items-center gap-0.5 px-3 py-2 hover:bg-emerald-500/10 text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 rounded-[18px] transition-all group">
               <NotebookPen className="w-4 h-4 text-emerald-500/60 group-hover:text-emerald-500" /><span className="text-[7.5px] font-black uppercase tracking-widest">Note</span>
             </button>
           </div>

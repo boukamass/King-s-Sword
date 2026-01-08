@@ -33,6 +33,7 @@ export interface Citation {
   sermon_date_snapshot: string;
   quoted_text: string;
   date_added: string;
+  paragraph_index?: number;
 }
 
 export interface Note {

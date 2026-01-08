@@ -1,21 +1,25 @@
+
 import React, { useState, useEffect, useCallback, memo } from 'react';
 import { useAppStore, SearchResult } from '../store';
 import { translations } from '../translations';
-import { SearchMode } from '../types';
-import { FileText, Loader2, Calendar, Search, ChevronLeft, MapPin, Hash } from 'lucide-react';
+import { SearchMode, Sermon } from '../types';
+import { FileText, Loader2, Calendar, Search, ChevronLeft, MapPin, Hash, NotebookPen } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { searchSermons } from '../services/db';
+import NoteSelectorModal from './NoteSelectorModal';
 
 const RESULTS_PER_PAGE = 30;
 
 const SearchResultCard = memo(({ 
     result, 
     index, 
-    onClick 
+    onClick,
+    onAddToNotes
 }: { 
     result: SearchResult; 
     index: number; 
     onClick: () => void;
+    onAddToNotes: (e: React.MouseEvent) => void;
 }) => (
     <div 
         onClick={onClick}
@@ -47,9 +51,18 @@ const SearchResultCard = memo(({
                       </div>
                     </div>
                 </div>
-                <div className="shrink-0 flex items-center gap-1.5 bg-zinc-50 dark:bg-zinc-800/50 px-3 py-1.5 rounded-xl border border-zinc-100 dark:border-zinc-800">
-                    <Hash className="w-3 h-3 text-teal-600/40" />
-                    <span className="text-[10px] font-black text-zinc-500">PARA {result.paragraphIndex}</span>
+                <div className="flex items-center gap-2">
+                    <button 
+                        onClick={onAddToNotes}
+                        data-tooltip="Ajouter à une note d'étude"
+                        className="w-9 h-9 flex items-center justify-center bg-teal-600/5 text-teal-600 rounded-xl border border-teal-600/10 hover:bg-teal-600 hover:text-white transition-all active:scale-90 shadow-sm"
+                    >
+                        <NotebookPen className="w-4 h-4" />
+                    </button>
+                    <div className="shrink-0 flex items-center gap-1.5 bg-zinc-50 dark:bg-zinc-800/50 px-3 py-1.5 rounded-xl border border-zinc-100 dark:border-zinc-800">
+                        <Hash className="w-3 h-3 text-teal-600/40" />
+                        <span className="text-[10px] font-black text-zinc-500">PARA {result.paragraphIndex}</span>
+                    </div>
                 </div>
             </div>
 
@@ -76,12 +89,15 @@ const SearchResults: React.FC = () => {
     setSelectedSermonId, 
     languageFilter,
     setSearchQuery,
-    setJumpToText,
+    setJumpToParagraph,
+    setNavigatedFromSearch,
+    setIsFullTextSearch,
   } = useAppStore();
   
   const t = translations[languageFilter === 'Anglais' ? 'en' : 'fr'];
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [noteSelectorPayload, setNoteSelectorPayload] = useState<{ text: string; sermon: Sermon; paragraphIndex?: number } | null>(null);
 
   const performSearch = useCallback(async (q: string, m: SearchMode, off: number) => {
     if (!q || q.length < 2) return;
@@ -118,13 +134,31 @@ const SearchResults: React.FC = () => {
   };
 
   const handleResultClick = async (res: SearchResult) => {
-    // Extraire le texte brut du snippet pour le jump-to
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = res.snippet || '';
-    const jumpText = tempDiv.textContent || '';
-    
+    setNavigatedFromSearch(true);
     await setSelectedSermonId(res.sermonId);
-    setJumpToText(jumpText);
+    setJumpToParagraph(res.paragraphIndex);
+    setIsFullTextSearch(false);
+  };
+
+  const handleAddToNotes = (e: React.MouseEvent, res: SearchResult) => {
+    e.stopPropagation();
+    // On nettoie le snippet des balises <mark> pour la citation dans la note
+    const cleanText = res.snippet?.replace(/<mark[^>]*>|<\/mark>/g, '') || '';
+    
+    // On construit un objet Sermon partiel pour le modal
+    const partialSermon: Sermon = {
+      id: res.sermonId,
+      title: res.title,
+      date: res.date,
+      city: res.city,
+      text: '' // Pas besoin du texte complet ici
+    };
+
+    setNoteSelectorPayload({
+        text: cleanText,
+        sermon: partialSermon,
+        paragraphIndex: res.paragraphIndex
+    });
   };
 
   const handleExportPdf = () => {
@@ -143,6 +177,15 @@ const SearchResults: React.FC = () => {
 
   return (
     <div className="flex-1 h-full flex flex-col bg-zinc-50 dark:bg-zinc-950 overflow-hidden animate-in fade-in duration-500">
+      {noteSelectorPayload && (
+        <NoteSelectorModal 
+            selectionText={noteSelectorPayload.text} 
+            sermon={noteSelectorPayload.sermon} 
+            paragraphIndex={noteSelectorPayload.paragraphIndex}
+            onClose={() => setNoteSelectorPayload(null)} 
+        />
+      )}
+      
       <div className="px-8 h-14 border-b border-zinc-200/50 dark:border-zinc-800/50 flex items-center justify-between shrink-0 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-2xl z-20">
         <div className="flex items-center gap-5">
           <div className="w-8 h-8 flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-lg border border-teal-600/20 shadow-sm">
@@ -165,7 +208,7 @@ const SearchResults: React.FC = () => {
             </button>
             <div className="w-px h-5 bg-zinc-200 dark:bg-zinc-800 mx-2" />
             <button 
-              onClick={() => setSearchQuery('')} 
+              onClick={() => { setSearchQuery(''); setIsFullTextSearch(false); }} 
               className="px-5 py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-red-500 hover:text-white dark:hover:bg-red-600 text-[9px] font-black uppercase tracking-[0.2em] rounded-lg text-zinc-600 dark:text-zinc-300 transition-all active:scale-95 shadow-sm"
             >
                 {t.reader_exit}
@@ -189,6 +232,7 @@ const SearchResults: React.FC = () => {
                     result={res}
                     index={idx}
                     onClick={() => handleResultClick(res)}
+                    onAddToNotes={(e) => handleAddToNotes(e, res)}
                 />
             ))
           )}

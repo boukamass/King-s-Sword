@@ -409,7 +409,16 @@ const Sidebar: React.FC = () => {
             <Search className={`absolute left-3 w-3.5 h-3.5 transition-all duration-300 ease-out group-hover/search-input:scale-110 group-hover/search-input:rotate-[-10deg] ${isFullTextSearch ? 'text-teal-600' : 'text-zinc-400'}`} />
             
             <div className="absolute right-1.5 flex items-center gap-1">
-              {isFullTextSearch ? (
+              {internalQuery && (
+                <button 
+                  onClick={() => { setInternalQuery(''); setSearchQuery(''); }}
+                  data-tooltip="Effacer"
+                  className="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all animate-in zoom-in-90 tooltip-bottom"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+              {isFullTextSearch && (
                 <button 
                   onClick={triggerSearch}
                   disabled={isSearching}
@@ -422,16 +431,6 @@ const Sidebar: React.FC = () => {
                     <ArrowRight className="w-4 h-4 transition-all duration-300 ease-out group-hover/search-btn:translate-x-0.5" />
                   )}
                 </button>
-              ) : (
-                internalQuery && (
-                  <button 
-                    onClick={() => { setInternalQuery(''); setSearchQuery(''); }}
-                    data-tooltip="Effacer"
-                    className="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors tooltip-bottom"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )
               )}
             </div>
           </div>

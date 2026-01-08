@@ -1,5 +1,7 @@
 
 import { Sermon, Note, SearchMode } from '../types';
+import { normalizeText, getAccentInsensitiveRegex, getMultiWordHighlightRegex } from '../utils/textUtils';
+import { useAppStore } from '../store';
 
 const isElectron = !!window.electronAPI;
 
@@ -41,13 +43,82 @@ export const bulkAddSermons = async (sermons: Sermon[]): Promise<{ success: bool
   };
 };
 
+/**
+ * Moteur de recherche de secours pour le Web (Fallback)
+ */
+const webSearchFallback = async (params: { query: string; mode: SearchMode; limit: number; offset: number }): Promise<any[]> => {
+  const store = useAppStore.getState();
+  const sermonsMap = store.sermonsMap;
+  const results: any[] = [];
+  const query = params.query.trim().toLowerCase();
+  
+  if (!query) return [];
+
+  // On récupère tous les sermons qui ont du texte
+  const allSermons = Array.from(sermonsMap.values()) as Sermon[];
+  
+  // Surlignage Ambre plus prononcé
+  const markClass = "bg-amber-400/40 dark:bg-amber-500/40 text-amber-950 dark:text-white font-bold px-0.5 rounded-sm shadow-sm border-b-2 border-amber-600/30";
+  
+  // Regex pour la mise en évidence : si EXACT_PHRASE on garde le bloc, sinon on souligne chaque mot
+  const highlightRegex = params.mode === SearchMode.EXACT_PHRASE 
+    ? getAccentInsensitiveRegex(query, false)
+    : getMultiWordHighlightRegex(query);
+
+  for (const s of allSermons) {
+    if (!s.text) continue;
+    
+    const paragraphs = s.text.split(/\n\s*\n/);
+    paragraphs.forEach((p, i) => {
+      const content = p.trim();
+      const normalizedContent = normalizeText(content);
+      const normalizedQuery = normalizeText(query);
+      
+      let match = false;
+      if (params.mode === SearchMode.EXACT_PHRASE) {
+        match = normalizedContent.includes(normalizedQuery);
+      } else if (params.mode === SearchMode.DIVERSE) {
+        const words = normalizedQuery.split(/\s+/);
+        match = words.some(w => normalizedContent.includes(w));
+      } else { // EXACT_WORDS
+        const words = normalizedQuery.split(/\s+/);
+        match = words.every(w => normalizedContent.includes(w));
+      }
+
+      if (match) {
+        // Application du surlignage
+        const snippet = content.replace(highlightRegex, (m) => `<mark class="${markClass}">${m}</mark>`);
+        
+        results.push({
+          paragraphId: `${s.id}-${i}`,
+          sermonId: s.id,
+          paragraphIndex: i + 1,
+          snippet: snippet.length > 400 ? snippet.substring(0, 400) + '...' : snippet,
+          title: s.title,
+          date: s.date,
+          city: s.city
+        });
+      }
+    });
+  }
+
+  // Tri par date décroissante
+  results.sort((a, b) => b.date.localeCompare(a.date));
+
+  return results.slice(params.offset, params.offset + params.limit);
+};
+
 export const searchSermons = async (params: { query: string; mode: SearchMode; limit: number; offset: number }): Promise<any[]> => {
-  if (!isElectron) return [];
+  if (!isElectron) {
+    return webSearchFallback(params);
+  }
+  
   try {
     return await window.electronAPI.db.search(params);
   } catch (error) {
     console.error("Search API Error:", error);
-    return [];
+    // En cas d'erreur IPC (par exemple si Electron est là mais buggé), on tente le fallback
+    return webSearchFallback(params);
   }
 };
 

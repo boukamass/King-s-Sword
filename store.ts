@@ -269,72 +269,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  addNote: async (note) => {
-    const newNote: Note = {
-      id: crypto.randomUUID(),
-      title: note.title || "Nouvelle Note",
-      content: note.content || "",
-      citations: note.citations || [],
-      date: new Date().toISOString(),
-      creationDate: new Date().toISOString(),
-      order: get().notes.length,
-      ...note
-    };
-    set(state => ({ notes: [...state.notes, newNote] }));
-    await saveNoteToDB(newNote);
-  },
-
-  updateNote: async (id, updates) => {
-    set(state => ({ 
-      notes: state.notes.map(n => n.id === id ? { ...n, ...updates } : n) 
-    }));
-    const note = get().notes.find(n => n.id === id);
-    if (note) await saveNoteToDB(note);
-  },
-
-  deleteNote: async (id) => {
-    set(state => ({ 
-      notes: state.notes.filter(n => n.id !== id), 
-      activeNoteId: state.activeNoteId === id ? null : state.activeNoteId 
-    }));
-    await deleteNoteFromDB(id);
-  },
-
-  addCitationToNote: async (noteId, citation) => {
-    const newCit: Citation = {
-      id: crypto.randomUUID(),
-      date_added: new Date().toISOString(),
-      sermon_id: citation.sermon_id || "",
-      sermon_title_snapshot: citation.sermon_title_snapshot || "",
-      sermon_date_snapshot: citation.sermon_date_snapshot || "",
-      quoted_text: citation.quoted_text || "",
-    };
-    const note = get().notes.find(n => n.id === noteId);
-    if (note) {
-      const updatedNote = { ...note, citations: [...note.citations, newCit] };
-      set(state => ({ notes: state.notes.map(n => n.id === noteId ? updatedNote : n) }));
-      await saveNoteToDB(updatedNote);
-    }
-  },
-
-  reorderNotes: async (draggedId, targetId) => {
-    const { notes } = get();
-    const oldIndex = notes.findIndex(n => n.id === draggedId);
-    const newIndex = notes.findIndex(n => n.id === targetId);
-    if (oldIndex === -1 || newIndex === -1) return;
-    const newNotes = [...notes];
-    const [removed] = newNotes.splice(oldIndex, 1);
-    newNotes.splice(newIndex, 0, removed);
-    set({ notes: newNotes });
-    await syncNotesOrder(newNotes);
-  },
-
-  addChatMessage: (key, msg) => set(s => ({
-    chatHistory: { ...s.chatHistory, [key]: [...(s.chatHistory[key] || []), msg] }
-  })),
-
-  setSearchQuery: (query) => set({ searchQuery: query }),
-  setSearchMode: (mode) => set({ searchMode: mode }),
+  setSearchQuery: (query) => set({ searchQuery: query, lastSearchQuery: query }),
+  setSearchMode: (mode) => set({ searchMode: mode, lastSearchMode: mode }),
   setSearchResults: (results) => set({ searchResults: results }),
   setIsSearching: (val) => set({ isSearching: val }),
   setIsFullTextSearch: (active) => set({ isFullTextSearch: active }),
@@ -361,6 +297,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   }),
   setTheme: (t) => set({ theme: t }),
   
+  addChatMessage: (key, message) => set(state => {
+    const history = state.chatHistory[key] || [];
+    return {
+      chatHistory: {
+        ...state.chatHistory,
+        [key]: [...history, message]
+      }
+    };
+  }),
+
   toggleContextSermon: (id) => set(s => {
     const isManual = s.manualContextIds.includes(id);
     const newManual = isManual 
@@ -384,23 +330,98 @@ export const useAppStore = create<AppState>((set, get) => ({
     return { manualContextIds: [], contextSermonIds: activeId ? [activeId] : [] };
   }),
 
+  addNote: async (partial) => {
+    const newNote: Note = {
+      id: crypto.randomUUID(),
+      title: partial.title || 'Nouvelle Note',
+      content: partial.content || '',
+      citations: partial.citations || [],
+      creationDate: new Date().toISOString(),
+      date: new Date().toISOString(),
+      order: get().notes.length,
+      ...partial
+    };
+    set(state => ({ 
+      notes: [...state.notes, newNote], 
+      activeNoteId: newNote.id,
+      notesOpen: true 
+    }));
+    await saveNoteToDB(newNote);
+  },
+
+  updateNote: async (id, updates) => {
+    const { notes } = get();
+    const newNotes = notes.map(n => n.id === id ? { ...n, ...updates } : n);
+    set({ notes: newNotes });
+    const updatedNote = newNotes.find(n => n.id === id);
+    if (updatedNote) await saveNoteToDB(updatedNote);
+  },
+
+  deleteNote: async (id) => {
+    const { notes, activeNoteId } = get();
+    const newNotes = notes.filter(n => n.id !== id);
+    set({ 
+      notes: newNotes,
+      activeNoteId: activeNoteId === id ? null : activeNoteId
+    });
+    await deleteNoteFromDB(id);
+  },
+
+  addCitationToNote: async (noteId, partialCitation) => {
+    const { notes } = get();
+    const noteIndex = notes.findIndex(n => n.id === noteId);
+    if (noteIndex === -1) return;
+
+    const citation: Citation = {
+      id: crypto.randomUUID(),
+      date_added: new Date().toISOString(),
+      sermon_id: partialCitation.sermon_id || '',
+      sermon_title_snapshot: partialCitation.sermon_title_snapshot || '',
+      sermon_date_snapshot: partialCitation.sermon_date_snapshot || '',
+      quoted_text: partialCitation.quoted_text || '',
+      ...partialCitation
+    } as Citation;
+
+    const updatedNotes = [...notes];
+    updatedNotes[noteIndex] = {
+      ...updatedNotes[noteIndex],
+      citations: [...updatedNotes[noteIndex].citations, citation]
+    };
+
+    set({ notes: updatedNotes });
+    await saveNoteToDB(updatedNotes[noteIndex]);
+  },
+
+  reorderNotes: (draggedId, targetId) => {
+    const { notes } = get();
+    const draggedIndex = notes.findIndex(n => n.id === draggedId);
+    const targetIndex = notes.findIndex(n => n.id === targetId);
+    if (draggedIndex === -1 || targetIndex === -1) return;
+
+    const newNotes = [...notes];
+    const [removed] = newNotes.splice(draggedIndex, 1);
+    newNotes.splice(targetIndex, 0, removed);
+
+    // Update 'order' property for each note
+    const updatedNotes = newNotes.map((n, i) => ({ ...n, order: i }));
+    set({ notes: updatedNotes });
+    syncNotesOrder(updatedNotes);
+  },
+
   triggerStudyRequest: (t) => set({ pendingStudyRequest: t, aiOpen: true }),
   setJumpToText: (t) => set({ jumpToText: t }),
   setJumpToParagraph: (num) => set({ jumpToParagraph: num }),
   
-  // Fix for error: Spread types may only be created from object types.
   updateSermonHighlights: (id, highlights) => set(state => {
     const activeSermon = state.activeSermon;
     let newActiveSermon = activeSermon;
     
-    // Explicit null check and narrowing for spreading.
     if (activeSermon && activeSermon.id === id) {
       newActiveSermon = { ...(activeSermon as Sermon), highlights };
     }
 
     const newSermonsMap = new Map(state.sermonsMap);
     const existingInMap = newSermonsMap.get(id);
-    // Explicit object type check before spread to satisfy compiler.
     if (existingInMap && typeof existingInMap === 'object') {
       newSermonsMap.set(id, { ...existingInMap, highlights });
     }

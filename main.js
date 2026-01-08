@@ -65,6 +65,7 @@ function initDatabase() {
         sermon_date_snapshot TEXT, 
         quoted_text TEXT, 
         date_added TEXT, 
+        paragraph_index INTEGER,
         FOREIGN KEY(note_id) REFERENCES notes(id) ON DELETE CASCADE
       );
     `);
@@ -113,19 +114,24 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 30, offset = 0 }) => 
   }
 
   try {
+    // Surlignage Ambre plus prononcé (64 tokens pour plus de contexte)
+    const highlightOpen = '<mark class="bg-amber-400/40 dark:bg-amber-500/40 text-amber-950 dark:text-white font-bold px-0.5 rounded-sm shadow-sm border-b-2 border-amber-600/30">';
+    const highlightClose = '</mark>';
+    
     const stmt = db.prepare(`
       SELECT 
         f.rowid as paragraphId, 
         f.sermon_id as sermonId, 
         f.paragraph_index as paragraphIndex, 
-        snippet(paragraphs_fts, 0, '<mark class="bg-teal-600/30 text-teal-900 dark:text-teal-100 font-bold px-0.5 rounded">', '</mark>', '...', 32) as snippet,
+        snippet(paragraphs_fts, 0, ?, ?, '...', 64) as snippet,
         s.title, s.date, s.city
       FROM paragraphs_fts f
       JOIN sermons s ON f.sermon_id = s.id
       WHERE paragraphs_fts MATCH ? 
+      ORDER BY s.date DESC
       LIMIT ? OFFSET ?
     `);
-    return stmt.all(sqlQuery, limit, offset);
+    return stmt.all(highlightOpen, highlightClose, sqlQuery, limit, offset);
   } catch (e) {
     console.error("SQL Search Error:", e);
     return [];
@@ -193,8 +199,8 @@ ipcMain.handle('db:saveNote', (event, note) => {
     checkDb();
     db.prepare('INSERT INTO notes (id, title, content, color, "order", creation_date) VALUES (@id, @title, @content, @color, @order, @creationDate) ON CONFLICT(id) DO UPDATE SET title=excluded.title, content=excluded.content, color=excluded.color, "order"=excluded."order"').run(note);
     db.prepare('DELETE FROM citations WHERE note_id = ?').run(note.id);
-    const insC = db.prepare('INSERT INTO citations VALUES (?, ?, ?, ?, ?, ?, ?)');
-    note.citations.forEach(c => insC.run(c.id || Math.random().toString(), note.id, c.sermon_id, c.sermon_title_snapshot, c.sermon_date_snapshot, c.quoted_text, c.date_added || new Date().toISOString()));
+    const insC = db.prepare('INSERT INTO citations (id, note_id, sermon_id, sermon_title_snapshot, sermon_date_snapshot, quoted_text, date_added, paragraph_index) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    note.citations.forEach(c => insC.run(c.id || Math.random().toString(), note.id, c.sermon_id, c.sermon_title_snapshot, c.sermon_date_snapshot, c.quoted_text, c.date_added || new Date().toISOString(), c.paragraph_index || null));
     return { success: true };
   } catch (e) {
     console.error("Save Note Error:", e);
