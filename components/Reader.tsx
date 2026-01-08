@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo, useCallback, memo, useTransition } from 'react';
 import { useAppStore } from '../store';
 import { translations } from '../translations';
@@ -82,13 +83,19 @@ const WordComponent = memo(({
   wordRef, 
   onMouseUp 
 }: any) => {
+  // Détermination de la couleur de fond
+  // Priorité : Résultat courant > Recherche > Match Origine > Citation > Manuel > IA
+  const highlightColorClass = highlight 
+    ? PALETTE_HIGHLIGHT_COLORS[highlight.color || 'amber']
+    : isJumpHighlight 
+      ? PALETTE_HIGHLIGHT_COLORS['amber'] 
+      : '';
+
   const content = (
     <span 
       ref={wordRef}
       data-global-index={word.globalIndex}
       onMouseUp={onMouseUp}
-      data-tooltip={isJumpHighlight ? "Masquer le surlignage IA" : undefined}
-      data-tooltip-icon={isJumpHighlight ? "sparkles" : undefined}
       className={`transition-all duration-300 ${citationColor || ''} ${
         isCurrentResult 
           ? 'bg-teal-600 shadow-[0_0_12px_rgba(13,148,136,0.5)] text-white px-0.5 rounded-sm' 
@@ -96,28 +103,29 @@ const WordComponent = memo(({
             ? 'bg-teal-600/20 ring-1 ring-teal-600/30 px-0.5 rounded-sm' 
             : isSearchOriginMatch
               ? 'bg-amber-500/30 text-amber-900 dark:text-amber-300 ring-1 ring-amber-500/40 font-bold shadow-[0_0_8px_rgba(245,158,11,0.25)] px-0.5 rounded-sm'
-              : isJumpHighlight
-                ? 'bg-teal-400/25 dark:bg-teal-500/20 ring-1 ring-teal-500/30 cursor-pointer px-0.5'
-                : ''
+              : ''
       }`}
-      onClick={(e) => {
-        if (isJumpHighlight) {
-          e.stopPropagation();
-          onRemoveJumpHighlight();
-        }
-      }}
     >
       {word.text}
     </span>
   );
 
-  if (highlight) {
-    const highlightColorClass = PALETTE_HIGHLIGHT_COLORS[highlight.color || 'amber'];
+  // Si on a un surlignage manuel ou IA, on encapsule dans un conteneur interactif identique
+  if (highlight || isJumpHighlight) {
+    const handleRemove = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (highlight) {
+        onRemoveHighlight(highlight.id);
+      } else {
+        onRemoveJumpHighlight();
+      }
+    };
+
     return (
       <span 
-        onClick={(e) => { e.stopPropagation(); onRemoveHighlight(highlight.id); }}
-        data-tooltip="Cliquer pour supprimer"
-        data-tooltip-icon="trash"
+        onClick={handleRemove}
+        data-tooltip={highlight ? "Cliquer pour supprimer" : "Masquer le surlignage IA"}
+        data-tooltip-icon={highlight ? "trash" : "sparkles"}
         className={`${highlightColorClass} cursor-pointer hover:brightness-105 transition-all py-0.5`}
       >
         {content}
