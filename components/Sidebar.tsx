@@ -21,7 +21,8 @@ import {
   Library,
   Info,
   CheckCheck,
-  CheckSquare
+  CheckSquare,
+  Square
 } from 'lucide-react';
 
 interface DropdownProps {
@@ -284,27 +285,19 @@ const Sidebar: React.FC = () => {
   const activeFiltersCount = [yearFilter, cityFilter, versionFilter, timeFilter].filter(f => f !== null).length;
 
   const filteredSermons = useMemo(() => {
-    // Normalisation de la requête une seule fois pour tout le filtrage
     const q = isFullTextSearch ? "" : normalizeText(deferredSearchQuery);
-    
-    // Si aucun filtre n'est actif, on retourne tout de suite pour gagner du temps
     if (!q && !cityFilter && !yearFilter && !versionFilter && !timeFilter) return sermons;
 
     return sermons.filter(s => {
       if (!s) return false;
-      
-      // Filtrage par texte (sur titre normalisé pré-calculé)
       if (q) {
         const titleText = (s as any)._normalizedTitle || normalizeText(s.title || '');
         if (!titleText.includes(q)) return false;
       }
-
-      // Filtrages rapides par égalité stricte
       if (cityFilter && s.city !== cityFilter) return false;
       if (yearFilter && (!s.date || !s.date.startsWith(yearFilter))) return false;
       if (versionFilter && s.version !== versionFilter) return false;
       if (timeFilter && s.time !== timeFilter) return false;
-      
       return true;
     });
   }, [sermons, deferredSearchQuery, cityFilter, yearFilter, versionFilter, timeFilter, isFullTextSearch]);
@@ -348,12 +341,10 @@ const Sidebar: React.FC = () => {
 
   const handleToggleAllFiltered = () => {
     if (areAllFilteredSelected) {
-      // Deselect all filtered from context
       const filteredIds = filteredSermons.map(s => s.id);
       const newManual = manualContextIds.filter(id => !filteredIds.includes(id));
       setManualContextIds(newManual);
     } else {
-      // Add all filtered to context
       const filteredIds = filteredSermons.map(s => s.id);
       const newManual = Array.from(new Set([...manualContextIds, ...filteredIds]));
       setManualContextIds(newManual);
@@ -383,13 +374,6 @@ const Sidebar: React.FC = () => {
           </div>
         </button>
         <div className="flex items-center gap-1 animate-in fade-in duration-500">
-          <button 
-            onClick={handleToggleAllFiltered}
-            data-tooltip={t.tooltip_select_all}
-            className={`w-7 h-7 flex items-center justify-center transition-all rounded-lg active:scale-95 tooltip-bottom ${areAllFilteredSelected ? 'bg-teal-600 text-white shadow-lg shadow-teal-600/20' : 'text-zinc-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20'}`}
-          >
-            <CheckCheck className="w-3.5 h-3.5" />
-          </button>
           <button 
             onClick={(e) => { e.stopPropagation(); if (confirm("Actualiser la bibliothèque ?")) resetLibrary(); }}
             data-tooltip="Actualiser"
@@ -505,6 +489,21 @@ const Sidebar: React.FC = () => {
               <ModernDropdown value={timeFilter} onChange={setTimeFilter} options={dynamicTimes} placeholder={t.filter_time} />
             </div>
           )}
+        </div>
+
+        {/* Barre d'outils de sélection globale ultra-épurée */}
+        <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800/50 flex items-center bg-zinc-50/20 dark:bg-zinc-900/20 sticky top-0 z-40 backdrop-blur-sm">
+          <button 
+            onClick={handleToggleAllFiltered}
+            data-tooltip={areAllFilteredSelected ? "Tout retirer du contexte IA" : "Tout ajouter au contexte IA (filtrés)"}
+            className={`w-8 h-8 flex items-center justify-center rounded-xl border transition-all active:scale-90 group/context-all tooltip-right ${
+              areAllFilteredSelected 
+                ? 'bg-teal-600 text-white border-teal-600 shadow-lg shadow-teal-600/20' 
+                : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-teal-600/50 hover:bg-teal-50 dark:hover:bg-teal-900/10'
+            }`}
+          >
+            <Sparkles className={`w-4 h-4 transition-transform duration-500 ${areAllFilteredSelected ? 'scale-110 rotate-12' : 'opacity-60 group-hover/context-all:opacity-100 group-hover/context-all:scale-110'}`} />
+          </button>
         </div>
 
         <div 

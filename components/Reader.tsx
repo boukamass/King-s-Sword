@@ -71,7 +71,19 @@ const ActionButton = memo(({ onClick, icon: Icon, tooltip, special = false, acti
   </div>
 ));
 
-const WordComponent = memo(({ word, isSearchResult, isCurrentResult, isSearchOriginMatch, isJumpHighlight, citationColor, highlight, onRemoveHighlight, wordRef, onMouseUp }: any) => {
+const WordComponent = memo(({ 
+  word, 
+  isSearchResult, 
+  isCurrentResult, 
+  isSearchOriginMatch, 
+  isJumpHighlight, 
+  citationColor, 
+  highlight, 
+  onRemoveHighlight, 
+  onRemoveJumpHighlight,
+  wordRef, 
+  onMouseUp 
+}: any) => {
   const content = (
     <span 
       ref={wordRef}
@@ -79,25 +91,34 @@ const WordComponent = memo(({ word, isSearchResult, isCurrentResult, isSearchOri
       onMouseUp={onMouseUp}
       className={`rounded-sm transition-all duration-300 ${citationColor || ''} ${
         isCurrentResult 
-          ? 'bg-teal-600 shadow-[0_0_8px_rgba(13,148,136,0.4)] text-white' 
+          ? 'bg-teal-600 shadow-[0_0_12px_rgba(13,148,136,0.5)] text-white' 
           : isSearchResult 
-            ? 'bg-teal-600/15 ring-1 ring-teal-600/20' 
+            ? 'bg-teal-600/20 ring-1 ring-teal-600/30' 
             : isSearchOriginMatch
-              ? 'bg-amber-600/30 text-amber-900 dark:text-amber-300 ring-1 ring-amber-500/40 font-bold shadow-[0_0_5px_rgba(245,158,11,0.2)]'
+              ? 'bg-amber-500/30 text-amber-900 dark:text-amber-300 ring-1 ring-amber-500/40 font-bold shadow-[0_0_8px_rgba(245,158,11,0.25)]'
               : isJumpHighlight
-                ? 'bg-blue-400/40 dark:bg-blue-500/40 ring-2 ring-blue-500/60 shadow-[0_0_12px_rgba(96,165,250,0.4)]'
+                ? 'bg-teal-400/30 dark:bg-teal-500/25 ring-2 ring-teal-500/40 shadow-[0_0_15px_rgba(20,184,166,0.35)] cursor-pointer'
                 : ''
       }`}
+      onClick={(e) => {
+        if (isJumpHighlight) {
+          e.stopPropagation();
+          onRemoveJumpHighlight();
+        }
+      }}
+      data-tooltip={isJumpHighlight ? "Cliquer pour supprimer le surlignage IA" : undefined}
     >
       {word.text}
     </span>
   );
 
   if (highlight) {
+    const highlightColorClass = PALETTE_HIGHLIGHT_COLORS[highlight.color || 'amber'];
     return (
       <span 
         onClick={(e) => { e.stopPropagation(); onRemoveHighlight(highlight.id); }}
-        className="bg-yellow-400/60 dark:bg-yellow-300/50 border-b border-yellow-500/30 dark:border-yellow-400/40 rounded-sm cursor-pointer hover:bg-yellow-400/70 dark:hover:bg-yellow-300/60 transition-all"
+        data-tooltip="Cliquer pour supprimer le surlignage"
+        className={`${highlightColorClass} rounded-sm cursor-pointer hover:brightness-110 transition-all active:scale-[0.98]`}
       >
         {content}
       </span>
@@ -346,14 +367,13 @@ const Reader: React.FC = () => {
     if (sermon?.id && !jumpToText && !jumpToParagraph && scrollContainerRef.current) {
         scrollContainerRef.current.scrollTop = 0;
         setProjectedSegmentIndex(null);
+        setJumpHighlightIndices([]);
     }
   }, [sermon?.id]);
 
   // Nouveau saut par numéro de paragraphe (Indexé)
   useEffect(() => {
     if (jumpToParagraph !== null && sermon && structuredSegments.length > 0) {
-        // Le numéro de paragraphe 1-basé de l'IA correspond à l'index (n-1)*2 dans segments array
-        // Car segments contient les délimiteurs.
         const segIdx = (jumpToParagraph - 1) * 2;
         const segment = structuredSegments[segIdx];
         
@@ -363,10 +383,9 @@ const Reader: React.FC = () => {
                 if (segEl) {
                     segEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     
-                    // Optionnel: Surlignage temporaire des mots du paragraphe
+                    // Surlignage PERSISTANT des mots du paragraphe (IA)
                     const wordIndices = segment.words.map(w => w.globalIndex);
                     setJumpHighlightIndices(wordIndices);
-                    setTimeout(() => setJumpHighlightIndices([]), 3000);
                 } else {
                     addNotification("Erreur technique: Élément paragraphe non trouvé.", "error");
                 }
@@ -384,7 +403,7 @@ const Reader: React.FC = () => {
         const fullSermonText = words.map(w => w.text).join('');
         const matchIndices: number[] = [];
         
-        const match = regex.exec(fullSermonText); // Just find the first one
+        const match = regex.exec(fullSermonText);
 
         if (match) {
             const startChar = match.index;
@@ -404,12 +423,12 @@ const Reader: React.FC = () => {
             }
             
             if (firstWordIndex !== -1) {
+                // Surlignage PERSISTANT IA
                 setJumpHighlightIndices(matchIndices);
                 setTimeout(() => {
                     const firstEl = wordRefs.current.get(firstWordIndex);
                     firstEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     window.getSelection()?.removeAllRanges();
-                    setTimeout(() => setJumpHighlightIndices([]), 4000);
                 }, 100);
             } else {
                  addNotification("Impossible de localiser la citation.", "error");
@@ -575,7 +594,13 @@ const Reader: React.FC = () => {
   const handleRemoveHighlight = useCallback((id: string) => {
     if (!sermon) return;
     updateSermonHighlights(sermon.id, (sermon.highlights || []).filter(h => h.id !== id));
-  }, [sermon, updateSermonHighlights]);
+    addNotification("Surlignage supprimé", "success");
+  }, [sermon, updateSermonHighlights, addNotification]);
+
+  const handleRemoveJumpHighlight = useCallback(() => {
+    setJumpHighlightIndices([]);
+    addNotification("Surlignage IA masqué", "success");
+  }, [addNotification]);
 
   const handleCopy = useCallback(() => {
     if (selection) {
@@ -871,6 +896,7 @@ const Reader: React.FC = () => {
                         citationColor={citationHighlightMap.get(word.globalIndex)?.colorClass}
                         highlight={highlightMap.get(word.globalIndex)}
                         onRemoveHighlight={handleRemoveHighlight}
+                        onRemoveJumpHighlight={handleRemoveJumpHighlight}
                         onMouseUp={handleTextSelection}
                       />
                     ))}
@@ -894,6 +920,7 @@ const Reader: React.FC = () => {
                       citationColor={citationHighlightMap.get(word.globalIndex)?.colorClass}
                       highlight={highlightMap.get(word.globalIndex)}
                       onRemoveHighlight={handleRemoveHighlight}
+                      onRemoveJumpHighlight={handleRemoveJumpHighlight}
                       onMouseUp={handleTextSelection}
                     />
                   ))}
