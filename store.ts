@@ -387,7 +387,30 @@ export const useAppStore = create<AppState>((set, get) => ({
   triggerStudyRequest: (t) => set({ pendingStudyRequest: t, aiOpen: true }),
   setJumpToText: (t) => set({ jumpToText: t }),
   setJumpToParagraph: (num) => set({ jumpToParagraph: num }),
-  updateSermonHighlights: (id, h) => {},
+  
+  // Fix for error: Spread types may only be created from object types.
+  updateSermonHighlights: (id, highlights) => set(state => {
+    const activeSermon = state.activeSermon;
+    let newActiveSermon = activeSermon;
+    
+    // Explicit null check and narrowing for spreading.
+    if (activeSermon && activeSermon.id === id) {
+      newActiveSermon = { ...(activeSermon as Sermon), highlights };
+    }
+
+    const newSermonsMap = new Map(state.sermonsMap);
+    const existingInMap = newSermonsMap.get(id);
+    // Explicit object type check before spread to satisfy compiler.
+    if (existingInMap && typeof existingInMap === 'object') {
+      newSermonsMap.set(id, { ...existingInMap, highlights });
+    }
+
+    return { 
+      activeSermon: newActiveSermon, 
+      sermonsMap: newSermonsMap 
+    };
+  }),
+
   setProjectionBlackout: (v) => set({ projectionBlackout: v }),
   setExternalMaskOpen: (v) => set({ isExternalMaskOpen: v }),
   setSidebarWidth: (w) => set({ sidebarWidth: w }),

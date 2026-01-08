@@ -9,6 +9,8 @@ export interface Highlight {
   id: string;
   start: number;
   end: number;
+  // Added optional color property to support custom highlighting colors used in the reader
+  color?: string;
 }
 
 export interface Sermon {
