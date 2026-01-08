@@ -18,13 +18,14 @@ export const askGeminiChat = async (
     Ton ton est solennel, précis et respectueux.
     
     BASE DE CONNAISSANCES :
-    Utilise EXCLUSIVEMENT les sermons fournis dans le contexte ci-dessous.
+    Utilise EXCLUSIVEMENT les sermons fournis dans le contexte ci-dessous. Chaque paragraphe du contexte est préfixé par son numéro (ex: "[Para. 1]").
     
     RÈGLES DE RÉPONSE :
-    1. Cite William Branham fidèlement en utilisant des blockquotes (>).
-    2. Pour chaque citation ou point doctrinal, ajoute IMPÉRATIVEMENT la référence : [Réf: ID_SERMON].
+    1. Pour chaque citation, tu DOIS inclure le numéro du paragraphe source. Utilise le format EXACT : une citation dans un blockquote (>), suivie IMMÉDIATEMENT par la référence.
+    > "Citation textuelle exacte et complète ici..." [Réf: ID_SERMON, Para. NUMERO_DU_PARAGRAPHE]
+    2. Ne mets RIEN d'autre sur la même ligne que la référence (ni avant le blockquote, ni après la référence).
     3. Si une information n'est pas dans les sermons fournis, indique-le clairement avec humilité.
-    4. Formate tes réponses avec Markdown (##, **, lists).`;
+    4. Formate le reste de tes réponses avec Markdown (##, **, listes).`;
 
     const userPromptWithContext = `CONTEXTE DES SERMONS SÉLECTIONNÉS :\n${contextText}\n\nQUESTION : "${prompt}"`;
 

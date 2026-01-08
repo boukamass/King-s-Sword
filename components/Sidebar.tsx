@@ -99,51 +99,60 @@ const SermonItem = memo(({
   isContextSelected: boolean; 
   onSelect: () => void;
   onToggleContext: () => void;
-}) => (
-  <div 
-    className={`group flex items-center gap-3 p-3 rounded-xl transition-all duration-200 cursor-pointer mb-1 ${
-      isSelected 
-        ? 'bg-teal-600/10 dark:bg-teal-600/20 ring-1 ring-teal-600/20 shadow-md' 
-        : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/40 border border-transparent hover:border-zinc-100 dark:hover:border-zinc-800'
-    }`}
-    onClick={onSelect}
-  >
-    <div 
-      onClick={(e) => { e.stopPropagation(); onToggleContext(); }}
-      data-tooltip="Ajouter au contexte IA"
-      className={`w-4 h-4 rounded-md border transition-all flex items-center justify-center shrink-0 tooltip-right ${
-        isContextSelected 
-          ? 'bg-teal-600 border-teal-600 text-white shadow-lg shadow-teal-600/20' 
-          : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 group-hover:border-teal-600/50'
-      }`}
-    >
-      {isContextSelected && <Sparkles className="w-2.5 h-2.5 stroke-[3]" />}
-    </div>
+}) => {
+  const isEffectivelyInContext = isSelected || isContextSelected;
 
-    <div className="flex-1 min-w-0">
-      <div className="flex items-center justify-between gap-1 mb-1">
-        <span className={`text-[12px] font-extrabold truncate transition-colors ${isSelected ? 'text-teal-600 dark:text-blue-400' : 'text-zinc-900 dark:text-zinc-100'}`}>
-          {sermon.title || "Sermon sans titre"}
-        </span>
-        <div className="flex items-center gap-1 shrink-0">
-          {sermon.audio_url && <Headphones className="w-2.5 h-2.5 text-teal-500 tooltip-right" data-tooltip="Audio disponible" />}
-          {sermon.version && (
-            <span className="text-[7px] font-black bg-zinc-100 dark:bg-zinc-800 text-zinc-500 px-1.5 py-0.5 rounded-lg border border-zinc-200 dark:border-zinc-700 uppercase tracking-tighter">
-              {sermon.version}
-            </span>
-          )}
+  return (
+    <div 
+      className={`group flex items-center gap-3 p-3 rounded-xl transition-all duration-200 cursor-pointer mb-1 ${
+        isSelected 
+          ? 'bg-teal-600/10 dark:bg-teal-600/20 ring-1 ring-teal-600/20 shadow-md' 
+          : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/40 border border-transparent hover:border-zinc-100 dark:hover:border-zinc-800'
+      }`}
+      onClick={onSelect}
+    >
+      <div 
+        onClick={(e) => {
+          if (!isSelected) {
+            e.stopPropagation();
+            onToggleContext();
+          }
+        }}
+        data-tooltip={isSelected ? "Dans le contexte (auto)" : "Ajouter/Retirer du contexte IA"}
+        className={`w-4 h-4 rounded-md border transition-all flex items-center justify-center shrink-0 tooltip-right ${
+          isEffectivelyInContext
+            ? 'bg-teal-600 border-teal-600 text-white shadow-lg shadow-teal-600/20' 
+            : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 group-hover:border-teal-600/50'
+        } ${isSelected ? 'cursor-not-allowed opacity-75' : ''}`}
+      >
+        {isEffectivelyInContext && <Sparkles className="w-2.5 h-2.5 stroke-[3]" />}
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-1 mb-1">
+          <span className={`text-[12px] font-extrabold truncate transition-colors ${isSelected ? 'text-teal-600 dark:text-blue-400' : 'text-zinc-900 dark:text-zinc-100'}`}>
+            {sermon.title || "Sermon sans titre"}
+          </span>
+          <div className="flex items-center gap-1 shrink-0">
+            {sermon.audio_url && <Headphones className="w-2.5 h-2.5 text-teal-500 tooltip-right" data-tooltip="Audio disponible" />}
+            {sermon.version && (
+              <span className="text-[7px] font-black bg-zinc-100 dark:bg-zinc-800 text-zinc-500 px-1.5 py-0.5 rounded-lg border border-zinc-200 dark:border-zinc-700 uppercase tracking-tighter">
+                {sermon.version}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 text-[8px] text-zinc-400 font-bold uppercase tracking-widest">
+          <Calendar className="w-2 h-2 text-teal-600/50" />
+          <span className="font-mono">{sermon.date}</span>
+          <span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-0.5" />
+          <MapPin className="w-2 h-2 text-teal-600/50" />
+          <span className="truncate">{sermon.city}</span>
         </div>
       </div>
-      <div className="flex items-center gap-2 text-[8px] text-zinc-400 font-bold uppercase tracking-widest">
-        <Calendar className="w-2 h-2 text-teal-600/50" />
-        <span className="font-mono">{sermon.date}</span>
-        <span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-0.5" />
-        <MapPin className="w-2 h-2 text-teal-600/50" />
-        <span className="truncate">{sermon.city}</span>
-      </div>
     </div>
-  </div>
-));
+  );
+});
 
 const SearchModeButton = memo(({ mode, label, tooltip, currentMode, setMode }: { 
   mode: SearchMode; 

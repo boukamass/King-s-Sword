@@ -58,12 +58,12 @@ const AIAssistant: React.FC = () => {
   );
 
   const formatAIResponse = (text: string) => {
-    // Regex pour capturer les références [Réf: ID] et les transformer en liens riches
-    const formattedText = text.replace(/\[Réf:\s*([\w-]+)\s*\]/gi, (match, sermonId) => {
+    // Regex pour capturer les références [Réf: ID, Para. N] et les transformer en liens riches
+    const formattedText = text.replace(/\[Réf:\s*([\w-]+),\s*Para\.\s*(\d+)\s*\]/gi, (match, sermonId, paraNum) => {
       const sermon = sermons.find(s => s.id === sermonId);
       if (sermon) {
-        // Inclusion du titre et de la date dans le lien de référence
-        return `<a href="#" data-sermon-id="${sermonId}" class="sermon-ref inline-flex items-center gap-1.5 px-2 py-0.5 bg-teal-600/5 dark:bg-teal-400/10 text-teal-700 dark:text-teal-300 rounded-md text-[9px] font-black hover:bg-teal-600/20 transition-all border border-teal-600/10 mx-1 align-middle shadow-sm"><span>${sermon.title} (${sermon.date})</span></a>`;
+        // Inclusion du numéro de paragraphe, titre et date dans le lien
+        return `<a href="#" data-sermon-id="${sermonId}" class="sermon-ref inline-flex items-center gap-1.5 px-2 py-0.5 bg-teal-600/5 dark:bg-teal-400/10 text-teal-700 dark:text-teal-300 rounded-md text-[9px] font-black hover:bg-teal-600/20 transition-all border border-teal-600/10 mx-1 align-middle shadow-sm"><span>Para. ${paraNum} - ${sermon.title} (${sermon.date})</span></a>`;
       }
       return match;
     });
@@ -78,10 +78,20 @@ const AIAssistant: React.FC = () => {
         const sermonId = link.dataset.sermonId;
         if (sermons.some(s => s.id === sermonId)) {
             setSelectedSermonId(sermonId);
-            const parent = link.closest('p, li, blockquote');
-            if (parent) {
-                const text = parent.textContent?.replace(/\[.*?\]/g, '').trim();
+
+            const blockquote = link.closest('blockquote');
+            if (blockquote) {
+                const quoteClone = blockquote.cloneNode(true) as HTMLElement;
+                quoteClone.querySelectorAll('a.sermon-ref').forEach(a => a.remove()); // Remove ref link from text
+                const text = quoteClone.textContent?.trim();
                 if (text) setJumpToText(text);
+            } else {
+                // Fallback for safety
+                const parent = link.closest('p, li');
+                if (parent) {
+                    const text = parent.textContent?.replace(/\[.*?\]/g, '').trim();
+                    if (text) setJumpToText(text);
+                }
             }
         }
     }
@@ -128,9 +138,14 @@ const AIAssistant: React.FC = () => {
       const fullSermons = await Promise.all(contextSermonIds.map(id => getSermonById(id)));
       const validSermons = fullSermons.filter((s): s is Sermon => !!s);
 
-      const ctx = validSermons.map(s => 
-        `[DOC ID: ${s.id}] - TITRE: ${s.title} (${s.date})\nCONTENU:\n${s.text ? s.text.substring(0, 18000) : ''}`
-      ).join('\n\n---\n\n');
+      const ctx = validSermons.map(s => {
+        const numberedText = s.text
+          ? s.text.split(/\n\s*\n/)
+              .map((p, i) => `[Para. ${i + 1}] ${p.trim()}`)
+              .join('\n')
+          : '';
+        return `[DOC ID: ${s.id}] - TITRE: ${s.title} (${s.date})\nCONTENU:\n${numberedText.substring(0, 18000)}`;
+      }).join('\n\n---\n\n');
       
       const r = await askGeminiChat(msg, ctx, history);
       addChatMessage(chatKey, { role: 'assistant', content: r, timestamp: new Date().toISOString() });
@@ -279,7 +294,7 @@ const AIAssistant: React.FC = () => {
       <div className="p-4 bg-white dark:bg-zinc-950 border-t border-zinc-100 dark:border-zinc-800/50 no-print">
         <div className="relative flex items-end gap-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-[24px] border border-zinc-200 dark:border-zinc-800 px-4 py-3 focus-within:ring-4 focus-within:ring-teal-600/5 focus-within:border-teal-600/40 transition-all duration-500">
           <textarea
-            className="flex-1 bg-transparent border-none text-[13px] font-medium resize-none outline-none py-1 max-h-40 dark:text-zinc-100 placeholder:text-zinc-400 placeholder:text-[8px] placeholder:uppercase placeholder:tracking-[0.3em]"
+            className="flex-1 bg-transparent border-none text-[13px] font-medium text-zinc-900 dark:text-zinc-100 resize-none outline-none py-1 max-h-40 placeholder:text-zinc-400 placeholder:text-[8px] placeholder:uppercase placeholder:tracking-[0.3em]"
             placeholder={contextSermonIds.length > 0 ? "POSEZ VOTRE QUESTION..." : "SÉLECTIONNEZ DES SOURCES D'ABORD"}
             rows={1}
             disabled={contextSermonIds.length === 0 || isTyping}

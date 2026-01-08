@@ -71,20 +71,22 @@ const ActionButton = memo(({ onClick, icon: Icon, tooltip, special = false, acti
   </div>
 ));
 
-const WordComponent = memo(({ word, isSearchResult, isCurrentResult, isSearchOriginMatch, citationColor, highlight, onRemoveHighlight, wordRef, onMouseUp }: any) => {
+const WordComponent = memo(({ word, isSearchResult, isCurrentResult, isSearchOriginMatch, isJumpHighlight, citationColor, highlight, onRemoveHighlight, wordRef, onMouseUp }: any) => {
   const content = (
     <span 
       ref={wordRef}
       data-global-index={word.globalIndex}
       onMouseUp={onMouseUp}
-      className={`rounded-sm transition-colors duration-150 ${citationColor || ''} ${
+      className={`rounded-sm transition-all duration-300 ${citationColor || ''} ${
         isCurrentResult 
           ? 'bg-teal-600 shadow-[0_0_8px_rgba(13,148,136,0.4)] text-white' 
           : isSearchResult 
             ? 'bg-teal-600/15 ring-1 ring-teal-600/20' 
             : isSearchOriginMatch
               ? 'bg-amber-600/30 text-amber-900 dark:text-amber-300 ring-1 ring-amber-500/40 font-bold shadow-[0_0_5px_rgba(245,158,11,0.2)]'
-              : ''
+              : isJumpHighlight
+                ? 'bg-blue-400/40 dark:bg-blue-500/40 ring-2 ring-blue-500/60 shadow-[0_0_12px_rgba(96,165,250,0.4)]'
+                : ''
       }`}
     >
       {word.text}
@@ -157,6 +159,7 @@ const Reader: React.FC = () => {
   
   const [activeDefinition, setActiveDefinition] = useState<WordDefinition | null>(null);
   const [isDefining, setIsDefining] = useState(false);
+  const [jumpHighlightIndices, setJumpHighlightIndices] = useState<number[]>([]);
 
   const [localFontSize, setLocalFontSize] = useState<string | number>(fontSize);
   useEffect(() => {
@@ -345,38 +348,47 @@ const Reader: React.FC = () => {
 
   useEffect(() => {
     if (jumpToText && sermon && words.length > 0) {
-      const handleJump = () => {
         const regex = getAccentInsensitiveRegex(jumpToText, false);
         const fullSermonText = words.map(w => w.text).join('');
-        const match = regex.exec(fullSermonText);
+        const matchIndices: number[] = [];
+        
+        const match = regex.exec(fullSermonText); // Just find the first one
 
         if (match) {
-          const startChar = match.index;
-          let foundStartIndex = -1;
-          let currentChar = 0;
-          for (let i = 0; i < words.length; i++) {
-              if (currentChar >= startChar) {
-                  foundStartIndex = words[i].globalIndex;
-                  break;
-              }
-              currentChar += words[i].text.length;
-          }
-
-          if (foundStartIndex !== -1) {
-            setTimeout(() => {
-              const firstEl = wordRefs.current.get(foundStartIndex);
-              if (firstEl) {
-                firstEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                window.getSelection()?.removeAllRanges();
-              }
-            }, 400); 
-            setJumpToText(null);
-          }
+            const startChar = match.index;
+            const endChar = match.index + match[0].length;
+            
+            let firstWordIndex = -1;
+            let currentChar = 0;
+            for (let i = 0; i < words.length; i++) {
+                const wordLen = words[i].text.length;
+                if (currentChar + wordLen > startChar && currentChar < endChar) {
+                    matchIndices.push(words[i].globalIndex);
+                    if (firstWordIndex === -1) {
+                        firstWordIndex = words[i].globalIndex;
+                    }
+                }
+                currentChar += wordLen;
+            }
+            
+            if (firstWordIndex !== -1) {
+                setJumpHighlightIndices(matchIndices);
+                setTimeout(() => {
+                    const firstEl = wordRefs.current.get(firstWordIndex);
+                    firstEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    window.getSelection()?.removeAllRanges();
+                    setTimeout(() => setJumpHighlightIndices([]), 4000);
+                }, 100);
+            } else {
+                 addNotification("Impossible de localiser la citation.", "error");
+            }
+        } else {
+            addNotification("Citation non trouvée dans le texte.", "error");
         }
-      };
-      handleJump();
+
+        setJumpToText(null);
     }
-  }, [jumpToText, sermon, words, setJumpToText]);
+  }, [jumpToText, sermon, words, setJumpToText, addNotification]);
 
   const highlightMap = useMemo(() => {
     const map = new Map<number, Highlight>();
@@ -585,6 +597,7 @@ const Reader: React.FC = () => {
   const checkIsSearchResult = useCallback((idx: number) => searchResults.includes(idx), [searchResults]);
   const checkIsCurrentResult = useCallback((idx: number) => searchResults[currentResultIndex] === idx, [searchResults, currentResultIndex]);
   const checkIsSearchOriginMatch = useCallback((idx: number) => searchOriginMatchIndices.includes(idx), [searchOriginMatchIndices]);
+  const checkIsJumpHighlight = useCallback((idx: number) => jumpHighlightIndices.includes(idx), [jumpHighlightIndices]);
 
   if (!selectedSermonId) {
     return (
@@ -821,6 +834,7 @@ const Reader: React.FC = () => {
                         isSearchResult={checkIsSearchResult(word.globalIndex)} 
                         isCurrentResult={checkIsCurrentResult(word.globalIndex)} 
                         isSearchOriginMatch={checkIsSearchOriginMatch(word.globalIndex)}
+                        isJumpHighlight={checkIsJumpHighlight(word.globalIndex)}
                         citationColor={citationHighlightMap.get(word.globalIndex)?.colorClass}
                         highlight={highlightMap.get(word.globalIndex)}
                         onRemoveHighlight={handleRemoveHighlight}
@@ -843,6 +857,7 @@ const Reader: React.FC = () => {
                       isSearchResult={checkIsSearchResult(word.globalIndex)} 
                       isCurrentResult={checkIsCurrentResult(word.globalIndex)} 
                       isSearchOriginMatch={checkIsSearchOriginMatch(word.globalIndex)}
+                      isJumpHighlight={checkIsJumpHighlight(word.globalIndex)}
                       citationColor={citationHighlightMap.get(word.globalIndex)?.colorClass}
                       highlight={highlightMap.get(word.globalIndex)}
                       onRemoveHighlight={handleRemoveHighlight}
