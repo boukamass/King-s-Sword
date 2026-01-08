@@ -548,17 +548,53 @@ const Reader: React.FC = () => {
     const sel = window.getSelection();
     if (!sel || !sermon || sel.rangeCount === 0) return;
     const range = sel.getRangeAt(0);
-    const startNode = range.startContainer.parentElement?.closest('[data-global-index]');
-    const endNode = range.endContainer.parentElement?.closest('[data-global-index]');
-    if (startNode && endNode) {
-      const start = parseInt(startNode.getAttribute('data-global-index') || '0');
-      const end = parseInt(endNode.getAttribute('data-global-index') || '0');
+
+    const getIndexFromNode = (node: Node, offset: number): number | null => {
+      // 1. Tenter de trouver un mot interactif existant
+      const wordEl = node.parentElement?.closest('[data-global-index]');
+      if (wordEl) return parseInt(wordEl.getAttribute('data-global-index') || '0');
+
+      // 2. Sinon, calculer l'index à partir de la position dans le bloc de texte brut du paragraphe
+      const segEl = node.parentElement?.closest('[data-seg-idx]');
+      if (!segEl) return null;
+      
+      const segIdx = parseInt(segEl.getAttribute('data-seg-idx') || '0');
+      const segment = structuredSegments[segIdx];
+      if (!segment) return null;
+
+      // Calculer l'offset de caractères global dans le segment
+      let charOffsetInSegment = 0;
+      const children = segEl.childNodes;
+      for (let i = 0; i < children.length; i++) {
+        const child = children[i];
+        if (child === node) {
+          charOffsetInSegment += offset;
+          break;
+        }
+        charOffsetInSegment += child.textContent?.length || 0;
+      }
+
+      // Faire correspondre l'offset au bon index de mot global
+      let currentPos = 0;
+      for (const w of segment.words) {
+        if (currentPos + w.text.length > charOffsetInSegment) {
+          return w.globalIndex;
+        }
+        currentPos += w.text.length;
+      }
+      return segment.words[segment.words.length - 1].globalIndex;
+    };
+
+    const start = getIndexFromNode(range.startContainer, range.startOffset);
+    const end = getIndexFromNode(range.endContainer, range.endOffset);
+
+    if (start !== null && end !== null) {
       const newHighlight: Highlight = { id: crypto.randomUUID(), start: Math.min(start, end), end: Math.max(start, end), color: 'amber' };
       updateSermonHighlights(sermon.id, [...(sermon.highlights || []), newHighlight]);
       addNotification("Surlignage ajouté", "success");
       setSelection(null); sel.removeAllRanges();
     }
-  }, [sermon, updateSermonHighlights, addNotification]);
+  }, [sermon, structuredSegments, updateSermonHighlights, addNotification]);
 
   const handleRemoveHighlight = useCallback((id: string) => {
     if (!sermon) return;
@@ -594,7 +630,7 @@ const Reader: React.FC = () => {
     return `${Math.floor(time/60)}:${Math.floor(time%60).toString().padStart(2,'0')}`;
   };
 
-  // --- OPTIMISATION ZERO-LAG : Virtualisation des mots interactifs ---
+  // --- ARCHITECTURE ZÉRO-LAG : Virtualisation par Buffering de Texte Brut ---
   const interactiveIndices = useMemo(() => {
     const set = new Set<number>();
     highlightMap.forEach((_, k) => set.add(k));
@@ -606,11 +642,19 @@ const Reader: React.FC = () => {
   }, [highlightMap, citationHighlightMap, searchResults, searchOriginMatchIndices, jumpHighlightIndices]);
 
   const renderSegmentContent = useCallback((segWords: SimpleWord[]) => {
-    return segWords.map(word => {
+    const elements: React.ReactNode[] = [];
+    let textBuffer = "";
+
+    segWords.forEach((word) => {
       const isInteractive = interactiveIndices.has(word.globalIndex);
 
       if (isInteractive) {
-        return (
+        // Vider le buffer de texte brut avant d'insérer le composant interactif
+        if (textBuffer) {
+          elements.push(textBuffer);
+          textBuffer = "";
+        }
+        elements.push(
           <WordComponent 
             key={word.globalIndex} 
             word={word} 
@@ -626,20 +670,16 @@ const Reader: React.FC = () => {
             onMouseUp={handleTextSelection} 
           />
         );
+      } else {
+        // Accumuler le texte brut
+        textBuffer += word.text;
       }
-
-      return (
-        <span 
-          key={word.globalIndex} 
-          ref={(el: any) => { if(el) wordRefs.current.set(word.globalIndex, el); }}
-          data-global-index={word.globalIndex}
-          className="transition-all duration-300"
-          onMouseUp={handleTextSelection}
-        >
-          {word.text}
-        </span>
-      );
     });
+
+    // Ajouter le reste du texte brut à la fin du segment
+    if (textBuffer) elements.push(textBuffer);
+    
+    return elements;
   }, [interactiveIndices, searchResults, currentResultIndex, searchOriginMatchIndices, jumpHighlightIndices, citationHighlightMap, highlightMap, handleRemoveHighlight, handleRemoveJumpHighlight, handleTextSelection]);
 
   const ThemeIcon = theme === 'light' ? Sun : theme === 'dark' ? Moon : Monitor;
@@ -681,7 +721,6 @@ const Reader: React.FC = () => {
       {(activeDefinition || isDefining) && (
         <div className="fixed inset-0 z-[100000] bg-black/40 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in duration-300" onClick={() => setActiveDefinition(null)}>
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800/50 rounded-[40px] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-300 relative max-w-lg w-full" onClick={e => e.stopPropagation()}>
-            {/* Header section with accent */}
             <div className="px-8 pt-8 pb-4 flex items-center justify-between shrink-0 relative">
               <div className="flex items-center gap-5">
                 <div className="w-14 h-14 flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-[22px] border border-teal-600/20 shadow-sm transition-transform duration-500 hover:rotate-6">
@@ -707,7 +746,6 @@ const Reader: React.FC = () => {
                 </div>
               ) : activeDefinition && (
                 <div className="space-y-8 pb-4">
-                  {/* Definition Block */}
                   <div className="space-y-4">
                     <div className="flex items-center gap-3">
                        <div className="w-6 h-6 flex items-center justify-center bg-teal-600 text-white rounded-lg shadow-lg shadow-teal-600/10">
@@ -724,7 +762,6 @@ const Reader: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Etymology Block */}
                   {activeDefinition.etymology && (
                     <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-500 delay-75">
                       <div className="flex items-center gap-3">
@@ -741,7 +778,6 @@ const Reader: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Synonyms Block */}
                   {activeDefinition.synonyms && activeDefinition.synonyms.length > 0 && (
                     <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-500 delay-150">
                       <div className="flex items-center gap-3">
@@ -890,7 +926,7 @@ const Reader: React.FC = () => {
 
               if (seg.isNumbered) {
                 return (
-                  <div key={segIdx} ref={(el: any) => { if (el) segmentRefs.current.set(segIdx, el); }} onClick={() => handleProjectSegment(segIdx)} className={`group/seg relative mb-1.5 py-2.5 px-6 rounded-[20px] border-l-[5px] transition-all duration-300 cursor-pointer shadow-sm hover:shadow-xl hover:scale-[1.005] active:scale-[0.995] ${isActiveProjection ? 'bg-teal-600/10 border-teal-600 ring-2 ring-teal-600/20' : 'bg-white dark:bg-zinc-900/50 border-teal-600/20 hover:border-teal-600 dark:border-zinc-800'}`}>
+                  <div key={segIdx} ref={(el: any) => { if (el) segmentRefs.current.set(segIdx, el); }} onClick={() => handleProjectSegment(segIdx)} data-seg-idx={segIdx} className={`group/seg relative mb-1.5 py-2.5 px-6 rounded-[20px] border-l-[5px] transition-all duration-300 cursor-pointer shadow-sm hover:shadow-xl hover:scale-[1.005] active:scale-[0.995] ${isActiveProjection ? 'bg-teal-600/10 border-teal-600 ring-2 ring-teal-600/20' : 'bg-white dark:bg-zinc-900/50 border-teal-600/20 hover:border-teal-600 dark:border-zinc-800'}`}>
                     <div className="absolute -left-[54px] top-1/2 -translate-y-1/2 opacity-0 group-hover/seg:opacity-100 transition-all translate-x-4 group-hover/seg:translate-x-0 no-print flex flex-col gap-2">
                         <div onClick={(e) => { e.stopPropagation(); handleProjectSegment(segIdx); }} data-tooltip="Projeter" className="w-9 h-9 flex items-center justify-center bg-teal-600 text-white rounded-xl shadow-lg hover:scale-110 transition-transform"><MonitorPlay className="w-4 h-4" /></div>
                         <div onClick={(e) => { e.stopPropagation(); setNoteSelectorPayload({ text: seg.text.trim(), sermon }); }} data-tooltip="Annoter" className="w-9 h-9 flex items-center justify-center bg-emerald-600 text-white rounded-xl shadow-lg hover:scale-110 transition-transform"><NotebookPen className="w-4 h-4" /></div>
@@ -901,7 +937,7 @@ const Reader: React.FC = () => {
               }
               if (seg.text.trim() === '') return null;
               return (
-                <div key={segIdx} ref={(el: any) => { if (el) segmentRefs.current.set(segIdx, el); }} className="mb-4 px-6">
+                <div key={segIdx} ref={(el: any) => { if (el) segmentRefs.current.set(segIdx, el); }} data-seg-idx={segIdx} className="mb-4 px-6">
                   {content}
                 </div>
               );
