@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import { Sermon, Note, ChatMessage, SearchMode, Notification, Citation, Highlight } from './types';
 import { 
@@ -176,12 +175,11 @@ export const useAppStore = create<AppState>((set, get) => ({
         const map = new Map();
         metadata.forEach(s => map.set(s.id, s));
         const notes = await getAllNotes();
-        set({ sermons: metadata, sermonsMap: map, notes });
+        set({ sermons: metadata, sermonsMap: map, notes, isLoading: false });
       }
     } catch (error) {
       console.error("DB Init Error:", error);
       get().addNotification("Erreur d'initialisation", 'error');
-    } finally {
       set({ isLoading: false });
     }
   },
