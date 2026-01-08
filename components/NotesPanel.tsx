@@ -16,7 +16,8 @@ import {
   Link2,
   Pencil,
   Hash,
-  ExternalLink
+  ExternalLink,
+  Quote
 } from 'lucide-react';
 
 const PALETTE_COLORS: { name: string; key: string; bg: string; border: string; ring: string; }[] = [
@@ -56,7 +57,7 @@ const NoteCard = memo(({
     <div 
       {...dragHandlers}
       onClick={onSelect} 
-      className={`group w-full p-4 rounded-2xl ${color.bg} border ${color.border} transition-all duration-150 hover:shadow-xl hover:border-teal-600/50 cursor-pointer relative mb-3`}
+      className={`group w-full p-4 rounded-2xl ${color.bg} border ${color.border} transition-all duration-300 hover:shadow-2xl hover:border-teal-600/50 cursor-pointer relative mb-3 overflow-hidden`}
     >
       <div className="flex justify-between items-start mb-1">
         <div className="flex items-center gap-2 flex-1 min-w-0 pr-4">
@@ -94,62 +95,57 @@ const NoteCard = memo(({
         </div>
       </div>
       
-      {/* Date de création de la note */}
       <div className="flex items-center gap-1 pl-5 mb-3 text-[8px] font-black uppercase tracking-wider text-zinc-400">
         <Clock className="w-2.5 h-2.5" /> 
-        <span>Note créée le {new Date(n.creationDate || n.date).toLocaleDateString()}</span>
+        <span>{new Date(n.creationDate || n.date).toLocaleDateString()}</span>
       </div>
 
-      <div className="pl-5 mb-4 space-y-2">
-        {firstCitation ? (
-          <div className="flex flex-col gap-1.5">
-            {/* Ligne Citation avec Sermon, Date et Paragraphe */}
-            <div className="flex items-center flex-wrap gap-2 text-[9px] font-bold text-teal-600 uppercase tracking-tighter bg-teal-600/5 dark:bg-teal-600/10 p-1.5 rounded-lg border border-teal-600/10 group-hover:bg-teal-600/10 transition-colors">
-              <Link2 className="w-2.5 h-2.5 shrink-0" />
-              <span className="truncate max-w-[120px]">{firstCitation.sermon_title_snapshot}</span>
-              <span className="text-zinc-400 font-medium">({firstCitation.sermon_date_snapshot})</span>
-              {firstCitation.paragraph_index && (
-                <div className="flex items-center gap-1 bg-teal-600 text-white px-1.5 py-0.5 rounded shadow-sm scale-95 font-black">
-                  <Hash className="w-2 h-2" />
-                  <span>Para. {firstCitation.paragraph_index}</span>
-                </div>
-              )}
-              <button 
-                onClick={(e) => { e.stopPropagation(); onJumpToReader(firstCitation); }}
-                className="ml-auto w-6 h-6 flex items-center justify-center bg-white dark:bg-zinc-800 rounded-md border border-teal-600/20 text-teal-600 hover:bg-teal-600 hover:text-white transition-all active:scale-90"
-                title="Consulter dans le lecteur"
-              >
-                <ExternalLink className="w-3 h-3" />
-              </button>
+      <div className="pl-5 mb-3">
+        {firstCitation && (
+          <div className="flex items-center gap-2 mb-2 p-1.5 bg-white/50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200/50 dark:border-zinc-700/50 shadow-sm">
+            <div className="w-5 h-5 flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-md border border-teal-600/20">
+              <Link2 className="w-2.5 h-2.5" />
             </div>
-            
-            {/* Contenu de la note ou de la citation */}
-            {n.content ? (
-              <p className="text-[11px] text-zinc-600 dark:text-zinc-400 line-clamp-2 leading-relaxed font-medium italic opacity-80 pl-1">
-                {n.content}
-              </p>
-            ) : (
-              <p className="text-[11px] text-zinc-600 dark:text-zinc-400 line-clamp-2 leading-relaxed font-medium italic opacity-80 pl-1 border-l-2 border-teal-600/20">
-                "{firstCitation.quoted_text}"
-              </p>
-            )}
+            <div className="flex-1 min-w-0">
+               <div className="flex items-center gap-1">
+                  <span className="text-[9px] font-black text-zinc-700 dark:text-zinc-300 uppercase tracking-tight truncate">{firstCitation.sermon_title_snapshot}</span>
+                  {firstCitation.paragraph_index && (
+                    <span className="text-[8px] font-bold text-teal-600 shrink-0">#{firstCitation.paragraph_index}</span>
+                  )}
+               </div>
+            </div>
+            <button 
+              onClick={(e) => { e.stopPropagation(); onJumpToReader(firstCitation); }}
+              className="w-5 h-5 flex items-center justify-center bg-teal-600 text-white rounded-md hover:bg-teal-700 transition-all active:scale-90"
+            >
+              <ExternalLink className="w-2.5 h-2.5" />
+            </button>
           </div>
-        ) : (
-          <p className="text-[11px] text-zinc-400 italic opacity-60">
-            {n.content || "Aucun contenu..."}
-          </p>
         )}
+
+        <div className="relative group/preview">
+           {n.content ? (
+             <p className="text-[11px] text-zinc-600 dark:text-zinc-400 line-clamp-2 leading-relaxed font-medium italic opacity-90 pl-1">
+               {n.content}
+             </p>
+           ) : firstCitation ? (
+             <div className="flex gap-2 pl-1 border-l-2 border-teal-600/30 bg-teal-600/5 dark:bg-teal-600/10 p-2 rounded-r-lg">
+               <Quote className="w-3 h-3 text-teal-600/40 shrink-0" />
+               <p className="text-[10px] text-zinc-600 dark:text-zinc-400 line-clamp-2 leading-relaxed font-medium italic">
+                 {firstCitation.quoted_text}
+               </p>
+             </div>
+           ) : null}
+        </div>
       </div>
 
-      <div className="pl-5 mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800/50 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+      <div className="pl-5 mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800/50 flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
             {PALETTE_COLORS.map(c => (
               <button 
                 key={c.key} 
-                data-tooltip={c.name}
                 onClick={(e) => { e.stopPropagation(); onUpdateColor(n.id, c.key === 'default' ? undefined : c.key); }} 
-                className={`w-4 h-4 rounded-full ${c.bg} border-2 ${c.border} transition-all shadow-sm tooltip-bottom ${
+                className={`w-3.5 h-3.5 rounded-full ${c.bg} border ${c.border} transition-all ${
                   (n.color || 'default') === c.key 
                     ? `ring-2 ring-offset-2 dark:ring-offset-zinc-900 ${c.ring}`
                     : 'hover:scale-110'
@@ -157,11 +153,10 @@ const NoteCard = memo(({
               />
             ))}
           </div>
-          <div className="flex items-center gap-1.5 bg-teal-600/5 dark:bg-teal-600/20 px-2 py-0.5 rounded-full text-teal-600 text-[8px] font-bold uppercase tracking-wider">
+          <div className="flex items-center gap-1 text-[8px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-md">
             <FileText className="w-2.5 h-2.5" />
-            <span>{n.citations.length} Citations</span>
+            <span>{n.citations.length}</span>
           </div>
-        </div>
       </div>
     </div>
   );
@@ -232,7 +227,7 @@ const NotesPanel: React.FC = () => {
     } else {
         setJumpToText(citation.quoted_text);
     }
-    toggleNotes(); // Ferme le panneau de notes pour voir le lecteur
+    toggleNotes(); 
   };
 
   return (

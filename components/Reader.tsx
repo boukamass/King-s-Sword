@@ -34,15 +34,16 @@ import {
   Volume2, 
   VolumeX, 
   Download, 
-  BookOpen,
-  Loader2,
-  BookOpenCheck,
-  Quote,
-  MapPin,
-  Calendar,
-  Feather,
-  Milestone,
-  MonitorPlay
+  BookOpen, 
+  Loader2, 
+  BookOpenCheck, 
+  Quote, 
+  MapPin, 
+  Calendar, 
+  Feather, 
+  Milestone, 
+  MonitorPlay,
+  Layers
 } from 'lucide-react';
 
 interface SimpleWord {
@@ -605,20 +606,11 @@ const Reader: React.FC = () => {
   }, [highlightMap, citationHighlightMap, searchResults, searchOriginMatchIndices, jumpHighlightIndices]);
 
   const renderSegmentContent = useCallback((segWords: SimpleWord[]) => {
-    const elements: React.ReactNode[] = [];
-    let textBuffer = "";
-
-    for (let i = 0; i < segWords.length; i++) {
-      const word = segWords[i];
+    return segWords.map(word => {
       const isInteractive = interactiveIndices.has(word.globalIndex);
 
       if (isInteractive) {
-        if (textBuffer) {
-          // Utilise une clé unique pour le bloc de texte brut
-          elements.push(textBuffer);
-          textBuffer = "";
-        }
-        elements.push(
+        return (
           <WordComponent 
             key={word.globalIndex} 
             word={word} 
@@ -634,16 +626,20 @@ const Reader: React.FC = () => {
             onMouseUp={handleTextSelection} 
           />
         );
-      } else {
-        textBuffer += word.text;
       }
-    }
 
-    if (textBuffer) {
-      elements.push(textBuffer);
-    }
-
-    return elements;
+      return (
+        <span 
+          key={word.globalIndex} 
+          ref={(el: any) => { if(el) wordRefs.current.set(word.globalIndex, el); }}
+          data-global-index={word.globalIndex}
+          className="transition-all duration-300"
+          onMouseUp={handleTextSelection}
+        >
+          {word.text}
+        </span>
+      );
+    });
   }, [interactiveIndices, searchResults, currentResultIndex, searchOriginMatchIndices, jumpHighlightIndices, citationHighlightMap, highlightMap, handleRemoveHighlight, handleRemoveJumpHighlight, handleTextSelection]);
 
   const ThemeIcon = theme === 'light' ? Sun : theme === 'dark' ? Moon : Monitor;
@@ -685,24 +681,84 @@ const Reader: React.FC = () => {
       {(activeDefinition || isDefining) && (
         <div className="fixed inset-0 z-[100000] bg-black/40 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in duration-300" onClick={() => setActiveDefinition(null)}>
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800/50 rounded-[40px] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-300 relative max-w-lg w-full" onClick={e => e.stopPropagation()}>
-            <div className="px-8 pt-6 pb-4 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 shrink-0">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-[18px] border border-teal-600/20 shadow-sm"><BookOpenCheck className="w-5 h-5" /></div>
+            {/* Header section with accent */}
+            <div className="px-8 pt-8 pb-4 flex items-center justify-between shrink-0 relative">
+              <div className="flex items-center gap-5">
+                <div className="w-14 h-14 flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-[22px] border border-teal-600/20 shadow-sm transition-transform duration-500 hover:rotate-6">
+                  <BookOpenCheck className="w-7 h-7" />
+                </div>
                 <div>
-                  <h3 className="text-[10px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-[0.2em]">Dictionnaire</h3>
-                  <p className="text-[17px] font-extrabold text-zinc-900 dark:text-white mt-0.5 truncate">{isDefining ? "..." : activeDefinition?.word}</p>
+                  <h3 className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.3em] mb-1">Dictionnaire</h3>
+                  <p className="text-2xl font-black text-zinc-900 dark:text-white leading-none tracking-tight">
+                    {isDefining ? "..." : activeDefinition?.word}
+                  </p>
                 </div>
               </div>
-              <button onClick={() => setActiveDefinition(null)} className="w-9 h-9 flex items-center justify-center text-zinc-400 hover:text-red-500 bg-white dark:bg-zinc-800 rounded-xl transition-all border border-zinc-200 dark:border-zinc-700 shadow-sm"><X className="w-4 h-4" /></button>
+              <button onClick={() => setActiveDefinition(null)} className="w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-red-500 bg-zinc-50 dark:bg-zinc-800 rounded-[15px] transition-all border border-zinc-200 dark:border-zinc-700 hover:border-red-500/30 active:scale-90">
+                <X className="w-5 h-5" />
+              </button>
             </div>
+
             <div className="flex-1 px-8 py-6 overflow-y-auto custom-scrollbar">
               {isDefining ? (
-                <div className="py-20 flex flex-col items-center justify-center gap-4"><Loader2 className="w-10 h-10 animate-spin text-teal-600" /></div>
+                <div className="py-20 flex flex-col items-center justify-center gap-4">
+                  <Loader2 className="w-12 h-12 animate-spin text-teal-600" />
+                  <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 animate-pulse">Recherche en cours...</p>
+                </div>
               ) : activeDefinition && (
-                <div className="space-y-6">
-                  <div className="p-4 bg-teal-600/5 dark:bg-teal-600/10 border border-teal-600/10 rounded-[20px] shadow-sm">
-                    <p className="text-[14px] leading-relaxed text-zinc-800 dark:text-zinc-100 font-medium serif-text italic">{activeDefinition.definition}</p>
+                <div className="space-y-8 pb-4">
+                  {/* Definition Block */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                       <div className="w-6 h-6 flex items-center justify-center bg-teal-600 text-white rounded-lg shadow-lg shadow-teal-600/10">
+                          <Feather className="w-3.5 h-3.5" />
+                       </div>
+                       <h4 className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Signification</h4>
+                    </div>
+                    <div className="p-6 bg-teal-600/5 dark:bg-teal-600/10 border border-teal-600/10 rounded-[28px] relative overflow-hidden group">
+                      <div className="absolute top-0 left-0 w-1 h-full bg-teal-600/20" />
+                      <p className="text-[16px] leading-relaxed text-zinc-800 dark:text-zinc-100 font-medium serif-text italic">
+                        {activeDefinition.definition}
+                      </p>
+                      <Quote className="absolute -right-2 -bottom-2 w-16 h-16 text-teal-600/5 -rotate-12" />
+                    </div>
                   </div>
+
+                  {/* Etymology Block */}
+                  {activeDefinition.etymology && (
+                    <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-500 delay-75">
+                      <div className="flex items-center gap-3">
+                         <div className="w-6 h-6 flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 rounded-lg">
+                            <Milestone className="w-3.5 h-3.5" />
+                         </div>
+                         <h4 className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Origine</h4>
+                      </div>
+                      <div className="pl-9">
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-medium">
+                          {activeDefinition.etymology}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Synonyms Block */}
+                  {activeDefinition.synonyms && activeDefinition.synonyms.length > 0 && (
+                    <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-500 delay-150">
+                      <div className="flex items-center gap-3">
+                         <div className="w-6 h-6 flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 rounded-lg">
+                            <Layers className="w-3.5 h-3.5" />
+                         </div>
+                         <h4 className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Synonymes</h4>
+                      </div>
+                      <div className="flex flex-wrap gap-2 pl-9">
+                        {activeDefinition.synonyms.map((syn, idx) => (
+                          <span key={idx} className="px-3 py-1 bg-zinc-100 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-full text-[10px] font-bold text-zinc-600 dark:text-zinc-400 hover:border-teal-600/30 hover:text-teal-600 transition-all cursor-default">
+                            {syn}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -884,22 +940,44 @@ const Reader: React.FC = () => {
       </div>
 
       {selection && (
-        <div className="absolute z-[200000] pointer-events-none animate-in fade-in zoom-in-95 no-print" style={{ left: selection.x, top: selection.isTop ? selection.y + 40 : selection.y - 75, transform: 'translateX(-50%)' }}>
-          <div className="flex items-center gap-0.5 bg-white/98 dark:bg-zinc-900/98 backdrop-blur-3xl p-1.5 rounded-[24px] shadow-2xl pointer-events-auto border border-zinc-200/50 dark:border-zinc-800/50 overflow-visible-important">
-            <button onClick={handleHighlight} className="flex flex-col items-center gap-0.5 px-3 py-2 hover:bg-amber-500/10 text-zinc-600 dark:text-zinc-400 hover:text-amber-600 rounded-[18px] transition-all group">
-              <Highlighter className="w-4 h-4 text-amber-500/60 group-hover:text-amber-500" /><span className="text-[7.5px] font-black uppercase tracking-widest">Surligner</span>
+        <div 
+          className="absolute z-[200000] pointer-events-none no-print animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-200 ease-out" 
+          style={{ 
+            left: selection.x, 
+            top: selection.isTop ? selection.y + 40 : selection.y - 70, 
+            transform: 'translateX(-50%)' 
+          }}
+        >
+          <div className="flex items-stretch bg-white/80 dark:bg-zinc-900/85 backdrop-blur-3xl p-1 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.1)] pointer-events-auto border border-white/20 dark:border-white/5 overflow-hidden">
+            <button onClick={handleHighlight} className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-amber-500/15 text-zinc-600 dark:text-zinc-400 hover:text-amber-600 dark:hover:text-amber-400 rounded-lg transition-all group active:scale-95">
+              <Highlighter className="w-3.5 h-3.5 text-amber-500/70 group-hover:text-amber-500 transition-transform group-hover:scale-110" />
+              <span className="text-[7px] font-black uppercase tracking-[0.15em] opacity-80 group-hover:opacity-100">Surligner</span>
             </button>
-            <button onClick={() => { handleCopy(); setSelection(null); }} className="flex flex-col items-center gap-0.5 px-3 py-2 hover:bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 rounded-[18px] transition-all group">
-              <Copy className="w-4 h-4 text-zinc-400/60 group-hover:text-zinc-500" /><span className="text-[7.5px] font-black uppercase tracking-widest">Copier</span>
+            
+            <div className="w-px bg-zinc-200/50 dark:bg-zinc-700/50 my-1.5 mx-0.5" />
+            
+            <button onClick={() => { handleCopy(); setSelection(null); }} className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 rounded-lg transition-all group active:scale-95">
+              <Copy className="w-3.5 h-3.5 text-zinc-400/70 group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition-transform group-hover:scale-110" />
+              <span className="text-[7px] font-black uppercase tracking-[0.15em] opacity-80 group-hover:opacity-100">Copier</span>
             </button>
-            <button onClick={() => { handleDefine(); setSelection(null); }} className="flex flex-col items-center gap-0.5 px-3 py-2 hover:bg-teal-600/10 text-zinc-600 dark:text-zinc-400 hover:text-teal-600 rounded-[18px] transition-all group">
-              <BookOpen className="w-4 h-4 text-teal-500/60 group-hover:text-teal-600" /><span className="text-[7.5px] font-black uppercase tracking-widest">Définir</span>
+            
+            <div className="w-px bg-zinc-200/50 dark:bg-zinc-700/50 my-1.5 mx-0.5" />
+
+            <button onClick={() => { handleDefine(); setSelection(null); }} className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-sky-500/15 text-zinc-600 dark:text-zinc-400 hover:text-sky-600 dark:hover:text-sky-400 rounded-lg transition-all group active:scale-95">
+              <BookOpen className="w-3.5 h-3.5 text-sky-500/70 group-hover:text-sky-600 transition-transform group-hover:scale-110" />
+              <span className="text-[7px] font-black uppercase tracking-[0.15em] opacity-80 group-hover:opacity-100">Définer</span>
             </button>
-            <button onClick={() => { triggerStudyRequest(selection.text); setSelection(null); }} className="flex flex-col items-center gap-0.5 px-3 py-2 hover:bg-teal-600/10 text-zinc-600 dark:text-zinc-400 hover:text-teal-600 rounded-[18px] transition-all group">
-              <Sparkles className="w-4 h-4 text-teal-600/60 group-hover:text-teal-600" /><span className="text-[7.5px] font-black uppercase tracking-widest">Étudier</span>
+
+            <button onClick={() => { triggerStudyRequest(selection.text); setSelection(null); }} className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-teal-600/15 text-zinc-600 dark:text-zinc-400 hover:text-teal-600 dark:hover:text-teal-400 rounded-lg transition-all group active:scale-95">
+              <Sparkles className="w-3.5 h-3.5 text-teal-600/70 group-hover:text-teal-600 transition-transform group-hover:scale-110 animate-pulse" />
+              <span className="text-[7px] font-black uppercase tracking-[0.15em] opacity-80 group-hover:opacity-100">Étudier</span>
             </button>
-            <button onClick={() => { setNoteSelectorPayload({ text: selection.text, sermon }); setSelection(null); }} className="flex flex-col items-center gap-0.5 px-3 py-2 hover:bg-emerald-500/10 text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 rounded-[18px] transition-all group">
-              <NotebookPen className="w-4 h-4 text-emerald-500/60 group-hover:text-emerald-500" /><span className="text-[7.5px] font-black uppercase tracking-widest">Note</span>
+            
+            <div className="w-px bg-zinc-200/50 dark:bg-zinc-700/50 my-1.5 mx-0.5" />
+
+            <button onClick={() => { setNoteSelectorPayload({ text: selection.text, sermon }); setSelection(null); }} className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-emerald-500/15 text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg transition-all group active:scale-95">
+              <NotebookPen className="w-3.5 h-3.5 text-emerald-500/70 group-hover:text-emerald-500 transition-transform group-hover:scale-110" />
+              <span className="text-[7px] font-black uppercase tracking-[0.15em] opacity-80 group-hover:opacity-100">Note</span>
             </button>
           </div>
         </div>

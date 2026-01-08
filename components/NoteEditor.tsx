@@ -6,7 +6,7 @@ import { Document, Packer, Paragraph, HeadingLevel, TextRun, AlignmentType } fro
 import saveAs from 'file-saver';
 import { marked } from 'marked';
 import { jsPDF } from 'jspdf';
-import { Printer, FileText, FileDown, Link2, ExternalLink, NotebookPen, Calendar, MapPin, Sparkles, Hash } from 'lucide-react';
+import { Printer, FileText, FileDown, Link2, ExternalLink, NotebookPen, Calendar, MapPin, Sparkles, Hash, Quote } from 'lucide-react';
 import { Citation } from '../types';
 
 const ActionButton = ({ onClick, icon: Icon, tooltip }: { onClick: () => void; icon: React.ElementType; tooltip: string }) => (
@@ -82,7 +82,7 @@ const NoteEditor: React.FC = () => {
     const renderRichContent = (text: string, sourceSermonId?: string) => {
         let processedText = text.replace(
             /\[\[\[NOTE_EXTERNE\]\]\]/g, 
-            "> **Note de l'Assistant :** L'information suivante est un complément basé sur des connaissances générales et ne provient pas des sermons fournis.\n\n>"
+            "> **Note de l'Assistant :** L'information suivante est un complément basé on des connaissances générales et ne provient pas des sermons fournis.\n\n>"
         );
 
         let formattedText = processedText.replace(/\[Réf:\s*([\w-]+)\s*\]/gi, (match, sermonId) => {
@@ -101,7 +101,7 @@ const NoteEditor: React.FC = () => {
         }
         
         let html = marked(formattedText, { breaks: true }) as string;
-        const replacement = '<blockquote class="border-l-4 border-teal-600/30 bg-teal-600/5 py-3 px-5 rounded-r-2xl my-6 text-sm italic serif-text">';
+        const replacement = '<blockquote class="border-l-4 border-teal-600/30 bg-teal-600/5 py-3 px-5 rounded-r-2xl my-6 text-sm italic serif-text relative"><div class="absolute -left-2 -top-2 w-6 h-6 bg-white dark:bg-zinc-900 rounded-full flex items-center justify-center border border-teal-600/20 text-teal-600/40"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1 0 2.5 0 5-2.5 5s-2.5-1.25-2.5-2.5"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c1 0 1 0 1 1 0 2.5 0 5-2.5 5s-2.5-1.25-2.5-2.5"/></svg></div>';
         html = html.replace(/<blockquote>\s*<p><strong>Note de l’Assistant :<\/strong>/g, `${replacement}<p><strong>Note de l’Assistant :</strong>`);
         html = html.replace(/<blockquote>\s*<p><strong>Note de l'Assistant :<\/strong>/g, `${replacement}<p><strong>Note de l'Assistant :</strong>`);
         
@@ -294,42 +294,40 @@ const NoteEditor: React.FC = () => {
                                         onClick={(e) => handleCitationClick(e, citation)}
                                         className={`group relative bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[32px] p-8 shadow-sm transition-all duration-300 hover:shadow-2xl hover:border-teal-500/30 transform hover:-translate-y-1 ${!isVirtual ? 'cursor-pointer' : 'cursor-default'}`}
                                     >
-                                        <div className="flex items-center justify-between mb-8">
-                                            <div className="flex items-center gap-4">
-                                                <span className="text-[11px] font-black text-teal-600 bg-teal-600/5 px-4 py-1.5 rounded-full border border-teal-600/10">CITATION #{idx + 1}</span>
-                                                <h4 className="text-[13px] font-black text-zinc-800 dark:text-zinc-100 uppercase tracking-wider group-hover:text-teal-600 transition-colors truncate max-w-lg">
-                                                    {citation.sermon_title_snapshot}
-                                                </h4>
-                                            </div>
-                                            <div className="flex items-center gap-4 text-[10px] font-black text-teal-600 dark:text-blue-400 uppercase tracking-widest opacity-80">
-                                                <div className="flex items-center gap-3">
-                                                  <Calendar className="w-3.5 h-3.5 opacity-50" />
-                                                  <span className="font-mono">{citation.sermon_date_snapshot}</span>
+                                        <div className="flex items-center justify-between mb-6">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 flex items-center justify-center bg-teal-600 text-white rounded-xl text-[10px] font-black shadow-lg shadow-teal-600/20">{idx + 1}</div>
+                                                <div className="flex flex-col">
+                                                   <h4 className="text-[11px] font-black text-zinc-800 dark:text-zinc-100 uppercase tracking-widest group-hover:text-teal-600 transition-colors">
+                                                       {citation.sermon_title_snapshot}
+                                                   </h4>
+                                                   <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-tighter">{citation.sermon_date_snapshot}</span>
                                                 </div>
+                                            </div>
+                                            <div className="flex items-center gap-3">
                                                 {citation.paragraph_index && (
-                                                  <div className="flex items-center gap-1.5 bg-teal-600 text-white px-3 py-1 rounded-xl shadow-lg shadow-teal-600/20 font-bold scale-110">
-                                                    <Hash className="w-3.5 h-3.5" />
+                                                  <div className="flex items-center gap-1.5 bg-zinc-100 dark:bg-zinc-800 text-teal-600 dark:text-teal-400 px-3 py-1 rounded-xl border border-teal-600/10 font-bold text-[9px] uppercase tracking-widest">
+                                                    <Hash className="w-3 h-3" />
                                                     <span>Para. {citation.paragraph_index}</span>
                                                   </div>
+                                                )}
+                                                {!isVirtual && (
+                                                   <div className="w-8 h-8 flex items-center justify-center bg-teal-600/5 text-teal-600 rounded-lg border border-teal-600/10 group-hover:bg-teal-600 group-hover:text-white transition-all">
+                                                      <ExternalLink className="w-3.5 h-3.5" />
+                                                   </div>
                                                 )}
                                             </div>
                                         </div>
 
-                                        <div className="prose-styles pl-8 border-l-4 border-zinc-100 dark:border-zinc-800 group-hover:border-teal-500/40 transition-all duration-500">
-                                            <div 
-                                              className="text-zinc-700 dark:text-zinc-300 text-base leading-loose italic serif-text selection:bg-teal-500/10"
-                                              dangerouslySetInnerHTML={{ __html: renderRichContent(citation.quoted_text, citation.sermon_id) }} 
-                                            />
-                                        </div>
-
-                                        {!isVirtual && (
-                                            <div className="mt-8 flex items-center justify-end pt-5 border-t border-zinc-50 dark:border-zinc-800/50 no-print">
-                                                <div className="flex items-center gap-2 text-[10px] font-black text-teal-600 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0 tracking-widest">
-                                                    <span>CONSULTER DANS LE LECTEUR</span>
-                                                    <ExternalLink className="w-3.5 h-3.5" />
-                                                </div>
+                                        <div className="relative overflow-hidden rounded-2xl bg-zinc-50/50 dark:bg-zinc-800/30 p-6 border border-zinc-100 dark:border-zinc-800/50">
+                                            <Quote className="absolute -left-1 -top-1 w-12 h-12 text-teal-600/5 rotate-12" />
+                                            <div className="prose-styles relative z-10">
+                                                <div 
+                                                  className="text-zinc-700 dark:text-zinc-300 text-base leading-loose italic serif-text selection:bg-teal-500/10"
+                                                  dangerouslySetInnerHTML={{ __html: renderRichContent(citation.quoted_text, citation.sermon_id) }} 
+                                                />
                                             </div>
-                                        )}
+                                        </div>
                                     </div>
                                 );
                             })}

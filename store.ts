@@ -131,7 +131,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isFullTextSearch: false,
   cityFilter: null,
   yearFilter: null,
-  versionFilter: null,
+  versionFilter: 'Shp',
   timeFilter: null,
   languageFilter: 'Français',
   fontSize: 20,
@@ -331,6 +331,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   }),
 
   addNote: async (partial) => {
+    const palette = ['default', 'sky', 'teal', 'amber', 'rose', 'violet'];
+    const randomColor = palette[Math.floor(Math.random() * palette.length)];
+    
     const newNote: Note = {
       id: crypto.randomUUID(),
       title: partial.title || 'Nouvelle Note',
@@ -339,6 +342,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       creationDate: new Date().toISOString(),
       date: new Date().toISOString(),
       order: get().notes.length,
+      color: partial.color || randomColor,
       ...partial
     };
     set(state => ({ 
