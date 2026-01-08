@@ -14,6 +14,7 @@ import { WordDefinition } from './services/dictionaryService';
 
 const GlobalTooltip = memo(({ data }: { data: { x: number, y: number, text: string, icon?: string } | null }) => {
   const tooltipRef = useRef<HTMLDivElement>(null);
+  // Fix: Use useState instead of trying to call the setter function during variable declaration.
   const [adjustedPos, setAdjustedPos] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
@@ -111,8 +112,8 @@ const ProjectionView = memo(() => {
 
   return (
     <div className="fixed inset-0 bg-black flex flex-col items-center select-none cursor-none overflow-hidden h-screen w-screen font-sans">
-       {/* Zone de Texte Sacré (90%) */}
-       <div className="h-[90%] w-full flex items-center justify-start px-20 sm:px-32">
+       {/* Zone de Texte Sacré (90%) - Rembourrage optimisé pour largeur max */}
+       <div className="h-[90%] w-full flex items-center justify-start px-8 md:px-16 lg:px-24">
           <div 
             className="text-white font-bold transition-all duration-300 text-left"
             style={{ 

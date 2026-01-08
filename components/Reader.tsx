@@ -826,8 +826,8 @@ const Reader: React.FC = () => {
       )}
 
       <div className={`flex-1 relative overflow-hidden flex justify-center`}>
-        <div ref={scrollContainerRef} onMouseUp={handleTextSelection} className={`absolute inset-0 overflow-y-auto custom-scrollbar serif-text leading-relaxed text-zinc-800 dark:text-zinc-300 transition-all duration-300 ${isOSFullscreen ? 'py-4 px-4 md:px-8' : 'py-16 px-6 sm:px-12 lg:px-20 xl:px-28'}`}>
-          <div className={`w-full mx-auto printable-content whitespace-pre-wrap text-justify pb-64 ${isPending ? 'opacity-50' : ''} max-w-[95%]`} style={{ fontSize: `${fontSize}px` }}>
+        <div ref={scrollContainerRef} onMouseUp={handleTextSelection} className={`absolute inset-0 overflow-y-auto custom-scrollbar serif-text leading-relaxed text-zinc-800 dark:text-zinc-300 transition-all duration-300 ${isOSFullscreen ? 'py-6 px-4 md:px-12' : 'py-12 px-4 md:px-12 lg:px-20'}`}>
+          <div className={`w-full mx-auto printable-content whitespace-pre-wrap text-justify pb-64 ${isPending ? 'opacity-50' : ''} max-w-full`} style={{ fontSize: `${fontSize}px` }}>
             {structuredSegments.map((seg, segIdx) => {
               const isActiveProjection = projectedSegmentIndex === segIdx;
               const content = renderSegmentContent(seg.words);
