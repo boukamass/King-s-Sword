@@ -39,6 +39,7 @@ const AIAssistant: React.FC = () => {
     languageFilter,
     setSelectedSermonId,
     setJumpToText,
+    setJumpToParagraph,
     addNotification
   } = useAppStore();
   
@@ -63,7 +64,7 @@ const AIAssistant: React.FC = () => {
     const formattedText = text.replace(/\[Réf:\s*([\w-]+),\s*Para\.\s*(\d+)\s*\]/gi, (match, sermonId, paraNum) => {
       const sermon = sermons.find(s => s.id === sermonId);
       if (sermon) {
-        return `<a href="#" data-sermon-id="${sermonId}" class="sermon-ref inline-flex items-center gap-1.5 px-2 py-0.5 bg-teal-600/5 dark:bg-teal-400/10 text-teal-700 dark:text-teal-300 rounded-md text-[9px] font-black hover:bg-teal-600/20 transition-all border border-teal-600/10 mx-1 align-middle shadow-sm"><span>Para. ${paraNum} - ${sermon.title} (${sermon.date})</span></a>`;
+        return `<a href="#" data-sermon-id="${sermonId}" data-para-num="${paraNum}" class="sermon-ref inline-flex items-center gap-1.5 px-2 py-0.5 bg-teal-600/5 dark:bg-teal-400/10 text-teal-700 dark:text-teal-300 rounded-md text-[9px] font-black hover:bg-teal-600/20 transition-all border border-teal-600/10 mx-1 align-middle shadow-sm"><span>Para. ${paraNum} - ${sermon.title} (${sermon.date})</span></a>`;
       }
       return match;
     });
@@ -76,8 +77,21 @@ const AIAssistant: React.FC = () => {
     if (link instanceof HTMLAnchorElement && link.dataset.sermonId) {
         e.preventDefault();
         const sermonId = link.dataset.sermonId;
+        const paraNumStr = link.dataset.paraNum;
+        
         if (sermons.some(s => s.id === sermonId)) {
             setSelectedSermonId(sermonId);
+            
+            // Priorité au saut par numéro de paragraphe si disponible
+            if (paraNumStr) {
+                const num = parseInt(paraNumStr);
+                if (!isNaN(num)) {
+                    setJumpToParagraph(num);
+                    return;
+                }
+            }
+            
+            // Fallback sur la recherche textuelle si pas de numéro de paragraphe
             const blockquote = link.closest('blockquote');
             if (blockquote) {
                 const quoteClone = blockquote.cloneNode(true) as HTMLElement;

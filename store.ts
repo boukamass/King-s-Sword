@@ -54,6 +54,7 @@ interface AppState {
   chatHistory: Record<string, ChatMessage[]>;
   pendingStudyRequest: string | null;
   jumpToText: string | null;
+  jumpToParagraph: number | null;
   projectionBlackout: boolean;
   isExternalMaskOpen: boolean;
   sidebarWidth: number;
@@ -89,6 +90,7 @@ interface AppState {
   setTheme: (theme: 'light' | 'dark' | 'system') => void;
   addChatMessage: (key: string, message: ChatMessage) => void;
   toggleContextSermon: (id: string) => void;
+  setManualContextIds: (ids: string[]) => void;
   clearContextSermons: () => void;
   addNote: (note: Partial<Note>) => void;
   updateNote: (id: string, updates: Partial<Note>) => void;
@@ -97,6 +99,7 @@ interface AppState {
   reorderNotes: (draggedId: string, targetId: string) => void;
   triggerStudyRequest: (text: string | null) => void;
   setJumpToText: (text: string | null) => void;
+  setJumpToParagraph: (num: number | null) => void;
   updateSermonHighlights: (id: string, highlights: Highlight[]) => void;
   setProjectionBlackout: (v: boolean) => void;
   setExternalMaskOpen: (v: boolean) => void;
@@ -137,6 +140,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   chatHistory: {},
   pendingStudyRequest: null,
   jumpToText: null,
+  jumpToParagraph: null,
   projectionBlackout: false,
   isExternalMaskOpen: false,
   sidebarWidth: 320,
@@ -369,6 +373,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     return { manualContextIds: newManual, contextSermonIds: newContext };
   }),
 
+  setManualContextIds: (ids) => set(s => {
+    const activeId = s.selectedSermonId;
+    const newContext = Array.from(new Set([activeId, ...ids].filter(Boolean) as string[]));
+    return { manualContextIds: ids, contextSermonIds: newContext };
+  }),
+
   clearContextSermons: () => set(s => {
     const activeId = s.selectedSermonId;
     return { manualContextIds: [], contextSermonIds: activeId ? [activeId] : [] };
@@ -376,6 +386,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   triggerStudyRequest: (t) => set({ pendingStudyRequest: t, aiOpen: true }),
   setJumpToText: (t) => set({ jumpToText: t }),
+  setJumpToParagraph: (num) => set({ jumpToParagraph: num }),
   updateSermonHighlights: (id, h) => {},
   setProjectionBlackout: (v) => set({ projectionBlackout: v }),
   setExternalMaskOpen: (v) => set({ isExternalMaskOpen: v }),

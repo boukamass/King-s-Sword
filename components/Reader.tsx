@@ -140,6 +140,8 @@ const Reader: React.FC = () => {
   const setTheme = useAppStore(s => s.setTheme);
   const jumpToText = useAppStore(s => s.jumpToText);
   const setJumpToText = useAppStore(s => s.setJumpToText);
+  const jumpToParagraph = useAppStore(s => s.jumpToParagraph);
+  const setJumpToParagraph = useAppStore(s => s.setJumpToParagraph);
   
   const lang = languageFilter === 'Anglais' ? 'en' : 'fr';
   const t = translations[lang];
@@ -171,6 +173,7 @@ const Reader: React.FC = () => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const wordRefs = useRef<Map<number, HTMLSpanElement>>(new Map());
   const playPromiseRef = useRef<Promise<void> | null>(null);
+  const segmentRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -340,11 +343,40 @@ const Reader: React.FC = () => {
   }, [sermon?.id, words, lastSearchQuery, lastSearchMode]);
 
   useEffect(() => {
-    if (sermon?.id && !jumpToText && scrollContainerRef.current) {
+    if (sermon?.id && !jumpToText && !jumpToParagraph && scrollContainerRef.current) {
         scrollContainerRef.current.scrollTop = 0;
         setProjectedSegmentIndex(null);
     }
   }, [sermon?.id]);
+
+  // Nouveau saut par numéro de paragraphe (Indexé)
+  useEffect(() => {
+    if (jumpToParagraph !== null && sermon && structuredSegments.length > 0) {
+        // Le numéro de paragraphe 1-basé de l'IA correspond à l'index (n-1)*2 dans segments array
+        // Car segments contient les délimiteurs.
+        const segIdx = (jumpToParagraph - 1) * 2;
+        const segment = structuredSegments[segIdx];
+        
+        if (segment) {
+            setTimeout(() => {
+                const segEl = segmentRefs.current.get(segIdx);
+                if (segEl) {
+                    segEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    
+                    // Optionnel: Surlignage temporaire des mots du paragraphe
+                    const wordIndices = segment.words.map(w => w.globalIndex);
+                    setJumpHighlightIndices(wordIndices);
+                    setTimeout(() => setJumpHighlightIndices([]), 3000);
+                } else {
+                    addNotification("Erreur technique: Élément paragraphe non trouvé.", "error");
+                }
+            }, 100);
+        } else {
+            addNotification(`Le paragraphe ${jumpToParagraph} n'existe pas dans ce sermon.`, "error");
+        }
+        setJumpToParagraph(null);
+    }
+  }, [jumpToParagraph, sermon, structuredSegments, setJumpToParagraph, addNotification]);
 
   useEffect(() => {
     if (jumpToText && sermon && words.length > 0) {
@@ -803,6 +835,7 @@ const Reader: React.FC = () => {
                 return (
                   <div 
                     key={segIdx}
+                    ref={(el: any) => { if (el) segmentRefs.current.set(segIdx, el); }}
                     onClick={() => handleProjectSegment(segIdx)}
                     className={`group/seg relative mb-1.5 py-2.5 px-6 rounded-[20px] border-l-[5px] transition-all duration-300 cursor-pointer shadow-sm hover:shadow-xl hover:scale-[1.005] active:scale-[0.995] ${
                       isActiveProjection 
@@ -848,7 +881,7 @@ const Reader: React.FC = () => {
               if (seg.text.trim() === '') return null;
 
               return (
-                <div key={segIdx} className="mb-4 px-6">
+                <div key={segIdx} ref={(el: any) => { if (el) segmentRefs.current.set(segIdx, el); }} className="mb-4 px-6">
                   {seg.words.map((word) => (
                     <WordComponent 
                       key={word.globalIndex} 

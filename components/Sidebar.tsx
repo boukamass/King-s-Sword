@@ -19,7 +19,9 @@ import {
   RefreshCw,
   Calendar,
   Library,
-  Info
+  Info,
+  CheckCheck,
+  CheckSquare
 } from 'lucide-react';
 
 interface DropdownProps {
@@ -181,6 +183,7 @@ const Sidebar: React.FC = () => {
   const setSelectedSermonId = useAppStore(s => s.setSelectedSermonId);
   const manualContextIds = useAppStore(s => s.manualContextIds);
   const toggleContextSermon = useAppStore(s => s.toggleContextSermon);
+  const setManualContextIds = useAppStore(s => s.setManualContextIds);
   
   const searchQuery = useAppStore(s => s.searchQuery);
   const searchMode = useAppStore(s => s.searchMode);
@@ -338,6 +341,25 @@ const Sidebar: React.FC = () => {
     }
   };
 
+  const areAllFilteredSelected = useMemo(() => {
+    if (filteredSermons.length === 0) return false;
+    return filteredSermons.every(s => manualContextIds.includes(s.id));
+  }, [filteredSermons, manualContextIds]);
+
+  const handleToggleAllFiltered = () => {
+    if (areAllFilteredSelected) {
+      // Deselect all filtered from context
+      const filteredIds = filteredSermons.map(s => s.id);
+      const newManual = manualContextIds.filter(id => !filteredIds.includes(id));
+      setManualContextIds(newManual);
+    } else {
+      // Add all filtered to context
+      const filteredIds = filteredSermons.map(s => s.id);
+      const newManual = Array.from(new Set([...manualContextIds, ...filteredIds]));
+      setManualContextIds(newManual);
+    }
+  };
+
   if (!sidebarOpen) return null;
 
   return (
@@ -361,6 +383,13 @@ const Sidebar: React.FC = () => {
           </div>
         </button>
         <div className="flex items-center gap-1 animate-in fade-in duration-500">
+          <button 
+            onClick={handleToggleAllFiltered}
+            data-tooltip={t.tooltip_select_all}
+            className={`w-7 h-7 flex items-center justify-center transition-all rounded-lg active:scale-95 tooltip-bottom ${areAllFilteredSelected ? 'bg-teal-600 text-white shadow-lg shadow-teal-600/20' : 'text-zinc-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20'}`}
+          >
+            <CheckCheck className="w-3.5 h-3.5" />
+          </button>
           <button 
             onClick={(e) => { e.stopPropagation(); if (confirm("Actualiser la bibliothèque ?")) resetLibrary(); }}
             data-tooltip="Actualiser"
