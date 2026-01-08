@@ -353,7 +353,7 @@ const Reader: React.FC = () => {
         if (segment) {
             setTimeout(() => {
                 const segEl = segmentRefs.current.get(segmentIdx);
-                if (segEl || true) {
+                if (segEl) {
                     let targetGlobalIndex = segment.words[0].globalIndex;
                     let targetHighlightIndices: number[] = [];
 
@@ -593,11 +593,60 @@ const Reader: React.FC = () => {
     return `${Math.floor(time/60)}:${Math.floor(time%60).toString().padStart(2,'0')}`;
   };
 
+  // --- OPTIMISATION ZERO-LAG : Virtualisation des mots interactifs ---
+  const interactiveIndices = useMemo(() => {
+    const set = new Set<number>();
+    highlightMap.forEach((_, k) => set.add(k));
+    citationHighlightMap.forEach((_, k) => set.add(k));
+    searchResults.forEach(idx => set.add(idx));
+    searchOriginMatchIndices.forEach(idx => set.add(idx));
+    jumpHighlightIndices.forEach(idx => set.add(idx));
+    return set;
+  }, [highlightMap, citationHighlightMap, searchResults, searchOriginMatchIndices, jumpHighlightIndices]);
+
+  const renderSegmentContent = useCallback((segWords: SimpleWord[]) => {
+    const elements: React.ReactNode[] = [];
+    let textBuffer = "";
+
+    for (let i = 0; i < segWords.length; i++) {
+      const word = segWords[i];
+      const isInteractive = interactiveIndices.has(word.globalIndex);
+
+      if (isInteractive) {
+        if (textBuffer) {
+          // Utilise une clé unique pour le bloc de texte brut
+          elements.push(textBuffer);
+          textBuffer = "";
+        }
+        elements.push(
+          <WordComponent 
+            key={word.globalIndex} 
+            word={word} 
+            wordRef={(el: any) => { if(el) wordRefs.current.set(word.globalIndex, el); }} 
+            isSearchResult={searchResults.includes(word.globalIndex)} 
+            isCurrentResult={searchResults[currentResultIndex] === word.globalIndex} 
+            isSearchOriginMatch={searchOriginMatchIndices.includes(word.globalIndex)} 
+            isJumpHighlight={jumpHighlightIndices.includes(word.globalIndex)} 
+            citationColor={citationHighlightMap.get(word.globalIndex)?.colorClass} 
+            highlight={highlightMap.get(word.globalIndex)} 
+            onRemoveHighlight={handleRemoveHighlight} 
+            onRemoveJumpHighlight={handleRemoveJumpHighlight} 
+            onMouseUp={handleTextSelection} 
+          />
+        );
+      } else {
+        textBuffer += word.text;
+      }
+    }
+
+    if (textBuffer) {
+      elements.push(textBuffer);
+    }
+
+    return elements;
+  }, [interactiveIndices, searchResults, currentResultIndex, searchOriginMatchIndices, jumpHighlightIndices, citationHighlightMap, highlightMap, handleRemoveHighlight, handleRemoveJumpHighlight, handleTextSelection]);
+
   const ThemeIcon = theme === 'light' ? Sun : theme === 'dark' ? Moon : Monitor;
-  const checkIsSearchResult = useCallback((idx: number) => searchResults.includes(idx), [searchResults]);
-  const checkIsCurrentResult = useCallback((idx: number) => searchResults[currentResultIndex] === idx, [searchResults, currentResultIndex]);
-  const checkIsSearchOriginMatch = useCallback((idx: number) => searchOriginMatchIndices.includes(idx), [searchOriginMatchIndices]);
-  const checkIsJumpHighlight = useCallback((idx: number) => jumpHighlightIndices.includes(idx), [jumpHighlightIndices]);
 
   if (!selectedSermonId) {
     return (
@@ -715,7 +764,6 @@ const Reader: React.FC = () => {
         </div>
       </div>
 
-      {/* Barre de recherche interne au sermon - Nouvelle intégration sous l'en-tête, centrée */}
       {isSearchVisible && (
         <div className="h-12 border-b border-zinc-100 dark:border-zinc-800/50 bg-white/40 dark:bg-zinc-950/40 backdrop-blur-xl grid grid-cols-[1fr_2fr_1fr] items-center px-6 shrink-0 animate-in slide-in-from-top-1 fade-in duration-300 no-print">
           <div className="flex items-center">
@@ -782,6 +830,8 @@ const Reader: React.FC = () => {
           <div className={`w-full mx-auto printable-content whitespace-pre-wrap text-justify pb-64 ${isPending ? 'opacity-50' : ''} max-w-[95%]`} style={{ fontSize: `${fontSize}px` }}>
             {structuredSegments.map((seg, segIdx) => {
               const isActiveProjection = projectedSegmentIndex === segIdx;
+              const content = renderSegmentContent(seg.words);
+
               if (seg.isNumbered) {
                 return (
                   <div key={segIdx} ref={(el: any) => { if (el) segmentRefs.current.set(segIdx, el); }} onClick={() => handleProjectSegment(segIdx)} className={`group/seg relative mb-1.5 py-2.5 px-6 rounded-[20px] border-l-[5px] transition-all duration-300 cursor-pointer shadow-sm hover:shadow-xl hover:scale-[1.005] active:scale-[0.995] ${isActiveProjection ? 'bg-teal-600/10 border-teal-600 ring-2 ring-teal-600/20' : 'bg-white dark:bg-zinc-900/50 border-teal-600/20 hover:border-teal-600 dark:border-zinc-800'}`}>
@@ -789,18 +839,14 @@ const Reader: React.FC = () => {
                         <div onClick={(e) => { e.stopPropagation(); handleProjectSegment(segIdx); }} data-tooltip="Projeter" className="w-9 h-9 flex items-center justify-center bg-teal-600 text-white rounded-xl shadow-lg hover:scale-110 transition-transform"><MonitorPlay className="w-4 h-4" /></div>
                         <div onClick={(e) => { e.stopPropagation(); setNoteSelectorPayload({ text: seg.text.trim(), sermon }); }} data-tooltip="Annoter" className="w-9 h-9 flex items-center justify-center bg-emerald-600 text-white rounded-xl shadow-lg hover:scale-110 transition-transform"><NotebookPen className="w-4 h-4" /></div>
                     </div>
-                    {seg.words.map((word) => (
-                      <WordComponent key={word.globalIndex} word={word} wordRef={(el: any) => { if(el) wordRefs.current.set(word.globalIndex, el); }} isSearchResult={checkIsSearchResult(word.globalIndex)} isCurrentResult={checkIsCurrentResult(word.globalIndex)} isSearchOriginMatch={checkIsSearchOriginMatch(word.globalIndex)} isJumpHighlight={checkIsJumpHighlight(word.globalIndex)} citationColor={citationHighlightMap.get(word.globalIndex)?.colorClass} highlight={highlightMap.get(word.globalIndex)} onRemoveHighlight={handleRemoveHighlight} onRemoveJumpHighlight={handleRemoveJumpHighlight} onMouseUp={handleTextSelection} />
-                    ))}
+                    {content}
                   </div>
                 );
               }
               if (seg.text.trim() === '') return null;
               return (
                 <div key={segIdx} ref={(el: any) => { if (el) segmentRefs.current.set(segIdx, el); }} className="mb-4 px-6">
-                  {seg.words.map((word) => (
-                    <WordComponent key={word.globalIndex} word={word} wordRef={(el: any) => { if(el) wordRefs.current.set(word.globalIndex, el); }} isSearchResult={checkIsSearchResult(word.globalIndex)} isCurrentResult={checkIsCurrentResult(word.globalIndex)} isSearchOriginMatch={checkIsSearchOriginMatch(word.globalIndex)} isJumpHighlight={checkIsJumpHighlight(word.globalIndex)} citationColor={citationHighlightMap.get(word.globalIndex)?.colorClass} highlight={highlightMap.get(word.globalIndex)} onRemoveHighlight={handleRemoveHighlight} onRemoveJumpHighlight={handleRemoveJumpHighlight} onMouseUp={handleTextSelection} />
-                  ))}
+                  {content}
                 </div>
               );
             })}
