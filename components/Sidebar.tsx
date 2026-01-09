@@ -22,7 +22,7 @@ import {
   Info
 } from 'lucide-react';
 
-const ITEM_HEIGHT = 80; // Hauteur totale (76px + 4px de mb-1) pour une virtualisation parfaite
+const ITEM_HEIGHT = 80; // Hauteur totale fixe (pixels) pour une virtualisation parfaite
 
 interface DropdownProps {
   value: string | null;
@@ -106,51 +106,55 @@ const SermonItem = memo(({
 
   return (
     <div 
-      style={{ height: 76 }} // On fixe la boîte à 76px pour laisser 4px de marge (mb-1) dans le slot de 80px
-      className={`group flex items-center gap-3 p-3 rounded-xl transition-all duration-200 cursor-pointer mb-1 overflow-hidden ${
-        isSelected 
-          ? 'bg-teal-600/10 dark:bg-teal-600/20 ring-1 ring-teal-600/20 shadow-md' 
-          : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/40 border border-transparent hover:border-zinc-100 dark:hover:border-zinc-800'
-      }`}
-      onClick={onSelect}
+      style={{ height: ITEM_HEIGHT }} 
+      className="px-3 flex items-center"
     >
       <div 
-        onClick={(e) => {
-          if (!isSelected) {
-            e.stopPropagation();
-            onToggleContext();
-          }
-        }}
-        data-tooltip={isSelected ? "Dans le contexte (auto)" : "Ajouter/Retirer du contexte IA"}
-        className={`w-4 h-4 rounded-md border transition-all flex items-center justify-center shrink-0 tooltip-right ${
-          isEffectivelyInContext
-            ? 'bg-teal-600 border-teal-600 text-white shadow-lg shadow-teal-600/20' 
-            : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 group-hover:border-teal-600/50'
-        } ${isSelected ? 'cursor-not-allowed opacity-75' : ''}`}
+        className={`group w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-200 cursor-pointer h-[72px] ${
+          isSelected 
+            ? 'bg-teal-600/10 dark:bg-teal-600/20 ring-1 ring-teal-600/20 shadow-md' 
+            : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/40 border border-transparent hover:border-zinc-100 dark:hover:border-zinc-800'
+        }`}
+        onClick={onSelect}
       >
-        {isEffectivelyInContext && <Sparkles className="w-2.5 h-2.5 stroke-[3]" />}
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-1 mb-1">
-          <span className={`text-[12px] font-extrabold truncate transition-colors ${isSelected ? 'text-teal-600 dark:text-blue-400' : 'text-zinc-900 dark:text-zinc-100'}`}>
-            {sermon.title || "Sermon sans titre"}
-          </span>
-          <div className="flex items-center gap-1 shrink-0">
-            {sermon.audio_url && <Headphones className="w-2.5 h-2.5 text-teal-500 tooltip-right" data-tooltip="Audio disponible" />}
-            {sermon.version && (
-              <span className="text-[7px] font-black bg-zinc-100 dark:bg-zinc-800 text-zinc-500 px-1.5 py-0.5 rounded-lg border border-zinc-200 dark:border-zinc-700 uppercase tracking-tighter">
-                {sermon.version}
-              </span>
-            )}
-          </div>
+        <div 
+          onClick={(e) => {
+            if (!isSelected) {
+              e.stopPropagation();
+              onToggleContext();
+            }
+          }}
+          data-tooltip={isSelected ? "Dans le contexte (auto)" : "Ajouter/Retirer du contexte IA"}
+          className={`w-4 h-4 rounded-md border transition-all flex items-center justify-center shrink-0 tooltip-right ${
+            isEffectivelyInContext
+              ? 'bg-teal-600 border-teal-600 text-white shadow-lg shadow-teal-600/20' 
+              : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 group-hover:border-teal-600/50'
+          } ${isSelected ? 'cursor-not-allowed opacity-75' : ''}`}
+        >
+          {isEffectivelyInContext && <Sparkles className="w-2.5 h-2.5 stroke-[3]" />}
         </div>
-        <div className="flex items-center gap-2 text-[8px] text-zinc-400 font-bold uppercase tracking-widest">
-          <Calendar className="w-2 h-2 text-teal-600/50" />
-          <span className="font-mono">{sermon.date}</span>
-          <span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-0.5" />
-          <MapPin className="w-2 h-2 text-teal-600/50" />
-          <span className="truncate">{sermon.city}</span>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-1 mb-1">
+            <span className={`text-[12px] font-extrabold truncate transition-colors ${isSelected ? 'text-teal-600 dark:text-blue-400' : 'text-zinc-900 dark:text-zinc-100'}`}>
+              {sermon.title || "Sermon sans titre"}
+            </span>
+            <div className="flex items-center gap-1 shrink-0">
+              {sermon.audio_url && <Headphones className="w-2.5 h-2.5 text-teal-500 tooltip-right" data-tooltip="Audio disponible" />}
+              {sermon.version && (
+                <span className="text-[7px] font-black bg-zinc-100 dark:bg-zinc-800 text-zinc-500 px-1.5 py-0.5 rounded-lg border border-zinc-200 dark:border-zinc-700 uppercase tracking-tighter">
+                  {sermon.version}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-[8px] text-zinc-400 font-bold uppercase tracking-widest">
+            <Calendar className="w-2 h-2 text-teal-600/50" />
+            <span className="font-mono">{sermon.date}</span>
+            <span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-0.5" />
+            <MapPin className="w-2 h-2 text-teal-600/50" />
+            <span className="truncate">{sermon.city}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -212,16 +216,28 @@ const Sidebar: React.FC = () => {
   
   // --- ÉTAT DE VIRTUALISATION ---
   const [scrollTop, setScrollTop] = useState(0);
-  const [containerHeight, setContainerHeight] = useState(window.innerHeight || 800);
+  const [containerHeight, setContainerHeight] = useState(800);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const lang = languageFilter === 'Anglais' ? 'en' : 'fr';
   const t = translations[lang];
 
+  // Observateur de redimensionnement pour maintenir une hauteur précise de la zone de défilement
   useEffect(() => {
-    if (scrollContainerRef.current) {
-      setContainerHeight(scrollContainerRef.current.clientHeight);
-    }
+    if (!scrollContainerRef.current) return;
+    
+    const resizeObserver = new ResizeObserver(entries => {
+      for (let entry of entries) {
+        setContainerHeight(entry.contentRect.height);
+      }
+    });
+    
+    resizeObserver.observe(scrollContainerRef.current);
+    
+    // Initial sync
+    setContainerHeight(scrollContainerRef.current.clientHeight);
+    
+    return () => resizeObserver.disconnect();
   }, [sidebarOpen]);
 
   const setSearchQuery = useCallback((q: string) => {
@@ -316,8 +332,8 @@ const Sidebar: React.FC = () => {
     setScrollTop(e.currentTarget.scrollTop);
   };
 
-  const startIndex = Math.max(0, Math.floor(scrollTop / ITEM_HEIGHT) - 3);
-  const endIndex = Math.min(filteredSermons.length, startIndex + Math.ceil(containerHeight / ITEM_HEIGHT) + 6);
+  const startIndex = Math.max(0, Math.floor(scrollTop / ITEM_HEIGHT) - 5);
+  const endIndex = Math.min(filteredSermons.length, startIndex + Math.ceil(containerHeight / ITEM_HEIGHT) + 10);
   const visibleSermons = filteredSermons.slice(startIndex, endIndex);
 
   const totalListHeight = filteredSermons.length * ITEM_HEIGHT;
@@ -499,7 +515,7 @@ const Sidebar: React.FC = () => {
           )}
         </div>
 
-        <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800/50 flex items-center gap-3 bg-white dark:bg-zinc-900 sticky top-0 z-40">
+        <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800/50 flex items-center gap-3 bg-white dark:bg-zinc-900 z-40">
           <button 
             onClick={handleToggleAllFiltered}
             data-tooltip={areAllFilteredSelected ? "Tout retirer du contexte IA" : "Tout ajouter au contexte IA (filtrés)"}
@@ -512,7 +528,6 @@ const Sidebar: React.FC = () => {
             <Sparkles className={`w-4 h-4 transition-transform duration-500 ${areAllFilteredSelected ? 'scale-110 rotate-12' : 'opacity-60 group-hover/context-all:opacity-100 group-hover/context-all:scale-110'}`} />
           </button>
 
-          {/* Moved Audio Filter Toggle right after the context selection icon */}
           <div 
             onClick={() => setAudioFilter(!audioFilter)}
             data-tooltip="Sermons avec audio uniquement"
@@ -528,7 +543,7 @@ const Sidebar: React.FC = () => {
         <div 
           ref={scrollContainerRef}
           onScroll={handleScroll}
-          className="flex-1 overflow-y-auto custom-scrollbar px-3 relative" // px-3 seulement pour éviter la zone vide en haut/bas
+          className="flex-1 overflow-y-auto custom-scrollbar relative"
         >
           {filteredSermons.length === 0 ? (
             <div className="p-12 text-center text-zinc-400 text-[10px] font-black uppercase tracking-[0.3em] opacity-30">
@@ -536,7 +551,7 @@ const Sidebar: React.FC = () => {
             </div>
           ) : (
             <div style={{ height: totalListHeight, position: 'relative' }}>
-              <div style={{ transform: `translateY(${offsetY}px)` }}>
+              <div style={{ transform: `translateY(${offsetY}px)`, position: 'absolute', top: 0, left: 0, right: 0 }}>
                 {visibleSermons.map((sermon) => (
                   <SermonItem 
                     key={sermon.id}
@@ -568,7 +583,7 @@ const Sidebar: React.FC = () => {
                   KING'S SWORD <span className="text-teal-600 dark:text-blue-400 ml-1">v1.0.1</span>
                 </p>
                 <div className="h-0.5 w-8 bg-teal-600/20 dark:bg-blue-400/20 rounded-full" />
-                <p className="text-[8px] font-black text-teal-600 uppercase tracking-widest opacity-80 leading-none">
+                <p className="text-[8px] font-black text-teal-600 uppercase tracking-widest mt-0.5">
                   VISION DE L'AIGLE TABERNACLE
                 </p>
               </div>
