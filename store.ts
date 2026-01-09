@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import { Sermon, Note, ChatMessage, SearchMode, Notification, Citation, Highlight } from './types';
 import { 
@@ -131,7 +130,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isFullTextSearch: false,
   cityFilter: null,
   yearFilter: null,
-  versionFilter: null,
+  versionFilter: 'Shp',
   timeFilter: null,
   languageFilter: 'Français',
   fontSize: 20,
@@ -276,7 +275,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   addNotification: (message, type) => set(state => ({
     notifications: [{ id: crypto.randomUUID(), message, type }, ...state.notifications]
   })),
-  // Fix: Correctly filter the notifications array using the provided ID.
   removeNotification: (id) => set(state => ({
     notifications: state.notifications.filter(n => n.id !== id)
   })),
