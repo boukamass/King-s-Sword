@@ -173,17 +173,22 @@ const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({ selectionText, se
                   dangerouslySetInnerHTML={{ __html: renderPreview(selectionText) as string }} 
                 />
                 
-                <div className="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-700/50 flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-400">
-                        <Calendar className="w-3 h-3 text-teal-600/40" />
-                        <span className="font-mono">{sermon.date}</span>
+                <div className="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-700/50 flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-black text-zinc-800 dark:text-zinc-200 uppercase tracking-tight truncate max-w-[250px]">{sermon.title}</span>
+                            <div className="flex items-center gap-1.5 text-[8px] font-bold text-zinc-400">
+                                <Calendar className="w-2.5 h-2.5 text-teal-600/40" />
+                                <span className="font-mono">{sermon.date}</span>
+                            </div>
+                        </div>
+                        {paragraphIndex && (
+                          <div className="flex items-center gap-1.5 bg-white dark:bg-zinc-900 px-2.5 py-1 rounded-lg border border-zinc-200 dark:border-zinc-800 text-[9px] font-black text-teal-600 uppercase tracking-widest">
+                            <Hash className="w-2.5 h-2.5" />
+                            <span>PARA. {paragraphIndex}</span>
+                          </div>
+                        )}
                     </div>
-                    {paragraphIndex && (
-                      <div className="flex items-center gap-1.5 bg-white dark:bg-zinc-900 px-2.5 py-1 rounded-lg border border-zinc-200 dark:border-zinc-800 text-[9px] font-black text-teal-600 uppercase tracking-widest">
-                        <Hash className="w-2.5 h-2.5" />
-                        <span>PARA. {paragraphIndex}</span>
-                      </div>
-                    )}
                 </div>
             </div>
         </div>
