@@ -8,13 +8,12 @@ import AIAssistant from './components/AIAssistant';
 import NotesPanel from './components/NotesPanel';
 import Notifications from './components/Notifications';
 import NoteEditor from './components/NoteEditor';
-import { Sparkles, NotebookPen, Info, Trash2, HelpCircle, Calendar, MapPin, Quote, BookOpenCheck, Feather, Milestone } from 'lucide-react';
+import { Sparkles, NotebookPen, Info, Trash2, HelpCircle, Calendar, MapPin, Quote, BookOpenCheck, Feather, Milestone, Loader2 } from 'lucide-react';
 import { Highlight } from './types';
 import { WordDefinition } from './services/dictionaryService';
 
 const GlobalTooltip = memo(({ data }: { data: { x: number, y: number, text: string, icon?: string } | null }) => {
   const tooltipRef = useRef<HTMLDivElement>(null);
-  // Fix: Use useState instead of trying to call the setter function during variable declaration.
   const [adjustedPos, setAdjustedPos] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
@@ -105,14 +104,12 @@ const ProjectionView = memo(() => {
     );
   }
 
-  // Algorithme d'Auto-Ajustement du Texte et Interlignes
   const chars = syncData.text.length || 1;
   const calculatedSize = Math.max(3.2, Math.min(14.5, (98 / Math.sqrt(chars)) * 1.55));
   const calculatedLineHeight = Math.max(1.1, Math.min(1.4, 1.6 - (calculatedSize / 18)));
 
   return (
     <div className="fixed inset-0 bg-black flex flex-col items-center select-none cursor-none overflow-hidden h-screen w-screen font-sans">
-       {/* Zone de Texte Sacré (90%) - Rembourrage optimisé pour largeur max */}
        <div className="h-[90%] w-full flex items-center justify-start px-8 md:px-16 lg:px-24">
           <div 
             className="text-white font-bold transition-all duration-300 text-left"
@@ -128,7 +125,6 @@ const ProjectionView = memo(() => {
           </div>
        </div>
 
-       {/* Zone d'Information (10%) - Bandeau inférieur élégant */}
        <div className="h-[10%] w-full bg-gradient-to-b from-zinc-950 to-black border-t border-white/10 backdrop-blur-2xl flex items-center justify-between px-12 shrink-0">
           <div className="flex items-center gap-6">
              <div className="w-[6vmin] h-[6vmin] rounded-full bg-teal-600/20 border border-teal-600/30 flex items-center justify-center shadow-lg overflow-hidden shrink-0">
@@ -265,21 +261,84 @@ const App: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-white dark:bg-zinc-950">
-        <div className="flex flex-col items-center gap-8 w-72">
-           <div className="relative w-20 h-20">
-             <div className="absolute inset-0 bg-teal-600/5 rounded-full"></div>
-             <div className="absolute inset-0 border-4 border-t-teal-600 rounded-full animate-spin"></div>
-             <div className="absolute inset-0 flex items-center justify-center"><img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-8 h-8 opacity-40 grayscale" /></div>
+      <div className="flex h-screen w-full items-center justify-center bg-zinc-950 relative overflow-hidden">
+        {/* Background Ambient Glows */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-teal-600/5 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-teal-900/10 rounded-full blur-[100px] pointer-events-none" />
+        
+        <div className="flex flex-col items-center gap-12 w-80 relative z-10">
+           {/* Animated Logo Assembly */}
+           <div className="relative w-28 h-28 flex items-center justify-center">
+             <div className="absolute inset-0 border-2 border-dashed border-teal-600/20 rounded-full animate-[spin_10s_linear_infinite]"></div>
+             <div className="absolute inset-2 border border-teal-600/40 rounded-full animate-[spin_6s_linear_infinite_reverse]"></div>
+             <div className="absolute inset-4 bg-zinc-900 rounded-full shadow-2xl border border-zinc-800 flex items-center justify-center overflow-hidden">
+               <img 
+                 src="https://branham.fr/source/favicon/favicon-32x32.png" 
+                 alt="King's Sword" 
+                 className="w-10 h-10 opacity-80 grayscale brightness-150 animate-pulse" 
+               />
+             </div>
+             <div className="absolute -top-1 -right-1 bg-teal-600 w-3 h-3 rounded-full blur-[4px] animate-ping" />
            </div>
-           <div className="w-full space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-700">
-             <div className="w-full h-1.5 bg-zinc-100 dark:bg-zinc-800/50 rounded-full overflow-hidden shadow-inner"><div className="h-full bg-teal-600 transition-all duration-700 ease-out shadow-lg" style={{ width: `${loadingProgress}%` }} /></div>
-             <div className="flex items-center justify-between px-1">
-                <div className="flex flex-col"><span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 leading-none">{loadingMessage || "Chargement..."}</span><span className="text-[8px] font-black uppercase tracking-widest text-zinc-300 dark:text-zinc-600 mt-1.5">Bibliothèque prophétique</span></div>
-                <div className="flex flex-col items-end"><span className="text-[13px] font-mono font-black text-teal-600 leading-none">{loadingProgress}%</span><span className="text-[7px] font-bold text-zinc-300 dark:text-zinc-700 mt-1 uppercase">Prêt pour l'étude</span></div>
+
+           {/* Progress Information Block */}
+           <div className="w-full space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+             <div className="relative">
+                {/* Modern Progress Bar */}
+                <div className="w-full h-2.5 bg-zinc-900 border border-zinc-800 rounded-full overflow-hidden shadow-inner">
+                  <div 
+                    className="h-full bg-gradient-to-r from-teal-600 to-teal-400 transition-all duration-700 ease-out shadow-[0_0_15px_rgba(20,184,166,0.4)] relative" 
+                    style={{ width: `${loadingProgress}%` }} 
+                  >
+                    {/* Gloss Effect Overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent w-20 animate-[shimmer_2s_infinite] skew-x-[-20deg]" />
+                  </div>
+                </div>
+                
+                {/* Floating Percentage Badge */}
+                <div 
+                  className="absolute -top-8 transition-all duration-700 ease-out flex flex-col items-center" 
+                  style={{ left: `${Math.max(5, Math.min(95, loadingProgress))}%`, transform: 'translateX(-50%)' }}
+                >
+                  <div className="px-2 py-0.5 bg-teal-600 text-[10px] font-mono font-black text-white rounded-md shadow-lg shadow-teal-600/20 animate-bounce">
+                    {loadingProgress}%
+                  </div>
+                </div>
+             </div>
+
+             <div className="flex flex-col items-center gap-3 text-center">
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-[11px] font-black uppercase tracking-[0.3em] text-zinc-100 drop-shadow-sm min-h-[1em]">
+                    {loadingMessage || "Chargement..."}
+                  </span>
+                  <div className="h-0.5 w-8 bg-teal-600/20 rounded-full" />
+                </div>
+                
+                <div className="flex items-center gap-3 opacity-40">
+                  <div className="flex gap-1">
+                    <div className="w-1 h-1 bg-teal-500 rounded-full animate-pulse" />
+                    <div className="w-1 h-1 bg-teal-500 rounded-full animate-pulse delay-75" />
+                    <div className="w-1 h-1 bg-teal-500 rounded-full animate-pulse delay-150" />
+                  </div>
+                  <span className="text-[8px] font-black uppercase tracking-[0.4em] text-zinc-400">
+                    Bibliothèque prophétique
+                  </span>
+                </div>
              </div>
            </div>
         </div>
+
+        {/* Bottom Version Indicator */}
+        <div className="absolute bottom-10 text-[8px] font-black uppercase tracking-[0.5em] text-zinc-600 opacity-20 pointer-events-none">
+          VISION DE L'AIGLE TABERNACLE • v1.0.1
+        </div>
+
+        <style>{`
+          @keyframes shimmer {
+            0% { transform: translateX(-100%) skewX(-20deg); }
+            100% { transform: translateX(400%) skewX(-20deg); }
+          }
+        `}</style>
       </div>
     );
   }
