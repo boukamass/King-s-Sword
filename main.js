@@ -1,3 +1,4 @@
+
 const { app, BrowserWindow, shell, ipcMain, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -85,7 +86,7 @@ ipcMain.handle('db:isReady', () => !!db);
 
 ipcMain.handle('db:getSermonsMetadata', () => {
   if (!db) return [];
-  return db.prepare('SELECT id, title, date, city, version, time, audio_url FROM sermons ORDER BY date DESC').all();
+  return db.prepare('SELECT id, title, date, city, version FROM sermons ORDER BY date DESC').all();
 });
 
 ipcMain.handle('db:getSermonFull', (event, id) => {
