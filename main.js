@@ -98,10 +98,13 @@ ipcMain.handle('db:getSermonFull', (event, id) => {
   return sermon;
 });
 
-ipcMain.handle('db:search', (event, { query, mode, limit = 30, offset = 0 }) => {
+ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0 }) => {
   if (!db) return [];
   let sqlQuery = query.trim();
   if (!sqlQuery || sqlQuery.length < 2) return [];
+
+  // Respecter la contrainte stricte de 50 résultats maximum pour éviter les saturations IPC
+  const safeLimit = Math.min(limit, 50);
 
   const terms = sqlQuery.split(/\s+/).filter(v => v).map(v => v.replace(/"/g, '""'));
 
@@ -114,7 +117,6 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 30, offset = 0 }) => 
   }
 
   try {
-    // Surlignage Ambre plus prononcé (64 tokens pour plus de contexte)
     const highlightOpen = '<mark class="bg-amber-400/40 dark:bg-amber-500/40 text-amber-950 dark:text-white font-bold px-0.5 rounded-sm shadow-sm border-b-2 border-amber-600/30">';
     const highlightClose = '</mark>';
     
@@ -131,7 +133,7 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 30, offset = 0 }) => 
       ORDER BY s.date DESC
       LIMIT ? OFFSET ?
     `);
-    return stmt.all(highlightOpen, highlightClose, sqlQuery, limit, offset);
+    return stmt.all(highlightOpen, highlightClose, sqlQuery, safeLimit, offset);
   } catch (e) {
     console.error("SQL Search Error:", e);
     return [];
@@ -241,7 +243,6 @@ function createWindow() {
     },
   });
 
-  // Gestion de l'ouverture des fenêtres (Projection/Masque) sur le deuxième écran
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     const parsedUrl = new URL(url);
     const isProjection = parsedUrl.searchParams.get('projection') === 'true';
@@ -249,7 +250,6 @@ function createWindow() {
 
     if (isProjection || isMask) {
       const displays = screen.getAllDisplays();
-      // On cherche le deuxième écran (celui qui n'est pas à l'origine 0,0 ou simplement le index 1)
       const externalDisplay = displays.length > 1 ? displays[1] : displays[0];
 
       return {

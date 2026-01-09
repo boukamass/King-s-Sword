@@ -8,7 +8,7 @@ import { jsPDF } from 'jspdf';
 import { searchSermons } from '../services/db';
 import NoteSelectorModal from './NoteSelectorModal';
 
-const RESULTS_PER_PAGE = 30;
+const RESULTS_PER_PAGE = 50;
 
 const SearchResultCard = memo(({ 
     result, 
@@ -142,16 +142,14 @@ const SearchResults: React.FC = () => {
 
   const handleAddToNotes = (e: React.MouseEvent, res: SearchResult) => {
     e.stopPropagation();
-    // On nettoie le snippet des balises <mark> pour la citation dans la note
     const cleanText = res.snippet?.replace(/<mark[^>]*>|<\/mark>/g, '') || '';
     
-    // On construit un objet Sermon partiel pour le modal
     const partialSermon: Sermon = {
       id: res.sermonId,
       title: res.title,
       date: res.date,
       city: res.city,
-      text: '' // Pas besoin du texte complet ici
+      text: '' 
     };
 
     setNoteSelectorPayload({
@@ -166,7 +164,7 @@ const SearchResults: React.FC = () => {
     doc.setFontSize(16);
     doc.text(`Résultats de recherche : ${searchQuery}`, 15, 20);
     doc.setFontSize(10);
-    searchResults.slice(0, 50).forEach((res, i) => {
+    searchResults.slice(0, 100).forEach((res, i) => {
       const y = 30 + (i * 10);
       if (y < 280) {
         doc.text(`${i+1}. ${res.title} (${res.date}) - Para ${res.paragraphIndex}`, 15, y);

@@ -33,7 +33,6 @@ export const getSermonById = async (id: string): Promise<Sermon | null> => {
 export const bulkAddSermons = async (sermons: Sermon[]): Promise<{ success: boolean; count: number; error?: string }> => {
   if (!isElectron) return { success: true, count: 0 };
   const result = await window.electronAPI.db.importSermons(sermons);
-  // Ensure we always return a valid object with the required count property
   if (!result) return { success: false, count: 0, error: "Réponse IPC vide" };
   
   return {
@@ -54,13 +53,12 @@ const webSearchFallback = async (params: { query: string; mode: SearchMode; limi
   
   if (!query) return [];
 
-  // On récupère tous les sermons qui ont du texte
+  // Respecter la limite de 50 pour la cohérence
+  const safeLimit = Math.min(params.limit, 50);
+
   const allSermons = Array.from(sermonsMap.values()) as Sermon[];
-  
-  // Surlignage Ambre plus prononcé
   const markClass = "bg-amber-400/40 dark:bg-amber-500/40 text-amber-950 dark:text-white font-bold px-0.5 rounded-sm shadow-sm border-b-2 border-amber-600/30";
   
-  // Regex pour la mise en évidence : si EXACT_PHRASE on garde le bloc, sinon on souligne chaque mot
   const highlightRegex = params.mode === SearchMode.EXACT_PHRASE 
     ? getAccentInsensitiveRegex(query, false)
     : getMultiWordHighlightRegex(query);
@@ -80,13 +78,12 @@ const webSearchFallback = async (params: { query: string; mode: SearchMode; limi
       } else if (params.mode === SearchMode.DIVERSE) {
         const words = normalizedQuery.split(/\s+/);
         match = words.some(w => normalizedContent.includes(w));
-      } else { // EXACT_WORDS
+      } else { 
         const words = normalizedQuery.split(/\s+/);
         match = words.every(w => normalizedContent.includes(w));
       }
 
       if (match) {
-        // Application du surlignage
         const snippet = content.replace(highlightRegex, (m) => `<mark class="${markClass}">${m}</mark>`);
         
         results.push({
@@ -102,10 +99,8 @@ const webSearchFallback = async (params: { query: string; mode: SearchMode; limi
     });
   }
 
-  // Tri par date décroissante
   results.sort((a, b) => b.date.localeCompare(a.date));
-
-  return results.slice(params.offset, params.offset + params.limit);
+  return results.slice(params.offset, params.offset + safeLimit);
 };
 
 export const searchSermons = async (params: { query: string; mode: SearchMode; limit: number; offset: number }): Promise<any[]> => {
@@ -117,7 +112,6 @@ export const searchSermons = async (params: { query: string; mode: SearchMode; l
     return await window.electronAPI.db.search(params);
   } catch (error) {
     console.error("Search API Error:", error);
-    // En cas d'erreur IPC (par exemple si Electron est là mais buggé), on tente le fallback
     return webSearchFallback(params);
   }
 };
