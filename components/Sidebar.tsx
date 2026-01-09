@@ -197,6 +197,8 @@ const Sidebar: React.FC = () => {
   const languageFilter = useAppStore(s => s.languageFilter);
   const versionFilter = useAppStore(s => s.versionFilter);
   const timeFilter = useAppStore(s => s.timeFilter);
+  const audioFilter = useAppStore(s => s.audioFilter);
+  const setAudioFilter = useAppStore(s => s.setAudioFilter);
   
   const sidebarOpen = useAppStore(s => s.sidebarOpen);
   const toggleSidebar = useAppStore(s => s.toggleSidebar);
@@ -288,7 +290,7 @@ const Sidebar: React.FC = () => {
     setInternalQuery(searchQuery);
   }, [searchQuery]);
 
-  const activeFiltersCount = [yearFilter, cityFilter, versionFilter, timeFilter].filter(f => f !== null).length;
+  const activeFiltersCount = [yearFilter, cityFilter, versionFilter, timeFilter, audioFilter].filter(f => f === true || (typeof f === 'string' && f !== null)).length;
 
   const filteredSermons = useMemo(() => {
     const q = isFullTextSearch ? "" : normalizeText(deferredSearchQuery);
@@ -303,9 +305,10 @@ const Sidebar: React.FC = () => {
       if (yearFilter && (!s.date || !s.date.startsWith(yearFilter))) return false;
       if (versionFilter && s.version !== versionFilter) return false;
       if (timeFilter && s.time !== timeFilter) return false;
+      if (audioFilter && !s.audio_url) return false;
       return true;
     });
-  }, [sermons, deferredSearchQuery, cityFilter, yearFilter, versionFilter, timeFilter, isFullTextSearch]);
+  }, [sermons, deferredSearchQuery, cityFilter, yearFilter, versionFilter, timeFilter, audioFilter, isFullTextSearch]);
 
   // --- LOGIQUE DE VIRTUALISATION ---
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -439,23 +442,25 @@ const Sidebar: React.FC = () => {
           </div>
 
           <div className="flex items-center justify-between gap-2 px-1">
-            <div 
-              onClick={() => {
-                const newVal = !isFullTextSearch;
-                setIsFullTextSearch(newVal);
-                if (!newVal) {
-                  setSearchQuery(internalQuery);
-                }
-              }}
-              data-tooltip="Activer/Désactiver la recherche intégrale"
-              className="flex items-center gap-2.5 cursor-pointer group/toggle select-none tooltip-right"
-            >
-              <div className={`relative w-8 h-4.5 rounded-full transition-all duration-500 flex items-center px-0.5 ${isFullTextSearch ? 'bg-teal-600 shadow-lg shadow-teal-600/20' : 'bg-zinc-200 dark:bg-zinc-700 shadow-inner'}`}>
-                <div className={`w-3.5 h-3.5 bg-white rounded-full shadow-md transition-all duration-500 transform ${isFullTextSearch ? 'translate-x-3.5 scale-100' : 'translate-x-0 scale-90'}`} />
+            <div className="flex items-center gap-4">
+              <div 
+                onClick={() => {
+                  const newVal = !isFullTextSearch;
+                  setIsFullTextSearch(newVal);
+                  if (!newVal) {
+                    setSearchQuery(internalQuery);
+                  }
+                }}
+                data-tooltip="Activer/Désactiver la recherche intégrale"
+                className="flex items-center gap-2.5 cursor-pointer group/toggle select-none tooltip-right"
+              >
+                <div className={`relative w-8 h-4.5 rounded-full transition-all duration-500 flex items-center px-0.5 ${isFullTextSearch ? 'bg-teal-600 shadow-lg shadow-teal-600/20' : 'bg-zinc-200 dark:bg-zinc-700 shadow-inner'}`}>
+                  <div className={`w-3.5 h-3.5 bg-white rounded-full shadow-md transition-all duration-500 transform ${isFullTextSearch ? 'translate-x-3.5 scale-100' : 'translate-x-0 scale-90'}`} />
+                </div>
+                <span className={`text-[9px] font-black uppercase tracking-widest transition-colors duration-500 ${isFullTextSearch ? 'text-teal-600' : 'text-zinc-400 dark:text-zinc-500'}`}>
+                  {t.full_text_search}
+                </span>
               </div>
-              <span className={`text-[9px] font-black uppercase tracking-widest transition-colors duration-500 ${isFullTextSearch ? 'text-teal-600' : 'text-zinc-400 dark:text-zinc-500'}`}>
-                {t.full_text_search}
-              </span>
             </div>
 
             <button 
@@ -493,11 +498,11 @@ const Sidebar: React.FC = () => {
           )}
         </div>
 
-        <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800/50 flex items-center bg-zinc-50/20 dark:bg-zinc-900/20 sticky top-0 z-40 backdrop-blur-sm">
+        <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800/50 flex items-center gap-3 bg-zinc-50/20 dark:bg-zinc-900/20 sticky top-0 z-40 backdrop-blur-sm">
           <button 
             onClick={handleToggleAllFiltered}
             data-tooltip={areAllFilteredSelected ? "Tout retirer du contexte IA" : "Tout ajouter au contexte IA (filtrés)"}
-            className={`w-8 h-8 flex items-center justify-center rounded-xl border transition-all active:scale-90 group/context-all tooltip-right ${
+            className={`w-8 h-8 flex items-center justify-center rounded-xl border transition-all active:scale-90 group/context-all tooltip-right shrink-0 ${
               areAllFilteredSelected 
                 ? 'bg-teal-600 text-white border-teal-600 shadow-lg shadow-teal-600/20' 
                 : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-teal-600/50 hover:bg-teal-50 dark:hover:bg-teal-900/10'
@@ -505,6 +510,18 @@ const Sidebar: React.FC = () => {
           >
             <Sparkles className={`w-4 h-4 transition-transform duration-500 ${areAllFilteredSelected ? 'scale-110 rotate-12' : 'opacity-60 group-hover/context-all:opacity-100 group-hover/context-all:scale-110'}`} />
           </button>
+
+          {/* Moved Audio Filter Toggle right after the context selection icon */}
+          <div 
+            onClick={() => setAudioFilter(!audioFilter)}
+            data-tooltip="Sermons avec audio uniquement"
+            className="flex items-center gap-2.5 cursor-pointer group/audio-toggle select-none tooltip-bottom"
+          >
+            <div className={`relative w-8 h-4.5 rounded-full transition-all duration-500 flex items-center px-0.5 ${audioFilter ? 'bg-amber-500 shadow-lg shadow-amber-500/20' : 'bg-zinc-200 dark:bg-zinc-700 shadow-inner'}`}>
+              <div className={`w-3.5 h-3.5 bg-white rounded-full shadow-md transition-all duration-500 transform ${audioFilter ? 'translate-x-3.5 scale-100' : 'translate-x-0 scale-90'}`} />
+            </div>
+            <Headphones className={`w-3 h-3 transition-colors ${audioFilter ? 'text-amber-500' : 'text-zinc-400'}`} />
+          </div>
         </div>
 
         <div 

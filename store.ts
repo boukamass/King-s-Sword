@@ -46,6 +46,7 @@ interface AppState {
   yearFilter: string | null;
   versionFilter: string | null;
   timeFilter: string | null;
+  audioFilter: boolean;
   languageFilter: string;
   fontSize: number;
   theme: 'light' | 'dark' | 'system';
@@ -85,6 +86,7 @@ interface AppState {
   setYearFilter: (year: string | null) => void;
   setVersionFilter: (v: string | null) => void;
   setTimeFilter: (v: string | null) => void;
+  setAudioFilter: (v: boolean) => void;
   setFontSize: (updater: number | ((size: number) => number)) => void;
   setTheme: (theme: 'light' | 'dark' | 'system') => void;
   addChatMessage: (key: string, message: ChatMessage) => void;
@@ -132,6 +134,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   yearFilter: null,
   versionFilter: 'Shp',
   timeFilter: null,
+  audioFilter: false,
   languageFilter: 'Français',
   fontSize: 20,
   theme: 'system',
@@ -289,6 +292,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setYearFilter: (f) => set({ yearFilter: f }),
   setVersionFilter: (f) => set({ versionFilter: f }),
   setTimeFilter: (f) => set({ timeFilter: f }),
+  setAudioFilter: (f) => set({ audioFilter: f }),
   setFontSize: (updater) => set(state => {
     const newSize = typeof updater === 'function' ? updater(state.fontSize) : updater;
     return { fontSize: Math.max(8, Math.min(150, newSize)) };
