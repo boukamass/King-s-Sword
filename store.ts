@@ -140,7 +140,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   yearFilter: null,
   monthFilter: null,
   dayFilter: null,
-  versionFilter: 'Shp', 
+  versionFilter: null, 
   timeFilter: null,
   audioFilter: false,
   languageFilter: 'Français',
