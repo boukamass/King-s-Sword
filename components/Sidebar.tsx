@@ -1,3 +1,4 @@
+
 // Add React import to the list of imports from 'react'
 import React, { useState, useRef, useEffect, useMemo, memo, useDeferredValue, useTransition, useCallback } from 'react';
 import { useAppStore } from '../store';
@@ -21,7 +22,7 @@ import {
   Info
 } from 'lucide-react';
 
-const ITEM_HEIGHT = 76; // Hauteur fixe d'un élément de sermon
+const ITEM_HEIGHT = 80; // Hauteur totale (76px + 4px de mb-1) pour une virtualisation parfaite
 
 interface DropdownProps {
   value: string | null;
@@ -105,7 +106,7 @@ const SermonItem = memo(({
 
   return (
     <div 
-      style={{ height: ITEM_HEIGHT }}
+      style={{ height: 76 }} // On fixe la boîte à 76px pour laisser 4px de marge (mb-1) dans le slot de 80px
       className={`group flex items-center gap-3 p-3 rounded-xl transition-all duration-200 cursor-pointer mb-1 overflow-hidden ${
         isSelected 
           ? 'bg-teal-600/10 dark:bg-teal-600/20 ring-1 ring-teal-600/20 shadow-md' 
@@ -211,7 +212,7 @@ const Sidebar: React.FC = () => {
   
   // --- ÉTAT DE VIRTUALISATION ---
   const [scrollTop, setScrollTop] = useState(0);
-  const [containerHeight, setContainerHeight] = useState(600);
+  const [containerHeight, setContainerHeight] = useState(window.innerHeight || 800);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const lang = languageFilter === 'Anglais' ? 'en' : 'fr';
@@ -527,7 +528,7 @@ const Sidebar: React.FC = () => {
         <div 
           ref={scrollContainerRef}
           onScroll={handleScroll}
-          className="flex-1 overflow-y-auto custom-scrollbar p-3 relative"
+          className="flex-1 overflow-y-auto custom-scrollbar px-3 relative" // px-3 seulement pour éviter la zone vide en haut/bas
         >
           {filteredSermons.length === 0 ? (
             <div className="p-12 text-center text-zinc-400 text-[10px] font-black uppercase tracking-[0.3em] opacity-30">

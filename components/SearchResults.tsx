@@ -215,7 +215,7 @@ const SearchResults: React.FC = () => {
       </div>
 
       <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-zinc-50/50 dark:bg-zinc-950/20">
-        <div className="max-w-4xl mx-auto space-y-6 pb-40">
+        <div className="max-w-4xl mx-auto space-y-6 pb-20"> {/* pb-20 au lieu de pb-40 */}
           {searchResults.length === 0 && !isSearching ? (
             <div className="h-[50vh] flex flex-col items-center justify-center opacity-20 space-y-6">
               <div className="w-20 h-20 flex items-center justify-center bg-zinc-200 dark:bg-zinc-800 rounded-full">
