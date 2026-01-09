@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { Sermon, Note, ChatMessage, SearchMode, Notification, Citation, Highlight } from './types';
 import { 
@@ -42,6 +43,7 @@ interface AppState {
   searchMode: SearchMode;
   searchResults: SearchResult[];
   isFullTextSearch: boolean;
+  audioOnlyFilter: boolean;
   cityFilter: string | null;
   yearFilter: string | null;
   versionFilter: string | null;
@@ -72,6 +74,7 @@ interface AppState {
   setSearchResults: (results: SearchResult[]) => void;
   setIsSearching: (val: boolean) => void;
   setIsFullTextSearch: (active: boolean) => void;
+  setAudioOnlyFilter: (active: boolean) => void;
   addNotification: (message: string, type: 'success' | 'error') => void;
   removeNotification: (id: string) => void;
   setActiveNoteId: (id: string | null) => void;
@@ -128,9 +131,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   searchQuery: '',
   searchMode: SearchMode.EXACT_PHRASE,
   isFullTextSearch: false,
+  audioOnlyFilter: false,
   cityFilter: null,
   yearFilter: null,
-  versionFilter: 'Shp',
+  versionFilter: null,
   timeFilter: null,
   languageFilter: 'Français',
   fontSize: 20,
@@ -272,6 +276,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSearchResults: (results) => set({ searchResults: results }),
   setIsSearching: (val) => set({ isSearching: val }),
   setIsFullTextSearch: (active) => set({ isFullTextSearch: active }),
+  setAudioOnlyFilter: (active) => set({ audioOnlyFilter: active }),
   addNotification: (message, type) => set(state => ({
     notifications: [{ id: crypto.randomUUID(), message, type }, ...state.notifications]
   })),
