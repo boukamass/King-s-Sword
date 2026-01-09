@@ -19,7 +19,8 @@ import {
   RefreshCw,
   Calendar,
   Library,
-  Info
+  Info,
+  RotateCcw
 } from 'lucide-react';
 
 const ITEM_HEIGHT = 80; // Hauteur totale fixe (pixels) pour une virtualisation parfaite
@@ -30,9 +31,10 @@ interface DropdownProps {
   options: string[];
   placeholder: string;
   className?: string;
+  displayValue?: (val: string) => string;
 }
 
-const ModernDropdown: React.FC<DropdownProps> = ({ value, onChange, options, placeholder, className = "" }) => {
+const ModernDropdown: React.FC<DropdownProps> = ({ value, onChange, options, placeholder, className = "", displayValue }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -46,6 +48,8 @@ const ModernDropdown: React.FC<DropdownProps> = ({ value, onChange, options, pla
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const currentDisplay = value ? (displayValue ? displayValue(value) : value) : placeholder;
+
   return (
     <div className={`relative flex-1 min-w-[100px] ${className}`} ref={containerRef}>
       <button
@@ -56,7 +60,7 @@ const ModernDropdown: React.FC<DropdownProps> = ({ value, onChange, options, pla
             : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 hover:border-teal-500/50 text-zinc-900 dark:text-zinc-100 shadow-sm'
         }`}
       >
-        <span className="truncate pr-1">{value || placeholder}</span>
+        <span className="truncate pr-1">{currentDisplay}</span>
         <ChevronDown className={`w-2.5 h-2.5 transition-transform duration-300 ${isOpen ? 'rotate-180 text-teal-600' : 'text-zinc-400'}`} />
       </button>
 
@@ -79,7 +83,7 @@ const ModernDropdown: React.FC<DropdownProps> = ({ value, onChange, options, pla
                     : 'text-zinc-800 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700'
                 }`}
               >
-                {opt}
+                {displayValue ? displayValue(opt) : opt}
               </button>
             ))}
           </div>
@@ -199,11 +203,14 @@ const Sidebar: React.FC = () => {
   
   const cityFilter = useAppStore(s => s.cityFilter);
   const yearFilter = useAppStore(s => s.yearFilter);
+  const monthFilter = useAppStore(s => s.monthFilter);
+  const dayFilter = useAppStore(s => s.dayFilter);
   const languageFilter = useAppStore(s => s.languageFilter);
   const versionFilter = useAppStore(s => s.versionFilter);
   const timeFilter = useAppStore(s => s.timeFilter);
   const audioFilter = useAppStore(s => s.audioFilter);
   const setAudioFilter = useAppStore(s => s.setAudioFilter);
+  const resetFilters = useAppStore(s => s.resetFilters);
   
   const sidebarOpen = useAppStore(s => s.sidebarOpen);
   const toggleSidebar = useAppStore(s => s.toggleSidebar);
@@ -258,6 +265,16 @@ const Sidebar: React.FC = () => {
     if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
   }), []);
 
+  const setMonthFilter = useCallback((val: string | null) => startTransition(() => {
+    useAppStore.getState().setMonthFilter(val);
+    if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
+  }), []);
+
+  const setDayFilter = useCallback((val: string | null) => startTransition(() => {
+    useAppStore.getState().setDayFilter(val);
+    if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
+  }), []);
+
   const setVersionFilter = useCallback((val: string | null) => startTransition(() => {
     useAppStore.getState().setVersionFilter(val);
     if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
@@ -279,6 +296,25 @@ const Sidebar: React.FC = () => {
     }
     return Array.from(set).sort((a, b) => b.localeCompare(a));
   }, [sermons]);
+
+  const dynamicMonths = useMemo(() => [
+    "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"
+  ], []);
+
+  const getMonthName = (month: string) => {
+    const namesFR = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+    const namesEN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const idx = parseInt(month, 10) - 1;
+    return lang === 'fr' ? namesFR[idx] : namesEN[idx];
+  };
+
+  const dynamicDays = useMemo(() => {
+    const days = [];
+    for (let i = 1; i <= 31; i++) {
+      days.push(i.toString().padStart(2, '0'));
+    }
+    return days;
+  }, []);
 
   const dynamicCities = useMemo(() => {
     const set = new Set<string>();
@@ -308,7 +344,7 @@ const Sidebar: React.FC = () => {
     setInternalQuery(searchQuery);
   }, [searchQuery]);
 
-  const activeFiltersCount = [yearFilter, cityFilter, versionFilter, timeFilter, audioFilter].filter(f => f === true || (typeof f === 'string' && f !== null)).length;
+  const activeFiltersCount = [yearFilter, monthFilter, dayFilter, cityFilter, versionFilter, timeFilter, audioFilter].filter(f => f === true || (typeof f === 'string' && f !== null)).length;
 
   const filteredSermons = useMemo(() => {
     const q = isFullTextSearch ? "" : normalizeText(deferredSearchQuery);
@@ -321,12 +357,14 @@ const Sidebar: React.FC = () => {
       }
       if (cityFilter && s.city !== cityFilter) return false;
       if (yearFilter && (!s.date || !s.date.startsWith(yearFilter))) return false;
+      if (monthFilter && (!s.date || s.date.substring(5, 7) !== monthFilter)) return false;
+      if (dayFilter && (!s.date || s.date.substring(8, 10) !== dayFilter)) return false;
       if (versionFilter && s.version !== versionFilter) return false;
       if (timeFilter && s.time !== timeFilter) return false;
       if (audioFilter && !s.audio_url) return false;
       return true;
     });
-  }, [sermons, deferredSearchQuery, cityFilter, yearFilter, versionFilter, timeFilter, audioFilter, isFullTextSearch]);
+  }, [sermons, deferredSearchQuery, cityFilter, yearFilter, monthFilter, dayFilter, versionFilter, timeFilter, audioFilter, isFullTextSearch]);
 
   // --- LOGIQUE DE VIRTUALISATION ---
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -481,21 +519,32 @@ const Sidebar: React.FC = () => {
               </div>
             </div>
 
-            <button 
-              onClick={() => setShowFilters(!showFilters)}
-              data-tooltip={showFilters ? "Masquer filtres" : "Afficher filtres"}
-              className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl border text-[8px] font-black uppercase tracking-widest transition-all duration-300 ease-out tooltip-left group/filter-btn active:scale-95 ${
-                showFilters || activeFiltersCount > 0
-                  ? 'bg-teal-600 text-white border-teal-600 shadow-xl shadow-teal-600/20'
-                  : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-teal-500/50 hover:bg-teal-50/30 dark:hover:bg-teal-950/20 shadow-sm'
-              }`}
-            >
-              <Filter className={`w-2.5 h-2.5 transition-all duration-300 ease-out group-hover/filter-btn:rotate-[15deg] group-hover/filter-btn:scale-110 ${showFilters ? 'rotate-180' : ''}`} />
-              <span>Filtres</span>
+            <div className="flex items-center gap-2">
               {activeFiltersCount > 0 && (
-                <span className="w-3.5 h-3.5 flex items-center justify-center bg-white text-teal-600 rounded-full text-[7px] animate-in zoom-in duration-300 group-hover/filter-btn:scale-110 font-black">{activeFiltersCount}</span>
+                <button 
+                  onClick={resetFilters}
+                  data-tooltip={t.reset_filters}
+                  className="w-8 h-8 flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 text-zinc-400 hover:text-red-500 rounded-xl border border-zinc-200 dark:border-zinc-700 transition-all active:scale-90 tooltip-bottom"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
               )}
-            </button>
+              <button 
+                onClick={() => setShowFilters(!showFilters)}
+                data-tooltip={showFilters ? "Masquer filtres" : "Afficher filtres"}
+                className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl border text-[8px] font-black uppercase tracking-widest transition-all duration-300 ease-out tooltip-left group/filter-btn active:scale-95 ${
+                  showFilters || activeFiltersCount > 0
+                    ? 'bg-teal-600 text-white border-teal-600 shadow-xl shadow-teal-600/20'
+                    : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-teal-500/50 hover:bg-teal-50/30 dark:hover:bg-teal-950/20 shadow-sm'
+                }`}
+              >
+                <Filter className={`w-2.5 h-2.5 transition-all duration-300 ease-out group-hover/filter-btn:rotate-[15deg] group-hover/filter-btn:scale-110 ${showFilters ? 'rotate-180' : ''}`} />
+                <span>Filtres</span>
+                {activeFiltersCount > 0 && (
+                  <span className="w-3.5 h-3.5 flex items-center justify-center bg-white text-teal-600 rounded-full text-[7px] animate-in zoom-in duration-300 group-hover/filter-btn:scale-110 font-black">{activeFiltersCount}</span>
+                )}
+              </button>
+            </div>
           </div>
 
           {isFullTextSearch && (
@@ -509,6 +558,8 @@ const Sidebar: React.FC = () => {
           {showFilters && (
             <div className="flex flex-wrap gap-2 pt-3 border-t border-zinc-200 dark:border-zinc-700/50 animate-in slide-in-from-top-1 duration-300">
               <ModernDropdown value={yearFilter} onChange={setYearFilter} options={dynamicYears} placeholder={t.filter_year} />
+              <ModernDropdown value={monthFilter} onChange={setMonthFilter} options={dynamicMonths} placeholder={t.filter_month} displayValue={getMonthName} />
+              <ModernDropdown value={dayFilter} onChange={setDayFilter} options={dynamicDays} placeholder={t.filter_day} />
               <ModernDropdown value={cityFilter} onChange={setCityFilter} options={dynamicCities} placeholder={t.filter_city} />
               <ModernDropdown value={versionFilter} onChange={setVersionFilter} options={dynamicVersions} placeholder={t.filter_version} />
               <ModernDropdown value={timeFilter} onChange={setTimeFilter} options={dynamicTimes} placeholder={t.filter_time} />

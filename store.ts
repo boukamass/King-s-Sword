@@ -45,6 +45,8 @@ interface AppState {
   isFullTextSearch: boolean;
   cityFilter: string | null;
   yearFilter: string | null;
+  monthFilter: string | null;
+  dayFilter: string | null;
   versionFilter: string | null;
   timeFilter: string | null;
   audioFilter: boolean;
@@ -85,9 +87,12 @@ interface AppState {
   setNotesOpen: (v: boolean) => void;
   setCityFilter: (city: string | null) => void;
   setYearFilter: (year: string | null) => void;
+  setMonthFilter: (month: string | null) => void;
+  setDayFilter: (day: string | null) => void;
   setVersionFilter: (v: string | null) => void;
   setTimeFilter: (v: string | null) => void;
   setAudioFilter: (v: boolean) => void;
+  resetFilters: () => void;
   setFontSize: (updater: number | ((size: number) => number)) => void;
   setTheme: (theme: 'light' | 'dark' | 'system') => void;
   addChatMessage: (key: string, message: ChatMessage) => void;
@@ -133,6 +138,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   isFullTextSearch: false,
   cityFilter: null,
   yearFilter: null,
+  monthFilter: null,
+  dayFilter: null,
   versionFilter: 'Shp', 
   timeFilter: null,
   audioFilter: false,
@@ -329,9 +336,20 @@ export const useAppStore = create<AppState>((set, get) => ({
   setNotesOpen: (v) => set({ notesOpen: v }),
   setCityFilter: (f) => set({ cityFilter: f }),
   setYearFilter: (f) => set({ yearFilter: f }),
+  setMonthFilter: (f) => set({ monthFilter: f }),
+  setDayFilter: (f) => set({ dayFilter: f }),
   setVersionFilter: (f) => set({ versionFilter: f }),
   setTimeFilter: (f) => set({ timeFilter: f }),
   setAudioFilter: (f) => set({ audioFilter: f }),
+  resetFilters: () => set({
+    cityFilter: null,
+    yearFilter: null,
+    monthFilter: null,
+    dayFilter: null,
+    versionFilter: null,
+    timeFilter: null,
+    audioFilter: false
+  }),
   setFontSize: (updater) => set(state => {
     const newSize = typeof updater === 'function' ? updater(state.fontSize) : updater;
     return { fontSize: Math.max(8, Math.min(150, newSize)) };
