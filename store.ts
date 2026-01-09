@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { Sermon, Note, ChatMessage, SearchMode, Notification, Citation, Highlight } from './types';
 import { 
@@ -132,7 +133,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isFullTextSearch: false,
   cityFilter: null,
   yearFilter: null,
-  versionFilter: 'Shp', // Défini sur Shp par défaut comme demandé
+  versionFilter: 'Shp', 
   timeFilter: null,
   audioFilter: false,
   languageFilter: 'Français',
@@ -163,10 +164,23 @@ export const useAppStore = create<AppState>((set, get) => ({
         console.warn("SQLite non détecté, mode Web/Fallback activé.");
         const response = await fetch('library.json');
         const data: Sermon[] = await response.json();
+        
+        // Dédoublonnage des métadonnées par ID
+        const uniqueMetadata: Omit<Sermon, 'text'>[] = [];
+        const seenIds = new Set<string>();
         const map = new Map();
-        data.forEach(s => map.set(s.id, s));
+        
+        data.forEach(s => {
+          if (!seenIds.has(s.id)) {
+            seenIds.add(s.id);
+            const { text, ...meta } = s;
+            uniqueMetadata.push(meta);
+            map.set(s.id, s);
+          }
+        });
+
         const notes = await getAllNotes();
-        set({ sermons: data, sermonsMap: map, notes, isLoading: false });
+        set({ sermons: uniqueMetadata, sermonsMap: map, notes, isLoading: false });
         return;
       }
 
@@ -175,10 +189,22 @@ export const useAppStore = create<AppState>((set, get) => ({
         await get().resetLibrary();
       } else {
         const metadata = await getAllSermonsMetadata();
+        
+        // Dédoublonnage préventif même en SQL
+        const uniqueMetadata: Omit<Sermon, 'text'>[] = [];
+        const seenIds = new Set<string>();
         const map = new Map();
-        metadata.forEach(s => map.set(s.id, s));
+        
+        metadata.forEach(s => {
+          if (!seenIds.has(s.id)) {
+            seenIds.add(s.id);
+            uniqueMetadata.push(s);
+            map.set(s.id, s);
+          }
+        });
+
         const notes = await getAllNotes();
-        set({ sermons: metadata, sermonsMap: map, notes, isLoading: false });
+        set({ sermons: uniqueMetadata, sermonsMap: map, notes, isLoading: false });
       }
     } catch (error) {
       console.error("DB Init Error:", error);
@@ -192,7 +218,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const response = await fetch('library.json');
       if (!response.ok) {
-        throw new Error(`Le fichier library.json est manquant ou inaccessible (Status: ${response.status})`);
+        throw new Error(`Le fichier library.json est manquant ou inaccessible`);
       }
       
       let incoming: Sermon[];
@@ -215,21 +241,35 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
       }
       
-      const metadata = incoming.map(({text, ...meta}) => meta);
+      // Dédoublonnage lors de la reconstruction
+      const uniqueMetadata: Omit<Sermon, 'text'>[] = [];
+      const seenIds = new Set<string>();
       const map = new Map();
       
-      if (!get().isSqliteAvailable) {
-        incoming.forEach(s => map.set(s.id, s));
-      } else {
-        metadata.forEach(s => map.set(s.id, s));
-      }
+      incoming.forEach(s => {
+        if (!seenIds.has(s.id)) {
+          seenIds.add(s.id);
+          const { text, ...meta } = s;
+          uniqueMetadata.push(meta);
+          if (!get().isSqliteAvailable) {
+            map.set(s.id, s);
+          } else {
+            map.set(s.id, meta);
+          }
+        }
+      });
       
       set({ 
-        sermons: metadata as any, 
+        sermons: uniqueMetadata, 
         sermonsMap: map, 
         loadingProgress: 100,
         isLoading: false,
-        loadingMessage: null
+        loadingMessage: null,
+        // Réinitialisation du contexte pour éviter les IDs fantômes
+        contextSermonIds: [],
+        manualContextIds: [],
+        selectedSermonId: null,
+        activeSermon: null
       });
       
       get().addNotification("Bibliothèque importée avec succès", "success");

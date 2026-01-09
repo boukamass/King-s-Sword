@@ -55,10 +55,16 @@ const AIAssistant: React.FC = () => {
   const chatKey = contextSermonIds.join(',') || 'global';
   const history = chatHistory[chatKey] || [];
   
-  const selectedSermonsMetadata = useMemo(() => 
-    sermons.filter(s => contextSermonIds.includes(s.id)),
-    [sermons, contextSermonIds]
-  );
+  // Correction: Assurer l'unicité par ID des métadonnées affichées dans le dock
+  const selectedSermonsMetadata = useMemo(() => {
+    const uniqueMap = new Map<string, any>();
+    sermons.forEach(s => {
+      if (contextSermonIds.includes(s.id)) {
+        uniqueMap.set(s.id, s);
+      }
+    });
+    return Array.from(uniqueMap.values());
+  }, [sermons, contextSermonIds]);
 
   const formatAIResponse = (text: string) => {
     const formattedText = text.replace(/\[Réf:\s*([\w-]+),\s*Para\.\s*(\d+)\s*\]/gi, (match, sermonId, paraNum) => {
@@ -82,7 +88,6 @@ const AIAssistant: React.FC = () => {
         if (sermons.some(s => s.id === sermonId)) {
             setSelectedSermonId(sermonId);
             
-            // Priorité au saut par numéro de paragraphe si disponible
             if (paraNumStr) {
                 const num = parseInt(paraNumStr);
                 if (!isNaN(num)) {
@@ -91,7 +96,6 @@ const AIAssistant: React.FC = () => {
                 }
             }
             
-            // Fallback sur la recherche textuelle si pas de numéro de paragraphe
             const blockquote = link.closest('blockquote');
             if (blockquote) {
                 const quoteClone = blockquote.cloneNode(true) as HTMLElement;
@@ -122,15 +126,14 @@ const AIAssistant: React.FC = () => {
     }
   }, [pendingStudyRequest]);
 
-  // Fonction utilitaire pour récupérer les sermons complets avec texte
   const getFullSermons = async (ids: string[]): Promise<Sermon[]> => {
-    const results = await Promise.all(ids.map(async id => {
-      // En mode Web (non-electron), le texte est déjà dans sermonsMap
+    // Utilisation d'un Set pour garantir l'unicité lors de la récupération des textes
+    const uniqueIds = Array.from(new Set(ids));
+    const results = await Promise.all(uniqueIds.map(async id => {
       if (!isSqliteAvailable) {
         const fromMap = sermonsMap.get(id) as Sermon;
         if (fromMap && fromMap.text) return fromMap;
       }
-      // En mode Desktop, on interroge la DB
       return await getSermonById(id);
     }));
     return results.filter((s): s is Sermon => !!s && !!s.text);
@@ -227,7 +230,7 @@ const AIAssistant: React.FC = () => {
                         <div className="min-w-0 flex-1">
                            <div className="flex items-center gap-1.5">
                              <p className="text-[9px] font-black text-zinc-800 dark:text-zinc-100 truncate leading-tight tracking-tight">{s.title}</p>
-                             {isActive && <div className="w-1.5 h-1.5 bg-teal-600 rounded-full shrink-0" title="Sermon actuellement ouvert (Auto)" />}
+                             {isActive && <div className="w-1.5 h-1.5 bg-teal-600 rounded-full shrink-0" title="Sermon ouvert (Automatique)" />}
                            </div>
                            <p className="text-[7px] font-bold text-zinc-400 mt-0.5 uppercase tracking-tighter">{s.date} {isActive ? '• OUVERT' : ''}</p>
                         </div>
