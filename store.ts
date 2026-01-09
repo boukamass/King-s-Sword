@@ -132,7 +132,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isFullTextSearch: false,
   cityFilter: null,
   yearFilter: null,
-  versionFilter: 'Shp',
+  versionFilter: 'Shp', // Défini sur Shp par défaut comme demandé
   timeFilter: null,
   audioFilter: false,
   languageFilter: 'Français',
@@ -218,7 +218,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       const metadata = incoming.map(({text, ...meta}) => meta);
       const map = new Map();
       
-      // En mode Web, on garde le texte dans la map
       if (!get().isSqliteAvailable) {
         incoming.forEach(s => map.set(s.id, s));
       } else {
@@ -408,7 +407,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     const [removed] = newNotes.splice(draggedIndex, 1);
     newNotes.splice(targetIndex, 0, removed);
 
-    // Update 'order' property for each note
     const updatedNotes = newNotes.map((n, i) => ({ ...n, order: i }));
     set({ notes: updatedNotes });
     syncNotesOrder(updatedNotes);
