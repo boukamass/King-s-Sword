@@ -1,4 +1,3 @@
-
 // Add React import to the list of imports from 'react'
 import React, { useState, useRef, useEffect, useMemo, memo, useDeferredValue, useTransition, useCallback } from 'react';
 import { useAppStore } from '../store';
@@ -306,7 +305,8 @@ const Sidebar: React.FC = () => {
       if (yearFilter && (!s.date || !s.date.startsWith(yearFilter))) return false;
       if (versionFilter && s.version !== versionFilter) return false;
       if (timeFilter && s.time !== timeFilter) return false;
-      if (audioFilter && !s.audio_url) return false;
+      // Affinement du filtre audio pour vérifier explicitement la présence d'une URL
+      if (audioFilter && (!s.audio_url || s.audio_url.trim() === '')) return false;
       return true;
     });
   }, [sermons, deferredSearchQuery, cityFilter, yearFilter, versionFilter, timeFilter, audioFilter, isFullTextSearch]);
