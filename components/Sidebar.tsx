@@ -18,11 +18,10 @@ import {
   RefreshCw,
   Calendar,
   Library,
-  Info,
-  CheckCheck,
-  CheckSquare,
-  Square
+  Info
 } from 'lucide-react';
+
+const ITEM_HEIGHT = 76; // Hauteur fixe d'un élément de sermon
 
 interface DropdownProps {
   value: string | null;
@@ -106,7 +105,8 @@ const SermonItem = memo(({
 
   return (
     <div 
-      className={`group flex items-center gap-3 p-3 rounded-xl transition-all duration-200 cursor-pointer mb-1 ${
+      style={{ height: ITEM_HEIGHT }}
+      className={`group flex items-center gap-3 p-3 rounded-xl transition-all duration-200 cursor-pointer mb-1 overflow-hidden ${
         isSelected 
           ? 'bg-teal-600/10 dark:bg-teal-600/20 ring-1 ring-teal-600/20 shadow-md' 
           : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/40 border border-transparent hover:border-zinc-100 dark:hover:border-zinc-800'
@@ -207,38 +207,45 @@ const Sidebar: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [isFooterVisible, setIsFooterVisible] = useState(true);
   
-  // Infinite Scroll State
-  const [displayLimit, setDisplayLimit] = useState(50);
+  // --- ÉTAT DE VIRTUALISATION ---
+  const [scrollTop, setScrollTop] = useState(0);
+  const [containerHeight, setContainerHeight] = useState(600);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const lang = languageFilter === 'Anglais' ? 'en' : 'fr';
   const t = translations[lang];
 
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      setContainerHeight(scrollContainerRef.current.clientHeight);
+    }
+  }, [sidebarOpen]);
+
   const setSearchQuery = useCallback((q: string) => {
     startTransition(() => {
       useAppStore.getState().setSearchQuery(q);
-      setDisplayLimit(50);
+      if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
     });
   }, []);
 
   const setCityFilter = useCallback((val: string | null) => startTransition(() => {
     useAppStore.getState().setCityFilter(val);
-    setDisplayLimit(50);
+    if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
   }), []);
 
   const setYearFilter = useCallback((val: string | null) => startTransition(() => {
     useAppStore.getState().setYearFilter(val);
-    setDisplayLimit(50);
+    if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
   }), []);
 
   const setVersionFilter = useCallback((val: string | null) => startTransition(() => {
     useAppStore.getState().setVersionFilter(val);
-    setDisplayLimit(50);
+    if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
   }), []);
 
   const setTimeFilter = useCallback((val: string | null) => startTransition(() => {
     useAppStore.getState().setTimeFilter(val);
-    setDisplayLimit(50);
+    if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
   }), []);
 
   const dynamicYears = useMemo(() => {
@@ -300,19 +307,17 @@ const Sidebar: React.FC = () => {
     });
   }, [sermons, deferredSearchQuery, cityFilter, yearFilter, versionFilter, timeFilter, isFullTextSearch]);
 
-  const visibleSermons = useMemo(() => {
-    return filteredSermons.slice(0, displayLimit);
-  }, [filteredSermons, displayLimit]);
+  // --- LOGIQUE DE VIRTUALISATION ---
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    setScrollTop(e.currentTarget.scrollTop);
+  };
 
-  const handleScroll = useCallback(() => {
-    if (!scrollContainerRef.current) return;
-    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
-    if (scrollTop + clientHeight >= scrollHeight - 300) {
-      if (displayLimit < filteredSermons.length) {
-        setDisplayLimit(prev => prev + 50);
-      }
-    }
-  }, [displayLimit, filteredSermons.length]);
+  const startIndex = Math.max(0, Math.floor(scrollTop / ITEM_HEIGHT) - 3);
+  const endIndex = Math.min(filteredSermons.length, startIndex + Math.ceil(containerHeight / ITEM_HEIGHT) + 6);
+  const visibleSermons = filteredSermons.slice(startIndex, endIndex);
+
+  const totalListHeight = filteredSermons.length * ITEM_HEIGHT;
+  const offsetY = startIndex * ITEM_HEIGHT;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -352,7 +357,7 @@ const Sidebar: React.FC = () => {
   if (!sidebarOpen) return null;
 
   return (
-    <div className={`w-full border-r border-zinc-200/50 dark:border-zinc-800 bg-white dark:bg-zinc-900 h-full flex flex-col overflow-hidden transition-all duration-500 ${isPending ? 'cursor-wait' : ''}`}>
+    <div className={`w-full border-r border-zinc-200/50 dark:border-zinc-800 bg-white dark:bg-zinc-900 h-full flex flex-col overflow-hidden transition-all duration-500 ${isPending ? 'opacity-70' : ''}`}>
       <div className={`h-14 border-b border-zinc-100 dark:border-zinc-800/50 flex items-center shrink-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl z-50 transition-all duration-500 px-4 justify-between`}>
         <button 
           onClick={toggleSidebar} 
@@ -488,7 +493,6 @@ const Sidebar: React.FC = () => {
           )}
         </div>
 
-        {/* Barre d'outils de sélection globale ultra-épurée */}
         <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800/50 flex items-center bg-zinc-50/20 dark:bg-zinc-900/20 sticky top-0 z-40 backdrop-blur-sm">
           <button 
             onClick={handleToggleAllFiltered}
@@ -506,26 +510,26 @@ const Sidebar: React.FC = () => {
         <div 
           ref={scrollContainerRef}
           onScroll={handleScroll}
-          className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1"
+          className="flex-1 overflow-y-auto custom-scrollbar p-3 relative"
         >
-          {filteredSermons.length === 0 && (
+          {filteredSermons.length === 0 ? (
             <div className="p-12 text-center text-zinc-400 text-[10px] font-black uppercase tracking-[0.3em] opacity-30">
               {t.no_results}
             </div>
-          )}
-          {visibleSermons.map((sermon) => (
-            <SermonItem 
-              key={sermon.id}
-              sermon={sermon}
-              isSelected={selectedSermonId === sermon.id}
-              isContextSelected={manualContextIds.includes(sermon.id)}
-              onSelect={() => setSelectedSermonId(sermon.id)}
-              onToggleContext={() => toggleContextSermon(sermon.id)}
-            />
-          ))}
-          {displayLimit < filteredSermons.length && (
-            <div className="py-8 flex justify-center">
-              <Loader2 className="w-5 h-5 animate-spin text-zinc-300" />
+          ) : (
+            <div style={{ height: totalListHeight, position: 'relative' }}>
+              <div style={{ transform: `translateY(${offsetY}px)` }}>
+                {visibleSermons.map((sermon) => (
+                  <SermonItem 
+                    key={sermon.id}
+                    sermon={sermon}
+                    isSelected={selectedSermonId === sermon.id}
+                    isContextSelected={manualContextIds.includes(sermon.id)}
+                    onSelect={() => setSelectedSermonId(sermon.id)}
+                    onToggleContext={() => toggleContextSermon(sermon.id)}
+                  />
+                ))}
+              </div>
             </div>
           )}
         </div>
