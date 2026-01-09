@@ -305,12 +305,10 @@ const NoteEditor: React.FC = () => {
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-3">
-                                                {citation.paragraph_index && (
-                                                  <div className="flex items-center gap-1.5 bg-zinc-100 dark:bg-zinc-800 text-teal-600 dark:text-teal-400 px-3 py-1 rounded-xl border border-teal-600/10 font-bold text-[9px] uppercase tracking-widest">
-                                                    <Hash className="w-3 h-3" />
-                                                    <span>Para. {citation.paragraph_index}</span>
-                                                  </div>
-                                                )}
+                                                <div className="flex items-center gap-1.5 bg-zinc-100 dark:bg-zinc-800 text-teal-600 dark:text-teal-400 px-3 py-1 rounded-xl border border-teal-600/10 font-bold text-[9px] uppercase tracking-widest">
+                                                  <Hash className="w-3 h-3" />
+                                                  <span>Para. {citation.paragraph_index ?? '—'}</span>
+                                                </div>
                                                 {!isVirtual && (
                                                    <div className="w-8 h-8 flex items-center justify-center bg-teal-600/5 text-teal-600 rounded-lg border border-teal-600/10 group-hover:bg-teal-600 group-hover:text-white transition-all">
                                                       <ExternalLink className="w-3.5 h-3.5" />

@@ -110,9 +110,7 @@ const NoteCard = memo(({
                <div className="flex items-center gap-1.5 min-w-0 flex-1">
                   <span className="text-[9px] font-black text-zinc-700 dark:text-zinc-300 uppercase tracking-tight truncate">{firstCitation.sermon_title_snapshot}</span>
                   <span className="text-[7px] font-bold text-zinc-400 shrink-0 font-mono">({firstCitation.sermon_date_snapshot})</span>
-                  {firstCitation.paragraph_index && (
-                    <span className="text-[8px] font-black text-teal-600 shrink-0 bg-teal-600/5 px-1 rounded">#{firstCitation.paragraph_index}</span>
-                  )}
+                  <span className="text-[8px] font-black text-teal-600 shrink-0 bg-teal-600/5 px-1 rounded">#{firstCitation.paragraph_index ?? '—'}</span>
                </div>
             </div>
             <button 
