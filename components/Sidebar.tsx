@@ -362,7 +362,7 @@ const Sidebar: React.FC = () => {
 
   return (
     <div className={`w-full border-r border-zinc-200/50 dark:border-zinc-800 bg-white dark:bg-zinc-900 h-full flex flex-col overflow-hidden transition-all duration-500 ${isPending ? 'opacity-70' : ''}`}>
-      <div className={`h-14 border-b border-zinc-100 dark:border-zinc-800/50 flex items-center shrink-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl z-50 transition-all duration-500 px-4 justify-between`}>
+      <div className={`h-14 border-b border-zinc-100 dark:border-zinc-800/50 flex items-center shrink-0 bg-white dark:bg-zinc-900 z-50 transition-all duration-500 px-4 justify-between`}>
         <button 
           onClick={toggleSidebar} 
           className={`flex items-center gap-2 hover:opacity-80 transition-all active:scale-95 min-w-0 group tooltip-br`}
@@ -499,7 +499,7 @@ const Sidebar: React.FC = () => {
           )}
         </div>
 
-        <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800/50 flex items-center gap-3 bg-zinc-50/20 dark:bg-zinc-900/20 sticky top-0 z-40 backdrop-blur-sm">
+        <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800/50 flex items-center gap-3 bg-white dark:bg-zinc-900 sticky top-0 z-40">
           <button 
             onClick={handleToggleAllFiltered}
             data-tooltip={areAllFilteredSelected ? "Tout retirer du contexte IA" : "Tout ajouter au contexte IA (filtrés)"}
