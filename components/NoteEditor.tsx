@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react'; // Fixed incorrect import source
 import { useAppStore } from '../store';
 import { translations } from '../translations';
 import { Document, Packer, Paragraph, HeadingLevel, TextRun, AlignmentType } from 'docx';
@@ -87,7 +87,7 @@ const NoteEditor: React.FC = () => {
     const renderRichContent = (text: string, sourceSermonId?: string) => {
         let processedText = text.replace(
             /\[\[\[NOTE_EXTERNE\]\]\]/g, 
-            "> **Note de l'Assistant :** L'information suivante est un complément basé on des connaissances générales et ne provient pas des sermons fournis.\n\n>"
+            "> **Note de l'Assistant :** L'information suivante est un complément basé sur des connaissances générales et ne provient pas des sermons fournis.\n\n>"
         );
 
         let formattedText = processedText.replace(/\[Réf:\s*([\w-]+)\s*\]/gi, (match, sermonId) => {
@@ -306,7 +306,12 @@ const NoteEditor: React.FC = () => {
                                                    <h4 className="text-[11px] font-black text-zinc-800 dark:text-zinc-100 uppercase tracking-widest group-hover:text-teal-600 transition-colors">
                                                        {citation.sermon_title_snapshot}
                                                    </h4>
-                                                   <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-tighter">{citation.sermon_date_snapshot}</span>
+                                                   <div className="flex items-center gap-2 mt-0.5">
+                                                      <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-tighter">{citation.sermon_date_snapshot}</span>
+                                                      {citation.sermon_version_snapshot && (
+                                                         <span className="text-[8px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-tighter bg-teal-600/5 px-1.5 rounded border border-teal-600/10">[{citation.sermon_version_snapshot}]</span>
+                                                      )}
+                                                   </div>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-3">

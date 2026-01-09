@@ -62,6 +62,7 @@ const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({ selectionText, se
       sermon_id: sermon.id,
       sermon_title_snapshot: sermon.title,
       sermon_date_snapshot: sermon.date,
+      sermon_version_snapshot: sermon.version,
       quoted_text: selectionText,
       paragraph_index: paragraphIndex
     };
@@ -80,6 +81,7 @@ const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({ selectionText, se
       sermon_id: sermon.id,
       sermon_title_snapshot: sermon.title,
       sermon_date_snapshot: sermon.date,
+      sermon_version_snapshot: sermon.version,
       quoted_text: selectionText,
       paragraph_index: paragraphIndex
     });

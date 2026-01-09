@@ -63,12 +63,21 @@ function initDatabase() {
         sermon_id TEXT, 
         sermon_title_snapshot TEXT, 
         sermon_date_snapshot TEXT, 
+        sermon_version_snapshot TEXT,
         quoted_text TEXT, 
         date_added TEXT, 
         paragraph_index INTEGER,
         FOREIGN KEY(note_id) REFERENCES notes(id) ON DELETE CASCADE
       );
     `);
+
+    // Migration pour ajouter sermon_version_snapshot si elle manque (cas de mise à jour)
+    try {
+      db.prepare('SELECT sermon_version_snapshot FROM citations LIMIT 1').get();
+    } catch (e) {
+      db.exec('ALTER TABLE citations ADD COLUMN sermon_version_snapshot TEXT');
+    }
+
   } catch (err) {
     console.error(`[DB] Erreur fatale initialisation: ${err.message}`);
     db = null;
@@ -202,8 +211,8 @@ ipcMain.handle('db:saveNote', (event, note) => {
     checkDb();
     db.prepare('INSERT INTO notes (id, title, content, color, "order", creation_date) VALUES (@id, @title, @content, @color, @order, @creationDate) ON CONFLICT(id) DO UPDATE SET title=excluded.title, content=excluded.content, color=excluded.color, "order"=excluded."order"').run(note);
     db.prepare('DELETE FROM citations WHERE note_id = ?').run(note.id);
-    const insC = db.prepare('INSERT INTO citations (id, note_id, sermon_id, sermon_title_snapshot, sermon_date_snapshot, quoted_text, date_added, paragraph_index) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
-    note.citations.forEach(c => insC.run(c.id || Math.random().toString(), note.id, c.sermon_id, c.sermon_title_snapshot, c.sermon_date_snapshot, c.quoted_text, c.date_added || new Date().toISOString(), c.paragraph_index || null));
+    const insC = db.prepare('INSERT INTO citations (id, note_id, sermon_id, sermon_title_snapshot, sermon_date_snapshot, sermon_version_snapshot, quoted_text, date_added, paragraph_index) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    note.citations.forEach(c => insC.run(c.id || Math.random().toString(), note.id, c.sermon_id, c.sermon_title_snapshot, c.sermon_date_snapshot, c.sermon_version_snapshot || null, c.quoted_text, c.date_added || new Date().toISOString(), c.paragraph_index || null));
     return { success: true };
   } catch (e) {
     console.error("Save Note Error:", e);

@@ -185,7 +185,7 @@ const Reader: React.FC = () => {
   const [searchOriginMatchIndices, setSearchOriginMatchIndices] = useState<number[]>([]);
   const [currentResultIndex, setCurrentResultIndex] = useState(-1);
   const [isPlayerExpanded, setIsPlayerExpanded] = useState(false);
-  const [noteSelectorPayload, setNoteSelectorPayload] = useState<{ text: string; sermon: Sermon } | null>(null);
+  const [noteSelectorPayload, setNoteSelectorPayload] = useState<{ text: string; sermon: Sermon; paragraphIndex?: number } | null>(null);
   const [isOSFullscreen, setIsOSFullscreen] = useState(false);
   const [projectedSegmentIndex, setProjectedSegmentIndex] = useState<number | null>(null);
   const [isProjectionOpen, setIsProjectionOpen] = useState(false);
@@ -774,7 +774,7 @@ const Reader: React.FC = () => {
 
   return (
     <div ref={readerAreaRef} className={`flex-1 flex flex-col h-full relative bg-white dark:bg-zinc-950 transition-colors duration-200 overflow-visible-important`}>
-      {noteSelectorPayload && <NoteSelectorModal selectionText={noteSelectorPayload.text} sermon={noteSelectorPayload.sermon} onClose={() => setNoteSelectorPayload(null)} />}
+      {noteSelectorPayload && <NoteSelectorModal selectionText={noteSelectorPayload.text} sermon={noteSelectorPayload.sermon} paragraphIndex={noteSelectorPayload.paragraphIndex} onClose={() => setNoteSelectorPayload(null)} />}
       
       {(activeDefinition || isDefining) && (
         <div className="fixed inset-0 z-[100000] bg-black/40 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in duration-300" onClick={() => setActiveDefinition(null)}>
@@ -1002,7 +1002,7 @@ const Reader: React.FC = () => {
                   <div key={segIdx} ref={(el: any) => { if (el) segmentRefs.current.set(segIdx, el); }} onClick={() => handleProjectSegment(segIdx)} data-seg-idx={segIdx} className={`group/seg relative mb-1.5 py-2.5 px-6 rounded-[20px] border-l-[5px] transition-all duration-300 cursor-pointer shadow-sm hover:shadow-xl hover:scale-[1.005] active:scale-[0.995] ${isActiveProjection ? 'bg-teal-600/10 border-teal-600 ring-2 ring-teal-600/20' : 'bg-white dark:bg-zinc-900/50 border-teal-600/20 hover:border-teal-600 dark:border-zinc-800'}`}>
                     <div className="absolute -left-[54px] top-1/2 -translate-y-1/2 opacity-0 group-hover/seg:opacity-100 transition-all translate-x-4 group-hover/seg:translate-x-0 no-print flex flex-col gap-2">
                         <div onClick={(e) => { e.stopPropagation(); handleProjectSegment(segIdx); }} data-tooltip="Projeter" className="w-9 h-9 flex items-center justify-center bg-teal-600 text-white rounded-xl shadow-lg hover:scale-110 transition-transform"><MonitorPlay className="w-4 h-4" /></div>
-                        <div onClick={(e) => { e.stopPropagation(); setNoteSelectorPayload({ text: seg.text.trim(), sermon }); }} data-tooltip="Annoter" className="w-9 h-9 flex items-center justify-center bg-emerald-600 text-white rounded-xl shadow-lg hover:scale-110 transition-transform"><NotebookPen className="w-4 h-4" /></div>
+                        <div onClick={(e) => { e.stopPropagation(); setNoteSelectorPayload({ text: seg.text.trim(), sermon, paragraphIndex: segIdx + 1 }); }} data-tooltip="Annoter" className="w-9 h-9 flex items-center justify-center bg-emerald-600 text-white rounded-xl shadow-lg hover:scale-110 transition-transform"><NotebookPen className="w-4 h-4" /></div>
                     </div>
                     {content}
                   </div>

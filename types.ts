@@ -31,6 +31,7 @@ export interface Citation {
   sermon_id: string;
   sermon_title_snapshot: string;
   sermon_date_snapshot: string;
+  sermon_version_snapshot?: string;
   quoted_text: string;
   date_added: string;
   paragraph_index?: number;
@@ -47,12 +48,6 @@ export interface Note {
   order: number;
 }
 
-export interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: string;
-}
-
 export enum SearchMode {
   DIVERSE = 'DIVERSE',
   EXACT_WORDS = 'EXACT_WORDS',
@@ -64,6 +59,12 @@ export interface Notification {
   id: string;
   message: string;
   type: 'success' | 'error';
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
 }
 
 export interface ElectronAPI {
@@ -88,6 +89,7 @@ export interface ElectronAPI {
 }
 
 declare global {
+  // Use capital Window to correctly augment the global window object in TypeScript
   interface Window {
     electronAPI: ElectronAPI;
   }

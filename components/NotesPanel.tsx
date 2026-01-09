@@ -102,27 +102,33 @@ const NoteCard = memo(({
 
       <div className="pl-5 mb-3">
         {firstCitation && (
-          <div className="flex items-center gap-2 mb-2 p-1.5 bg-white/50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200/50 dark:border-zinc-700/50 shadow-sm">
-            <div className="w-5 h-5 flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-md border border-teal-600/20">
-              <Link2 className="w-2.5 h-2.5" />
+          <div className="flex flex-col gap-2 p-2.5 bg-white/50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200/50 dark:border-zinc-700/50 shadow-sm overflow-hidden">
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-md border border-teal-600/20 shrink-0">
+                <Link2 className="w-2.5 h-2.5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                 <span className="text-[9px] font-black text-zinc-700 dark:text-zinc-300 uppercase tracking-tight truncate block">{firstCitation.sermon_title_snapshot}</span>
+              </div>
+              <button 
+                onClick={(e) => { e.stopPropagation(); onJumpToReader(firstCitation); }}
+                className="w-5 h-5 flex items-center justify-center bg-teal-600 text-white rounded-md hover:bg-teal-700 transition-all active:scale-90"
+              >
+                <ExternalLink className="w-2.5 h-2.5" />
+              </button>
             </div>
-            <div className="flex-1 min-w-0">
-               <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                  <span className="text-[9px] font-black text-zinc-700 dark:text-zinc-300 uppercase tracking-tight truncate">{firstCitation.sermon_title_snapshot}</span>
-                  <span className="text-[7px] font-bold text-zinc-400 shrink-0 font-mono">({firstCitation.sermon_date_snapshot})</span>
-                  <span className="text-[8px] font-black text-teal-600 shrink-0 bg-teal-600/5 px-1 rounded">#{firstCitation.paragraph_index ?? '—'}</span>
-               </div>
+            
+            <div className="flex flex-wrap items-center gap-2 mt-1">
+               <span className="text-[7px] font-black text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-200/50 dark:border-zinc-700/50">{firstCitation.sermon_date_snapshot}</span>
+               {firstCitation.sermon_version_snapshot && (
+                 <span className="text-[7px] font-black text-teal-600 bg-teal-600/5 px-1.5 py-0.5 rounded border border-teal-600/10">[{firstCitation.sermon_version_snapshot}]</span>
+               )}
+               <span className="text-[7px] font-black text-amber-600 bg-amber-600/5 px-1.5 py-0.5 rounded border border-amber-600/10">Para. {firstCitation.paragraph_index ?? '—'}</span>
             </div>
-            <button 
-              onClick={(e) => { e.stopPropagation(); onJumpToReader(firstCitation); }}
-              className="w-5 h-5 flex items-center justify-center bg-teal-600 text-white rounded-md hover:bg-teal-700 transition-all active:scale-90"
-            >
-              <ExternalLink className="w-2.5 h-2.5" />
-            </button>
           </div>
         )}
 
-        <div className="relative group/preview">
+        <div className="relative group/preview mt-2">
            {n.content ? (
              <p className="text-[11px] text-zinc-600 dark:text-zinc-400 line-clamp-2 leading-relaxed font-medium italic opacity-90 pl-1">
                {n.content}
