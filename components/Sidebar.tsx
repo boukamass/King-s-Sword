@@ -218,7 +218,6 @@ const Sidebar: React.FC = () => {
 
   const [internalQuery, setInternalQuery] = useState(searchQuery);
   const deferredSearchQuery = useDeferredValue(searchQuery);
-  // Changé de false à true pour rendre les filtres visibles par défaut
   const [showFilters, setShowFilters] = useState(true);
   const [isFooterVisible, setIsFooterVisible] = useState(true);
   
@@ -230,7 +229,6 @@ const Sidebar: React.FC = () => {
   const lang = languageFilter === 'Anglais' ? 'en' : 'fr';
   const t = translations[lang];
 
-  // Observateur de redimensionnement pour maintenir une hauteur précise de la zone de défilement
   useEffect(() => {
     if (!scrollContainerRef.current) return;
     
@@ -241,8 +239,6 @@ const Sidebar: React.FC = () => {
     });
     
     resizeObserver.observe(scrollContainerRef.current);
-    
-    // Initial sync
     setContainerHeight(scrollContainerRef.current.clientHeight);
     
     return () => resizeObserver.disconnect();
@@ -366,7 +362,6 @@ const Sidebar: React.FC = () => {
     });
   }, [sermons, deferredSearchQuery, cityFilter, yearFilter, monthFilter, dayFilter, versionFilter, timeFilter, audioFilter, isFullTextSearch]);
 
-  // --- LOGIQUE DE VIRTUALISATION ---
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     setScrollTop(e.currentTarget.scrollTop);
   };
@@ -431,7 +426,7 @@ const Sidebar: React.FC = () => {
               {t.sidebar_subtitle}
             </h2>
             <p className="text-[7px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-widest mt-0.5">
-              {filteredSermons.length} {t.sermon_count}
+              {filteredSermons.length} {filteredSermons.length > 1 ? t.sermon_count : t.sermon_count_one}
             </p>
           </div>
         </button>
@@ -604,9 +599,9 @@ const Sidebar: React.FC = () => {
           ) : (
             <div style={{ height: totalListHeight, position: 'relative' }}>
               <div style={{ transform: `translateY(${offsetY}px)`, position: 'absolute', top: 0, left: 0, right: 0 }}>
-                {visibleSermons.map((sermon) => (
+                {visibleSermons.map((sermon, idx) => (
                   <SermonItem 
-                    key={sermon.id}
+                    key={`${sermon.id}-${startIndex + idx}`}
                     sermon={sermon}
                     isSelected={selectedSermonId === sermon.id}
                     isContextSelected={manualContextIds.includes(sermon.id)}

@@ -103,9 +103,7 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0 }) => 
   let sqlQuery = query.trim();
   if (!sqlQuery || sqlQuery.length < 2) return [];
 
-  // Respecter la contrainte stricte de 50 résultats maximum pour éviter les saturations IPC
   const safeLimit = Math.min(limit, 50);
-
   const terms = sqlQuery.split(/\s+/).filter(v => v).map(v => v.replace(/"/g, '""'));
 
   if (mode === 'EXACT_PHRASE') {
@@ -150,15 +148,17 @@ ipcMain.handle('db:importSermons', (event, sermons) => {
       db.prepare('DELETE FROM paragraphs').run();
       db.prepare('DELETE FROM sermons').run();
 
-      const insS = db.prepare('INSERT INTO sermons (id, title, date, city, version, time, audio_url) VALUES (?, ?, ?, ?, ?, ?, ?)');
+      const insS = db.prepare('INSERT OR REPLACE INTO sermons (id, title, date, city, version, time, audio_url) VALUES (?, ?, ?, ?, ?, ?, ?)');
       const insP = db.prepare('INSERT INTO paragraphs (sermon_id, paragraph_index, content) VALUES (?, ?, ?)');
       const insFTS = db.prepare('INSERT INTO paragraphs_fts (content, sermon_id, paragraph_index) VALUES (?, ?, ?)');
       
       for (const s of data) {
-        if (!s.id || !s.text) continue;
+        // Fallback for ID and Text to prevent silent skipping
+        const sId = s.id || `gen-${Math.random().toString(36).substr(2, 9)}`;
+        const sText = s.text || "...";
 
         insS.run(
-          s.id, 
+          sId, 
           s.title || 'Sermon sans titre', 
           s.date || '0000-00-00', 
           s.city || '', 
@@ -167,12 +167,12 @@ ipcMain.handle('db:importSermons', (event, sermons) => {
           s.audio_url || ''
         );
         
-        const segments = s.text.split(/\n\s*\n/);
+        const segments = sText.split(/\n\s*\n/);
         segments.forEach((p, i) => {
           const content = p.trim();
           if (content) {
-            insP.run(s.id, i + 1, content);
-            insFTS.run(content, s.id, i + 1);
+            insP.run(sId, i + 1, content);
+            insFTS.run(content, sId, i + 1);
           }
         });
       }

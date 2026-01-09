@@ -172,7 +172,6 @@ export const useAppStore = create<AppState>((set, get) => ({
         const response = await fetch('library.json');
         const data: Sermon[] = await response.json();
         
-        // Dédoublonnage des métadonnées par ID
         const uniqueMetadata: Omit<Sermon, 'text'>[] = [];
         const seenIds = new Set<string>();
         const map = new Map();
@@ -196,22 +195,15 @@ export const useAppStore = create<AppState>((set, get) => ({
         await get().resetLibrary();
       } else {
         const metadata = await getAllSermonsMetadata();
-        
-        // Dédoublonnage préventif même en SQL
-        const uniqueMetadata: Omit<Sermon, 'text'>[] = [];
-        const seenIds = new Set<string>();
         const map = new Map();
         
+        // Remove aggressive deduplication to trust SQL row count
         metadata.forEach(s => {
-          if (!seenIds.has(s.id)) {
-            seenIds.add(s.id);
-            uniqueMetadata.push(s);
             map.set(s.id, s);
-          }
         });
 
         const notes = await getAllNotes();
-        set({ sermons: uniqueMetadata, sermonsMap: map, notes, isLoading: false });
+        set({ sermons: metadata, sermonsMap: map, notes, isLoading: false });
       }
     } catch (error) {
       console.error("DB Init Error:", error);
@@ -248,14 +240,15 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
       }
       
-      // Dédoublonnage lors de la reconstruction
       const uniqueMetadata: Omit<Sermon, 'text'>[] = [];
       const seenIds = new Set<string>();
       const map = new Map();
       
       incoming.forEach(s => {
-        if (!seenIds.has(s.id)) {
-          seenIds.add(s.id);
+        // Use a more unique key if version is available to avoid skipping real data
+        const uniqueKey = s.id + (s.version || '');
+        if (!seenIds.has(uniqueKey)) {
+          seenIds.add(uniqueKey);
           const { text, ...meta } = s;
           uniqueMetadata.push(meta);
           if (!get().isSqliteAvailable) {
@@ -272,7 +265,6 @@ export const useAppStore = create<AppState>((set, get) => ({
         loadingProgress: 100,
         isLoading: false,
         loadingMessage: null,
-        // Réinitialisation du contexte pour éviter les IDs fantômes
         contextSermonIds: [],
         manualContextIds: [],
         selectedSermonId: null,
