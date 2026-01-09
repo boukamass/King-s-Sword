@@ -64,6 +64,7 @@ interface AppState {
   aiWidth: number;
   notesWidth: number;
   navigatedFromSearch: boolean;
+  navigatedFromNoteId: string | null;
   lastSearchQuery: string;
   lastSearchMode: SearchMode;
   isSqliteAvailable: boolean;
@@ -114,6 +115,7 @@ interface AppState {
   setAiWidth: (w: number) => void;
   setNotesWidth: (w: number) => void;
   setNavigatedFromSearch: (v: boolean) => void;
+  setNavigatedFromNoteId: (id: string | null) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -157,6 +159,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   aiWidth: 400,
   notesWidth: 350,
   navigatedFromSearch: false,
+  navigatedFromNoteId: null,
   lastSearchQuery: '',
   lastSearchMode: SearchMode.EXACT_PHRASE,
   isSqliteAvailable: true,
@@ -500,5 +503,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSidebarWidth: (w) => set({ sidebarWidth: w }),
   setAiWidth: (w) => set({ aiWidth: w }),
   setNotesWidth: (w) => set({ notesWidth: w }),
-  setNavigatedFromSearch: (v) => set({ navigatedFromSearch: v })
+  setNavigatedFromSearch: (v) => set({ navigatedFromSearch: v }),
+  setNavigatedFromNoteId: (id) => set({ navigatedFromNoteId: id })
 }));

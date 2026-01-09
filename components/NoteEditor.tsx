@@ -29,6 +29,7 @@ const NoteEditor: React.FC = () => {
         setSelectedSermonId,
         setJumpToText,
         setJumpToParagraph,
+        setNavigatedFromNoteId,
         languageFilter,
         addNotification,
     } = useAppStore();
@@ -67,6 +68,10 @@ const NoteEditor: React.FC = () => {
 
     const handleJumpToCitation = (sermonId: string, quotedText?: string, paragraphIndex?: number) => {
         if(sermonId.startsWith('ia-response') || sermonId.startsWith('definition-')) return; 
+        
+        // Mémoriser la note d'origine pour permettre le retour
+        setNavigatedFromNoteId(activeNoteId);
+        
         setSelectedSermonId(sermonId);
         if (paragraphIndex) {
             setJumpToParagraph(paragraphIndex);

@@ -173,7 +173,8 @@ const NotesPanel: React.FC = () => {
     setActiveNoteId,
     setSelectedSermonId,
     setJumpToParagraph,
-    setJumpToText
+    setJumpToText,
+    setNavigatedFromNoteId
   } = useAppStore();
   
   const lang = languageFilter === 'Anglais' ? 'en' : 'fr';
@@ -218,14 +219,21 @@ const NotesPanel: React.FC = () => {
     setDragOverId(null);
   };
 
-  const handleJumpToReader = (citation: Citation) => {
+  const handleJumpToReader = (citation: Citation, noteId: string) => {
     if (citation.sermon_id.startsWith('ia-') || citation.sermon_id.startsWith('definition')) return;
+    
+    // Mémoriser la note d'origine pour permettre le retour
+    setNavigatedFromNoteId(noteId);
+    
     setSelectedSermonId(citation.sermon_id);
     if (citation.paragraph_index) {
         setJumpToParagraph(citation.paragraph_index);
     } else {
         setJumpToText(citation.quoted_text);
     }
+    
+    // Fermer l'éditeur de notes éventuel pour voir le lecteur
+    setActiveNoteId(null);
     toggleNotes(); 
   };
 
@@ -305,7 +313,7 @@ const NotesPanel: React.FC = () => {
                   onDelete={deleteNote}
                   onUpdateTitle={(id, title) => updateNote(id, { title })}
                   onUpdateColor={(id, color) => updateNote(id, { color })}
-                  onJumpToReader={handleJumpToReader}
+                  onJumpToReader={(citation) => handleJumpToReader(citation, n.id)}
                   isEditingTitle={editingNoteId === n.id}
                   setEditingNoteId={setEditingNoteId}
                   dragHandlers={{

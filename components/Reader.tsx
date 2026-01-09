@@ -146,6 +146,7 @@ const Reader: React.FC = () => {
   
   const notes = useAppStore(s => s.notes);
   const activeNoteId = useAppStore(s => s.activeNoteId);
+  const setActiveNoteId = useAppStore(s => s.setActiveNoteId);
   const isExternalMaskOpen = useAppStore(s => s.isExternalMaskOpen);
   const setExternalMaskOpen = useAppStore(s => s.setExternalMaskOpen);
   const projectionBlackout = useAppStore(s => s.projectionBlackout);
@@ -157,6 +158,8 @@ const Reader: React.FC = () => {
   const updateSermonHighlights = useAppStore(s => s.updateSermonHighlights);
   const navigatedFromSearch = useAppStore(s => s.navigatedFromSearch);
   const setNavigatedFromSearch = useAppStore(s => s.setNavigatedFromSearch);
+  const navigatedFromNoteId = useAppStore(s => s.navigatedFromNoteId);
+  const setNavigatedFromNoteId = useAppStore(s => s.setNavigatedFromNoteId);
   const lastSearchQuery = useAppStore(s => s.lastSearchQuery);
   const lastSearchMode = useAppStore(s => s.lastSearchMode);
   const setSearchQuery = useAppStore(s => s.setSearchQuery);
@@ -882,6 +885,9 @@ const Reader: React.FC = () => {
         <div className="flex items-center gap-2 shrink-0 ml-4 overflow-visible-important">
             {navigatedFromSearch && (
               <button onClick={() => { setSearchQuery(lastSearchQuery); setIsFullTextSearch(true); setSelectedSermonId(null); setNavigatedFromSearch(false); setSearchOriginMatchIndices([]); }} className="px-3 py-1.5 bg-amber-600/10 text-amber-700 dark:text-amber-400 text-[9px] font-bold uppercase tracking-wider rounded-xl hover:bg-amber-600/20 transition-colors mr-2"><ChevronLeft className="w-3 h-3 inline mr-1" /> {t.reader_exit_search}</button>
+            )}
+            {navigatedFromNoteId && (
+              <button onClick={() => { setActiveNoteId(navigatedFromNoteId); setNavigatedFromNoteId(null); setSelectedSermonId(null); }} className="px-3 py-1.5 bg-teal-600/10 text-teal-700 dark:text-teal-400 text-[9px] font-bold uppercase tracking-wider rounded-xl hover:bg-teal-600/20 transition-colors mr-2"><ChevronLeft className="w-3 h-3 inline mr-1" /> {t.reader_exit_note}</button>
             )}
             <ActionButton 
               onClick={togglePlay} 
