@@ -132,7 +132,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isFullTextSearch: false,
   cityFilter: null,
   yearFilter: null,
-  versionFilter: 'Shp', // Défini sur Shp par défaut comme demandé
+  versionFilter: null, // Modifié à null par défaut pour afficher tous les sermons au démarrage
   timeFilter: null,
   audioFilter: false,
   languageFilter: 'Français',
