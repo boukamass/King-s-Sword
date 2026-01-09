@@ -182,11 +182,15 @@ export const useAppStore = create<AppState>((set, get) => ({
         const map = new Map();
         
         data.forEach(s => {
-          if (!seenIds.has(s.id)) {
-            seenIds.add(s.id);
+          // Utilisation d'une clé unique incluant la version pour éviter de masquer les doublons d'ID
+          const uniqueKey = s.version ? `${s.id}-${s.version}` : s.id;
+          if (!seenIds.has(uniqueKey)) {
+            seenIds.add(uniqueKey);
             const { text, ...meta } = s;
-            uniqueMetadata.push(meta);
-            map.set(s.id, s);
+            // On s'assure que l'ID dans le state est celui utilisé pour le lookup unique
+            const metaWithUniqueId = { ...meta, id: uniqueKey };
+            uniqueMetadata.push(metaWithUniqueId);
+            map.set(uniqueKey, { ...s, id: uniqueKey });
           }
         });
 
@@ -255,15 +259,19 @@ export const useAppStore = create<AppState>((set, get) => ({
       const map = new Map();
       
       incoming.forEach(s => {
-        const uniqueKey = s.id + (s.version || '');
+        const baseId = s.id || `gen-${Math.random().toString(36).substr(2, 9)}`;
+        const uniqueKey = s.version ? `${baseId}-${s.version}` : baseId;
+        
         if (!seenIds.has(uniqueKey)) {
           seenIds.add(uniqueKey);
           const { text, ...meta } = s;
-          uniqueMetadata.push(meta);
+          const metaWithUniqueId = { ...meta, id: uniqueKey };
+          uniqueMetadata.push(metaWithUniqueId);
+          
           if (!get().isSqliteAvailable) {
-            map.set(s.id, s);
+            map.set(uniqueKey, { ...s, id: uniqueKey });
           } else {
-            map.set(s.id, meta);
+            map.set(uniqueKey, metaWithUniqueId);
           }
         }
       });

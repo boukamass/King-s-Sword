@@ -153,8 +153,9 @@ ipcMain.handle('db:importSermons', (event, sermons) => {
       const insFTS = db.prepare('INSERT INTO paragraphs_fts (content, sermon_id, paragraph_index) VALUES (?, ?, ?)');
       
       for (const s of data) {
-        // Fallback for ID and Text to prevent silent skipping
-        const sId = s.id || `gen-${Math.random().toString(36).substr(2, 9)}`;
+        // Pour gérer les versions multiples, on génère un ID unique par version
+        const baseId = s.id || `gen-${Math.random().toString(36).substr(2, 9)}`;
+        const sId = s.version ? `${baseId}-${s.version}` : baseId;
         const sText = s.text || "...";
 
         insS.run(
