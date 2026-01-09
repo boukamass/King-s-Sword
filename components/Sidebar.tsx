@@ -211,7 +211,8 @@ const Sidebar: React.FC = () => {
 
   const [internalQuery, setInternalQuery] = useState(searchQuery);
   const deferredSearchQuery = useDeferredValue(searchQuery);
-  const [showFilters, setShowFilters] = useState(false);
+  // Changé de false à true pour rendre les filtres visibles par défaut
+  const [showFilters, setShowFilters] = useState(true);
   const [isFooterVisible, setIsFooterVisible] = useState(true);
   
   // --- ÉTAT DE VIRTUALISATION ---
