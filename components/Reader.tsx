@@ -231,28 +231,95 @@ const Reader: React.FC = () => {
     };
   }, [setExternalMaskOpen]);
 
+  const highlightMap = useMemo(() => {
+    const map = new Map<number, Highlight>();
+    if (!sermon?.highlights) return map;
+    for (const h of sermon.highlights) {
+        for (let i = h.start; i <= h.end; i++) map.set(i, h);
+    }
+    return map;
+  }, [sermon?.highlights]);
+
+  const segments = useMemo(() => {
+    if (!sermon || !sermon.text) return [];
+    return sermon.text.split(/\n\s*\n/); 
+  }, [sermon?.id]);
+
+  const structuredSegments = useMemo(() => {
+    const result: { words: SimpleWord[]; isNumbered: boolean; text: string }[] = [];
+    let globalIdx = 0;
+    segments.forEach((seg, segIdx) => {
+        const segWords: SimpleWord[] = [];
+        const content = seg.trim();
+        if (content === "") return;
+
+        const tokens = seg.split(/(\s+)/);
+        tokens.forEach(token => {
+            if (token !== "") segWords.push({ text: token, segmentIndex: segIdx, globalIndex: globalIdx++ });
+        });
+        const isNumbered = /^\d+/.test(content);
+        result.push({ words: segWords, isNumbered, text: seg });
+    });
+    return result;
+  }, [segments]);
+
+  const words = useMemo(() => structuredSegments.flatMap(s => s.words), [structuredSegments]);
+
   useEffect(() => {
     if (broadcastChannel.current && sermon) {
       const activeText = projectedSegmentIndex !== null 
         ? segments[projectedSegmentIndex].trim()
         : sermon.text;
+
+      // Détection des mots sélectionnés pour synchronisation avec la projection
+      const sel = window.getSelection();
+      const selectionIndices: number[] = [];
+      if (sel && !sel.isCollapsed && readerAreaRef.current) {
+        const wordElements = readerAreaRef.current.querySelectorAll('[data-global-index]');
+        wordElements.forEach(el => {
+          if (sel.containsNode(el, true)) {
+            selectionIndices.push(parseInt(el.getAttribute('data-global-index') || '-1'));
+          }
+        });
+      }
+
+      // Calcul des mots projetés avec leurs informations de surlignage et d'index
+      let projectedWordsData: { text: string; globalIndex: number; color?: string }[] = [];
+      if (projectedSegmentIndex !== null) {
+          const seg = structuredSegments[projectedSegmentIndex];
+          if (seg) {
+              projectedWordsData = seg.words.map(w => {
+                  const h = highlightMap.get(w.globalIndex);
+                  const isJump = jumpHighlightIndices.includes(w.globalIndex);
+                  const isSearch = searchResults.includes(w.globalIndex) || searchOriginMatchIndices.includes(w.globalIndex);
+                  
+                  return {
+                      text: w.text,
+                      globalIndex: w.globalIndex,
+                      color: h ? (h.color || 'amber') : (isJump || isSearch ? 'amber' : undefined)
+                  };
+              });
+          }
+      }
+
       broadcastChannel.current.postMessage({
         type: 'sync',
         title: sermon.title,
         date: sermon.date,
         city: sermon.city,
         text: activeText,
+        projectedWords: projectedWordsData,
         fontSize,
         theme,
         blackout: projectionBlackout,
         highlights: sermon.highlights || [],
-        selectionIndices: [],
+        selectionIndices: selectionIndices,
         searchResults,
         currentResultIndex,
         activeDefinition
       });
     }
-  }, [sermon, projectedSegmentIndex, fontSize, theme, projectionBlackout, searchResults, currentResultIndex, activeDefinition]);
+  }, [sermon, projectedSegmentIndex, fontSize, theme, projectionBlackout, searchResults, currentResultIndex, activeDefinition, highlightMap, jumpHighlightIndices, searchOriginMatchIndices, structuredSegments, segments, selection]);
 
   const handleProjectSegment = (idx: number) => {
     if (projectedSegmentIndex === idx) {
@@ -313,31 +380,6 @@ const Reader: React.FC = () => {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen();
     else document.exitFullscreen();
   }, []);
-
-  const segments = useMemo(() => {
-    if (!sermon || !sermon.text) return [];
-    return sermon.text.split(/\n\s*\n/); 
-  }, [sermon?.id]);
-
-  const structuredSegments = useMemo(() => {
-    const result: { words: SimpleWord[]; isNumbered: boolean; text: string }[] = [];
-    let globalIdx = 0;
-    segments.forEach((seg, segIdx) => {
-        const segWords: SimpleWord[] = [];
-        const content = seg.trim();
-        if (content === "") return;
-
-        const tokens = seg.split(/(\s+)/);
-        tokens.forEach(token => {
-            if (token !== "") segWords.push({ text: token, segmentIndex: segIdx, globalIndex: globalIdx++ });
-        });
-        const isNumbered = /^\d+/.test(content);
-        result.push({ words: segWords, isNumbered, text: seg });
-    });
-    return result;
-  }, [segments]);
-
-  const words = useMemo(() => structuredSegments.flatMap(s => s.words), [structuredSegments]);
 
   useEffect(() => {
     if (sermon && words.length > 0 && lastSearchQuery) {
@@ -454,15 +496,6 @@ const Reader: React.FC = () => {
         setJumpToText(null);
     }
   }, [jumpToText, sermon, words, setJumpToText]);
-
-  const highlightMap = useMemo(() => {
-    const map = new Map<number, Highlight>();
-    if (!sermon?.highlights) return map;
-    for (const h of sermon.highlights) {
-        for (let i = h.start; i <= h.end; i++) map.set(i, h);
-    }
-    return map;
-  }, [sermon?.highlights]);
   
   const citationHighlightMap = useMemo(() => {
     const map = new Map<number, { colorClass: string }>();
@@ -850,6 +883,12 @@ const Reader: React.FC = () => {
             {navigatedFromSearch && (
               <button onClick={() => { setSearchQuery(lastSearchQuery); setIsFullTextSearch(true); setSelectedSermonId(null); setNavigatedFromSearch(false); setSearchOriginMatchIndices([]); }} className="px-3 py-1.5 bg-amber-600/10 text-amber-700 dark:text-amber-400 text-[9px] font-bold uppercase tracking-wider rounded-xl hover:bg-amber-600/20 transition-colors mr-2"><ChevronLeft className="w-3 h-3 inline mr-1" /> {t.reader_exit_search}</button>
             )}
+            <ActionButton 
+              onClick={togglePlay} 
+              icon={isPlaying ? Pause : Play} 
+              tooltip={isPlaying ? t.tooltip_pause : t.tooltip_play} 
+              active={isPlaying}
+            />
             <ActionButton 
               onClick={toggleProjection} 
               icon={MonitorPlay} 

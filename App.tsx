@@ -51,12 +51,25 @@ const MainContent = memo(({ showSearchResults, activeNoteId }: { showSearchResul
   return <Reader />;
 });
 
+const PROJECTION_HIGHLIGHT_STYLING: Record<string, string> = {
+    sky: 'bg-sky-500/40 border-b-[3px] border-sky-400/60',
+    teal: 'bg-teal-500/40 border-b-[3px] border-teal-400/60',
+    amber: 'bg-amber-500/50 border-b-[3px] border-amber-400/60 shadow-[0_4px_12px_rgba(245,158,11,0.2)]',
+    rose: 'bg-rose-500/40 border-b-[3px] border-rose-400/60',
+    violet: 'bg-violet-500/40 border-b-[3px] border-violet-400/60',
+    lime: 'bg-lime-500/40 border-b-[3px] border-lime-400/60',
+    orange: 'bg-orange-500/40 border-b-[3px] border-orange-400/60',
+    selection: 'bg-blue-600/40 border-b-[3px] border-blue-400/60 shadow-[0_4px_15px_rgba(37,99,235,0.4)]',
+    default: 'bg-white/20 border-b-[3px] border-white/30'
+};
+
 const ProjectionView = memo(() => {
   const [syncData, setSyncData] = useState<{ 
     title: string; 
     date: string; 
     city: string; 
     text: string; 
+    projectedWords?: { text: string; globalIndex: number; color?: string }[];
     fontSize: number; 
     blackout: boolean; 
     theme: string;
@@ -76,6 +89,7 @@ const ProjectionView = memo(() => {
       if (e.data.type === 'sync') {
         setSyncData({ 
             title: e.data.title || '', date: e.data.date || '', city: e.data.city || '', text: e.data.text || '', 
+            projectedWords: e.data.projectedWords,
             fontSize: e.data.fontSize || 24, blackout: e.data.blackout ?? false, theme: e.data.theme || 'system',
             highlights: e.data.highlights || [], selectionIndices: e.data.selectionIndices || [],
             searchResults: e.data.searchResults || [], currentResultIndex: e.data.currentResultIndex ?? -1, activeDefinition: e.data.activeDefinition || null
@@ -110,7 +124,7 @@ const ProjectionView = memo(() => {
 
   return (
     <div className="fixed inset-0 bg-black flex flex-col items-center select-none cursor-none overflow-hidden h-screen w-screen font-sans">
-       <div className="h-[90%] w-full flex items-center justify-start px-8 md:px-16 lg:px-24">
+       <div className="h-[90%] w-full flex items-center justify-start px-4 md:px-6">
           <div 
             className="text-white font-bold transition-all duration-300 text-left"
             style={{ 
@@ -121,7 +135,23 @@ const ProjectionView = memo(() => {
               width: '100%'
             }}
           >
-            {syncData.text}
+            {syncData.projectedWords && syncData.projectedWords.length > 0 ? (
+                syncData.projectedWords.map((word, idx) => {
+                    const isSelected = syncData.selectionIndices.includes(word.globalIndex);
+                    const styleClass = isSelected 
+                      ? PROJECTION_HIGHLIGHT_STYLING.selection 
+                      : (word.color ? PROJECTION_HIGHLIGHT_STYLING[word.color] || PROJECTION_HIGHLIGHT_STYLING.default : '');
+                    
+                    return (
+                        <span 
+                            key={idx} 
+                            className={`transition-colors duration-300 py-1 ${styleClass}`}
+                        >
+                            {word.text}
+                        </span>
+                    );
+                })
+            ) : syncData.text}
           </div>
        </div>
 
@@ -242,7 +272,7 @@ const App: React.FC = () => {
     } else if (activeHandle.current === 'ai') {
       const w = Math.max(40, Math.min(800, window.innerWidth - e.clientX));
       if (w < 60) { if (aiOpen) setAiOpen(false); }
-      else { if (!aiOpen && w > 40) setAiOpen(true); setAiWidth(w); }
+      else { if (!aiOpen && w > 40) setAiWidth(w); }
     }
   }, [sidebarOpen, aiOpen, notesOpen, aiWidth, setSidebarWidth, setAiWidth, setNotesWidth, setSidebarOpen, setAiOpen, setNotesOpen]);
 
