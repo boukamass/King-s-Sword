@@ -207,7 +207,7 @@ const Sidebar: React.FC = () => {
 
   const [internalQuery, setInternalQuery] = useState(searchQuery);
   const deferredSearchQuery = useDeferredValue(searchQuery);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
   const [isFooterVisible, setIsFooterVisible] = useState(true);
   
   // --- ÉTAT DE VIRTUALISATION ---
@@ -458,7 +458,7 @@ const Sidebar: React.FC = () => {
                 <div className={`relative w-8 h-4.5 rounded-full transition-all duration-500 flex items-center px-0.5 ${isFullTextSearch ? 'bg-teal-600 shadow-lg shadow-teal-600/20' : 'bg-zinc-200 dark:bg-zinc-700 shadow-inner'}`}>
                   <div className={`w-3.5 h-3.5 bg-white rounded-full shadow-md transition-all duration-500 transform ${isFullTextSearch ? 'translate-x-3.5 scale-100' : 'translate-x-0 scale-90'}`} />
                 </div>
-                <span className={`text-[9px] font-black uppercase tracking-widest transition-colors duration-500 ${isFullTextSearch ? 'text-teal-600' : 'text-zinc-400 dark:text-zinc-500'}`}>
+                <span className={`text-[8px] font-black uppercase tracking-widest transition-colors duration-500 ${isFullTextSearch ? 'text-teal-600' : 'text-zinc-400 dark:text-zinc-500'}`}>
                   {t.full_text_search}
                 </span>
               </div>
