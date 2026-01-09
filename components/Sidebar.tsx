@@ -1,4 +1,3 @@
-
 // Add React import to the list of imports from 'react'
 import React, { useState, useRef, useEffect, useMemo, memo, useDeferredValue, useTransition, useCallback } from 'react';
 import { useAppStore } from '../store';
@@ -19,8 +18,7 @@ import {
   RefreshCw,
   Calendar,
   Library,
-  Info,
-  Volume2
+  Info
 } from 'lucide-react';
 
 const ITEM_HEIGHT = 76; // Hauteur fixe d'un élément de sermon
@@ -193,8 +191,6 @@ const Sidebar: React.FC = () => {
   const isFullTextSearch = useAppStore(s => s.isFullTextSearch);
   const setIsFullTextSearch = useAppStore(s => s.setIsFullTextSearch);
   const isSearching = useAppStore(s => s.isSearching);
-  const audioOnlyFilter = useAppStore(s => s.audioOnlyFilter);
-  const setAudioOnlyFilter = useAppStore(s => s.setAudioOnlyFilter);
   
   const cityFilter = useAppStore(s => s.cityFilter);
   const yearFilter = useAppStore(s => s.yearFilter);
@@ -303,14 +299,13 @@ const Sidebar: React.FC = () => {
         const titleText = (s as any)._normalizedTitle || normalizeText(s.title || '');
         if (!titleText.includes(q)) return false;
       }
-      if (audioOnlyFilter && !s.audio_url) return false;
       if (cityFilter && s.city !== cityFilter) return false;
       if (yearFilter && (!s.date || !s.date.startsWith(yearFilter))) return false;
       if (versionFilter && s.version !== versionFilter) return false;
       if (timeFilter && s.time !== timeFilter) return false;
       return true;
     });
-  }, [sermons, deferredSearchQuery, cityFilter, yearFilter, versionFilter, timeFilter, isFullTextSearch, audioOnlyFilter]);
+  }, [sermons, deferredSearchQuery, cityFilter, yearFilter, versionFilter, timeFilter, isFullTextSearch]);
 
   // --- LOGIQUE DE VIRTUALISATION ---
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -444,25 +439,23 @@ const Sidebar: React.FC = () => {
           </div>
 
           <div className="flex items-center justify-between gap-2 px-1">
-            <div className="flex items-center gap-3">
-              <div 
-                onClick={() => {
-                  const newVal = !isFullTextSearch;
-                  setIsFullTextSearch(newVal);
-                  if (!newVal) {
-                    setSearchQuery(internalQuery);
-                  }
-                }}
-                data-tooltip="Activer/Désactiver la recherche intégrale"
-                className="flex items-center gap-2.5 cursor-pointer group/toggle select-none tooltip-right"
-              >
-                <div className={`relative w-8 h-4.5 rounded-full transition-all duration-500 flex items-center px-0.5 ${isFullTextSearch ? 'bg-teal-600 shadow-lg shadow-teal-600/20' : 'bg-zinc-200 dark:bg-zinc-700 shadow-inner'}`}>
-                  <div className={`w-3.5 h-3.5 bg-white rounded-full shadow-md transition-all duration-500 transform ${isFullTextSearch ? 'translate-x-3.5 scale-100' : 'translate-x-0 scale-90'}`} />
-                </div>
-                <span className={`text-[9px] font-black uppercase tracking-widest transition-colors duration-500 ${isFullTextSearch ? 'text-teal-600' : 'text-zinc-400 dark:text-zinc-500'}`}>
-                  {t.full_text_search}
-                </span>
+            <div 
+              onClick={() => {
+                const newVal = !isFullTextSearch;
+                setIsFullTextSearch(newVal);
+                if (!newVal) {
+                  setSearchQuery(internalQuery);
+                }
+              }}
+              data-tooltip="Activer/Désactiver la recherche intégrale"
+              className="flex items-center gap-2.5 cursor-pointer group/toggle select-none tooltip-right"
+            >
+              <div className={`relative w-8 h-4.5 rounded-full transition-all duration-500 flex items-center px-0.5 ${isFullTextSearch ? 'bg-teal-600 shadow-lg shadow-teal-600/20' : 'bg-zinc-200 dark:bg-zinc-700 shadow-inner'}`}>
+                <div className={`w-3.5 h-3.5 bg-white rounded-full shadow-md transition-all duration-500 transform ${isFullTextSearch ? 'translate-x-3.5 scale-100' : 'translate-x-0 scale-90'}`} />
               </div>
+              <span className={`text-[9px] font-black uppercase tracking-widest transition-colors duration-500 ${isFullTextSearch ? 'text-teal-600' : 'text-zinc-400 dark:text-zinc-500'}`}>
+                {t.full_text_search}
+              </span>
             </div>
 
             <button 
@@ -500,7 +493,7 @@ const Sidebar: React.FC = () => {
           )}
         </div>
 
-        <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800/50 flex items-center gap-2 bg-zinc-50/20 dark:bg-zinc-900/20 sticky top-0 z-40 backdrop-blur-sm">
+        <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800/50 flex items-center bg-zinc-50/20 dark:bg-zinc-900/20 sticky top-0 z-40 backdrop-blur-sm">
           <button 
             onClick={handleToggleAllFiltered}
             data-tooltip={areAllFilteredSelected ? "Tout retirer du contexte IA" : "Tout ajouter au contexte IA (filtrés)"}
@@ -511,19 +504,6 @@ const Sidebar: React.FC = () => {
             }`}
           >
             <Sparkles className={`w-4 h-4 transition-transform duration-500 ${areAllFilteredSelected ? 'scale-110 rotate-12' : 'opacity-60 group-hover/context-all:opacity-100 group-hover/context-all:scale-110'}`} />
-          </button>
-
-          {/* Filtre Audio Modernisé */}
-          <button 
-            onClick={() => setAudioOnlyFilter(!audioOnlyFilter)}
-            data-tooltip={audioOnlyFilter ? "Afficher tous les sermons" : t.filter_audio_only}
-            className={`w-8 h-8 flex items-center justify-center rounded-xl border transition-all active:scale-90 group/audio-toggle tooltip-right ${
-              audioOnlyFilter 
-                ? 'bg-teal-500 text-white border-teal-500 shadow-lg shadow-teal-500/20' 
-                : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-teal-500/50 hover:bg-teal-50 dark:hover:bg-teal-900/10'
-            }`}
-          >
-            <Volume2 className={`w-4 h-4 transition-transform duration-500 ${audioOnlyFilter ? 'scale-110 rotate-12' : 'opacity-60 group-hover/audio-toggle:opacity-100 group-hover/audio-toggle:scale-110'}`} />
           </button>
         </div>
 
