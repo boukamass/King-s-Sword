@@ -1,4 +1,3 @@
-
 {
   "name": "kings-sword",
   "version": "1.0.1",
@@ -16,23 +15,74 @@
   "dependencies": {
     "@google/genai": "^1.34.0",
     "better-sqlite3": "^11.3.0",
-    "zustand": "^5.0.9",
+    "docx": "^8.5.0",
+    "electron-updater": "^6.1.8",
+    "file-saver": "^2.0.5",
+    "jspdf": "^4.0.0",
+    "lucide-react": "^0.562.0",
+    "marked": "^12.0.2",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "electron-updater": "^6.1.8",
-    "marked": "^12.0.2",
-    "jspdf": "^2.5.1",
-    "docx": "^8.5.0",
-    "file-saver": "^2.0.5"
+    "zustand": "^5.0.9"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",
-    "electron": "^29.1.0",
+    "concurrently": "^8.2.2",
+    "electron": "^28.3.3",
     "electron-builder": "^24.13.3",
     "electron-rebuild": "^3.2.9",
-    "vite": "^5.1.4",
-    "concurrently": "^8.2.2",
-    "wait-on": "^7.2.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vite": "^7.3.1",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.kingssword.app",
+    "productName": "King's Sword",
+    "copyright": "Copyright © 2024 Bienvenu Sédin Massamba. Tous droits réservés.",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "main.js",
+      "preload.js"
+    ],
+    "extraResources": [
+      {
+        "from": "public",
+        "to": "public",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "boukamass",
+        "repo": "King-s-Sword"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "public/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "King's Sword",
+      "installerIcon": "public/icon.ico",
+      "uninstallerIcon": "public/icon.ico",
+      "installerHeaderIcon": "public/icon.ico"
+    }
   }
 }
