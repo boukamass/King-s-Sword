@@ -192,6 +192,7 @@ const Reader: React.FC = () => {
   const [activeDefinition, setActiveDefinition] = useState<WordDefinition | null>(null);
   const [isDefining, setIsDefining] = useState(false);
   const [jumpHighlightIndices, setJumpHighlightIndices] = useState<number[]>([]);
+  const [syncToggle, setSyncToggle] = useState(0);
 
   const [localFontSize, setLocalFontSize] = useState<string | number>(fontSize);
   useEffect(() => {
@@ -214,6 +215,12 @@ const Reader: React.FC = () => {
 
   useEffect(() => {
     broadcastChannel.current = new BroadcastChannel('kings_sword_projection');
+    broadcastChannel.current.onmessage = (e) => {
+      if (e.data && e.data.type === 'ready') {
+        setSyncToggle(prev => prev + 1);
+      }
+    };
+
     const checkWindowStatus = setInterval(() => {
       if (externalMaskWindow && externalMaskWindow.closed) {
         setExternalMaskOpen(false);
@@ -321,7 +328,7 @@ const Reader: React.FC = () => {
         activeDefinition
       });
     }
-  }, [sermon, projectedSegmentIndex, fontSize, theme, projectionBlackout, searchResults, currentResultIndex, activeDefinition, highlightMap, jumpHighlightIndices, searchOriginMatchIndices, structuredSegments, segments, selection]);
+  }, [sermon, projectedSegmentIndex, fontSize, theme, projectionBlackout, searchResults, currentResultIndex, activeDefinition, highlightMap, jumpHighlightIndices, searchOriginMatchIndices, structuredSegments, segments, selection, syncToggle]);
 
   const toggleProjection = () => {
     if (projectionWindow && !projectionWindow.closed) {
