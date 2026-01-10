@@ -40,6 +40,7 @@ import {
   Quote, 
   MapPin, 
   Calendar, 
+  Clock,
   Feather, 
   Milestone, 
   MonitorPlay,
@@ -276,9 +277,10 @@ const Reader: React.FC = () => {
 
   useEffect(() => {
     if (broadcastChannel.current && sermon) {
+      // Logic adjusted: if projectedSegmentIndex is null, send an empty string so projection shows standby screen
       const activeText = projectedSegmentIndex !== null 
         ? segments[projectedSegmentIndex].trim()
-        : sermon.text;
+        : "";
 
       // Détection des mots sélectionnés pour synchronisation avec la projection
       const sel = window.getSelection();
@@ -889,6 +891,13 @@ const Reader: React.FC = () => {
             <h1 className="text-[16px] font-extrabold text-zinc-900 dark:text-zinc-50 truncate tracking-tight transition-all leading-tight">{sermon.title}</h1>
             <div className="flex items-center gap-2 text-[9px] font-bold text-zinc-400 uppercase tracking-wider leading-none mt-1">
               <Calendar className="w-2.5 h-2.5 text-teal-600 dark:text-blue-400" /><span className="font-mono">{sermon.date}</span>
+              {sermon.time && (
+                <>
+                  <span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-1" />
+                  <Clock className="w-2.5 h-2.5 text-teal-600 dark:text-blue-400" />
+                  <span>{sermon.time}</span>
+                </>
+              )}
               <span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-1" /><MapPin className="w-2.5 h-2.5 text-teal-600 dark:text-blue-400" /><span className="truncate">{sermon.city}</span>
             </div>
           </div>
@@ -898,7 +907,7 @@ const Reader: React.FC = () => {
               <button onClick={() => { setSearchQuery(lastSearchQuery); setIsFullTextSearch(true); setSelectedSermonId(null); setNavigatedFromSearch(false); setSearchOriginMatchIndices([]); }} className="px-3 py-1.5 bg-amber-600/10 text-amber-700 dark:text-amber-400 text-[9px] font-bold uppercase tracking-wider rounded-xl hover:bg-amber-600/20 transition-colors mr-2"><ChevronLeft className="w-3 h-3 inline mr-1" /> {t.reader_exit_search}</button>
             )}
             {navigatedFromNoteId && (
-              <button onClick={() => { setActiveNoteId(navigatedFromNoteId); setNavigatedFromNoteId(null); setSelectedSermonId(null); }} className="px-3 py-1.5 bg-teal-600/10 text-teal-700 dark:text-teal-400 text-[9px] font-bold uppercase tracking-wider rounded-xl hover:bg-teal-600/20 transition-colors mr-2"><ChevronLeft className="w-3 h-3 inline mr-1" /> {t.reader_exit_note}</button>
+              <button onClick={() => { setActiveNoteId(navigatedFromNoteId); setNavigatedFromNoteId(null); setSelectedSermonId(null); }} className="px-3 py-1.5 bg-teal-600/10 text-teal-700 dark:text-teal-400 text-[9px] font-bold uppercase tracking-wider rounded-xl hover:bg-amber-600/20 transition-colors mr-2"><ChevronLeft className="w-3 h-3 inline mr-1" /> {t.reader_exit_note}</button>
             )}
             <ActionButton 
               onClick={togglePlay} 
