@@ -230,6 +230,7 @@ const Reader: React.FC = () => {
       if (projectionWindow && projectionWindow.closed) {
         projectionWindow = null;
         setIsProjectionOpen(false);
+        setProjectedSegmentIndex(null);
       }
     }, 1000);
     const handleFullscreenChange = () => setIsOSFullscreen(!!document.fullscreenElement);
@@ -318,6 +319,7 @@ const Reader: React.FC = () => {
         title: sermon.title,
         date: sermon.date,
         city: sermon.city,
+        time: sermon.time,
         text: activeText,
         projectedWords: projectedWordsData,
         fontSize,
@@ -337,6 +339,7 @@ const Reader: React.FC = () => {
       projectionWindow.close();
       projectionWindow = null;
       setIsProjectionOpen(false);
+      setProjectedSegmentIndex(null);
       addNotification("Projection terminée", "success");
     } else {
       try {

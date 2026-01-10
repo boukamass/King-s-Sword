@@ -1,4 +1,3 @@
-
 import React, { useCallback, useRef, useState, useEffect, useMemo, memo } from 'react';
 import { useAppStore } from './store';
 import Sidebar from './components/Sidebar';
@@ -8,7 +7,7 @@ import AIAssistant from './components/AIAssistant';
 import NotesPanel from './components/NotesPanel';
 import Notifications from './components/Notifications';
 import NoteEditor from './components/NoteEditor';
-import { Sparkles, NotebookPen, Info, Trash2, HelpCircle, Calendar, MapPin, Quote, BookOpenCheck, Feather, Milestone, Loader2 } from 'lucide-react';
+import { Sparkles, NotebookPen, Info, Trash2, HelpCircle, Calendar, MapPin, Quote, BookOpenCheck, Feather, Milestone, Loader2, Clock } from 'lucide-react';
 import { Highlight } from './types';
 import { WordDefinition } from './services/dictionaryService';
 
@@ -68,6 +67,7 @@ const ProjectionView = memo(() => {
     title: string; 
     date: string; 
     city: string; 
+    time: string;
     text: string; 
     projectedWords?: { text: string; globalIndex: number; color?: string }[];
     fontSize: number; 
@@ -79,7 +79,7 @@ const ProjectionView = memo(() => {
     currentResultIndex: number;
     activeDefinition: WordDefinition | null;
   }>({
-    title: '', date: '', city: '', text: '', fontSize: 24, blackout: false, theme: 'system',
+    title: '', date: '', city: '', time: '', text: '', fontSize: 24, blackout: false, theme: 'system',
     highlights: [], selectionIndices: [], searchResults: [], currentResultIndex: -1, activeDefinition: null
   });
   
@@ -88,7 +88,7 @@ const ProjectionView = memo(() => {
     channel.onmessage = (e) => {
       if (e.data.type === 'sync') {
         setSyncData({ 
-            title: e.data.title || '', date: e.data.date || '', city: e.data.city || '', text: e.data.text || '', 
+            title: e.data.title || '', date: e.data.date || '', city: e.data.city || '', time: e.data.time || '', text: e.data.text || '', 
             projectedWords: e.data.projectedWords,
             fontSize: e.data.fontSize || 24, blackout: e.data.blackout ?? false, theme: e.data.theme || 'system',
             highlights: e.data.highlights || [], selectionIndices: e.data.selectionIndices || [],
@@ -169,6 +169,12 @@ const ProjectionView = memo(() => {
                 <Calendar className="w-[2vmin] h-[2vmin] text-teal-600/40" />
                 <span className="font-mono">{syncData.date}</span>
              </div>
+             {syncData.time && (
+               <div className="flex items-center gap-3">
+                  <Clock className="w-[2vmin] h-[2vmin] text-teal-600/40" />
+                  <span>{syncData.time}</span>
+               </div>
+             )}
              <div className="flex items-center gap-3">
                 <MapPin className="w-[2vmin] h-[2vmin] text-teal-600/40" />
                 <span>{syncData.city}</span>
