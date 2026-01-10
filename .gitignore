@@ -21,6 +21,8 @@ release
 # OS files
 .DS_Store
 Thumbs.db
+library.json
+public/library.json
 
 # Logs
 npm-debug.log*
