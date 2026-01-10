@@ -1,4 +1,3 @@
-
 // Add React import to the list of imports from 'react'
 import React, { useState, useRef, useEffect, useMemo, memo, useDeferredValue, useTransition, useCallback } from 'react';
 import { useAppStore } from '../store';
@@ -20,7 +19,8 @@ import {
   Calendar,
   Library,
   Info,
-  RotateCcw
+  RotateCcw,
+  Clock
 } from 'lucide-react';
 
 const ITEM_HEIGHT = 80; // Hauteur totale fixe (pixels) pour une virtualisation parfaite
@@ -155,6 +155,13 @@ const SermonItem = memo(({
           <div className="flex items-center gap-2 text-[8px] text-zinc-400 font-bold uppercase tracking-widest">
             <Calendar className="w-2 h-2 text-teal-600/50" />
             <span className="font-mono">{sermon.date}</span>
+            {sermon.time && (
+              <React.Fragment>
+                <span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-0.5" />
+                <Clock className="w-2 h-2 text-teal-600/50" />
+                <span>{sermon.time}</span>
+              </React.Fragment>
+            )}
             <span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-0.5" />
             <MapPin className="w-2 h-2 text-teal-600/50" />
             <span className="truncate">{sermon.city}</span>
