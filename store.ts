@@ -171,7 +171,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     
     try {
       if (!hasSqlite) {
-        set({ loadingMessage: "Chargement des sermons (Web)...", loadingProgress: 35 });
+        set({ loadingMessage: "Chargement des sermons...", loadingProgress: 35 });
         const response = await fetch('library.json');
         set({ loadingProgress: 60 });
         const data: Sermon[] = await response.json();

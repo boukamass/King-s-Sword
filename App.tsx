@@ -350,8 +350,8 @@ const App: React.FC = () => {
                     <div className="w-1 h-1 bg-teal-500 rounded-full animate-pulse delay-75" />
                     <div className="w-1 h-1 bg-teal-500 rounded-full animate-pulse delay-150" />
                   </div>
-                  <span className="text-[8px] font-black uppercase tracking-[0.4em] text-zinc-400">
-                    Bibliothèque prophétique
+                  <span className="text-[8px] font-black uppercase tracking-[0.4em] text-teal-500">
+                    WILLIAM MARRION BRANHAM
                   </span>
                 </div>
              </div>
