@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo, useCallback, memo, useTransition } from 'react';
 import { useAppStore } from '../store';
 import { translations } from '../translations';
@@ -324,15 +323,6 @@ const Reader: React.FC = () => {
     }
   }, [sermon, projectedSegmentIndex, fontSize, theme, projectionBlackout, searchResults, currentResultIndex, activeDefinition, highlightMap, jumpHighlightIndices, searchOriginMatchIndices, structuredSegments, segments, selection]);
 
-  const handleProjectSegment = (idx: number) => {
-    if (projectedSegmentIndex === idx) {
-      setProjectedSegmentIndex(null);
-    } else {
-      setProjectedSegmentIndex(idx);
-      addNotification("Paragraphe projeté", "success");
-    }
-  };
-
   const toggleProjection = () => {
     if (projectionWindow && !projectionWindow.closed) {
       projectionWindow.close();
@@ -356,6 +346,20 @@ const Reader: React.FC = () => {
       } catch (err) {
         addNotification("Erreur de projection", "error");
       }
+    }
+  };
+
+  const handleProjectSegment = (idx: number) => {
+    // Déclencher la projection si elle n'est pas encore active
+    if (!projectionWindow || projectionWindow.closed) {
+      toggleProjection();
+    }
+
+    if (projectedSegmentIndex === idx) {
+      setProjectedSegmentIndex(null);
+    } else {
+      setProjectedSegmentIndex(idx);
+      addNotification("Paragraphe projeté", "success");
     }
   };
 
