@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo, useCallback, memo, useTransition } from 'react';
 import { useAppStore } from '../store';
 import { translations } from '../translations';
@@ -215,6 +216,48 @@ const Reader: React.FC = () => {
 
   const broadcastChannel = useRef<BroadcastChannel | null>(null);
 
+  // Gestionnaire de sélection optimisé pour la synchronisation immédiate
+  const handleSelectionChange = useCallback(() => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !readerAreaRef.current) {
+      setSelectionIndices(prev => prev.length > 0 ? [] : prev);
+      return;
+    }
+
+    try {
+      const range = sel.getRangeAt(0);
+      const container = range.commonAncestorContainer.nodeType === 1 
+        ? (range.commonAncestorContainer as HTMLElement) 
+        : range.commonAncestorContainer.parentElement;
+
+      if (!container || !readerAreaRef.current.contains(container)) return;
+
+      const indices: number[] = [];
+      // On ne cherche que dans l'ancêtre commun pour plus de rapidité
+      const wordElements = container.querySelectorAll('[data-global-index]');
+      
+      // Cas où l'ancêtre commun est lui-même un mot
+      const selfIdx = container.getAttribute('data-global-index');
+      if (selfIdx && sel.containsNode(container, true)) {
+          indices.push(parseInt(selfIdx));
+      }
+
+      wordElements.forEach(el => {
+        if (sel.containsNode(el, true)) {
+          const idx = el.getAttribute('data-global-index');
+          if (idx) indices.push(parseInt(idx));
+        }
+      });
+      
+      setSelectionIndices(prev => {
+          if (prev.length === indices.length && prev.every((v, i) => v === indices[i])) return prev;
+          return indices;
+      });
+    } catch (e) {
+      // Ignorer les erreurs de sélection transitoires
+    }
+  }, []);
+
   useEffect(() => {
     broadcastChannel.current = new BroadcastChannel('kings_sword_projection');
     broadcastChannel.current.onmessage = (e) => {
@@ -237,20 +280,6 @@ const Reader: React.FC = () => {
     const handleFullscreenChange = () => setIsOSFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', handleFullscreenChange);
 
-    // Écouteur pour la synchronisation instantanée de la sélection
-    const handleSelectionChange = () => {
-      const sel = window.getSelection();
-      const indices: number[] = [];
-      if (sel && !sel.isCollapsed && readerAreaRef.current) {
-        const wordElements = readerAreaRef.current.querySelectorAll('[data-global-index]');
-        wordElements.forEach(el => {
-          if (sel.containsNode(el, true)) {
-            indices.push(parseInt(el.getAttribute('data-global-index') || '-1'));
-          }
-        });
-      }
-      setSelectionIndices(indices);
-    };
     document.addEventListener('selectionchange', handleSelectionChange);
 
     return () => {
@@ -259,7 +288,7 @@ const Reader: React.FC = () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('selectionchange', handleSelectionChange);
     };
-  }, [setExternalMaskOpen]);
+  }, [setExternalMaskOpen, handleSelectionChange]);
 
   const highlightMap = useMemo(() => {
     const map = new Map<number, Highlight>();
@@ -295,17 +324,18 @@ const Reader: React.FC = () => {
 
   const words = useMemo(() => structuredSegments.flatMap(s => s.words), [structuredSegments]);
 
+  // Synchronisation avec la projection
   useEffect(() => {
     if (broadcastChannel.current && sermon) {
       const activeText = projectedSegmentIndex !== null 
         ? segments[projectedSegmentIndex].trim()
         : "";
 
-      // Calcul des mots projetés avec leurs informations de surlignage et d'index
       let projectedWordsData: { text: string; globalIndex: number; color?: string }[] = [];
       if (projectedSegmentIndex !== null) {
           const seg = structuredSegments[projectedSegmentIndex];
           if (seg) {
+              const selectionSet = new Set(selectionIndices);
               projectedWordsData = seg.words.map(w => {
                   const h = highlightMap.get(w.globalIndex);
                   const isJump = jumpHighlightIndices.includes(w.globalIndex);
@@ -314,7 +344,9 @@ const Reader: React.FC = () => {
                   return {
                       text: w.text,
                       globalIndex: w.globalIndex,
-                      color: h ? (h.color || 'amber') : (isJump || isSearch ? 'amber' : undefined)
+                      color: selectionSet.has(w.globalIndex) 
+                        ? 'selection' 
+                        : (h ? (h.color || 'amber') : (isJump || isSearch ? 'amber' : undefined))
                   };
               });
           }
@@ -338,7 +370,7 @@ const Reader: React.FC = () => {
         activeDefinition
       });
     }
-  }, [sermon, projectedSegmentIndex, fontSize, theme, projectionBlackout, searchResults, currentResultIndex, activeDefinition, highlightMap, jumpHighlightIndices, searchOriginMatchIndices, structuredSegments, segments, selection, selectionIndices, syncToggle]);
+  }, [sermon, projectedSegmentIndex, fontSize, theme, projectionBlackout, searchResults, currentResultIndex, activeDefinition, highlightMap, jumpHighlightIndices, searchOriginMatchIndices, structuredSegments, segments, selectionIndices, syncToggle]);
 
   const toggleProjection = () => {
     if (projectionWindow && !projectionWindow.closed) {
@@ -712,8 +744,10 @@ const Reader: React.FC = () => {
     searchResults.forEach(idx => set.add(idx));
     searchOriginMatchIndices.forEach(idx => set.add(idx));
     jumpHighlightIndices.forEach(idx => set.add(idx));
+    // Ajout des indices de sélection pour le rendu interactif immédiat
+    selectionIndices.forEach(idx => set.add(idx));
     return set;
-  }, [highlightMap, citationHighlightMap, searchResults, searchOriginMatchIndices, jumpHighlightIndices]);
+  }, [highlightMap, citationHighlightMap, searchResults, searchOriginMatchIndices, jumpHighlightIndices, selectionIndices]);
 
   const renderSegmentContent = useCallback((segWords: SimpleWord[]) => {
     const elements: React.ReactNode[] = [];
