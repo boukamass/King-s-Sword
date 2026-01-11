@@ -1,3 +1,4 @@
+
 import React, { useCallback, useRef, useState, useEffect, useMemo, memo } from 'react';
 import { useAppStore } from './store';
 import Sidebar from './components/Sidebar';
@@ -372,7 +373,7 @@ const App: React.FC = () => {
         </div>
 
         <div className="absolute bottom-10 text-[8px] font-black uppercase tracking-[0.5em] text-zinc-600 opacity-20 pointer-events-none">
-          VISION DE L'AIGLE TABERNACLE • v1.0.3
+          VISION DE L'AIGLE TABERNACLE • v{process.env.APP_VERSION}
         </div>
 
         <style>{`

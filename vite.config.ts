@@ -12,6 +12,8 @@ export default defineConfig(({ mode }) => {
     define: {
       // Injecte la clé API pour l'utilisation dans le Renderer process
       'process.env.API_KEY': JSON.stringify(env.API_KEY || process.env.API_KEY),
+      // Injecte la version de l'application
+      'process.env.APP_VERSION': JSON.stringify('1.0.3'),
       // NODE_ENV est utile pour certaines bibliothèques
       'process.env.NODE_ENV': JSON.stringify(mode),
     },

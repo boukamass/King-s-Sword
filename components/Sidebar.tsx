@@ -1,3 +1,4 @@
+
 // Add React import to the list of imports from 'react'
 import React, { useState, useRef, useEffect, useMemo, memo, useDeferredValue, useTransition, useCallback } from 'react';
 import { useAppStore } from '../store';
@@ -634,7 +635,7 @@ const Sidebar: React.FC = () => {
             <div className="text-center animate-in fade-in slide-in-from-bottom-2 duration-500">
               <div className="flex flex-col items-center mb-3 gap-1">
                 <p className="text-[10px] font-black text-zinc-900 dark:text-zinc-50 uppercase tracking-[0.25em]">
-                  KING'S SWORD <span className="text-teal-600 dark:text-blue-400 ml-1">v1.0.1</span>
+                  KING'S SWORD <span className="text-teal-600 dark:text-blue-400 ml-1">v{process.env.APP_VERSION}</span>
                 </p>
                 <div className="h-0.5 w-8 bg-teal-600/20 dark:bg-blue-400/20 rounded-full" />
                 <p className="text-[8px] font-black text-teal-600 uppercase tracking-widest mt-0.5">
@@ -655,7 +656,7 @@ const Sidebar: React.FC = () => {
           ) : (
             <div className="flex items-center justify-center gap-4 animate-in fade-in duration-500">
                <div className="flex items-center gap-1.5">
-                  <span className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">KS v1.0.1</span>
+                  <span className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">KS v{process.env.APP_VERSION}</span>
                </div>
                <div className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full" />
                <div className="flex items-center gap-1.5">
