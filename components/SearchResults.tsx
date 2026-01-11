@@ -190,7 +190,7 @@ const SearchResults: React.FC = () => {
             {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
           </div>
           <div>
-            <h2 className="text-[12px] font-black uppercase tracking-[0.2em] text-zinc-800 dark:text-zinc-100">MOTEUR SQLITE FTS5</h2>
+            <h2 className="text-[12px] font-black uppercase tracking-[0.2em] text-zinc-800 dark:text-zinc-100">RÉSULTATS DE RECHERCHE</h2>
             <p className="text-[8px] font-black text-teal-600 uppercase tracking-[0.3em] mt-0.5">
               {searchResults.length} occurrences trouvées
             </p>

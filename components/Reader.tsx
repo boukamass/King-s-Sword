@@ -179,6 +179,7 @@ const Reader: React.FC = () => {
   const sermon = activeSermon;
   
   const [selection, setSelection] = useState<{ text: string; x: number; y: number; isTop: boolean } | null>(null);
+  const [selectionIndices, setSelectionIndices] = useState<number[]>([]);
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [readerSearchQuery, setReaderSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<number[]>([]);
@@ -235,10 +236,28 @@ const Reader: React.FC = () => {
     }, 1000);
     const handleFullscreenChange = () => setIsOSFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+    // Écouteur pour la synchronisation instantanée de la sélection
+    const handleSelectionChange = () => {
+      const sel = window.getSelection();
+      const indices: number[] = [];
+      if (sel && !sel.isCollapsed && readerAreaRef.current) {
+        const wordElements = readerAreaRef.current.querySelectorAll('[data-global-index]');
+        wordElements.forEach(el => {
+          if (sel.containsNode(el, true)) {
+            indices.push(parseInt(el.getAttribute('data-global-index') || '-1'));
+          }
+        });
+      }
+      setSelectionIndices(indices);
+    };
+    document.addEventListener('selectionchange', handleSelectionChange);
+
     return () => {
       broadcastChannel.current?.close();
       clearInterval(checkWindowStatus);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('selectionchange', handleSelectionChange);
     };
   }, [setExternalMaskOpen]);
 
@@ -278,22 +297,9 @@ const Reader: React.FC = () => {
 
   useEffect(() => {
     if (broadcastChannel.current && sermon) {
-      // Logic adjusted: if projectedSegmentIndex is null, send an empty string so projection shows standby screen
       const activeText = projectedSegmentIndex !== null 
         ? segments[projectedSegmentIndex].trim()
         : "";
-
-      // Détection des mots sélectionnés pour synchronisation avec la projection
-      const sel = window.getSelection();
-      const selectionIndices: number[] = [];
-      if (sel && !sel.isCollapsed && readerAreaRef.current) {
-        const wordElements = readerAreaRef.current.querySelectorAll('[data-global-index]');
-        wordElements.forEach(el => {
-          if (sel.containsNode(el, true)) {
-            selectionIndices.push(parseInt(el.getAttribute('data-global-index') || '-1'));
-          }
-        });
-      }
 
       // Calcul des mots projetés avec leurs informations de surlignage et d'index
       let projectedWordsData: { text: string; globalIndex: number; color?: string }[] = [];
@@ -332,7 +338,7 @@ const Reader: React.FC = () => {
         activeDefinition
       });
     }
-  }, [sermon, projectedSegmentIndex, fontSize, theme, projectionBlackout, searchResults, currentResultIndex, activeDefinition, highlightMap, jumpHighlightIndices, searchOriginMatchIndices, structuredSegments, segments, selection, syncToggle]);
+  }, [sermon, projectedSegmentIndex, fontSize, theme, projectionBlackout, searchResults, currentResultIndex, activeDefinition, highlightMap, jumpHighlightIndices, searchOriginMatchIndices, structuredSegments, segments, selection, selectionIndices, syncToggle]);
 
   const toggleProjection = () => {
     if (projectionWindow && !projectionWindow.closed) {
@@ -362,7 +368,6 @@ const Reader: React.FC = () => {
   };
 
   const handleProjectSegment = (idx: number) => {
-    // Déclencher la projection si elle n'est pas encore active
     if (!projectionWindow || projectionWindow.closed) {
       toggleProjection();
     }
@@ -624,11 +629,9 @@ const Reader: React.FC = () => {
     const range = sel.getRangeAt(0);
 
     const getIndexFromNode = (node: Node, offset: number): number | null => {
-      // 1. Tenter de trouver un mot interactif existant
       const wordEl = node.parentElement?.closest('[data-global-index]');
       if (wordEl) return parseInt(wordEl.getAttribute('data-global-index') || '0');
 
-      // 2. Sinon, calculer l'index à partir de la position dans le bloc de texte brut du paragraphe
       const segEl = node.parentElement?.closest('[data-seg-idx]');
       if (!segEl) return null;
       
@@ -636,7 +639,6 @@ const Reader: React.FC = () => {
       const segment = structuredSegments[segIdx];
       if (!segment) return null;
 
-      // Calculer l'offset de caractères global dans le segment
       let charOffsetInSegment = 0;
       const children = segEl.childNodes;
       for (let i = 0; i < children.length; i++) {
@@ -648,7 +650,6 @@ const Reader: React.FC = () => {
         charOffsetInSegment += child.textContent?.length || 0;
       }
 
-      // Faire correspondre l'offset au bon index de mot global
       let currentPos = 0;
       for (const w of segment.words) {
         if (currentPos + w.text.length > charOffsetInSegment) {
@@ -704,7 +705,6 @@ const Reader: React.FC = () => {
     return `${Math.floor(time/60)}:${Math.floor(time%60).toString().padStart(2,'0')}`;
   };
 
-  // --- ARCHITECTURE ZÉRO-LAG : Virtualisation par Buffering de Texte Brut ---
   const interactiveIndices = useMemo(() => {
     const set = new Set<number>();
     highlightMap.forEach((_, k) => set.add(k));
@@ -723,7 +723,6 @@ const Reader: React.FC = () => {
       const isInteractive = interactiveIndices.has(word.globalIndex);
 
       if (isInteractive) {
-        // Vider le buffer de texte brut avant d'insérer le composant interactif
         if (textBuffer) {
           elements.push(textBuffer);
           textBuffer = "";
@@ -745,12 +744,10 @@ const Reader: React.FC = () => {
           />
         );
       } else {
-        // Accumuler le texte brut
         textBuffer += word.text;
       }
     });
 
-    // Ajouter le reste du texte brut à la fin du segment
     if (textBuffer) elements.push(textBuffer);
     
     return elements;
@@ -789,7 +786,17 @@ const Reader: React.FC = () => {
   if (!sermon) return <div className="flex-1 flex flex-col items-center justify-center bg-white dark:bg-zinc-950"><Loader2 className="w-10 h-10 animate-spin text-teal-600" /></div>;
 
   return (
-    <div ref={readerAreaRef} className={`flex-1 flex flex-col h-full relative bg-white dark:bg-zinc-950 transition-colors duration-200 overflow-visible-important`}>
+    <div ref={readerAreaRef} className={`flex-1 flex flex-col h-full relative bg-white dark:bg-zinc-950 transition-colors duration-200 overflow-visible-important reader-selection-area`}>
+      <style>{`
+        .reader-selection-area ::selection {
+          background-color: black !important;
+          color: white !important;
+        }
+        .dark .reader-selection-area ::selection {
+          background-color: white !important;
+          color: black !important;
+        }
+      `}</style>
       {noteSelectorPayload && <NoteSelectorModal selectionText={noteSelectorPayload.text} sermon={noteSelectorPayload.sermon} paragraphIndex={noteSelectorPayload.paragraphIndex} onClose={() => setNoteSelectorPayload(null)} />}
       
       {(activeDefinition || isDefining) && (
@@ -801,7 +808,7 @@ const Reader: React.FC = () => {
                   <BookOpenCheck className="w-7 h-7" />
                 </div>
                 <div>
-                  <h3 className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.3em] mb-1">Dictionnaire</h3>
+                  <h3 className="text-[10px] font-black text-zinc-400 dark:text-zinc-50 uppercase tracking-[0.3em] mb-1">Dictionnaire</h3>
                   <p className="text-2xl font-black text-zinc-900 dark:text-white leading-none tracking-tight">
                     {isDefining ? "..." : activeDefinition?.word}
                   </p>
