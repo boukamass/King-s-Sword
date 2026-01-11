@@ -45,7 +45,8 @@ function initDatabase() {
       CREATE VIRTUAL TABLE IF NOT EXISTS paragraphs_fts USING fts5(
         content, 
         sermon_id UNINDEXED, 
-        paragraph_index UNINDEXED
+        paragraph_index UNINDEXED,
+        tokenize="unicode61 remove_diacritics 1"
       );
       
       CREATE TABLE IF NOT EXISTS notes (
@@ -286,6 +287,25 @@ function createWindow() {
 
   if (isDev) mainWindow.loadURL('http://localhost:5173');
   else mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
+
+  // Logique Auto-Updater
+  autoUpdater.on('update-available', () => {
+    mainWindow.webContents.send('update_available');
+  });
+
+  autoUpdater.on('update-downloaded', () => {
+    mainWindow.webContents.send('update_downloaded');
+  });
+
+  mainWindow.once('ready-to-show', () => {
+    if (!isDev) {
+      autoUpdater.checkForUpdatesAndNotify();
+    }
+  });
+
+  ipcMain.on('restart_app', () => {
+    autoUpdater.quitAndInstall();
+  });
 }
 
 app.whenReady().then(createWindow);

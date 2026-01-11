@@ -58,7 +58,7 @@ const PROJECTION_HIGHLIGHT_STYLING: Record<string, string> = {
     violet: 'bg-violet-500/40 border-b-[3px] border-violet-400/60',
     lime: 'bg-lime-500/40 border-b-[3px] border-lime-400/60',
     orange: 'bg-orange-500/40 border-b-[3px] border-orange-400/60',
-    selection: 'bg-blue-600/40 border-b-[3px] border-blue-400/60 shadow-[0_4px_15px_rgba(37,99,235,0.4)]',
+    selection: 'bg-white text-black font-bold',
     default: 'bg-white/20 border-b-[3px] border-white/30'
 };
 
@@ -112,7 +112,7 @@ const ProjectionView = memo(() => {
     return (
       <div className="fixed inset-0 bg-white dark:bg-zinc-950 flex flex-col items-center justify-center p-20 text-center animate-pulse">
          <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-32 h-32 opacity-10 mb-8 grayscale" />
-         <p className="text-[14px] font-black uppercase tracking-[0.6em] text-zinc-400">King's Sword Projection</p>
+         <p className="text-[14px] font-black uppercase tracking-[0.6em] text-zinc-400 pulse">King's Sword Projection</p>
          <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500 mt-2 opacity-50">En attente...</p>
       </div>
     );
@@ -227,6 +227,7 @@ const App: React.FC = () => {
   const loadingProgress = useAppStore(s => s.loadingProgress);
   const activeNoteId = useAppStore(s => s.activeNoteId);
   const theme = useAppStore(s => s.theme);
+  const addNotification = useAppStore(s => s.addNotification);
 
   const [isResizing, setIsResizing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -238,6 +239,18 @@ const App: React.FC = () => {
   const isMaskWindow = searchParams.get('mask') === 'true';
 
   useEffect(() => { initializeDB(); }, [initializeDB]);
+
+  useEffect(() => {
+    if (window.electronAPI) {
+      window.electronAPI.onUpdateAvailable(() => {
+        addNotification("Nouvelle mise à jour disponible. Téléchargement en cours...", "success");
+      });
+      window.electronAPI.onUpdateDownloaded(() => {
+        addNotification("Mise à jour prête ! Cliquez ici pour redémarrer l'application.", "success");
+      });
+    }
+  }, [addNotification]);
+
   useEffect(() => {
     const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', handleFsChange);
@@ -298,12 +311,10 @@ const App: React.FC = () => {
   if (isLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-zinc-950 relative overflow-hidden">
-        {/* Background Ambient Glows */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-teal-600/5 rounded-full blur-[120px] pointer-events-none" />
         <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-teal-900/10 rounded-full blur-[100px] pointer-events-none" />
         
         <div className="flex flex-col items-center gap-12 w-80 relative z-10">
-           {/* Animated Logo Assembly */}
            <div className="relative w-28 h-28 flex items-center justify-center">
              <div className="absolute inset-0 border-2 border-dashed border-teal-600/20 rounded-full animate-[spin_10s_linear_infinite]"></div>
              <div className="absolute inset-2 border border-teal-600/40 rounded-full animate-[spin_6s_linear_infinite_reverse]"></div>
@@ -317,21 +328,17 @@ const App: React.FC = () => {
              <div className="absolute -top-1 -right-1 bg-teal-600 w-3 h-3 rounded-full blur-[4px] animate-ping" />
            </div>
 
-           {/* Progress Information Block */}
            <div className="w-full space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-1000">
              <div className="relative">
-                {/* Modern Progress Bar */}
                 <div className="w-full h-2.5 bg-zinc-900 border border-zinc-800 rounded-full overflow-hidden shadow-inner">
                   <div 
                     className="h-full bg-gradient-to-r from-teal-600 to-teal-400 transition-all duration-700 ease-out shadow-[0_0_15px_rgba(20,184,166,0.4)] relative" 
                     style={{ width: `${loadingProgress}%` }} 
                   >
-                    {/* Gloss Effect Overlay */}
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent w-20 animate-[shimmer_2s_infinite] skew-x-[-20deg]" />
                   </div>
                 </div>
                 
-                {/* Floating Percentage Badge */}
                 <div 
                   className="absolute -top-8 transition-all duration-700 ease-out flex flex-col items-center" 
                   style={{ left: `${Math.max(5, Math.min(95, loadingProgress))}%`, transform: 'translateX(-50%)' }}
@@ -364,9 +371,8 @@ const App: React.FC = () => {
            </div>
         </div>
 
-        {/* Bottom Version Indicator */}
         <div className="absolute bottom-10 text-[8px] font-black uppercase tracking-[0.5em] text-zinc-600 opacity-20 pointer-events-none">
-          VISION DE L'AIGLE TABERNACLE • v1.0.1
+          VISION DE L'AIGLE TABERNACLE • v1.0.3
         </div>
 
         <style>{`
