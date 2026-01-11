@@ -1,4 +1,3 @@
-
 const { app, BrowserWindow, shell, ipcMain, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -18,10 +17,11 @@ function initDatabase() {
     const dbPath = path.join(userDataPath, 'kings_sword_v2.db');
     
     db = new Database(dbPath);
-    // Optimisations PRAGMA pour la performance d'importation
+    // Optimisations PRAGMA pour la performance
     db.pragma('journal_mode = WAL');
     db.pragma('synchronous = NORMAL');
     db.pragma('temp_store = MEMORY');
+    db.pragma('foreign_keys = ON');
     
     db.exec(`
       CREATE TABLE IF NOT EXISTS sermons (
@@ -46,7 +46,7 @@ function initDatabase() {
         content, 
         sermon_id UNINDEXED, 
         paragraph_index UNINDEXED,
-        tokenize="unicode61 remove_diacritics 1"
+        tokenize = 'unicode61 remove_diacritics 1'
       );
       
       CREATE TABLE IF NOT EXISTS notes (
@@ -72,7 +72,6 @@ function initDatabase() {
       );
     `);
 
-    // Migration pour ajouter sermon_version_snapshot si elle manque (cas de mise à jour)
     try {
       db.prepare('SELECT sermon_version_snapshot FROM citations LIMIT 1').get();
     } catch (e) {
@@ -88,7 +87,7 @@ function initDatabase() {
 const checkDb = () => { 
   if (!db) {
     initDatabase();
-    if (!db) throw new Error("Base de données indisponible. Vérifiez les permissions d'écriture.");
+    if (!db) throw new Error("Base de données indisponible.");
   }
 };
 
@@ -96,54 +95,72 @@ ipcMain.handle('db:isReady', () => !!db);
 
 ipcMain.handle('db:getSermonsMetadata', () => {
   if (!db) return [];
-  return db.prepare('SELECT id, title, date, city, version FROM sermons ORDER BY date DESC').all();
+  try {
+    return db.prepare('SELECT id, title, date, city, version FROM sermons ORDER BY date DESC').all();
+  } catch (e) {
+    console.error("[DB] Metadata error:", e.message);
+    return [];
+  }
 });
 
 ipcMain.handle('db:getSermonFull', (event, id) => {
   if (!db) return null;
-  const sermon = db.prepare('SELECT * FROM sermons WHERE id = ?').get(id);
-  if (!sermon) return null;
-  const paragraphs = db.prepare('SELECT content FROM paragraphs WHERE sermon_id = ? ORDER BY paragraph_index ASC').all();
-  sermon.text = paragraphs.map(p => p.content).join('\n\n');
-  return sermon;
+  try {
+    const sermon = db.prepare('SELECT * FROM sermons WHERE id = ?').get(id);
+    if (!sermon) return null;
+    const paragraphs = db.prepare('SELECT content FROM paragraphs WHERE sermon_id = ? ORDER BY paragraph_index ASC').all();
+    sermon.text = paragraphs.map(p => p.content).join('\n\n');
+    return sermon;
+  } catch (e) {
+    console.error("[DB] Get Sermon error:", e.message);
+    return null;
+  }
 });
 
 ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0 }) => {
   if (!db) return [];
-  let sqlQuery = query.trim();
-  if (!sqlQuery || sqlQuery.length < 2) return [];
+  const rawQuery = (query || "").trim();
+  if (!rawQuery || rawQuery.length < 2) return [];
 
-  const safeLimit = Math.min(limit, 50);
-  const terms = sqlQuery.split(/\s+/).filter(v => v).map(v => v.replace(/"/g, '""'));
+  // Nettoyage des termes pour FTS5
+  const cleanTerms = rawQuery.replace(/[*\-"'()]/g, ' ').split(/\s+/).filter(v => v.length > 0);
+  if (cleanTerms.length === 0) return [];
 
+  let ftsQuery = '';
   if (mode === 'EXACT_PHRASE') {
-    sqlQuery = `"${terms.join(' ')}"`;
+    ftsQuery = `"${cleanTerms.join(' ')}"`;
   } else if (mode === 'DIVERSE') {
-    sqlQuery = terms.join(' OR ');
+    ftsQuery = cleanTerms.map(t => `${t}*`).join(' OR ');
   } else { 
-    sqlQuery = terms.join(' AND ');
+    // EXACT_WORDS: Utiliser explicitement AND pour garantir que tous les termes sont présents
+    ftsQuery = cleanTerms.map(t => `${t}*`).join(' AND ');
   }
+
+  const safeLimit = Number(limit) || 50;
+  const safeOffset = Number(offset) || 0;
 
   try {
     const highlightOpen = '<mark class="bg-amber-400/40 dark:bg-amber-500/40 text-amber-950 dark:text-white font-bold px-0.5 rounded-sm shadow-sm border-b-2 border-amber-600/30">';
     const highlightClose = '</mark>';
     
+    // Correction FTS5 : l'alias de table 'f' doit être utilisé dans snippet et MATCH pour les jointures
     const stmt = db.prepare(`
       SELECT 
         f.rowid as paragraphId, 
         f.sermon_id as sermonId, 
         f.paragraph_index as paragraphIndex, 
-        snippet(paragraphs_fts, 0, ?, ?, '...', 64) as snippet,
+        snippet(f, 0, ?, ?, '...', 64) as snippet,
         s.title, s.date, s.city
       FROM paragraphs_fts f
-      JOIN sermons s ON f.sermon_id = s.id
-      WHERE paragraphs_fts MATCH ? 
+      INNER JOIN sermons s ON f.sermon_id = s.id
+      WHERE f MATCH ? 
       ORDER BY s.date DESC
       LIMIT ? OFFSET ?
     `);
-    return stmt.all(highlightOpen, highlightClose, sqlQuery, safeLimit, offset);
+    
+    return stmt.all(highlightOpen, highlightClose, ftsQuery, safeLimit, safeOffset);
   } catch (e) {
-    console.error("SQL Search Error:", e);
+    console.error("[DB Search Error]:", e.message);
     return [];
   }
 });
@@ -153,7 +170,6 @@ ipcMain.handle('db:importSermons', (event, sermons) => {
     checkDb();
     
     const transaction = db.transaction((data) => {
-      // Nettoyage atomique
       db.prepare('DELETE FROM paragraphs_fts').run();
       db.prepare('DELETE FROM paragraphs').run();
       db.prepare('DELETE FROM sermons').run();
@@ -163,7 +179,6 @@ ipcMain.handle('db:importSermons', (event, sermons) => {
       const insFTS = db.prepare('INSERT INTO paragraphs_fts (content, sermon_id, paragraph_index) VALUES (?, ?, ?)');
       
       for (const s of data) {
-        // Pour gérer les versions multiples, on génère un ID unique par version
         const baseId = s.id || `gen-${Math.random().toString(36).substr(2, 9)}`;
         const sId = s.version ? `${baseId}-${s.version}` : baseId;
         const sText = s.text || "...";
@@ -199,12 +214,16 @@ ipcMain.handle('db:importSermons', (event, sermons) => {
 
 ipcMain.handle('db:getNotes', () => {
   if (!db) return [];
-  const ns = db.prepare('SELECT * FROM notes ORDER BY "order" ASC').all();
-  ns.forEach(n => {
-    n.creationDate = n.creation_date;
-    n.citations = db.prepare('SELECT * FROM citations WHERE note_id = ?').all(n.id);
-  });
-  return ns;
+  try {
+    const ns = db.prepare('SELECT * FROM notes ORDER BY "order" ASC').all();
+    ns.forEach(n => {
+      n.creationDate = n.creation_date;
+      n.citations = db.prepare('SELECT * FROM citations WHERE note_id = ?').all(n.id);
+    });
+    return ns;
+  } catch (e) {
+    return [];
+  }
 });
 
 ipcMain.handle('db:saveNote', (event, note) => {
@@ -213,10 +232,11 @@ ipcMain.handle('db:saveNote', (event, note) => {
     db.prepare('INSERT INTO notes (id, title, content, color, "order", creation_date) VALUES (@id, @title, @content, @color, @order, @creationDate) ON CONFLICT(id) DO UPDATE SET title=excluded.title, content=excluded.content, color=excluded.color, "order"=excluded."order"').run(note);
     db.prepare('DELETE FROM citations WHERE note_id = ?').run(note.id);
     const insC = db.prepare('INSERT INTO citations (id, note_id, sermon_id, sermon_title_snapshot, sermon_date_snapshot, sermon_version_snapshot, quoted_text, date_added, paragraph_index) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
-    note.citations.forEach(c => insC.run(c.id || Math.random().toString(), note.id, c.sermon_id, c.sermon_title_snapshot, c.sermon_date_snapshot, c.sermon_version_snapshot || null, c.quoted_text, c.date_added || new Date().toISOString(), c.paragraph_index || null));
+    if (note.citations && Array.isArray(note.citations)) {
+      note.citations.forEach(c => insC.run(c.id || Math.random().toString(), note.id, c.sermon_id, c.sermon_title_snapshot, c.sermon_date_snapshot, c.sermon_version_snapshot || null, c.quoted_text, c.date_added || new Date().toISOString(), c.paragraph_index || null));
+    }
     return { success: true };
   } catch (e) {
-    console.error("Save Note Error:", e);
     return { success: false, error: e.message };
   }
 });
@@ -288,7 +308,6 @@ function createWindow() {
   if (isDev) mainWindow.loadURL('http://localhost:5173');
   else mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
 
-  // Logique Auto-Updater
   autoUpdater.on('update-available', () => {
     mainWindow.webContents.send('update_available');
   });
