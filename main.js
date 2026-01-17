@@ -17,7 +17,6 @@ function initDatabase() {
     const dbPath = path.join(userDataPath, 'kings_sword_v2.db');
     
     db = new Database(dbPath);
-    // Optimisations PRAGMA pour la performance
     db.pragma('journal_mode = WAL');
     db.pragma('synchronous = NORMAL');
     db.pragma('temp_store = MEMORY');
@@ -122,7 +121,7 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0 }) => 
   const rawQuery = (query || "").trim();
   if (!rawQuery || rawQuery.length < 2) return [];
 
-  // Nettoyage des termes pour FTS5
+  // On nettoie les termes pour éviter les injections de syntaxe FTS5 malveillantes
   const cleanTerms = rawQuery.replace(/[*\-"'()]/g, ' ').split(/\s+/).filter(v => v.length > 0);
   if (cleanTerms.length === 0) return [];
 
@@ -132,7 +131,6 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0 }) => 
   } else if (mode === 'DIVERSE') {
     ftsQuery = cleanTerms.map(t => `${t}*`).join(' OR ');
   } else { 
-    // EXACT_WORDS: Utiliser explicitement AND pour garantir que tous les termes sont présents
     ftsQuery = cleanTerms.map(t => `${t}*`).join(' AND ');
   }
 
@@ -143,7 +141,8 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0 }) => 
     const highlightOpen = '<mark class="bg-amber-400/40 dark:bg-amber-500/40 text-amber-950 dark:text-white font-bold px-0.5 rounded-sm shadow-sm border-b-2 border-amber-600/30">';
     const highlightClose = '</mark>';
     
-    // Correction FTS5 : l'alias de table 'f' doit être utilisé dans snippet et MATCH pour les jointures
+    // CORRECTION CRUCIALE : Dans SQLite FTS5, si la table est aliasée (ici 'f'), 
+    // la fonction snippet() et la clause MATCH doivent utiliser l'alias.
     const stmt = db.prepare(`
       SELECT 
         f.rowid as paragraphId, 
@@ -327,5 +326,12 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(createWindow);
-app.on('window-all-closed', () => process.platform !== 'darwin' && app.quit());
+app.on('ready', () => {
+  createWindow();
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});

@@ -1,13 +1,16 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { ChatMessage } from '../types';
+
+export interface GeminiResponse {
+  text: string;
+  sources: { title: string; uri: string }[];
+}
 
 export const askGeminiChat = async (
   prompt: string,
   contextText: string,
   history: ChatMessage[]
-): Promise<string> => {
-  // Initialisation à l'intérieur de la fonction pour garantir l'accès à process.env.API_KEY
+): Promise<GeminiResponse> => {
   const apiKey = process.env.API_KEY;
   if (!apiKey) throw new Error("Clé API non configurée.");
   
@@ -18,14 +21,13 @@ export const askGeminiChat = async (
     Ton ton est solennel, précis et respectueux.
     
     BASE DE CONNAISSANCES :
-    Utilise EXCLUSIVEMENT les sermons fournis dans le contexte ci-dessous. Chaque paragraphe du contexte est préfixé par son numéro (ex: "[Para. 1]").
+    Utilise les sermons fournis dans le contexte ci-dessous. Chaque paragraphe est préfixé par "[Para. N]".
+    Tu as également accès à Google Search pour fournir du contexte historique ou géographique sur les lieux et dates mentionnés dans les sermons.
     
     RÈGLES DE RÉPONSE :
-    1. Pour chaque citation, tu DOIS inclure le numéro du paragraphe source. Utilise le format EXACT : une citation dans un blockquote (>), suivie IMMÉDIATEMENT par la référence.
-    > "Citation textuelle exacte et complète ici..." [Réf: ID_SERMON, Para. NUMERO_DU_PARAGRAPHE]
-    2. Ne mets RIEN d'autre sur la même ligne que la référence (ni avant le blockquote, ni après la référence).
-    3. Si une information n'est pas dans les sermons fournis, indique-le clairement avec humilité.
-    4. Formate le reste de tes réponses avec Markdown (##, **, listes).`;
+    1. Pour chaque citation de sermon, tu DOIS inclure le numéro du paragraphe. Format : > "Citation..." [Réf: ID_SERMON, Para. NUMERO]
+    2. Si tu utilises des informations de Google Search, intègre-les naturellement pour enrichir l'exégèse.
+    3. Formate tes réponses avec Markdown.`;
 
     const userPromptWithContext = `CONTEXTE DES SERMONS SÉLECTIONNÉS :\n${contextText}\n\nQUESTION : "${prompt}"`;
 
@@ -46,10 +48,27 @@ export const askGeminiChat = async (
       config: { 
         systemInstruction,
         temperature: 0.5,
+        tools: [{ googleSearch: {} }]
       },
     });
     
-    return response.text || "Aucune réponse générée.";
+    const text = response.text || "Aucune réponse générée.";
+    const sources: { title: string; uri: string }[] = [];
+    
+    // Extraction des sources Google Search si présentes
+    const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+    if (chunks) {
+      chunks.forEach((chunk: any) => {
+        if (chunk.web && chunk.web.uri) {
+          sources.push({
+            title: chunk.web.title || "Source Web",
+            uri: chunk.web.uri
+          });
+        }
+      });
+    }
+
+    return { text, sources };
   } catch (error: any) {
     console.error("Gemini Chat Error:", error);
     throw new Error(`Erreur assistant : ${error.message || "Connexion perdue"}`);
