@@ -1,3 +1,4 @@
+
 // Add React import to the list of imports from 'react'
 import React, { useState, useRef, useEffect, useMemo, memo, useDeferredValue, useTransition, useCallback } from 'react';
 import { useAppStore } from '../store';
@@ -57,8 +58,8 @@ const ModernDropdown: React.FC<DropdownProps> = ({ value, onChange, options, pla
         onClick={() => setIsOpen(!isOpen)}
         className={`w-full flex items-center justify-between text-[9px] font-black uppercase tracking-wider p-2 rounded-lg border transition-all duration-300 ${
           isOpen 
-            ? 'bg-white border-teal-600 ring-4 ring-teal-600/10 text-teal-600 shadow-lg' 
-            : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 hover:border-teal-500/50 text-zinc-900 dark:text-zinc-100 shadow-sm'
+            ? 'bg-slate-50 border-teal-600 ring-4 ring-teal-600/10 text-teal-600 shadow-lg' 
+            : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 hover:border-teal-500/50 text-zinc-900 dark:text-zinc-100 shadow-sm'
         }`}
       >
         <span className="truncate pr-1">{currentDisplay}</span>
@@ -66,11 +67,11 @@ const ModernDropdown: React.FC<DropdownProps> = ({ value, onChange, options, pla
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 right-0 mt-1 py-1 bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 rounded-xl shadow-2xl z-[100] animate-in fade-in zoom-in-95 duration-200 overflow-hidden backdrop-blur-xl">
+        <div className="absolute left-0 right-0 mt-1 py-1 bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 rounded-xl shadow-2xl z-[100] animate-in fade-in zoom-in-95 duration-200 overflow-hidden backdrop-blur-xl">
           <div className="max-h-[160px] overflow-y-auto custom-scrollbar">
             <button
               onClick={() => { onChange(null); setIsOpen(false); }}
-              className="w-full text-left px-3 py-1.5 text-[9px] font-black uppercase tracking-wider text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors"
+              className="w-full text-left px-3 py-1.5 text-[9px] font-black uppercase tracking-wider text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-700 transition-colors"
             >
               {placeholder}
             </button>
@@ -81,7 +82,7 @@ const ModernDropdown: React.FC<DropdownProps> = ({ value, onChange, options, pla
                 className={`w-full text-left px-3 py-1.5 text-[9px] font-black uppercase tracking-wider transition-all ${
                   value === opt 
                     ? 'text-teal-600 bg-teal-600/5 dark:bg-teal-600/10' 
-                    : 'text-zinc-800 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700'
+                    : 'text-zinc-800 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-700'
                 }`}
               >
                 {displayValue ? displayValue(opt) : opt}
@@ -104,8 +105,8 @@ const SermonItem = memo(({
   sermon: any; 
   isSelected: boolean; 
   isContextSelected: boolean; 
-  onSelect: () => void; 
-  onToggleContext: () => void;
+  onSelect: (multiSelect: boolean) => void; 
+  onToggleContext: (multiSelect: boolean) => void;
 }) => {
   return (
     <div 
@@ -116,14 +117,14 @@ const SermonItem = memo(({
         className={`group w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-200 cursor-pointer h-[72px] ${
           isSelected 
             ? 'bg-teal-600/10 dark:bg-teal-600/20 ring-1 ring-teal-600/20 shadow-md' 
-            : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/40 border border-transparent hover:border-zinc-100 dark:hover:border-zinc-800'
+            : 'hover:bg-slate-50 dark:hover:bg-zinc-800/40 border border-transparent hover:border-slate-100 dark:hover:border-zinc-800'
         }`}
-        onClick={onSelect}
+        onClick={(e) => onSelect(e.ctrlKey || e.metaKey)}
       >
         <div 
           onClick={(e) => {
             e.stopPropagation();
-            onToggleContext();
+            onToggleContext(e.ctrlKey || e.metaKey);
           }}
           data-tooltip={isContextSelected ? "Retirer du contexte IA" : "Ajouter au contexte IA"}
           className={`w-4 h-4 rounded-md border transition-all flex items-center justify-center shrink-0 tooltip-right ${
@@ -143,7 +144,7 @@ const SermonItem = memo(({
             <div className="flex items-center gap-1 shrink-0">
               {sermon.audio_url && <Headphones className="w-2.5 h-2.5 text-teal-500 tooltip-right" data-tooltip="Audio disponible" />}
               {sermon.version && (
-                <span className="text-[7px] font-black bg-zinc-100 dark:bg-zinc-800 text-zinc-500 px-1.5 py-0.5 rounded-lg border border-zinc-200 dark:border-zinc-700 uppercase tracking-tighter">
+                <span className="text-[7px] font-black bg-slate-100 dark:bg-zinc-800 text-zinc-500 px-1.5 py-0.5 rounded-lg border border-slate-200 dark:border-zinc-700 uppercase tracking-tighter">
                   {sermon.version}
                 </span>
               )}
@@ -154,12 +155,12 @@ const SermonItem = memo(({
             <span className="font-mono">{sermon.date}</span>
             {sermon.time && (
               <React.Fragment>
-                <span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-0.5" />
+                <span className="w-1 h-1 bg-slate-300 dark:bg-zinc-700 rounded-full mx-0.5" />
                 <Clock className="w-2 h-2 text-teal-600/50" />
                 <span>{sermon.time}</span>
               </React.Fragment>
             )}
-            <span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-0.5" />
+            <span className="w-1 h-1 bg-slate-300 dark:bg-zinc-700 rounded-full mx-0.5" />
             <MapPin className="w-2 h-2 text-teal-600/50" />
             <span className="truncate">{sermon.city}</span>
           </div>
@@ -182,7 +183,7 @@ const SearchModeButton = memo(({ mode, label, tooltip, currentMode, setMode }: {
     className={`flex-1 text-center px-1 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all duration-300 tooltip-bottom border ${
       currentMode === mode
         ? 'bg-teal-600 text-white border-teal-600 shadow-lg shadow-teal-600/20'
-        : 'bg-white dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:border-teal-500/50 hover:bg-zinc-50 dark:hover:bg-zinc-700/50'
+        : 'bg-white dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:border-teal-500/50 hover:bg-slate-50 dark:hover:bg-zinc-700/50'
     }`}
   >
     {label}
@@ -538,7 +539,7 @@ const Sidebar: React.FC = () => {
                 <button 
                   onClick={resetFilters}
                   data-tooltip={t.reset_filters}
-                  className="w-8 h-8 flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 text-zinc-400 hover:text-red-500 rounded-xl border border-zinc-200 dark:border-zinc-700 transition-all active:scale-90 tooltip-bottom"
+                  className="w-8 h-8 flex items-center justify-center bg-white dark:bg-zinc-800 text-zinc-400 hover:text-red-500 rounded-xl border border-zinc-200 dark:border-zinc-700 transition-all active:scale-90 tooltip-bottom"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                 </button>
@@ -562,7 +563,7 @@ const Sidebar: React.FC = () => {
           </div>
 
           {isFullTextSearch && (
-            <div className="flex items-stretch gap-1 bg-zinc-100/30 dark:bg-zinc-800/30 p-1.5 rounded-xl animate-in slide-in-from-top-1 duration-300 border border-zinc-200/40 dark:border-zinc-700/40 shadow-inner">
+            <div className="flex items-stretch gap-1 bg-white dark:bg-zinc-800/30 p-1.5 rounded-xl animate-in slide-in-from-top-1 duration-300 border border-zinc-200/40 dark:border-zinc-700/40 shadow-inner">
               <SearchModeButton mode={SearchMode.EXACT_PHRASE} label={t.search_mode_exact_phrase} tooltip={t.search_mode_exact_phrase} currentMode={searchMode} setMode={setSearchMode} />
               <SearchModeButton mode={SearchMode.DIVERSE} label={t.search_mode_diverse} tooltip={t.search_mode_diverse} currentMode={searchMode} setMode={setSearchMode} />
               <SearchModeButton mode={SearchMode.EXACT_WORDS} label={t.search_mode_exact_words} tooltip={t.search_mode_exact_words} currentMode={searchMode} setMode={setSearchMode} />
@@ -588,7 +589,7 @@ const Sidebar: React.FC = () => {
             className={`w-8 h-8 flex items-center justify-center rounded-xl border transition-all active:scale-90 group/context-all tooltip-right shrink-0 ${
               areAllFilteredSelected 
                 ? 'bg-teal-600 text-white border-teal-600 shadow-lg shadow-teal-600/20' 
-                : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-teal-600/50 hover:bg-teal-50 dark:hover:bg-teal-900/10'
+                : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-teal-600/50 hover:bg-teal-50 dark:hover:bg-teal-900/10'
             }`}
           >
             <Sparkles className={`w-4 h-4 transition-transform duration-500 ${areAllFilteredSelected ? 'scale-110 rotate-12' : 'opacity-60 group-hover/context-all:opacity-100 group-hover/context-all:scale-110'}`} />
@@ -624,8 +625,8 @@ const Sidebar: React.FC = () => {
                     sermon={sermon}
                     isSelected={selectedSermonId === sermon.id}
                     isContextSelected={manualContextIds.includes(sermon.id)}
-                    onSelect={() => setSelectedSermonId(sermon.id)}
-                    onToggleContext={() => toggleContextSermon(sermon.id)}
+                    onSelect={(multi) => setSelectedSermonId(sermon.id, multi)}
+                    onToggleContext={(multi) => toggleContextSermon(sermon.id, multi)}
                   />
                 ))}
               </div>

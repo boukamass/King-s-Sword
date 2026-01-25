@@ -75,7 +75,7 @@ interface AppState {
 
   initializeDB: () => Promise<void>;
   resetLibrary: () => Promise<void>;
-  setSelectedSermonId: (id: string | null) => Promise<void>;
+  setSelectedSermonId: (id: string | null, multiSelect?: boolean) => Promise<void>;
   setSearchQuery: (query: string) => void;
   setSearchMode: (mode: SearchMode) => void;
   setSearchResults: (results: SearchResult[]) => void;
@@ -105,7 +105,7 @@ interface AppState {
   setFontSize: (updater: number | ((size: number) => number)) => void;
   setTheme: (theme: 'light' | 'dark' | 'system') => void;
   addChatMessage: (key: string, message: ChatMessage) => void;
-  toggleContextSermon: (id: string) => void;
+  toggleContextSermon: (id: string, multiSelect?: boolean) => void;
   setManualContextIds: (ids: string[]) => void;
   clearContextSermons: () => void;
   addNote: (note: Partial<Note>) => void;
@@ -309,7 +309,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  setSelectedSermonId: async (id) => {
+  setSelectedSermonId: async (id, multiSelect = false) => {
     if (!id) {
       set({ selectedSermonId: null, activeSermon: null });
       return;
@@ -331,7 +331,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       
       // Ajout automatique au dock (contexte IA) par défaut lors de la sélection
       const manual = get().manualContextIds;
-      const newManual = Array.from(new Set([...manual, id].filter(Boolean) as string[]));
+      const newManual = multiSelect 
+        ? Array.from(new Set([...manual, id].filter(Boolean) as string[]))
+        : [id];
       set({ manualContextIds: newManual, contextSermonIds: newManual });
 
     } catch (error) {
@@ -393,11 +395,23 @@ export const useAppStore = create<AppState>((set, get) => ({
     };
   }),
 
-  toggleContextSermon: (id) => set(s => {
+  toggleContextSermon: (id, multiSelect = false) => set(s => {
     const isManual = s.manualContextIds.includes(id);
-    const newManual = isManual 
-      ? s.manualContextIds.filter(x => x !== id) 
-      : [...s.manualContextIds, id];
+    let newManual;
+    
+    if (multiSelect) {
+      newManual = isManual 
+        ? s.manualContextIds.filter(x => x !== id) 
+        : [...s.manualContextIds, id];
+    } else {
+      // Sans CTRL : on remplace tout par la nouvelle sélection, 
+      // sauf si on clique sur celui déjà seul sélectionné (on vide alors).
+      if (isManual && s.manualContextIds.length === 1) {
+        newManual = [];
+      } else {
+        newManual = [id];
+      }
+    }
     
     return { manualContextIds: newManual, contextSermonIds: newManual };
   }),
@@ -491,11 +505,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     syncNotesOrder(updatedNotes);
   },
 
-  triggerStudyRequest: (t) => set({ pendingStudyRequest: t, aiOpen: true }),
-  setJumpToText: (t) => set({ jumpToText: t }),
-  setJumpToParagraph: (num) => set({ jumpToParagraph: num }),
+  triggerStudyRequest: (text: string | null) => set({ pendingStudyRequest: text, aiOpen: true }),
+  setJumpToText: (text: string | null) => set({ jumpToText: text }),
+  setJumpToParagraph: (num: number | null) => set({ jumpToParagraph: num }),
   
-  updateSermonHighlights: (id, highlights) => set(state => {
+  updateSermonHighlights: (id: string, highlights: Highlight[]) => set(state => {
     const activeSermon = state.activeSermon;
     let newActiveSermon = activeSermon;
     
@@ -515,11 +529,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     };
   }),
 
-  setProjectionBlackout: (v) => set({ projectionBlackout: v }),
-  setExternalMaskOpen: (v) => set({ isExternalMaskOpen: v }),
-  setSidebarWidth: (w) => set({ sidebarWidth: w }),
-  setAiWidth: (w) => set({ aiWidth: w }),
-  setNotesWidth: (w) => set({ notesWidth: w }),
-  setNavigatedFromSearch: (v) => set({ navigatedFromSearch: v }),
-  setNavigatedFromNoteId: (id) => set({ navigatedFromNoteId: id })
+  setProjectionBlackout: (v: boolean) => set({ projectionBlackout: v }),
+  setExternalMaskOpen: (v: boolean) => set({ isExternalMaskOpen: v }),
+  setSidebarWidth: (w: number) => set({ sidebarWidth: w }),
+  setAiWidth: (w: number) => set({ aiWidth: w }),
+  setNotesWidth: (w: number) => set({ notesWidth: w }),
+  setNavigatedFromSearch: (v: boolean) => set({ navigatedFromSearch: v }),
+  setNavigatedFromNoteId: (id: string | null) => set({ navigatedFromNoteId: id })
 }));
