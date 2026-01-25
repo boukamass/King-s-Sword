@@ -1,4 +1,5 @@
 
+// Fix: Added React to imports to resolve "Cannot find namespace 'React'" errors for React.FC and React.MouseEvent
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useAppStore } from '../store';
 import { askGeminiChat } from '../services/geminiChatService';
@@ -32,6 +33,7 @@ const AIAssistant: React.FC = () => {
   const { 
     contextSermonIds, 
     selectedSermonId,
+    activeSermon,
     toggleContextSermon,
     clearContextSermons,
     sermons,
@@ -119,6 +121,40 @@ const AIAssistant: React.FC = () => {
     }));
     return results.filter((s): s is Sermon => !!s && !!s.text);
   };
+
+  // Gestion automatique du bouton "Étudier"
+  useEffect(() => {
+    if (pendingStudyRequest && activeSermon) {
+      const textToStudy = pendingStudyRequest;
+      // On réinitialise immédiatement la demande pour éviter les boucles
+      triggerStudyRequest(null);
+
+      const performStudy = async () => {
+        setIsTyping(true);
+        addChatMessage(chatKey, { 
+          role: 'user', 
+          content: `${t.ai_deep_study} : "${textToStudy}"`, 
+          timestamp: new Date().toISOString() 
+        });
+
+        try {
+          const validSermons = await getFullSermons(contextSermonIds);
+          const analysis = await analyzeSelectionContext(textToStudy, activeSermon, validSermons);
+          
+          addChatMessage(chatKey, {
+            role: 'assistant',
+            content: analysis,
+            timestamp: new Date().toISOString()
+          });
+        } catch (e: any) {
+          addNotification(e.message, 'error');
+        } finally {
+          setIsTyping(false);
+        }
+      };
+      performStudy();
+    }
+  }, [pendingStudyRequest, activeSermon, chatKey, t.ai_deep_study]);
 
   const handleSend = async () => {
     if (!input.trim() || contextSermonIds.length === 0) return;
