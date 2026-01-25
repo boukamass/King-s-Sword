@@ -972,7 +972,20 @@ const Reader: React.FC = () => {
         </div>
         <div className="flex items-center gap-2 shrink-0 ml-4 overflow-visible-important">
             {navigatedFromSearch && (
-              <button onClick={() => { setSearchQuery(lastSearchQuery); setIsFullTextSearch(true); setSelectedSermonId(null); setNavigatedFromSearch(false); setSearchOriginMatchIndices([]); }} className="px-3 py-1.5 bg-amber-600/10 text-amber-700 dark:text-amber-400 text-[9px] font-bold uppercase tracking-wider rounded-xl hover:bg-amber-600/20 transition-colors mr-2"><ChevronLeft className="w-3 h-3 inline mr-1" /> {t.reader_exit_search}</button>
+              <button 
+                onClick={() => { 
+                  startTransition(() => {
+                    setSearchQuery(lastSearchQuery); 
+                    setIsFullTextSearch(true); 
+                    setSelectedSermonId(null); 
+                    setNavigatedFromSearch(false); 
+                    setSearchOriginMatchIndices([]); 
+                  });
+                }} 
+                className="px-3 py-1.5 bg-amber-600/10 text-amber-700 dark:text-amber-400 text-[9px] font-bold uppercase tracking-wider rounded-xl hover:bg-amber-600/20 transition-colors mr-2"
+              >
+                <ChevronLeft className="w-3 h-3 inline mr-1" /> {t.reader_exit_search}
+              </button>
             )}
             {navigatedFromNoteId && (
               <button onClick={() => { setActiveNoteId(navigatedFromNoteId); setNavigatedFromNoteId(null); setSelectedSermonId(null); }} className="px-3 py-1.5 bg-teal-600/10 text-teal-700 dark:text-teal-400 text-[9px] font-bold uppercase tracking-wider rounded-xl hover:bg-amber-600/20 transition-colors mr-2"><ChevronLeft className="w-3 h-3 inline mr-1" /> {t.reader_exit_note}</button>

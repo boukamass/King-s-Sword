@@ -339,7 +339,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSearchMode: (mode) => set({ searchMode: mode, lastSearchMode: mode }),
   setSearchResults: (results) => set({ searchResults: results }),
   setIsSearching: (val) => set({ isSearching: val }),
-  setIsFullTextSearch: (active) => set({ isFullTextSearch: active, showOnlySynonyms: false, activeSynonyms: [] }),
+  setIsFullTextSearch: (active) => set({ isFullTextSearch: active }),
   setIncludeSynonyms: (active) => set({ includeSynonyms: active, showOnlySynonyms: false }),
   setShowOnlySynonyms: (active) => set({ showOnlySynonyms: active }),
   setActiveSynonyms: (syns) => set({ activeSynonyms: syns }),
