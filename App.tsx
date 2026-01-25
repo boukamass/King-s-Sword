@@ -80,7 +80,7 @@ const ProjectionView = memo(() => {
     currentResultIndex: number;
     activeDefinition: WordDefinition | null;
   }>({
-    title: '', date: '', city: '', time: '', text: '', fontSize: 24, blackout: false, theme: 'system',
+    title: '', date: '', city: '', time: '', text: '', fontSize: 42, blackout: false, theme: 'system',
     highlights: [], selectionIndices: [], searchResults: [], currentResultIndex: -1, activeDefinition: null
   });
   
@@ -91,7 +91,7 @@ const ProjectionView = memo(() => {
         setSyncData({ 
             title: e.data.title || '', date: e.data.date || '', city: e.data.city || '', time: e.data.time || '', text: e.data.text || '', 
             projectedWords: e.data.projectedWords,
-            fontSize: e.data.fontSize || 24, blackout: e.data.blackout ?? false, theme: e.data.theme || 'system',
+            fontSize: e.data.fontSize || 42, blackout: e.data.blackout ?? false, theme: e.data.theme || 'system',
             highlights: e.data.highlights || [], selectionIndices: e.data.selectionIndices || [],
             searchResults: e.data.searchResults || [], currentResultIndex: e.data.currentResultIndex ?? -1, activeDefinition: e.data.activeDefinition || null
         });

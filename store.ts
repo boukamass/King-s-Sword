@@ -406,8 +406,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setManualContextIds: (ids) => set(s => {
     const activeId = s.selectedSermonId;
-    const newContext = Array.from(new Set([activeId, ...ids].filter(Boolean) as string[]));
-    return { manualContextIds: ids, contextSermonIds: newContext };
+    return { manualContextIds: ids, contextSermonIds: activeId ? [activeId, ...ids] : ids };
   }),
 
   clearContextSermons: () => set(s => {
