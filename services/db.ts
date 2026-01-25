@@ -46,7 +46,7 @@ export const bulkAddSermons = async (sermons: Sermon[]): Promise<{ success: bool
 /**
  * Moteur de recherche de secours pour le Web (Fallback)
  */
-const webSearchFallback = async (params: { query: string; mode: SearchMode; limit: number; offset: number; synonyms?: string[]; showOnlySynonyms?: boolean }): Promise<any[]> => {
+const webSearchFallback = async (params: { query: string; mode: SearchMode; limit: number; offset: number; synonyms?: string[]; showOnlySynonyms?: boolean; showOnlyQuery?: boolean }): Promise<any[]> => {
   const store = useAppStore.getState();
   const sermonsMap = store.sermonsMap;
   const results: any[] = [];
@@ -58,8 +58,8 @@ const webSearchFallback = async (params: { query: string; mode: SearchMode; limi
   const allSermons = Array.from(sermonsMap.values()) as Sermon[];
   const markClass = "bg-amber-400/40 dark:bg-amber-500/40 text-amber-950 dark:text-white font-bold px-0.5 rounded-sm shadow-sm border-b-2 border-amber-600/30";
   
-  // Si on a des synonymes, on utilise une regex multi-mots
-  const highlightRegex = (params.synonyms && params.synonyms.length > 0)
+  // Si showOnlyQuery est actif, on ignore totalement les synonymes pour le highlight
+  const highlightRegex = (params.synonyms && params.synonyms.length > 0 && !params.showOnlyQuery)
     ? getMultiWordHighlightRegex(params.showOnlySynonyms ? params.synonyms.join(' ') : [query, ...params.synonyms].join(' '))
     : (params.mode === SearchMode.EXACT_PHRASE 
         ? getAccentInsensitiveRegex(query, false)
@@ -67,7 +67,7 @@ const webSearchFallback = async (params: { query: string; mode: SearchMode; limi
 
   const normalizedQuery = normalizeText(query);
   const queryWords = normalizedQuery.split(/\s+/).filter(w => w.length > 0);
-  const synonymWords = params.synonyms?.map(s => normalizeText(s)).filter(w => w.length > 0) || [];
+  const synonymWords = (params.synonyms && !params.showOnlyQuery) ? params.synonyms.map(s => normalizeText(s)).filter(w => w.length > 0) : [];
 
   for (const s of allSermons) {
     if (!s.text) continue;
@@ -82,18 +82,21 @@ const webSearchFallback = async (params: { query: string; mode: SearchMode; limi
       let matchFound = false;
       
       // Recherche avec synonymes (Mode OR implicite)
-      if (synonymWords.length > 0) {
+      if (synonymWords.length > 0 && !params.showOnlyQuery) {
         if (params.showOnlySynonyms) {
             matchFound = synonymWords.some(w => normalizedContent.includes(w));
         } else {
             matchFound = [normalizedQuery, ...synonymWords].some(w => normalizedContent.includes(w));
         }
-      } else if (params.mode === SearchMode.EXACT_PHRASE) {
-        matchFound = normalizedContent.includes(normalizedQuery);
-      } else if (params.mode === SearchMode.DIVERSE) {
-        matchFound = queryWords.some(w => normalizedContent.includes(w));
-      } else { 
-        matchFound = queryWords.every(w => normalizedContent.includes(w));
+      } else {
+        // Mode Strict (Query Only ou pas de synonymes)
+        if (params.mode === SearchMode.EXACT_PHRASE) {
+          matchFound = normalizedContent.includes(normalizedQuery);
+        } else if (params.mode === SearchMode.DIVERSE) {
+          matchFound = queryWords.some(w => normalizedContent.includes(w));
+        } else { 
+          matchFound = queryWords.every(w => normalizedContent.includes(w));
+        }
       }
 
       if (matchFound) {
@@ -137,6 +140,7 @@ export const searchSermons = async (params: { query: string; mode: SearchMode; l
   const isSqliteAvailable = store.isSqliteAvailable;
   const includeSynonyms = store.includeSynonyms;
   const showOnlySynonyms = store.showOnlySynonyms;
+  const showOnlyQuery = store.showOnlyQuery;
   
   let synonyms: string[] = [];
   
@@ -155,7 +159,7 @@ export const searchSermons = async (params: { query: string; mode: SearchMode; l
     store.setActiveSynonyms([]);
   }
   
-  const searchParams = { ...params, synonyms, showOnlySynonyms };
+  const searchParams = { ...params, synonyms, showOnlySynonyms, showOnlyQuery };
 
   if (!isElectron || !isSqliteAvailable) {
     return webSearchFallback(searchParams);

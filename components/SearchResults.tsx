@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, memo } from 'react';
 import { useAppStore, SearchResult } from '../store';
 import { translations } from '../translations';
 import { SearchMode, Sermon } from '../types';
-import { FileText, Loader2, Calendar, Search, ChevronLeft, MapPin, Hash, NotebookPen, Sparkles, Layers } from 'lucide-react';
+import { FileText, Loader2, Calendar, Search, ChevronLeft, MapPin, Hash, NotebookPen, Sparkles, Layers, Type } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { searchSermons } from '../services/db';
 import NoteSelectorModal from './NoteSelectorModal';
@@ -115,7 +115,11 @@ const SearchResults: React.FC = () => {
     includeSynonyms,
     showOnlySynonyms,
     setShowOnlySynonyms,
-    activeSynonyms
+    showOnlyQuery,
+    setShowOnlyQuery,
+    activeSynonyms,
+    sidebarOpen,
+    toggleSidebar
   } = useAppStore();
   
   const t = translations[languageFilter === 'Anglais' ? 'en' : 'fr'];
@@ -149,7 +153,7 @@ const SearchResults: React.FC = () => {
     setOffset(0);
     setHasMore(true);
     performSearch(searchQuery, searchMode, 0);
-  }, [searchQuery, searchMode, performSearch, showOnlySynonyms, includeSynonyms]);
+  }, [searchQuery, searchMode, performSearch, showOnlySynonyms, showOnlyQuery, includeSynonyms]);
 
   const loadMore = () => {
     const nextOffset = offset + RESULTS_PER_PAGE;
@@ -208,32 +212,63 @@ const SearchResults: React.FC = () => {
         />
       )}
       
-      <div className="px-8 h-14 border-b border-zinc-200/50 dark:border-zinc-800/50 flex items-center justify-between shrink-0 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-2xl z-20">
-        <div className="flex items-center gap-5">
-          <div className="w-8 h-8 flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-lg border border-teal-600/20 shadow-sm">
-            <Search className="w-4 h-4" />
-          </div>
-          <div>
-            <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-900 dark:text-zinc-50 leading-none">Résultats de recherche</h2>
-            <p className="text-[7px] font-black text-teal-600 uppercase tracking-widest mt-0.5">
-              {isSearching ? "Scan de la bibliothèque..." : `${searchResults.length} segments trouvés`}
-            </p>
+      <div className="px-4 md:px-8 h-14 border-b border-zinc-200/50 dark:border-zinc-800/50 flex items-center justify-between shrink-0 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-2xl z-20">
+        <div className="flex items-center gap-4">
+          {!sidebarOpen && (
+             <button 
+                onClick={toggleSidebar} 
+                data-tooltip="Ouvrir la bibliothèque" 
+                className="flex items-center gap-3 hover:opacity-80 active:scale-95 group shrink-0 mr-1"
+             >
+               <div className="w-8 h-8 flex items-center justify-center bg-teal-600/10 rounded-lg border border-teal-600/20 shadow-sm shrink-0 group-hover:border-teal-600/40 transition-all duration-300">
+                 <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-4 h-4 grayscale group-hover:grayscale-0 group-hover:scale-110 group-hover:rotate-[-5deg] transition-all duration-300" />
+               </div>
+             </button>
+          )}
+          <div className="flex items-center gap-4">
+            <div className="w-8 h-8 hidden sm:flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-lg border border-teal-600/20 shadow-sm">
+              <Search className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-900 dark:text-zinc-50 leading-none">Résultats de recherche</h2>
+              <p className="text-[7px] font-black text-teal-600 uppercase tracking-widest mt-0.5">
+                {isSearching ? "Scan de la bibliothèque..." : `${searchResults.length} segments trouvés`}
+              </p>
+            </div>
           </div>
         </div>
+        
         <div className="flex items-center gap-2">
             {includeSynonyms && activeSynonyms.length > 0 && (
-                <button 
-                  onClick={() => setShowOnlySynonyms(!showOnlySynonyms)}
-                  data-tooltip={showOnlySynonyms ? "Voir tous les résultats" : "Filtre: Synonymes uniquement"}
-                  className={`flex items-center gap-2 px-4 h-9 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm tooltip-bottom ${
-                    showOnlySynonyms 
-                      ? 'bg-teal-600 text-white border-teal-600' 
-                      : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-400 hover:text-teal-600'
-                  }`}
-                >
-                  <Layers className={`w-3.5 h-3.5 ${showOnlySynonyms ? 'animate-pulse' : ''}`} />
-                  <span>{showOnlySynonyms ? "Synonymes (Filtre Actif)" : "Synonymes uniquement"}</span>
-                </button>
+                <div className="flex items-center gap-2 bg-zinc-100/50 dark:bg-zinc-900/50 p-1 rounded-2xl border border-zinc-200/50 dark:border-zinc-800/50">
+                    <button 
+                      onClick={() => setShowOnlyQuery(!showOnlyQuery)}
+                      data-tooltip={showOnlyQuery ? "Voir tous les résultats" : "Mot recherché uniquement"}
+                      className={`flex items-center gap-2 px-4 h-9 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm tooltip-bottom ${
+                        showOnlyQuery 
+                          ? 'bg-amber-600 text-white border-amber-600' 
+                          : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-400 hover:text-amber-600'
+                      }`}
+                    >
+                      <Search className={`w-3.5 h-3.5 ${showOnlyQuery ? 'animate-pulse' : ''}`} />
+                      <span className="hidden lg:inline">{showOnlyQuery ? "Mot Strict (Filtre Actif)" : "Mot recherché"}</span>
+                      <span className="lg:hidden">Strict</span>
+                    </button>
+
+                    <button 
+                      onClick={() => setShowOnlySynonyms(!showOnlySynonyms)}
+                      data-tooltip={showOnlySynonyms ? "Voir tous les résultats" : "Synonymes uniquement"}
+                      className={`flex items-center gap-2 px-4 h-9 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm tooltip-bottom ${
+                        showOnlySynonyms 
+                          ? 'bg-teal-600 text-white border-teal-600' 
+                          : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-400 hover:text-teal-600'
+                      }`}
+                    >
+                      <Layers className={`w-3.5 h-3.5 ${showOnlySynonyms ? 'animate-pulse' : ''}`} />
+                      <span className="hidden lg:inline">{showOnlySynonyms ? "Synonymes (Filtre Actif)" : "Synonymes"}</span>
+                      <span className="lg:hidden">Syns</span>
+                    </button>
+                </div>
             )}
             <button 
                 onClick={handleExportPdf}
