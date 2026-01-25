@@ -149,7 +149,7 @@ const SearchResults: React.FC = () => {
     setOffset(0);
     setHasMore(true);
     performSearch(searchQuery, searchMode, 0);
-  }, [searchQuery, searchMode, performSearch, showOnlySynonyms]);
+  }, [searchQuery, searchMode, performSearch, showOnlySynonyms, includeSynonyms]);
 
   const loadMore = () => {
     const nextOffset = offset + RESULTS_PER_PAGE;
