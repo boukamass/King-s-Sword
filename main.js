@@ -1,14 +1,27 @@
+
 const { app, BrowserWindow, shell, ipcMain, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
-const Database = require('better-sqlite3');
+
+// Delay loading better-sqlite3 to handle missing bindings gracefully
+let Database;
+try {
+  Database = require('better-sqlite3');
+} catch (e) {
+  console.error('[DB] Erreur: Impossible de charger better-sqlite3 (bindings manquants).', e.message);
+}
 
 const isDev = !app.isPackaged;
 let mainWindow;
-let db;
+let db = null;
 
 function initDatabase() {
+  if (!Database) {
+    console.error('[DB] Initialisation avortée: Le module better-sqlite3 n\'est pas disponible.');
+    return;
+  }
+
   try {
     const userDataPath = app.getPath('userData');
     if (!fs.existsSync(userDataPath)) {
@@ -71,6 +84,7 @@ function initDatabase() {
       );
     `);
 
+    // Check for column exists (migration)
     try {
       db.prepare('SELECT sermon_version_snapshot FROM citations LIMIT 1').get();
     } catch (e) {
@@ -78,19 +92,12 @@ function initDatabase() {
     }
 
   } catch (err) {
-    console.error(`[DB] Erreur fatale initialisation: ${err.message}`);
+    console.error(`[DB] Erreur fatale initialisation base de données: ${err.message}`);
     db = null;
   }
 }
 
-const checkDb = () => { 
-  if (!db) {
-    initDatabase();
-    if (!db) throw new Error("Base de données indisponible.");
-  }
-};
-
-ipcMain.handle('db:isReady', () => !!db);
+ipcMain.handle('db:isReady', () => db !== null);
 
 ipcMain.handle('db:getSermonsMetadata', () => {
   if (!db) return [];
@@ -117,11 +124,15 @@ ipcMain.handle('db:getSermonFull', (event, id) => {
 });
 
 ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0 }) => {
-  if (!db) return [];
+  if (!db) {
+    console.warn("[DB] Recherche impossible: Base de données non initialisée.");
+    return [];
+  }
+  
   const rawQuery = (query || "").trim();
   if (!rawQuery || rawQuery.length < 2) return [];
 
-  // On nettoie les termes pour éviter les injections de syntaxe FTS5 malveillantes
+  // Nettoyage et préparation des termes FTS5
   const cleanTerms = rawQuery.replace(/[*\-"'()]/g, ' ').split(/\s+/).filter(v => v.length > 0);
   if (cleanTerms.length === 0) return [];
 
@@ -141,33 +152,32 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0 }) => 
     const highlightOpen = '<mark class="bg-amber-400/40 dark:bg-amber-500/40 text-amber-950 dark:text-white font-bold px-0.5 rounded-sm shadow-sm border-b-2 border-amber-600/30">';
     const highlightClose = '</mark>';
     
-    // CORRECTION CRUCIALE : Dans SQLite FTS5, si la table est aliasée (ici 'f'), 
-    // la fonction snippet() et la clause MATCH doivent utiliser l'alias.
+    // Utilisation directe de la table FTS dans le snippet et le MATCH pour une compatibilité maximale
     const stmt = db.prepare(`
       SELECT 
         f.rowid as paragraphId, 
         f.sermon_id as sermonId, 
         f.paragraph_index as paragraphIndex, 
-        snippet(f, 0, ?, ?, '...', 64) as snippet,
+        snippet(paragraphs_fts, 0, ?, ?, '...', 64) as snippet,
         s.title, s.date, s.city
       FROM paragraphs_fts f
       INNER JOIN sermons s ON f.sermon_id = s.id
-      WHERE f MATCH ? 
+      WHERE paragraphs_fts MATCH ? 
       ORDER BY s.date DESC
       LIMIT ? OFFSET ?
     `);
     
     return stmt.all(highlightOpen, highlightClose, ftsQuery, safeLimit, safeOffset);
   } catch (e) {
-    console.error("[DB Search Error]:", e.message);
+    console.error("[DB] Erreur SQL lors de la recherche intégrale:", e.message);
     return [];
   }
 });
 
 ipcMain.handle('db:importSermons', (event, sermons) => {
+  if (!db) return { success: false, error: "Base de données non initialisée (Problème de bindings SQLite)" };
+  
   try {
-    checkDb();
-    
     const transaction = db.transaction((data) => {
       db.prepare('DELETE FROM paragraphs_fts').run();
       db.prepare('DELETE FROM paragraphs').run();
@@ -226,8 +236,8 @@ ipcMain.handle('db:getNotes', () => {
 });
 
 ipcMain.handle('db:saveNote', (event, note) => {
+  if (!db) return { success: false, error: "DB Unavailable" };
   try {
-    checkDb();
     db.prepare('INSERT INTO notes (id, title, content, color, "order", creation_date) VALUES (@id, @title, @content, @color, @order, @creationDate) ON CONFLICT(id) DO UPDATE SET title=excluded.title, content=excluded.content, color=excluded.color, "order"=excluded."order"').run(note);
     db.prepare('DELETE FROM citations WHERE note_id = ?').run(note.id);
     const insC = db.prepare('INSERT INTO citations (id, note_id, sermon_id, sermon_title_snapshot, sermon_date_snapshot, sermon_version_snapshot, quoted_text, date_added, paragraph_index) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
@@ -241,8 +251,8 @@ ipcMain.handle('db:saveNote', (event, note) => {
 });
 
 ipcMain.handle('db:deleteNote', (event, id) => {
+  if (!db) return { success: false, error: "DB Unavailable" };
   try {
-    checkDb();
     db.prepare('DELETE FROM notes WHERE id = ?').run(id);
     return { success: true };
   } catch (e) {
@@ -251,8 +261,8 @@ ipcMain.handle('db:deleteNote', (event, id) => {
 });
 
 ipcMain.handle('db:reorderNotes', (event, notes) => {
+  if (!db) return { success: false, error: "DB Unavailable" };
   try {
-    checkDb();
     db.transaction(items => items.forEach((it, i) => db.prepare('UPDATE notes SET "order" = ? WHERE id = ?').run(i, it.id)))(notes);
     return { success: true };
   } catch (e) {

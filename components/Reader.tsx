@@ -179,7 +179,7 @@ const Reader: React.FC = () => {
 
   const sermon = activeSermon;
   
-  const [selection, setSelection] = useState<{ text: string; x: number; y: number; isTop: boolean } | null>(null);
+  const [selection, setSelection] = useState<{ text: string; x: number; y: number } | null>(null);
   const [selectionIndices, setSelectionIndices] = useState<number[]>([]);
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [readerSearchQuery, setReaderSearchQuery] = useState('');
@@ -646,11 +646,11 @@ const Reader: React.FC = () => {
       const range = sel.getRangeAt(0);
       const rect = range.getBoundingClientRect();
       const readerRect = readerAreaRef.current.getBoundingClientRect();
+      // On utilise rect.bottom pour que le menu soit toujours placé en dessous de la sélection
       setSelection({ 
         text: sel.toString().trim(), 
         x: (rect.left + rect.width / 2) - readerRect.left, 
-        y: rect.top - readerRect.top,
-        isTop: rect.top < 150 
+        y: rect.bottom - readerRect.top
       });
     } else setSelection(null);
   }, []);
@@ -1117,7 +1117,7 @@ const Reader: React.FC = () => {
           className="absolute z-[200000] pointer-events-none no-print animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-200 ease-out" 
           style={{ 
             left: selection.x, 
-            top: selection.isTop ? selection.y + 40 : selection.y - 70, 
+            top: selection.y + 10, 
             transform: 'translateX(-50%)' 
           }}
         >
