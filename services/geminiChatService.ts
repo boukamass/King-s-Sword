@@ -2,35 +2,32 @@
 import { GoogleGenAI } from "@google/genai";
 import { ChatMessage } from '../types';
 
+export interface GeminiResponse {
+  text: string;
+  sources: { title: string; uri: string }[];
+}
+
 export const askGeminiChat = async (
   prompt: string,
   contextText: string,
   history: ChatMessage[]
-): Promise<string> => {
-  // Initialisation à l'intérieur de la fonction pour garantir l'accès à process.env.API_KEY
+): Promise<GeminiResponse> => {
   const apiKey = process.env.API_KEY;
   if (!apiKey) throw new Error("Clé API non configurée.");
   
   const ai = new GoogleGenAI({ apiKey });
   
   try {
-    const systemInstruction = `Tu es un assistant théologique expert de King's Sword.
-    Ton ton est solennel, précis et respectueux.
-    
-    BASE DE CONNAISSANCES :
-    Utilise EXCLUSIVEMENT les sermons fournis dans le contexte ci-dessous. Chaque paragraphe du contexte est préfixé par son numéro (ex: "[Para. 1]").
-    
-    RÈGLES DE RÉPONSE :
-    1. Pour chaque citation, tu DOIS inclure le numéro du paragraphe source. Utilise le format EXACT : une citation dans un blockquote (>), suivie IMMÉDIATEMENT par la référence.
-    > "Citation textuelle exacte et complète ici..." [Réf: ID_SERMON, Para. NUMERO_DU_PARAGRAPHE]
-    2. Ne mets RIEN d'autre sur la même ligne que la référence (ni avant le blockquote, ni après la référence).
-    3. Si une information n'est pas dans les sermons fournis, indique-le clairement avec humilité.
-    4. Formate le reste de tes réponses avec Markdown (##, **, listes).`;
+    const systemInstruction = `Tu es l'assistant de King's Sword. 
+    Réponds de manière concise et solennelle en utilisant les sermons fournis.
+    CITE TOUJOURS LE PARAGRAPHE : > "Texte" [Réf: ID_SERMON, Para. N]`;
 
-    const userPromptWithContext = `CONTEXTE DES SERMONS SÉLECTIONNÉS :\n${contextText}\n\nQUESTION : "${prompt}"`;
+    // Optimisation : réduction du contexte à 12000 caractères pour rester sous les TPM (Tokens Per Minute)
+    const truncatedContext = contextText.substring(0, 12000); 
+    const userPromptWithContext = `CONTEXTE :\n${truncatedContext}\n\nQUESTION : "${prompt}"`;
 
     const contents = [
-      ...history.map(h => ({
+      ...history.slice(-6).map(h => ({ // On ne garde que les 6 derniers messages pour économiser les tokens d'historique
         role: h.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: h.content }]
       })),
@@ -41,17 +38,40 @@ export const askGeminiChat = async (
     ];
 
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      // Utilisation du modèle Lite : plus rapide et économise le quota sur les chats simples
+      model: "gemini-flash-lite-latest",
       contents: contents,
       config: { 
         systemInstruction,
-        temperature: 0.5,
+        temperature: 0.7,
+        tools: [{ googleSearch: {} }]
       },
     });
     
-    return response.text || "Aucune réponse générée.";
+    const text = response.text || "Aucune réponse générée.";
+    const sources: { title: string; uri: string }[] = [];
+    
+    const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+    if (chunks) {
+      chunks.forEach((chunk: any) => {
+        if (chunk.web && chunk.web.uri) {
+          sources.push({
+            title: chunk.web.title || "Source Web",
+            uri: chunk.web.uri
+          });
+        }
+      });
+    }
+
+    return { text, sources };
   } catch (error: any) {
     console.error("Gemini Chat Error:", error);
+    
+    // Gestion propre de l'erreur de quota (Rate Limit) pour éviter l'affichage de JSON brut
+    if (error.message?.includes("429") || error.message?.includes("QUOTA_EXHAUSTED") || error.message?.includes("RESOURCE_EXHAUSTED")) {
+      throw new Error("Limite de messages atteinte (Quota API). Veuillez attendre 60 secondes avant de poser une nouvelle question ou vérifiez votre forfait dans Google AI Studio.");
+    }
+    
     throw new Error(`Erreur assistant : ${error.message || "Connexion perdue"}`);
   }
 };

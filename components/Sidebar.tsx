@@ -21,7 +21,8 @@ import {
   Library,
   Info,
   RotateCcw,
-  Clock
+  Clock,
+  BookOpen
 } from 'lucide-react';
 
 const ITEM_HEIGHT = 80; // Hauteur totale fixe (pixels) pour une virtualisation parfaite
@@ -207,6 +208,8 @@ const Sidebar: React.FC = () => {
   const setSearchMode = useAppStore(s => s.setSearchMode);
   const isFullTextSearch = useAppStore(s => s.isFullTextSearch);
   const setIsFullTextSearch = useAppStore(s => s.setIsFullTextSearch);
+  const includeSynonyms = useAppStore(s => s.includeSynonyms);
+  const setIncludeSynonyms = useAppStore(s => s.setIncludeSynonyms);
   const isSearching = useAppStore(s => s.isSearching);
   
   const cityFilter = useAppStore(s => s.cityFilter);
@@ -520,6 +523,19 @@ const Sidebar: React.FC = () => {
                   {t.full_text_search}
                 </span>
               </div>
+              
+              {isFullTextSearch && (
+                <div 
+                  onClick={() => setIncludeSynonyms(!includeSynonyms)}
+                  data-tooltip="Inclure les synonymes (IA)"
+                  className="flex items-center gap-2.5 cursor-pointer group/syn-toggle select-none tooltip-right"
+                >
+                  <div className={`relative w-8 h-4.5 rounded-full transition-all duration-500 flex items-center px-0.5 ${includeSynonyms ? 'bg-amber-600 shadow-lg shadow-amber-600/20' : 'bg-zinc-200 dark:bg-zinc-700 shadow-inner'}`}>
+                    <div className={`w-3.5 h-3.5 bg-white rounded-full shadow-md transition-all duration-500 transform ${includeSynonyms ? 'translate-x-3.5 scale-100' : 'translate-x-0 scale-90'}`} />
+                  </div>
+                  <BookOpen className={`w-3 h-3 transition-colors ${includeSynonyms ? 'text-amber-600' : 'text-zinc-400'}`} />
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-2">
@@ -635,7 +651,7 @@ const Sidebar: React.FC = () => {
             <div className="text-center animate-in fade-in slide-in-from-bottom-2 duration-500">
               <div className="flex flex-col items-center mb-3 gap-1">
                 <p className="text-[10px] font-black text-zinc-900 dark:text-zinc-50 uppercase tracking-[0.25em]">
-                  KING'S SWORD <span className="text-teal-600 dark:text-blue-400 ml-1">v{process.env.APP_VERSION}</span>
+                  KING'S SWORD V <span className="text-teal-600 dark:text-blue-400 ml-1">{process.env.APP_VERSION}</span>
                 </p>
                 <div className="h-0.5 w-8 bg-teal-600/20 dark:bg-blue-400/20 rounded-full" />
                 <p className="text-[8px] font-black text-teal-600 uppercase tracking-widest mt-0.5">
@@ -656,7 +672,7 @@ const Sidebar: React.FC = () => {
           ) : (
             <div className="flex items-center justify-center gap-4 animate-in fade-in duration-500">
                <div className="flex items-center gap-1.5">
-                  <span className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">KS v{process.env.APP_VERSION}</span>
+                  <span className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">KS V {process.env.APP_VERSION}</span>
                </div>
                <div className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full" />
                <div className="flex items-center gap-1.5">

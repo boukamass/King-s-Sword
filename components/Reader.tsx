@@ -179,7 +179,7 @@ const Reader: React.FC = () => {
 
   const sermon = activeSermon;
   
-  const [selection, setSelection] = useState<{ text: string; x: number; y: number; isTop: boolean } | null>(null);
+  const [selection, setSelection] = useState<{ text: string; x: number; y: number } | null>(null);
   const [selectionIndices, setSelectionIndices] = useState<number[]>([]);
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [readerSearchQuery, setReaderSearchQuery] = useState('');
@@ -646,11 +646,11 @@ const Reader: React.FC = () => {
       const range = sel.getRangeAt(0);
       const rect = range.getBoundingClientRect();
       const readerRect = readerAreaRef.current.getBoundingClientRect();
+      // On utilise rect.bottom pour que le menu soit toujours placé en dessous de la sélection
       setSelection({ 
         text: sel.toString().trim(), 
         x: (rect.left + rect.width / 2) - readerRect.left, 
-        y: rect.top - readerRect.top,
-        isTop: rect.top < 150 
+        y: rect.bottom - readerRect.top
       });
     } else setSelection(null);
   }, []);
@@ -848,9 +848,33 @@ const Reader: React.FC = () => {
                   </p>
                 </div>
               </div>
-              <button onClick={() => setActiveDefinition(null)} className="w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-red-500 bg-zinc-50 dark:bg-zinc-800 rounded-[15px] transition-all border border-zinc-200 dark:border-zinc-700 hover:border-red-500/30 active:scale-90">
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {activeDefinition && (
+                  <button 
+                    onClick={() => {
+                      const text = `**Définition de ${activeDefinition.word}**\n\n${activeDefinition.definition}${activeDefinition.synonyms?.length ? `\n\n**Synonymes :** ${activeDefinition.synonyms.join(', ')}` : ''}${activeDefinition.etymology ? `\n\n**Origine :** ${activeDefinition.etymology}` : ''}`;
+                      setNoteSelectorPayload({
+                        text,
+                        sermon: {
+                          id: `definition-${activeDefinition.word.toLowerCase()}`,
+                          title: `Dictionnaire : ${activeDefinition.word}`,
+                          date: new Date().toISOString().split('T')[0],
+                          city: 'Lexique spirituel',
+                          text: ''
+                        }
+                      });
+                      setActiveDefinition(null);
+                    }}
+                    className="w-10 h-10 flex items-center justify-center text-teal-600 hover:text-white bg-teal-600/10 hover:bg-teal-600 rounded-[15px] transition-all border border-teal-600/20 active:scale-90"
+                    title="Ajouter aux notes"
+                  >
+                    <NotebookPen className="w-5 h-5" />
+                  </button>
+                )}
+                <button onClick={() => setActiveDefinition(null)} className="w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-red-500 bg-zinc-50 dark:bg-zinc-800 rounded-[15px] transition-all border border-zinc-200 dark:border-zinc-700 hover:border-red-500/30 active:scale-90">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             <div className="flex-1 px-8 py-6 overflow-y-auto custom-scrollbar">
@@ -948,7 +972,20 @@ const Reader: React.FC = () => {
         </div>
         <div className="flex items-center gap-2 shrink-0 ml-4 overflow-visible-important">
             {navigatedFromSearch && (
-              <button onClick={() => { setSearchQuery(lastSearchQuery); setIsFullTextSearch(true); setSelectedSermonId(null); setNavigatedFromSearch(false); setSearchOriginMatchIndices([]); }} className="px-3 py-1.5 bg-amber-600/10 text-amber-700 dark:text-amber-400 text-[9px] font-bold uppercase tracking-wider rounded-xl hover:bg-amber-600/20 transition-colors mr-2"><ChevronLeft className="w-3 h-3 inline mr-1" /> {t.reader_exit_search}</button>
+              <button 
+                onClick={() => { 
+                  startTransition(() => {
+                    setSearchQuery(lastSearchQuery); 
+                    setIsFullTextSearch(true); 
+                    setSelectedSermonId(null); 
+                    setNavigatedFromSearch(false); 
+                    setSearchOriginMatchIndices([]); 
+                  });
+                }} 
+                className="px-3 py-1.5 bg-amber-600/10 text-amber-700 dark:text-amber-400 text-[9px] font-bold uppercase tracking-wider rounded-xl hover:bg-amber-600/20 transition-colors mr-2"
+              >
+                <ChevronLeft className="w-3 h-3 inline mr-1" /> {t.reader_exit_search}
+              </button>
             )}
             {navigatedFromNoteId && (
               <button onClick={() => { setActiveNoteId(navigatedFromNoteId); setNavigatedFromNoteId(null); setSelectedSermonId(null); }} className="px-3 py-1.5 bg-teal-600/10 text-teal-700 dark:text-teal-400 text-[9px] font-bold uppercase tracking-wider rounded-xl hover:bg-amber-600/20 transition-colors mr-2"><ChevronLeft className="w-3 h-3 inline mr-1" /> {t.reader_exit_note}</button>
@@ -1117,7 +1154,7 @@ const Reader: React.FC = () => {
           className="absolute z-[200000] pointer-events-none no-print animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-200 ease-out" 
           style={{ 
             left: selection.x, 
-            top: selection.isTop ? selection.y + 40 : selection.y - 70, 
+            top: selection.y + 10, 
             transform: 'translateX(-50%)' 
           }}
         >

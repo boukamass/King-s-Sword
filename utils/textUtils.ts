@@ -28,8 +28,8 @@ export const getAccentInsensitiveRegex = (query: string, isExactWord = false): R
     'n': '[nñ]',
   };
   
-  // On remplace les espaces par un pattern qui accepte n'importe quelle ponctuation ou espace
-  const punctuationPattern = "[\\s.,;:!–?\"“”'()\\n\\r]+";
+  // Pattern qui accepte n'importe quelle ponctuation ou espace entre les mots
+  const punctuationPattern = "[\\s.,;:!–?\"“”'()\\n\\r\\[\\]]+";
   
   const pattern = query
     .toLowerCase()
@@ -41,7 +41,8 @@ export const getAccentInsensitiveRegex = (query: string, isExactWord = false): R
     .join(punctuationPattern);
     
   if (isExactWord) {
-    return new RegExp(`(^|[^a-z0-9À-ÿ])(${pattern})($|[^a-z0-9À-ÿ])`, 'gi');
+    // Utilisation de lookbehind/lookahead si supporté ou d'un pattern de bordure plus large
+    return new RegExp(`(?:^|[^a-z0-9À-ÿ])(${pattern})(?:$|[^a-z0-9À-ÿ])`, 'gi');
   }
   return new RegExp(`(${pattern})`, 'gi');
 };
@@ -68,5 +69,6 @@ export const getMultiWordHighlightRegex = (query: string): RegExp => {
     return word.toLowerCase().split('').map(char => map[char] || (/[a-z0-9]/.test(char) ? char : `\\${char}`)).join('');
   });
 
+  // Capturer les mots même s'ils sont collés à des parenthèses ou ponctuation
   return new RegExp(`(${wordPatterns.join('|')})`, 'gi');
 };
