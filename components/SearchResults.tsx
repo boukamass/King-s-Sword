@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, memo } from 'react';
 import { useAppStore, SearchResult } from '../store';
 import { translations } from '../translations';
 import { SearchMode, Sermon } from '../types';
-import { FileText, Loader2, Calendar, Search, ChevronLeft, MapPin, Hash, NotebookPen, Sparkles } from 'lucide-react';
+import { FileText, Loader2, Calendar, Search, ChevronLeft, MapPin, Hash, NotebookPen, Sparkles, Layers } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { searchSermons } from '../services/db';
 import NoteSelectorModal from './NoteSelectorModal';
@@ -112,7 +112,10 @@ const SearchResults: React.FC = () => {
     setJumpToParagraph,
     setNavigatedFromSearch,
     setIsFullTextSearch,
-    includeSynonyms
+    includeSynonyms,
+    showOnlySynonyms,
+    setShowOnlySynonyms,
+    activeSynonyms
   } = useAppStore();
   
   const t = translations[languageFilter === 'Anglais' ? 'en' : 'fr'];
@@ -120,7 +123,6 @@ const SearchResults: React.FC = () => {
   const [hasMore, setHasMore] = useState(true);
   const [noteSelectorPayload, setNoteSelectorPayload] = useState<{ text: string; sermon: Sermon; paragraphIndex?: number } | null>(null);
 
-  // Added functional updates to setSearchResults to avoid searchResults dependency
   const performSearch = useCallback(async (q: string, m: SearchMode, off: number) => {
     if (!q || q.length < 2) return;
     setIsSearching(true);
@@ -147,7 +149,7 @@ const SearchResults: React.FC = () => {
     setOffset(0);
     setHasMore(true);
     performSearch(searchQuery, searchMode, 0);
-  }, [searchQuery, searchMode, performSearch]);
+  }, [searchQuery, searchMode, performSearch, showOnlySynonyms]);
 
   const loadMore = () => {
     const nextOffset = offset + RESULTS_PER_PAGE;
@@ -219,6 +221,20 @@ const SearchResults: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
+            {includeSynonyms && activeSynonyms.length > 0 && (
+                <button 
+                  onClick={() => setShowOnlySynonyms(!showOnlySynonyms)}
+                  data-tooltip={showOnlySynonyms ? "Voir tous les résultats" : "Filtre: Synonymes uniquement"}
+                  className={`flex items-center gap-2 px-4 h-9 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm tooltip-bottom ${
+                    showOnlySynonyms 
+                      ? 'bg-teal-600 text-white border-teal-600' 
+                      : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-400 hover:text-teal-600'
+                  }`}
+                >
+                  <Layers className={`w-3.5 h-3.5 ${showOnlySynonyms ? 'animate-pulse' : ''}`} />
+                  <span>{showOnlySynonyms ? "Synonymes (Filtre Actif)" : "Synonymes uniquement"}</span>
+                </button>
+            )}
             <button 
                 onClick={handleExportPdf}
                 data-tooltip="Exporter PDF"

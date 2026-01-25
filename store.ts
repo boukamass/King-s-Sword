@@ -44,6 +44,8 @@ interface AppState {
   searchResults: SearchResult[];
   isFullTextSearch: boolean;
   includeSynonyms: boolean;
+  showOnlySynonyms: boolean;
+  activeSynonyms: string[];
   cityFilter: string | null;
   yearFilter: string | null;
   monthFilter: string | null;
@@ -79,6 +81,8 @@ interface AppState {
   setIsSearching: (val: boolean) => void;
   setIsFullTextSearch: (active: boolean) => void;
   setIncludeSynonyms: (active: boolean) => void;
+  setShowOnlySynonyms: (active: boolean) => void;
+  setActiveSynonyms: (syns: string[]) => void;
   addNotification: (message: string, type: 'success' | 'error') => void;
   removeNotification: (id: string) => void;
   setActiveNoteId: (id: string | null) => void;
@@ -141,6 +145,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   searchMode: SearchMode.EXACT_PHRASE,
   isFullTextSearch: false,
   includeSynonyms: false,
+  showOnlySynonyms: false,
+  activeSynonyms: [],
   cityFilter: null,
   yearFilter: null,
   monthFilter: null,
@@ -333,8 +339,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSearchMode: (mode) => set({ searchMode: mode, lastSearchMode: mode }),
   setSearchResults: (results) => set({ searchResults: results }),
   setIsSearching: (val) => set({ isSearching: val }),
-  setIsFullTextSearch: (active) => set({ isFullTextSearch: active }),
-  setIncludeSynonyms: (active) => set({ includeSynonyms: active }),
+  setIsFullTextSearch: (active) => set({ isFullTextSearch: active, showOnlySynonyms: false, activeSynonyms: [] }),
+  setIncludeSynonyms: (active) => set({ includeSynonyms: active, showOnlySynonyms: false }),
+  setShowOnlySynonyms: (active) => set({ showOnlySynonyms: active }),
+  setActiveSynonyms: (syns) => set({ activeSynonyms: syns }),
   addNotification: (message, type) => set(state => ({
     notifications: [{ id: crypto.randomUUID(), message, type }, ...state.notifications]
   })),

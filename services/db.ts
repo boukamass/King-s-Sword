@@ -46,13 +46,13 @@ export const bulkAddSermons = async (sermons: Sermon[]): Promise<{ success: bool
 /**
  * Moteur de recherche de secours pour le Web (Fallback)
  */
-const webSearchFallback = async (params: { query: string; mode: SearchMode; limit: number; offset: number; synonyms?: string[] }): Promise<any[]> => {
+const webSearchFallback = async (params: { query: string; mode: SearchMode; limit: number; offset: number; synonyms?: string[]; showOnlySynonyms?: boolean }): Promise<any[]> => {
   const store = useAppStore.getState();
   const sermonsMap = store.sermonsMap;
   const results: any[] = [];
   const query = params.query.trim().toLowerCase();
   
-  if (!query) return [];
+  if (!query && (!params.synonyms || params.synonyms.length === 0)) return [];
 
   const safeLimit = Math.min(params.limit, 50);
   const allSermons = Array.from(sermonsMap.values()) as Sermon[];
@@ -60,7 +60,7 @@ const webSearchFallback = async (params: { query: string; mode: SearchMode; limi
   
   // Si on a des synonymes, on utilise une regex multi-mots
   const highlightRegex = (params.synonyms && params.synonyms.length > 0)
-    ? getMultiWordHighlightRegex([query, ...params.synonyms].join(' '))
+    ? getMultiWordHighlightRegex(params.showOnlySynonyms ? params.synonyms.join(' ') : [query, ...params.synonyms].join(' '))
     : (params.mode === SearchMode.EXACT_PHRASE 
         ? getAccentInsensitiveRegex(query, false)
         : getMultiWordHighlightRegex(query));
@@ -83,7 +83,11 @@ const webSearchFallback = async (params: { query: string; mode: SearchMode; limi
       
       // Recherche avec synonymes (Mode OR implicite)
       if (synonymWords.length > 0) {
-        matchFound = [normalizedQuery, ...synonymWords].some(w => normalizedContent.includes(w));
+        if (params.showOnlySynonyms) {
+            matchFound = synonymWords.some(w => normalizedContent.includes(w));
+        } else {
+            matchFound = [normalizedQuery, ...synonymWords].some(w => normalizedContent.includes(w));
+        }
       } else if (params.mode === SearchMode.EXACT_PHRASE) {
         matchFound = normalizedContent.includes(normalizedQuery);
       } else if (params.mode === SearchMode.DIVERSE) {
@@ -132,6 +136,7 @@ export const searchSermons = async (params: { query: string; mode: SearchMode; l
   const store = useAppStore.getState();
   const isSqliteAvailable = store.isSqliteAvailable;
   const includeSynonyms = store.includeSynonyms;
+  const showOnlySynonyms = store.showOnlySynonyms;
   
   let synonyms: string[] = [];
   
@@ -140,14 +145,17 @@ export const searchSermons = async (params: { query: string; mode: SearchMode; l
     try {
       const def = await getDefinition(params.query.trim());
       if (def && def.synonyms) {
-        synonyms = def.synonyms.slice(0, 5); // Limiter à 5 synonymes pour la performance
+        synonyms = def.synonyms.slice(0, 8); // Limiter pour la performance
+        store.setActiveSynonyms(synonyms);
       }
     } catch (e) {
       console.warn("Échec de la récupération des synonymes via Gemini:", e);
     }
+  } else if (!includeSynonyms) {
+    store.setActiveSynonyms([]);
   }
   
-  const searchParams = { ...params, synonyms };
+  const searchParams = { ...params, synonyms, showOnlySynonyms };
 
   if (!isElectron || !isSqliteAvailable) {
     return webSearchFallback(searchParams);

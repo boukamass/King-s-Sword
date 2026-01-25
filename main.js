@@ -123,30 +123,33 @@ ipcMain.handle('db:getSermonFull', (event, id) => {
   }
 });
 
-ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0, synonyms = [] }) => {
+ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0, synonyms = [], showOnlySynonyms = false }) => {
   if (!db) {
     console.warn("[DB] Recherche impossible: Base de données non initialisée.");
     return [];
   }
   
   const rawQuery = (query || "").trim();
-  if (!rawQuery || rawQuery.length < 2) return [];
+  if (!rawQuery && (!synonyms || synonyms.length === 0)) return [];
 
   const cleanTerms = rawQuery.replace(/[*\-"'()]/g, ' ').split(/\s+/).filter(v => v.length > 0);
-  if (cleanTerms.length === 0) return [];
-
+  
   let ftsQuery = '';
   
   // Si on a des synonymes, on construit une requête OR automatique
   if (synonyms && synonyms.length > 0) {
-    const allTerms = [rawQuery, ...synonyms].map(s => s.trim().replace(/[*\-"'()]/g, ' ')).filter(s => s.length > 0);
+    const termsToUse = showOnlySynonyms ? synonyms : [rawQuery, ...synonyms];
+    const allTerms = termsToUse.map(s => s.trim().replace(/[*\-"'()]/g, ' ')).filter(s => s.length > 0);
     ftsQuery = allTerms.map(t => `${t}*`).join(' OR ');
-  } else if (mode === 'EXACT_PHRASE') {
-    ftsQuery = `"${cleanTerms.join(' ')}"`;
-  } else if (mode === 'DIVERSE') {
-    ftsQuery = cleanTerms.map(t => `${t}*`).join(' OR ');
-  } else { 
-    ftsQuery = cleanTerms.map(t => `${t}*`).join(' AND ');
+  } else {
+    if (cleanTerms.length === 0) return [];
+    if (mode === 'EXACT_PHRASE') {
+      ftsQuery = `"${cleanTerms.join(' ')}"`;
+    } else if (mode === 'DIVERSE') {
+      ftsQuery = cleanTerms.map(t => `${t}*`).join(' OR ');
+    } else { 
+      ftsQuery = cleanTerms.map(t => `${t}*`).join(' AND ');
+    }
   }
 
   const safeLimit = Number(limit) || 50;
