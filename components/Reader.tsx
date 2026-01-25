@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo, useCallback, memo, useTransition } from 'react';
 import { useAppStore } from '../store';
 import { translations } from '../translations';
@@ -277,9 +276,21 @@ const Reader: React.FC = () => {
         setProjectedSegmentIndex(null);
       }
     }, 1000);
-    const handleFullscreenChange = () => setIsOSFullscreen(!!document.fullscreenElement);
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    
+    const handleFullscreenChange = () => {
+      const isFs = !!document.fullscreenElement;
+      setIsOSFullscreen(isFs);
+      
+      // Logique de bascule automatique optimisée pour une lecture à 12 mètres (48px)
+      const currentFontSize = useAppStore.getState().fontSize;
+      if (isFs && currentFontSize === 20) {
+        useAppStore.getState().setFontSize(48);
+      } else if (!isFs && currentFontSize === 48) {
+        useAppStore.getState().setFontSize(20);
+      }
+    };
 
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
     document.addEventListener('selectionchange', handleSelectionChange);
 
     return () => {
@@ -396,19 +407,6 @@ const Reader: React.FC = () => {
       } catch (err) {
         addNotification("Erreur de projection", "error");
       }
-    }
-  };
-
-  const handleProjectSegment = (idx: number) => {
-    if (!projectionWindow || projectionWindow.closed) {
-      toggleProjection();
-    }
-
-    if (projectedSegmentIndex === idx) {
-      setProjectedSegmentIndex(null);
-    } else {
-      setProjectedSegmentIndex(idx);
-      addNotification("Paragraphe projeté", "success");
     }
   };
 
@@ -749,6 +747,19 @@ const Reader: React.FC = () => {
     return set;
   }, [highlightMap, citationHighlightMap, searchResults, searchOriginMatchIndices, jumpHighlightIndices, selectionIndices]);
 
+  const handleProjectSegment = (idx: number) => {
+    if (!projectionWindow || projectionWindow.closed) {
+      toggleProjection();
+    }
+
+    if (projectedSegmentIndex === idx) {
+      setProjectedSegmentIndex(null);
+    } else {
+      setProjectedSegmentIndex(idx);
+      addNotification("Paragraphe projeté", "success");
+    }
+  };
+
   const renderSegmentContent = useCallback((segWords: SimpleWord[]) => {
     const elements: React.ReactNode[] = [];
     let textBuffer = "";
@@ -890,7 +901,7 @@ const Reader: React.FC = () => {
                        <div className="w-6 h-6 flex items-center justify-center bg-teal-600 text-white rounded-lg shadow-lg shadow-teal-600/10">
                           <Feather className="w-3.5 h-3.5" />
                        </div>
-                       <h4 className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Signification</h4>
+                       <h4 className="text-[10px] font-black text-zinc-400 dark:text-zinc-50 uppercase tracking-widest">Signification</h4>
                     </div>
                     <div className="p-6 bg-teal-600/5 dark:bg-teal-600/10 border border-teal-600/10 rounded-[28px] relative overflow-hidden group">
                       <div className="absolute top-0 left-0 w-1 h-full bg-teal-600/20" />
@@ -904,10 +915,10 @@ const Reader: React.FC = () => {
                   {activeDefinition.etymology && (
                     <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-500 delay-75">
                       <div className="flex items-center gap-3">
-                         <div className="w-6 h-6 flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 rounded-lg">
+                         <div className="w-6 h-6 flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-50 rounded-lg">
                             <Milestone className="w-3.5 h-3.5" />
                          </div>
-                         <h4 className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Origine</h4>
+                         <h4 className="text-[10px] font-black text-zinc-400 dark:text-zinc-50 uppercase tracking-widest">Origine</h4>
                       </div>
                       <div className="pl-9">
                         <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-medium">
@@ -920,10 +931,10 @@ const Reader: React.FC = () => {
                   {activeDefinition.synonyms && activeDefinition.synonyms.length > 0 && (
                     <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-500 delay-150">
                       <div className="flex items-center gap-3">
-                         <div className="w-6 h-6 flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 rounded-lg">
+                         <div className="w-6 h-6 flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-50 rounded-lg">
                             <Layers className="w-3.5 h-3.5" />
                          </div>
-                         <h4 className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Synonymes</h4>
+                         <h4 className="text-[10px] font-black text-zinc-400 dark:text-zinc-50 uppercase tracking-widest">Synonymes</h4>
                       </div>
                       <div className="flex flex-wrap gap-2 pl-9">
                         {activeDefinition.synonyms.map((syn, idx) => (
@@ -1017,7 +1028,14 @@ const Reader: React.FC = () => {
                 type="text" 
                 value={localFontSize} 
                 onChange={e => /^\d*$/.test(e.target.value) && setLocalFontSize(e.target.value)} 
-                onBlur={() => { const val = parseInt(String(localFontSize), 10); setFontSize(isNaN(val) ? fontSize : val); }} 
+                onBlur={() => { const val = parseInt(String(localFontSize), 10); setFontSize(isNaN(val) ? fontSize : val); }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    const val = parseInt(String(localFontSize), 10);
+                    setFontSize(isNaN(val) ? fontSize : val);
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
                 onDoubleClick={() => { 
                     setFontSize(20); 
                     setLocalFontSize(20); 
