@@ -3,12 +3,32 @@ import React, { useState, useEffect, useCallback, memo } from 'react';
 import { useAppStore, SearchResult } from '../store';
 import { translations } from '../translations';
 import { SearchMode, Sermon } from '../types';
-import { FileText, Loader2, Calendar, Search, ChevronLeft, MapPin, Hash, NotebookPen } from 'lucide-react';
+import { FileText, Loader2, Calendar, Search, ChevronLeft, MapPin, Hash, NotebookPen, Sparkles } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { searchSermons } from '../services/db';
 import NoteSelectorModal from './NoteSelectorModal';
 
 const RESULTS_PER_PAGE = 50;
+
+const SkeletonCard = () => (
+    <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-[28px] p-7 shadow-sm animate-pulse">
+        <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+                <div className="w-9 h-9 bg-zinc-100 dark:bg-zinc-800 rounded-xl" />
+                <div className="space-y-2">
+                    <div className="h-4 w-48 bg-zinc-100 dark:bg-zinc-800 rounded" />
+                    <div className="h-2 w-32 bg-zinc-50 dark:bg-zinc-800/50 rounded" />
+                </div>
+            </div>
+            <div className="w-20 h-8 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl" />
+        </div>
+        <div className="space-y-3">
+            <div className="h-3 w-full bg-zinc-50 dark:bg-zinc-800/50 rounded" />
+            <div className="h-3 w-[90%] bg-zinc-50 dark:bg-zinc-800/50 rounded" />
+            <div className="h-3 w-[80%] bg-zinc-50 dark:bg-zinc-800/50 rounded" />
+        </div>
+    </div>
+);
 
 const SearchResultCard = memo(({ 
     result, 
@@ -92,6 +112,7 @@ const SearchResults: React.FC = () => {
     setJumpToParagraph,
     setNavigatedFromSearch,
     setIsFullTextSearch,
+    includeSynonyms
   } = useAppStore();
   
   const t = translations[languageFilter === 'Anglais' ? 'en' : 'fr'];
@@ -99,6 +120,7 @@ const SearchResults: React.FC = () => {
   const [hasMore, setHasMore] = useState(true);
   const [noteSelectorPayload, setNoteSelectorPayload] = useState<{ text: string; sermon: Sermon; paragraphIndex?: number } | null>(null);
 
+  // Added functional updates to setSearchResults to avoid searchResults dependency
   const performSearch = useCallback(async (q: string, m: SearchMode, off: number) => {
     if (!q || q.length < 2) return;
     setIsSearching(true);
@@ -111,7 +133,7 @@ const SearchResults: React.FC = () => {
       });
       
       if (off === 0) setSearchResults(results);
-      else setSearchResults([...searchResults, ...results]);
+      else setSearchResults(prev => [...prev, ...results]);
       
       setHasMore(results.length === RESULTS_PER_PAGE);
     } catch (e) {
@@ -119,13 +141,13 @@ const SearchResults: React.FC = () => {
     } finally {
       setIsSearching(false);
     }
-  }, [searchResults, setSearchResults, setIsSearching]);
+  }, [setSearchResults, setIsSearching]);
 
   useEffect(() => {
     setOffset(0);
     setHasMore(true);
     performSearch(searchQuery, searchMode, 0);
-  }, [searchQuery, searchMode]);
+  }, [searchQuery, searchMode, performSearch]);
 
   const loadMore = () => {
     const nextOffset = offset + RESULTS_PER_PAGE;
@@ -187,69 +209,85 @@ const SearchResults: React.FC = () => {
       <div className="px-8 h-14 border-b border-zinc-200/50 dark:border-zinc-800/50 flex items-center justify-between shrink-0 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-2xl z-20">
         <div className="flex items-center gap-5">
           <div className="w-8 h-8 flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-lg border border-teal-600/20 shadow-sm">
-            {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+            <Search className="w-4 h-4" />
           </div>
           <div>
-            <h2 className="text-[12px] font-black uppercase tracking-[0.2em] text-zinc-800 dark:text-zinc-100">RÉSULTATS DE RECHERCHE</h2>
-            <p className="text-[8px] font-black text-teal-600 uppercase tracking-[0.3em] mt-0.5">
-              {searchResults.length} occurrences trouvées
+            <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-900 dark:text-zinc-50 leading-none">Résultats de recherche</h2>
+            <p className="text-[7px] font-black text-teal-600 uppercase tracking-widest mt-0.5">
+              {isSearching ? "Scan de la bibliothèque..." : `${searchResults.length} segments trouvés`}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
             <button 
-              onClick={handleExportPdf} 
-              className="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:text-teal-600 transition-all hover:shadow-lg active:scale-95" 
-              title="Exporter PDF"
+                onClick={handleExportPdf}
+                data-tooltip="Exporter PDF"
+                className="w-9 h-9 flex items-center justify-center bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-400 hover:text-teal-600 transition-all active:scale-95 shadow-sm tooltip-bottom"
             >
-              <FileText className="w-4 h-4" />
+                <FileText className="w-4 h-4" />
             </button>
-            <div className="w-px h-5 bg-zinc-200 dark:bg-zinc-800 mx-2" />
             <button 
-              onClick={() => { setSearchQuery(''); setIsFullTextSearch(false); }} 
-              className="px-5 py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-red-500 hover:text-white dark:hover:bg-red-600 text-[9px] font-black uppercase tracking-[0.2em] rounded-lg text-zinc-600 dark:text-zinc-300 transition-all active:scale-95 shadow-sm"
+              onClick={() => { setIsFullTextSearch(false); setSearchQuery(''); }}
+              className="px-4 py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-red-50 dark:hover:bg-red-900/20 text-zinc-500 hover:text-red-500 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95"
             >
-                {t.reader_exit}
+              Fermer
             </button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-zinc-50/50 dark:bg-zinc-950/20">
-        <div className="max-w-4xl mx-auto space-y-6 pb-20"> {/* pb-20 au lieu de pb-40 */}
-          {searchResults.length === 0 && !isSearching ? (
-            <div className="h-[50vh] flex flex-col items-center justify-center opacity-20 space-y-6">
-              <div className="w-20 h-20 flex items-center justify-center bg-zinc-200 dark:bg-zinc-800 rounded-full">
-                <Search className="w-8 h-8" />
-              </div>
-              <p className="text-[11px] font-black uppercase tracking-[0.5em]">{t.no_results}</p>
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <div className="max-w-4xl mx-auto p-10 space-y-8 pb-32">
+          {searchResults.length === 0 && isSearching ? (
+             <div className="space-y-8 animate-in fade-in duration-300">
+                <div className="flex flex-col items-center justify-center py-10 gap-3">
+                   <div className="w-12 h-12 bg-teal-600/10 rounded-full flex items-center justify-center border border-teal-600/20">
+                      <Loader2 className="w-6 h-6 animate-spin text-teal-600" />
+                   </div>
+                   <div className="text-center">
+                      <p className="text-[10px] font-black uppercase tracking-[0.4em] text-teal-600 animate-pulse">Exploration des archives...</p>
+                      <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest mt-1">Recherche de "{searchQuery}" dans toute la collection</p>
+                   </div>
+                </div>
+                {[1, 2, 3].map(i => <SkeletonCard key={i} />)}
+             </div>
+          ) : searchResults.length === 0 && !isSearching ? (
+            <div className="py-40 flex flex-col items-center justify-center text-center space-y-6 opacity-20">
+              <Search className="w-20 h-20 stroke-[1]" />
+              <p className="text-[11px] font-black uppercase tracking-[0.4em]">Aucun résultat trouvé pour "{searchQuery}"</p>
             </div>
           ) : (
-            searchResults.map((res, idx) => (
+            <>
+              {searchResults.map((result, idx) => (
                 <SearchResultCard 
-                    key={`${res.sermonId}-${res.paragraphId}-${idx}`}
-                    result={res}
-                    index={idx}
-                    onClick={() => handleResultClick(res)}
-                    onAddToNotes={(e) => handleAddToNotes(e, res)}
+                    key={result.paragraphId} 
+                    result={result} 
+                    index={idx} 
+                    onClick={() => handleResultClick(result)}
+                    onAddToNotes={(e) => handleAddToNotes(e, result)}
                 />
-            ))
-          )}
-          
-          {searchResults.length > 0 && hasMore && (
-            <div className="flex justify-center pt-8">
-              <button 
-                onClick={loadMore} 
-                disabled={isSearching}
-                className="px-10 py-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-teal-600 hover:text-white transition-all shadow-xl shadow-teal-600/5 active:scale-95 disabled:opacity-50 flex items-center gap-3"
-              >
-                {isSearching ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Search className="w-4 h-4" />
-                )}
-                <span>Charger plus de résultats</span>
-              </button>
-            </div>
+              ))}
+
+              {isSearching && (
+                <div className="space-y-8 mt-8 animate-in fade-in duration-300">
+                   {[1, 2].map(i => <SkeletonCard key={`more-${i}`} />)}
+                   <div className="py-10 flex flex-col items-center justify-center gap-4 text-teal-600 animate-pulse">
+                     <Loader2 className="w-8 h-8 animate-spin" />
+                     <span className="text-[10px] font-black uppercase tracking-[0.3em]">Chargement des segments suivants...</span>
+                   </div>
+                </div>
+              )}
+
+              {hasMore && !isSearching && (
+                <div className="flex justify-center pt-8">
+                  <button 
+                    onClick={loadMore}
+                    className="px-8 py-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-teal-600 hover:border-teal-600 transition-all shadow-sm active:scale-95"
+                  >
+                    Charger plus de résultats
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
