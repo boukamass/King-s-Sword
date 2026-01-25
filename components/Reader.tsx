@@ -279,15 +279,41 @@ const Reader: React.FC = () => {
     
     const handleFullscreenChange = () => {
       const isFs = !!document.fullscreenElement;
+      const container = scrollContainerRef.current;
+      
+      // 1. Identifier le paragraphe d'ancrage visible actuellement
+      let anchorIndex = 0;
+      if (container) {
+        const currentScrollTop = container.scrollTop;
+        // FIX: Added type casting to ensure entries is iterable and avoid 'unknown' type error
+        const entries = Array.from(segmentRefs.current.entries()) as [number, HTMLDivElement][];
+        for (const [idx, el] of entries) {
+          // On cherche le paragraphe qui commence juste avant ou sur le bord haut du conteneur
+          if (el.offsetTop >= currentScrollTop - 10) {
+            anchorIndex = idx;
+            break;
+          }
+        }
+      }
+
       setIsOSFullscreen(isFs);
       
-      // Logique de bascule automatique optimisée pour une lecture à 12 mètres (48px)
+      // 2. Appliquer les changements de taille automatique
       const currentFontSize = useAppStore.getState().fontSize;
       if (isFs && currentFontSize === 20) {
         useAppStore.getState().setFontSize(48);
       } else if (!isFs && currentFontSize === 48) {
         useAppStore.getState().setFontSize(20);
       }
+
+      // 3. Restaurer la position sur l'ancre après le rafraîchissement du layout
+      // Un délai légèrement plus long (150ms) garantit que le rendu des polices est terminé
+      setTimeout(() => {
+        const targetEl = segmentRefs.current.get(anchorIndex);
+        if (targetEl && scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTop = targetEl.offsetTop;
+        }
+      }, 150);
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
@@ -809,9 +835,11 @@ const Reader: React.FC = () => {
                <div className="w-8 h-8 flex items-center justify-center bg-teal-600/10 rounded-lg border border-teal-600/20 shadow-sm shrink-0 group-hover:border-teal-600/40 transition-all duration-300">
                  <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-4 h-4 grayscale group-hover:grayscale-0 group-hover:scale-110 group-hover:rotate-[-5deg] transition-all duration-300" />
                </div>
-               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-900 dark:text-zinc-100 group-hover:text-teal-600 transition-colors animate-in fade-in slide-in-from-left-2 duration-500">
-                 {t.sidebar_subtitle}
-               </span>
+               {!selectedSermonId && (
+                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-900 dark:text-zinc-100 group-hover:text-teal-600 transition-colors animate-in fade-in slide-in-from-left-2 duration-500">
+                   {t.sidebar_subtitle}
+                 </span>
+               )}
              </button>
           )}
         </div>
@@ -1167,7 +1195,7 @@ const Reader: React.FC = () => {
         )}
       </div>
 
-      {selection && (
+      {selection && !isOSFullscreen && (
         <div 
           className="absolute z-[200000] pointer-events-none no-print animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-200 ease-out" 
           style={{ 
