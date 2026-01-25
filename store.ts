@@ -43,6 +43,7 @@ interface AppState {
   searchMode: SearchMode;
   searchResults: SearchResult[];
   isFullTextSearch: boolean;
+  includeSynonyms: boolean;
   cityFilter: string | null;
   yearFilter: string | null;
   monthFilter: string | null;
@@ -77,6 +78,7 @@ interface AppState {
   setSearchResults: (results: SearchResult[]) => void;
   setIsSearching: (val: boolean) => void;
   setIsFullTextSearch: (active: boolean) => void;
+  setIncludeSynonyms: (active: boolean) => void;
   addNotification: (message: string, type: 'success' | 'error') => void;
   removeNotification: (id: string) => void;
   setActiveNoteId: (id: string | null) => void;
@@ -138,6 +140,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   searchQuery: '',
   searchMode: SearchMode.EXACT_PHRASE,
   isFullTextSearch: false,
+  includeSynonyms: false,
   cityFilter: null,
   yearFilter: null,
   monthFilter: null,
@@ -182,12 +185,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         const map = new Map();
         
         data.forEach(s => {
-          // Utilisation d'une clé unique incluant la version pour éviter de masquer les doublons d'ID
           const uniqueKey = s.version ? `${s.id}-${s.version}` : s.id;
           if (!seenIds.has(uniqueKey)) {
             seenIds.add(uniqueKey);
             const { text, ...meta } = s;
-            // On s'assure que l'ID dans le state est celui utilisé pour le lookup unique
             const metaWithUniqueId = { ...meta, id: uniqueKey };
             uniqueMetadata.push(metaWithUniqueId);
             map.set(uniqueKey, { ...s, id: uniqueKey });
@@ -333,6 +334,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSearchResults: (results) => set({ searchResults: results }),
   setIsSearching: (val) => set({ isSearching: val }),
   setIsFullTextSearch: (active) => set({ isFullTextSearch: active }),
+  setIncludeSynonyms: (active) => set({ includeSynonyms: active }),
   addNotification: (message, type) => set(state => ({
     notifications: [{ id: crypto.randomUUID(), message, type }, ...state.notifications]
   })),

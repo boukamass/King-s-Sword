@@ -123,7 +123,7 @@ ipcMain.handle('db:getSermonFull', (event, id) => {
   }
 });
 
-ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0 }) => {
+ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0, synonyms = [] }) => {
   if (!db) {
     console.warn("[DB] Recherche impossible: Base de données non initialisée.");
     return [];
@@ -132,12 +132,16 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0 }) => 
   const rawQuery = (query || "").trim();
   if (!rawQuery || rawQuery.length < 2) return [];
 
-  // Nettoyage et préparation des termes FTS5
   const cleanTerms = rawQuery.replace(/[*\-"'()]/g, ' ').split(/\s+/).filter(v => v.length > 0);
   if (cleanTerms.length === 0) return [];
 
   let ftsQuery = '';
-  if (mode === 'EXACT_PHRASE') {
+  
+  // Si on a des synonymes, on construit une requête OR automatique
+  if (synonyms && synonyms.length > 0) {
+    const allTerms = [rawQuery, ...synonyms].map(s => s.trim().replace(/[*\-"'()]/g, ' ')).filter(s => s.length > 0);
+    ftsQuery = allTerms.map(t => `${t}*`).join(' OR ');
+  } else if (mode === 'EXACT_PHRASE') {
     ftsQuery = `"${cleanTerms.join(' ')}"`;
   } else if (mode === 'DIVERSE') {
     ftsQuery = cleanTerms.map(t => `${t}*`).join(' OR ');
@@ -152,13 +156,12 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0 }) => 
     const highlightOpen = '<mark class="bg-amber-400/40 dark:bg-amber-500/40 text-amber-950 dark:text-white font-bold px-0.5 rounded-sm shadow-sm border-b-2 border-amber-600/30">';
     const highlightClose = '</mark>';
     
-    // Utilisation directe de la table FTS dans le snippet et le MATCH pour une compatibilité maximale
     const stmt = db.prepare(`
       SELECT 
         f.rowid as paragraphId, 
         f.sermon_id as sermonId, 
         f.paragraph_index as paragraphIndex, 
-        snippet(paragraphs_fts, 0, ?, ?, '...', 64) as snippet,
+        snippet(paragraphs_fts, 0, ?, ?, '...', 96) as snippet,
         s.title, s.date, s.city
       FROM paragraphs_fts f
       INNER JOIN sermons s ON f.sermon_id = s.id

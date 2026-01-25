@@ -848,9 +848,33 @@ const Reader: React.FC = () => {
                   </p>
                 </div>
               </div>
-              <button onClick={() => setActiveDefinition(null)} className="w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-red-500 bg-zinc-50 dark:bg-zinc-800 rounded-[15px] transition-all border border-zinc-200 dark:border-zinc-700 hover:border-red-500/30 active:scale-90">
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {activeDefinition && (
+                  <button 
+                    onClick={() => {
+                      const text = `**Définition de ${activeDefinition.word}**\n\n${activeDefinition.definition}${activeDefinition.synonyms?.length ? `\n\n**Synonymes :** ${activeDefinition.synonyms.join(', ')}` : ''}${activeDefinition.etymology ? `\n\n**Origine :** ${activeDefinition.etymology}` : ''}`;
+                      setNoteSelectorPayload({
+                        text,
+                        sermon: {
+                          id: `definition-${activeDefinition.word.toLowerCase()}`,
+                          title: `Dictionnaire : ${activeDefinition.word}`,
+                          date: new Date().toISOString().split('T')[0],
+                          city: 'Lexique spirituel',
+                          text: ''
+                        }
+                      });
+                      setActiveDefinition(null);
+                    }}
+                    className="w-10 h-10 flex items-center justify-center text-teal-600 hover:text-white bg-teal-600/10 hover:bg-teal-600 rounded-[15px] transition-all border border-teal-600/20 active:scale-90"
+                    title="Ajouter aux notes"
+                  >
+                    <NotebookPen className="w-5 h-5" />
+                  </button>
+                )}
+                <button onClick={() => setActiveDefinition(null)} className="w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-red-500 bg-zinc-50 dark:bg-zinc-800 rounded-[15px] transition-all border border-zinc-200 dark:border-zinc-700 hover:border-red-500/30 active:scale-90">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             <div className="flex-1 px-8 py-6 overflow-y-auto custom-scrollbar">
