@@ -1,4 +1,3 @@
-
 import React, { useCallback, useRef, useState, useEffect, useMemo, memo } from 'react';
 import { useAppStore } from './store';
 import Sidebar from './components/Sidebar';
@@ -111,7 +110,7 @@ const ProjectionView = memo(() => {
 
   if (!syncData.text) {
     return (
-      <div className="fixed inset-0 bg-white dark:bg-zinc-950 flex flex-col items-center justify-center p-20 text-center animate-pulse">
+      <div className="fixed inset-0 bg-slate-50 dark:bg-zinc-950 flex flex-col items-center justify-center p-20 text-center animate-pulse">
          <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-32 h-32 opacity-10 mb-8 grayscale" />
          <p className="text-[14px] font-black uppercase tracking-[0.6em] text-zinc-400 pulse">King's Sword Projection</p>
          <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500 mt-2 opacity-50">En attente...</p>
@@ -392,7 +391,7 @@ const App: React.FC = () => {
   const effectiveAiWidth = isFullscreen ? 0 : (aiOpen ? aiWidth : 0);
 
   return (
-    <div className="flex h-screen w-full bg-white dark:bg-zinc-950 overflow-hidden app-container flex-col">
+    <div className="flex h-screen w-full bg-slate-50 dark:bg-zinc-950 overflow-hidden app-container flex-col">
       <div className="flex flex-1 h-full overflow-hidden relative">
         <div style={{ width: effectiveSidebarWidth }} className={`flex-shrink-0 overflow-hidden h-full flex relative z-30 ${transitionClass} no-print`}>
           <div className="w-full h-full"><Sidebar /></div>

@@ -1,4 +1,3 @@
-
 // Add React import to the list of imports from 'react'
 import React, { useState, useRef, useEffect, useMemo, memo, useDeferredValue, useTransition, useCallback } from 'react';
 import { useAppStore } from '../store';
@@ -105,11 +104,9 @@ const SermonItem = memo(({
   sermon: any; 
   isSelected: boolean; 
   isContextSelected: boolean; 
-  onSelect: () => void;
+  onSelect: () => void; 
   onToggleContext: () => void;
 }) => {
-  const isEffectivelyInContext = isSelected || isContextSelected;
-
   return (
     <div 
       style={{ height: ITEM_HEIGHT }} 
@@ -125,19 +122,17 @@ const SermonItem = memo(({
       >
         <div 
           onClick={(e) => {
-            if (!isSelected) {
-              e.stopPropagation();
-              onToggleContext();
-            }
+            e.stopPropagation();
+            onToggleContext();
           }}
-          data-tooltip={isSelected ? "Dans le contexte (auto)" : "Ajouter/Retirer du contexte IA"}
+          data-tooltip={isContextSelected ? "Retirer du contexte IA" : "Ajouter au contexte IA"}
           className={`w-4 h-4 rounded-md border transition-all flex items-center justify-center shrink-0 tooltip-right ${
-            isEffectivelyInContext
+            isContextSelected
               ? 'bg-teal-600 border-teal-600 text-white shadow-lg shadow-teal-600/20' 
               : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 group-hover:border-teal-600/50'
-          } ${isSelected ? 'cursor-not-allowed opacity-75' : ''}`}
+          }`}
         >
-          {isEffectivelyInContext && <Sparkles className="w-2.5 h-2.5 stroke-[3]" />}
+          {isContextSelected && <Sparkles className="w-2.5 h-2.5 stroke-[3]" />}
         </div>
 
         <div className="flex-1 min-w-0">
@@ -422,7 +417,7 @@ const Sidebar: React.FC = () => {
   if (!sidebarOpen) return null;
 
   return (
-    <div className={`w-full border-r border-zinc-200/50 dark:border-zinc-800 bg-white dark:bg-zinc-900 h-full flex flex-col overflow-hidden transition-all duration-500 ${isPending ? 'opacity-70' : ''}`}>
+    <div className={`w-full border-r border-zinc-200/50 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 h-full flex flex-col overflow-hidden transition-all duration-500 ${isPending ? 'opacity-70' : ''}`}>
       <div className={`h-14 border-b border-zinc-100 dark:border-zinc-800/50 flex items-center shrink-0 bg-white dark:bg-zinc-900 z-50 transition-all duration-500 px-4 justify-between`}>
         <button 
           onClick={toggleSidebar} 

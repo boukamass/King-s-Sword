@@ -285,7 +285,6 @@ const Reader: React.FC = () => {
       let anchorIndex = 0;
       if (container) {
         const currentScrollTop = container.scrollTop;
-        // FIX: Added type casting to ensure entries is iterable and avoid 'unknown' type error
         const entries = Array.from(segmentRefs.current.entries()) as [number, HTMLDivElement][];
         for (const [idx, el] of entries) {
           // On cherche le paragraphe qui commence juste avant ou sur le bord haut du conteneur
@@ -828,8 +827,8 @@ const Reader: React.FC = () => {
 
   if (!selectedSermonId) {
     return (
-      <div className="flex-1 flex flex-col h-full bg-white dark:bg-zinc-950 relative">
-        <div className="px-6 h-14 border-b border-zinc-100 dark:border-zinc-900/50 flex items-center bg-white/60 dark:bg-zinc-950/70 backdrop-blur-2xl z-20 no-print">
+      <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-zinc-950 relative">
+        <div className="px-6 h-14 border-b border-zinc-100 dark:border-zinc-900/50 flex items-center bg-slate-50/60 dark:bg-zinc-950/70 backdrop-blur-2xl z-20 no-print">
           {!sidebarOpen && (
              <button onClick={toggleSidebar} data-tooltip="Bibliothèque" className="flex items-center gap-3 hover:opacity-80 active:scale-95 group shrink-0 mr-1">
                <div className="w-8 h-8 flex items-center justify-center bg-teal-600/10 rounded-lg border border-teal-600/20 shadow-sm shrink-0 group-hover:border-teal-600/40 transition-all duration-300">
@@ -846,7 +845,7 @@ const Reader: React.FC = () => {
         <div className="flex-1 flex flex-col items-center justify-center p-12 text-center animate-in fade-in duration-700">
           <div className="relative mb-10 group">
             <div className="absolute inset-0 bg-teal-600/10 dark:bg-teal-600/5 blur-[80px] rounded-full scale-[2.5] animate-pulse"></div>
-            <div className="relative w-24 h-24 flex items-center justify-center bg-white dark:bg-zinc-900 rounded-[32px] shadow-2xl border border-zinc-100 dark:border-zinc-800 transform group-hover:scale-110 group-hover:rotate-[-5deg] transition-all duration-500">
+            <div className="relative w-24 h-24 flex items-center justify-center bg-slate-50 dark:bg-zinc-900 rounded-[32px] shadow-2xl border border-zinc-100 dark:border-zinc-800 transform group-hover:scale-110 group-hover:rotate-[-5deg] transition-all duration-500">
               <BookOpenCheck className="w-10 h-10 text-zinc-300 dark:text-zinc-700 group-hover:text-teal-600 transition-all duration-500" />
             </div>
           </div>
@@ -856,10 +855,10 @@ const Reader: React.FC = () => {
     );
   }
 
-  if (!sermon) return <div className="flex-1 flex flex-col items-center justify-center bg-white dark:bg-zinc-950"><Loader2 className="w-10 h-10 animate-spin text-teal-600" /></div>;
+  if (!sermon) return <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 dark:bg-zinc-950"><Loader2 className="w-10 h-10 animate-spin text-teal-600" /></div>;
 
   return (
-    <div ref={readerAreaRef} className={`flex-1 flex flex-col h-full relative bg-white dark:bg-zinc-950 transition-colors duration-200 overflow-visible-important reader-selection-area`}>
+    <div ref={readerAreaRef} className={`flex-1 flex flex-col h-full relative bg-slate-50 dark:bg-zinc-950 transition-colors duration-200 overflow-visible-important reader-selection-area`}>
       <style>{`
         .reader-selection-area ::selection {
           background-color: black !important;
@@ -874,7 +873,7 @@ const Reader: React.FC = () => {
       
       {(activeDefinition || isDefining) && (
         <div className="fixed inset-0 z-[100000] bg-black/40 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in duration-300" onClick={() => setActiveDefinition(null)}>
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800/50 rounded-[40px] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-300 relative max-w-lg w-full" onClick={e => e.stopPropagation()}>
+          <div className="bg-slate-50 dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800/50 rounded-[40px] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-300 relative max-w-lg w-full" onClick={e => e.stopPropagation()}>
             <div className="px-8 pt-8 pb-4 flex items-center justify-between shrink-0 relative">
               <div className="flex items-center gap-5">
                 <div className="w-14 h-14 flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-[22px] border border-teal-600/20 shadow-sm transition-transform duration-500 hover:rotate-6">
@@ -910,7 +909,7 @@ const Reader: React.FC = () => {
                     <NotebookPen className="w-5 h-5" />
                   </button>
                 )}
-                <button onClick={() => setActiveDefinition(null)} className="w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-red-500 bg-zinc-50 dark:bg-zinc-800 rounded-[15px] transition-all border border-zinc-200 dark:border-zinc-700 hover:border-red-500/30 active:scale-90">
+                <button onClick={() => setActiveDefinition(null)} className="w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-red-500 bg-slate-50 dark:bg-zinc-800 rounded-[15px] transition-all border border-zinc-200 dark:border-zinc-700 hover:border-red-500/30 active:scale-90">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -980,7 +979,7 @@ const Reader: React.FC = () => {
         </div>
       )}
       
-      <div className={`px-4 md:px-8 h-14 border-b border-zinc-100 dark:border-zinc-900/50 flex items-center justify-between shrink-0 bg-white/60 dark:bg-zinc-950/70 backdrop-blur-2xl z-20 no-print transition-all duration-300 overflow-visible-important`}>
+      <div className={`px-4 md:px-8 h-14 border-b border-zinc-100 dark:border-zinc-900/50 flex items-center justify-between shrink-0 bg-slate-50/60 dark:bg-zinc-950/70 backdrop-blur-2xl z-20 no-print transition-all duration-300 overflow-visible-important`}>
         <div className="flex items-center gap-4 min-w-0 flex-1 overflow-visible-important">
           {(!sidebarOpen || isOSFullscreen) && (
              <button onClick={toggleSidebar} data-tooltip="Bibliothèque" className="flex items-center gap-3 hover:opacity-80 active:scale-95 group shrink-0 mr-1">
@@ -1077,7 +1076,7 @@ const Reader: React.FC = () => {
       </div>
 
       {isSearchVisible && (
-        <div className="h-12 border-b border-zinc-100 dark:border-zinc-800/50 bg-white/40 dark:bg-zinc-950/40 backdrop-blur-xl grid grid-cols-[1fr_2fr_1fr] items-center px-6 shrink-0 animate-in slide-in-from-top-1 fade-in duration-300 no-print">
+        <div className="h-12 border-b border-zinc-100 dark:border-zinc-800/50 bg-slate-50/40 dark:bg-zinc-950/40 backdrop-blur-xl grid grid-cols-[1fr_2fr_1fr] items-center px-6 shrink-0 animate-in slide-in-from-top-1 fade-in duration-300 no-print">
           <div className="flex items-center">
             <Search className="w-3.5 h-3.5 text-teal-600/50" />
           </div>
@@ -1141,12 +1140,13 @@ const Reader: React.FC = () => {
         <div ref={scrollContainerRef} onMouseUp={handleTextSelection} className={`absolute inset-0 overflow-y-auto custom-scrollbar serif-text leading-relaxed text-zinc-800 dark:text-zinc-300 transition-all duration-300 ${isOSFullscreen ? 'py-6 px-4 md:px-12' : 'py-12 px-4 md:px-12 lg:px-20'}`}>
           <div className={`w-full mx-auto printable-content whitespace-pre-wrap text-justify pb-20 ${isPending ? 'opacity-50' : ''} max-w-full`} style={{ fontSize: `${fontSize}px` }}>
             {structuredSegments.map((seg, segIdx) => {
+              // Fix: removed space in variable name 'isActiveProjection'
               const isActiveProjection = projectedSegmentIndex === segIdx;
               const content = renderSegmentContent(seg.words);
 
               if (seg.isNumbered) {
                 return (
-                  <div key={segIdx} ref={(el: any) => { if (el) segmentRefs.current.set(segIdx, el); }} data-seg-idx={segIdx} className={`group/seg relative mb-1.5 py-2.5 px-6 rounded-[20px] border-l-[5px] transition-all duration-300 cursor-pointer shadow-sm hover:shadow-xl hover:scale-[1.005] active:scale-[0.995] ${isActiveProjection ? 'bg-teal-600/10 border-teal-600 ring-2 ring-teal-600/20' : 'bg-white dark:bg-zinc-900/50 border-teal-600/20 hover:border-teal-600 dark:border-zinc-800'}`}>
+                  <div key={segIdx} ref={(el: any) => { if (el) segmentRefs.current.set(segIdx, el); }} data-seg-idx={segIdx} className={`group/seg relative mb-1.5 py-2.5 px-6 rounded-[20px] border-l-[5px] transition-all duration-300 cursor-pointer shadow-sm hover:shadow-xl hover:scale-[1.005] active:scale-[0.995] ${isActiveProjection ? 'bg-teal-600/10 border-teal-600 ring-2 ring-teal-600/20' : 'bg-slate-50 dark:bg-zinc-900/50 border-teal-600/20 hover:border-teal-600 dark:border-zinc-800'}`}>
                     <div className="absolute -left-[54px] top-1/2 -translate-y-1/2 opacity-0 group-hover/seg:opacity-100 transition-all translate-x-4 group-hover/seg:translate-x-0 no-print flex flex-col gap-2">
                         <div onClick={(e) => { e.stopPropagation(); handleProjectSegment(segIdx); }} data-tooltip="Projeter" className="w-9 h-9 flex items-center justify-center bg-teal-600 text-white rounded-xl shadow-lg hover:scale-110 transition-transform"><MonitorPlay className="w-4 h-4" /></div>
                         <div onClick={(e) => { e.stopPropagation(); setNoteSelectorPayload({ text: seg.text.trim(), sermon, paragraphIndex: segIdx + 1 }); }} data-tooltip="Annoter" className="w-9 h-9 flex items-center justify-center bg-emerald-600 text-white rounded-xl shadow-lg hover:scale-110 transition-transform"><NotebookPen className="w-4 h-4" /></div>
@@ -1167,7 +1167,7 @@ const Reader: React.FC = () => {
         {sermon.audio_url && (
           <div className="absolute bottom-6 left-0 right-0 flex justify-center no-print z-50 overflow-visible-important">
               <audio ref={audioRef} src={sermon.audio_url} onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)} onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)} onEnded={() => setIsPlaying(false)} onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)} />
-              <div onMouseEnter={() => setIsPlayerExpanded(true)} onMouseLeave={() => setIsPlayerExpanded(false)} className={`transition-all duration-500 flex items-center bg-white/95 dark:bg-zinc-900/95 backdrop-blur-2xl border border-zinc-200/50 dark:border-zinc-800/50 shadow-2xl rounded-full overflow-visible-important ${isPlayerExpanded ? 'w-[320px] sm:w-[620px] h-12 px-4' : 'w-10 h-10'} ${isOSFullscreen ? 'opacity-40 hover:opacity-100' : ''}`}>
+              <div onMouseEnter={() => setIsPlayerExpanded(true)} onMouseLeave={() => setIsPlayerExpanded(false)} className={`transition-all duration-500 flex items-center bg-slate-50/95 dark:bg-zinc-900/95 backdrop-blur-2xl border border-zinc-200/50 dark:border-zinc-800/50 shadow-2xl rounded-full overflow-visible-important ${isPlayerExpanded ? 'w-[320px] sm:w-[620px] h-12 px-4' : 'w-10 h-10'} ${isOSFullscreen ? 'opacity-40 hover:opacity-100' : ''}`}>
                 {!isPlayerExpanded ? <div className="w-full h-full flex items-center justify-center text-zinc-400"><Headphones className="w-4 h-4 animate-pulse text-teal-600/40" /></div> : (
                   <div className="flex items-center gap-4 w-full h-full animate-in fade-in zoom-in-95 overflow-visible-important">
                     <div className="flex items-center gap-0.5">

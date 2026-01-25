@@ -1,4 +1,3 @@
-
 // Fix: Added React to imports to resolve "Cannot find namespace 'React'" errors for React.FC and React.MouseEvent
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useAppStore } from '../store';
@@ -188,7 +187,7 @@ const AIAssistant: React.FC = () => {
   };
 
   return (
-    <div className="w-full bg-white dark:bg-zinc-950 h-full flex flex-col min-w-0 border-l border-zinc-200 dark:border-zinc-800 transition-all duration-500 shadow-2xl relative">
+    <div className="w-full bg-slate-50 dark:bg-zinc-950 h-full flex flex-col min-w-0 border-l border-zinc-200 dark:border-zinc-800 transition-all duration-500 shadow-2xl relative">
       {noteSelectorData && <NoteSelectorModal selectionText={noteSelectorData.text} sermon={noteSelectorData.sermon} onClose={() => setNoteSelectorData(null)} />}
       
       <div className="px-6 h-14 border-b border-zinc-100 dark:border-zinc-800/50 flex items-center justify-between shrink-0 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-3xl z-50">
@@ -233,7 +232,7 @@ const AIAssistant: React.FC = () => {
 
       <div 
         ref={scrollRef} 
-        className="flex-1 overflow-y-auto px-6 py-8 space-y-10 custom-scrollbar bg-white dark:bg-zinc-950 flex flex-col scroll-smooth transition-colors duration-500"
+        className="flex-1 overflow-y-auto px-6 py-8 space-y-10 custom-scrollbar bg-slate-50 dark:bg-zinc-950 flex flex-col scroll-smooth transition-colors duration-500"
         onClick={handleContentClick}
       >
         {history.map((msg, i) => (
@@ -299,7 +298,7 @@ const AIAssistant: React.FC = () => {
         )}
       </div>
 
-      <div className="p-4 bg-white dark:bg-zinc-950 border-t border-zinc-100 dark:border-zinc-800/50">
+      <div className="p-4 bg-slate-50 dark:bg-zinc-950 border-t border-zinc-100 dark:border-zinc-800/50">
         <div className="relative flex items-end gap-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-[24px] border border-zinc-200 dark:border-zinc-800 px-4 py-3 focus-within:ring-4 focus-within:ring-teal-600/5 focus-within:border-teal-600/40 transition-all duration-500">
           <textarea
             className="flex-1 bg-transparent border-none text-[13px] font-medium text-zinc-900 dark:text-zinc-100 resize-none outline-none py-1 max-h-40 placeholder:text-zinc-400 placeholder:text-[8px] placeholder:uppercase placeholder:tracking-[0.3em]"

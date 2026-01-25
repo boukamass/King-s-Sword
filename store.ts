@@ -311,7 +311,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setSelectedSermonId: async (id) => {
     if (!id) {
-      set({ selectedSermonId: null, activeSermon: null, contextSermonIds: get().manualContextIds });
+      set({ selectedSermonId: null, activeSermon: null });
       return;
     }
     
@@ -329,9 +329,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         set({ activeSermon: fullSermon });
       }
       
+      // Ajout automatique au dock (contexte IA) par défaut lors de la sélection
       const manual = get().manualContextIds;
-      const newContext = Array.from(new Set([id, ...manual].filter(Boolean) as string[]));
-      set({ contextSermonIds: newContext });
+      const newManual = Array.from(new Set([...manual, id].filter(Boolean) as string[]));
+      set({ manualContextIds: newManual, contextSermonIds: newManual });
 
     } catch (error) {
       get().addNotification("Erreur lors du chargement du sermon", "error");
@@ -398,20 +399,15 @@ export const useAppStore = create<AppState>((set, get) => ({
       ? s.manualContextIds.filter(x => x !== id) 
       : [...s.manualContextIds, id];
     
-    const activeId = s.selectedSermonId;
-    const newContext = Array.from(new Set([activeId, ...newManual].filter(Boolean) as string[]));
-    
-    return { manualContextIds: newManual, contextSermonIds: newContext };
+    return { manualContextIds: newManual, contextSermonIds: newManual };
   }),
 
   setManualContextIds: (ids) => set(s => {
-    const activeId = s.selectedSermonId;
-    return { manualContextIds: ids, contextSermonIds: activeId ? [activeId, ...ids] : ids };
+    return { manualContextIds: ids, contextSermonIds: ids };
   }),
 
   clearContextSermons: () => set(s => {
-    const activeId = s.selectedSermonId;
-    return { manualContextIds: [], contextSermonIds: activeId ? [activeId] : [] };
+    return { manualContextIds: [], contextSermonIds: [] };
   }),
 
   addNote: async (partial) => {

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
 import { useAppStore, SearchResult } from '../store';
 import { translations } from '../translations';
@@ -9,6 +8,10 @@ import { searchSermons } from '../services/db';
 import NoteSelectorModal from './NoteSelectorModal';
 
 const RESULTS_PER_PAGE = 50;
+
+// Variables persistantes hors du cycle de vie du composant pour garder la position de scroll entre les montages
+let savedSearchScrollTop = 0;
+let lastSearchContext = "";
 
 const SkeletonCard = () => (
     <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-[28px] p-7 shadow-sm animate-pulse">
@@ -127,13 +130,12 @@ const SearchResults: React.FC = () => {
   const [hasMore, setHasMore] = useState(true);
   const [noteSelectorPayload, setNoteSelectorPayload] = useState<{ text: string; sermon: Sermon; paragraphIndex?: number } | null>(null);
   
-  // Ref pour éviter les recherches redondantes lors du remount
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const lastPerformedSearchRef = useRef<string>("");
 
   const performSearch = useCallback(async (q: string, m: SearchMode, off: number) => {
     if (!q || q.length < 2) return;
     
-    // Identifiant unique de la recherche pour éviter les doublons inutiles
     const searchId = `${q}-${m}-${off}-${showOnlySynonyms}-${showOnlyQuery}-${includeSynonyms}`;
     if (off === 0 && searchId === lastPerformedSearchRef.current && searchResults.length > 0) return;
     
@@ -162,10 +164,29 @@ const SearchResults: React.FC = () => {
   }, [setSearchResults, setIsSearching, showOnlySynonyms, showOnlyQuery, includeSynonyms, searchResults.length]);
 
   useEffect(() => {
+    // Si les paramètres de recherche changent, on réinitialise la position de scroll mémorisée
+    const currentSearchId = `${searchQuery}-${searchMode}-${showOnlySynonyms}-${showOnlyQuery}-${includeSynonyms}`;
+    if (currentSearchId !== lastSearchContext) {
+      savedSearchScrollTop = 0;
+      lastSearchContext = currentSearchId;
+    }
+
     setOffset(0);
     setHasMore(true);
     performSearch(searchQuery, searchMode, 0);
   }, [searchQuery, searchMode, performSearch, showOnlySynonyms, showOnlyQuery, includeSynonyms]);
+
+  // Restaurer la position de scroll une fois les résultats chargés dans le DOM
+  useEffect(() => {
+    if (scrollContainerRef.current && savedSearchScrollTop > 0 && searchResults.length > 0) {
+      // Utilisation de requestAnimationFrame pour s'assurer que le rendu est terminé avant le scroll
+      requestAnimationFrame(() => {
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTop = savedSearchScrollTop;
+        }
+      });
+    }
+  }, [searchResults]);
 
   const loadMore = () => {
     const nextOffset = offset + RESULTS_PER_PAGE;
@@ -174,6 +195,10 @@ const SearchResults: React.FC = () => {
   };
 
   const handleResultClick = async (res: SearchResult) => {
+    // Sauvegarder la position actuelle avant que le composant ne soit démonté
+    if (scrollContainerRef.current) {
+      savedSearchScrollTop = scrollContainerRef.current.scrollTop;
+    }
     setNavigatedFromSearch(true);
     await setSelectedSermonId(res.sermonId);
     setJumpToParagraph(res.paragraphIndex);
@@ -214,7 +239,7 @@ const SearchResults: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 h-full flex flex-col bg-zinc-50 dark:bg-zinc-950 overflow-hidden animate-in fade-in duration-500">
+    <div className="flex-1 h-full flex flex-col bg-slate-50 dark:bg-zinc-950 overflow-hidden animate-in fade-in duration-500">
       {noteSelectorPayload && (
         <NoteSelectorModal 
             selectionText={noteSelectorPayload.text} 
@@ -298,7 +323,7 @@ const SearchResults: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto custom-scrollbar">
         <div className="max-w-4xl mx-auto p-10 space-y-8 pb-32">
           {searchResults.length === 0 && isSearching ? (
              <div className="space-y-8 animate-in fade-in duration-300">

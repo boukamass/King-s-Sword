@@ -1,5 +1,4 @@
-
-import React, { useState, useRef, useEffect } from 'react'; // Fixed incorrect import source
+import React, { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '../store';
 import { translations } from '../translations';
 import { Document, Packer, Paragraph, HeadingLevel, TextRun, AlignmentType } from 'docx';
@@ -210,7 +209,7 @@ const NoteEditor: React.FC = () => {
     };
 
     return (
-        <div className="flex-1 h-full flex flex-col bg-zinc-50 dark:bg-zinc-950 overflow-hidden animate-in fade-in duration-500 transition-colors duration-500">
+        <div className="flex-1 h-full flex flex-col bg-slate-50 dark:bg-zinc-950 overflow-hidden animate-in fade-in duration-500 transition-colors duration-500">
             <div className="no-print flex flex-col h-full">
                 <div className="px-6 h-14 border-b border-zinc-200/50 dark:border-zinc-800 flex items-center justify-between shrink-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-2xl z-20">
                     <div className="flex items-center gap-4">
