@@ -22,12 +22,12 @@ export const askGeminiChat = async (
     Réponds de manière concise et solennelle en utilisant les sermons fournis.
     CITE TOUJOURS LE PARAGRAPHE : > "Texte" [Réf: ID_SERMON, Para. N]`;
 
-    // Optimisation : on limite le contexte global pour éviter l'erreur 429 TPM
+    // Optimisation : réduction du contexte à 12000 caractères pour rester sous les TPM (Tokens Per Minute)
     const truncatedContext = contextText.substring(0, 12000); 
     const userPromptWithContext = `CONTEXTE :\n${truncatedContext}\n\nQUESTION : "${prompt}"`;
 
     const contents = [
-      ...history.slice(-6).map(h => ({ // On ne garde que les 6 derniers messages pour économiser les tokens
+      ...history.slice(-6).map(h => ({ // On ne garde que les 6 derniers messages pour économiser les tokens d'historique
         role: h.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: h.content }]
       })),
@@ -38,7 +38,7 @@ export const askGeminiChat = async (
     ];
 
     const response = await ai.models.generateContent({
-      // Utilisation de Flash Lite pour économiser le quota sur les chats simples
+      // Utilisation du modèle Lite : plus rapide et économise le quota sur les chats simples
       model: "gemini-flash-lite-latest",
       contents: contents,
       config: { 
@@ -67,9 +67,9 @@ export const askGeminiChat = async (
   } catch (error: any) {
     console.error("Gemini Chat Error:", error);
     
-    // Gestion propre de l'erreur de quota 429
-    if (error.message?.includes("429") || error.message?.includes("QUOTA_EXHAUSTED")) {
-      throw new Error("Limite de messages atteinte (Quota API). Veuillez attendre 60 secondes avant de poser une nouvelle question ou vérifiez votre compte Google AI Studio.");
+    // Gestion propre de l'erreur de quota (Rate Limit) pour éviter l'affichage de JSON brut
+    if (error.message?.includes("429") || error.message?.includes("QUOTA_EXHAUSTED") || error.message?.includes("RESOURCE_EXHAUSTED")) {
+      throw new Error("Limite de messages atteinte (Quota API). Veuillez attendre 60 secondes avant de poser une nouvelle question ou vérifiez votre forfait dans Google AI Studio.");
     }
     
     throw new Error(`Erreur assistant : ${error.message || "Connexion perdue"}`);

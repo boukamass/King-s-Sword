@@ -17,20 +17,20 @@ export const analyzeSelectionContext = async (
     const otherSermonsContext = allContextSermons
       .filter(s => s.id !== currentSermon.id)
       .slice(0, 3) // Maximum 3 sermons en plus pour l'analyse croisée
-      .map(s => `ID: ${s.id} | ${s.title} (${s.date})\nExtrait: ${s.text ? s.text.substring(0, 600) : ''}...`)
+      .map(s => `ID: ${s.id} | ${s.title} (${s.date})\nExtrait: ${s.text ? s.text.substring(0, 500) : ''}...`)
       .join("\n\n");
 
     const prompt = `
       Analyse théologique de : "${selection}"
-      Source : ${currentSermon.title} (${currentSermon.date})
+      Source principale : ${currentSermon.title} (${currentSermon.date})
       
-      DOCS COMPLÉMENTAIRES :
+      DOCS COMPLÉMENTAIRES POUR RÉFÉRENCE :
       ${otherSermonsContext}
       
       INSTRUCTIONS :
-      - Analyse courte et profonde.
-      - Liens prophétiques.
-      - Termine par [Réf: ID_SERMON, Para. N].
+      - Analyse courte, profonde et solennelle.
+      - Mets en lumière les liens prophétiques.
+      - Termine par la référence exacte : [Réf: ID_SERMON, Para. N].
     `;
     
     const response = await ai.models.generateContent({
@@ -38,7 +38,7 @@ export const analyzeSelectionContext = async (
       contents: prompt,
       config: { 
         temperature: 0.4,
-        maxOutputTokens: 1000 // Limite la taille de la réponse pour économiser le quota
+        maxOutputTokens: 1000 // Limite la taille de la réponse pour économiser le quota de tokens de sortie
       }
     });
 
@@ -46,8 +46,9 @@ export const analyzeSelectionContext = async (
   } catch (error: any) {
     console.error("Study Service Error:", error);
     
-    if (error.message?.includes("429") || error.message?.includes("QUOTA_EXHAUSTED")) {
-      throw new Error("Quota d'analyse épuisé. Veuillez patienter une minute. L'IA gratuite limite le nombre d'analyses par minute.");
+    // Gestion de l'erreur de quota pour les analyses
+    if (error.message?.includes("429") || error.message?.includes("QUOTA_EXHAUSTED") || error.message?.includes("RESOURCE_EXHAUSTED")) {
+      throw new Error("Quota d'analyse épuisé. Veuillez patienter environ une minute. L'utilisation gratuite de l'IA est limitée en fréquence.");
     }
     
     throw new Error(`Erreur d'analyse : ${error.message}`);

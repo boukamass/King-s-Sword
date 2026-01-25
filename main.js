@@ -289,6 +289,9 @@ function createWindow() {
     },
   });
 
+  // Maximise la fenêtre par défaut au lancement
+  mainWindow.maximize();
+
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     const parsedUrl = new URL(url);
     const isProjection = parsedUrl.searchParams.get('projection') === 'true';
