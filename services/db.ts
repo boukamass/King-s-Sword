@@ -45,6 +45,7 @@ export const bulkAddSermons = async (sermons: Sermon[]): Promise<{ success: bool
 
 /**
  * Moteur de recherche de secours pour le Web (Fallback)
+ * Optimisé pour ne pas figer l'UI
  */
 const webSearchFallback = async (params: { query: string; mode: SearchMode; limit: number; offset: number; synonyms?: string[]; showOnlySynonyms?: boolean; showOnlyQuery?: boolean }): Promise<any[]> => {
   const store = useAppStore.getState();
@@ -58,7 +59,6 @@ const webSearchFallback = async (params: { query: string; mode: SearchMode; limi
   const allSermons = Array.from(sermonsMap.values()) as Sermon[];
   const markClass = "bg-amber-400/40 dark:bg-amber-500/40 text-amber-950 dark:text-white font-bold px-0.5 rounded-sm shadow-sm border-b-2 border-amber-600/30";
   
-  // Si showOnlyQuery est actif, on ignore totalement les synonymes pour le highlight
   const highlightRegex = (params.synonyms && params.synonyms.length > 0 && !params.showOnlyQuery)
     ? getMultiWordHighlightRegex(params.showOnlySynonyms ? params.synonyms.join(' ') : [query, ...params.synonyms].join(' '))
     : (params.mode === SearchMode.EXACT_PHRASE 
@@ -69,7 +69,14 @@ const webSearchFallback = async (params: { query: string; mode: SearchMode; limi
   const queryWords = normalizedQuery.split(/\s+/).filter(w => w.length > 0);
   const synonymWords = (params.synonyms && !params.showOnlyQuery) ? params.synonyms.map(s => normalizeText(s)).filter(w => w.length > 0) : [];
 
-  for (const s of allSermons) {
+  // Traitement par lots pour laisser l'UI respirer
+  for (let idx = 0; idx < allSermons.length; idx++) {
+    // Rend la main au navigateur tous les 25 sermons
+    if (idx > 0 && idx % 25 === 0) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
+
+    const s = allSermons[idx];
     if (!s.text) continue;
     
     const paragraphs = s.text.split(/\n\s*\n/);
@@ -78,10 +85,8 @@ const webSearchFallback = async (params: { query: string; mode: SearchMode; limi
       if (!content) return;
       
       const normalizedContent = normalizeText(content);
-      
       let matchFound = false;
       
-      // Recherche avec synonymes (Mode OR implicite)
       if (synonymWords.length > 0 && !params.showOnlyQuery) {
         if (params.showOnlySynonyms) {
             matchFound = synonymWords.some(w => normalizedContent.includes(w));
@@ -89,7 +94,6 @@ const webSearchFallback = async (params: { query: string; mode: SearchMode; limi
             matchFound = [normalizedQuery, ...synonymWords].some(w => normalizedContent.includes(w));
         }
       } else {
-        // Mode Strict (Query Only ou pas de synonymes)
         if (params.mode === SearchMode.EXACT_PHRASE) {
           matchFound = normalizedContent.includes(normalizedQuery);
         } else if (params.mode === SearchMode.DIVERSE) {
@@ -108,7 +112,6 @@ const webSearchFallback = async (params: { query: string; mode: SearchMode; limi
           const matchPos = matchExec.index;
           const windowStart = Math.max(0, matchPos - 150);
           const windowEnd = Math.min(content.length, matchPos + 450);
-          
           snippetContent = content.substring(windowStart, windowEnd);
           if (windowStart > 0) snippetContent = '...' + snippetContent;
           if (windowEnd < content.length) snippetContent = snippetContent + '...';
@@ -144,12 +147,11 @@ export const searchSermons = async (params: { query: string; mode: SearchMode; l
   
   let synonyms: string[] = [];
   
-  // Expansion des synonymes si activé (seulement pour un mot unique pour éviter la confusion)
   if (includeSynonyms && params.query.trim().split(/\s+/).length === 1) {
     try {
       const def = await getDefinition(params.query.trim());
       if (def && def.synonyms) {
-        synonyms = def.synonyms.slice(0, 8); // Limiter pour la performance
+        synonyms = def.synonyms.slice(0, 8);
         store.setActiveSynonyms(synonyms);
       }
     } catch (e) {
@@ -168,8 +170,7 @@ export const searchSermons = async (params: { query: string; mode: SearchMode; l
   try {
     const results = await window.electronAPI.db.search(searchParams);
     if (!results || (results.length === 0 && params.offset === 0 && params.query.length > 2)) {
-      const fallbackResults = await webSearchFallback(searchParams);
-      if (fallbackResults.length > 0) return fallbackResults;
+      return webSearchFallback(searchParams);
     }
     return results || [];
   } catch (error) {

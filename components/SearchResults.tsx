@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, memo } from 'react';
+import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
 import { useAppStore, SearchResult } from '../store';
 import { translations } from '../translations';
 import { SearchMode, Sermon } from '../types';
@@ -126,9 +126,17 @@ const SearchResults: React.FC = () => {
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [noteSelectorPayload, setNoteSelectorPayload] = useState<{ text: string; sermon: Sermon; paragraphIndex?: number } | null>(null);
+  
+  // Ref pour éviter les recherches redondantes lors du remount
+  const lastPerformedSearchRef = useRef<string>("");
 
   const performSearch = useCallback(async (q: string, m: SearchMode, off: number) => {
     if (!q || q.length < 2) return;
+    
+    // Identifiant unique de la recherche pour éviter les doublons inutiles
+    const searchId = `${q}-${m}-${off}-${showOnlySynonyms}-${showOnlyQuery}-${includeSynonyms}`;
+    if (off === 0 && searchId === lastPerformedSearchRef.current && searchResults.length > 0) return;
+    
     setIsSearching(true);
     try {
       const results = await searchSermons({ 
@@ -138,8 +146,12 @@ const SearchResults: React.FC = () => {
         offset: off 
       });
       
-      if (off === 0) setSearchResults(results);
-      else setSearchResults(prev => [...prev, ...results]);
+      if (off === 0) {
+        setSearchResults(results);
+        lastPerformedSearchRef.current = searchId;
+      } else {
+        setSearchResults(prev => [...prev, ...results]);
+      }
       
       setHasMore(results.length === RESULTS_PER_PAGE);
     } catch (e) {
@@ -147,7 +159,7 @@ const SearchResults: React.FC = () => {
     } finally {
       setIsSearching(false);
     }
-  }, [setSearchResults, setIsSearching]);
+  }, [setSearchResults, setIsSearching, showOnlySynonyms, showOnlyQuery, includeSynonyms, searchResults.length]);
 
   useEffect(() => {
     setOffset(0);
