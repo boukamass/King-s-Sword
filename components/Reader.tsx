@@ -316,6 +316,7 @@ const Reader: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Strict order: collapse library when modal appears
   useEffect(() => {
     if (activeDefinition) {
       setSidebarOpen(false);
@@ -837,7 +838,7 @@ const Reader: React.FC = () => {
       
       {activeDefinition && (
         <div className="fixed inset-0 z-[100000] bg-black/40 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in duration-300" onClick={() => setActiveDefinition(null)}>
-          <div className="bg-slate-50 dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800/50 rounded-[40px] shadow-[0_32px_128px_-16px_rgba(0,0,0,0.3)] flex flex-col overflow-hidden max-w-lg w-full max-h-[85vh]" onClick={e => e.stopPropagation()}>
+          <div className="bg-slate-50 dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800/50 rounded-[40px] shadow-[0_32px_128px_-16px_rgba(0,0,0,0.3)] flex flex-col overflow-hidden max-w-md w-full max-h-[85vh]" onClick={e => e.stopPropagation()}>
             <div className="px-10 pt-10 pb-6 flex items-center justify-between shrink-0 bg-white/5 dark:bg-zinc-900/5 backdrop-blur-sm border-b border-zinc-200/20 dark:border-zinc-800/20">
               <div className="flex items-center gap-6">
                 <div className="w-16 h-16 flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-[28px] border border-teal-600/20 shadow-inner group transition-transform hover:scale-105">
@@ -949,7 +950,7 @@ const Reader: React.FC = () => {
             <ActionButton onClick={() => setTheme(theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light')} icon={ThemeIcon} tooltip="Thème" active={theme !== 'system'} />
             <div className="flex items-center bg-white/50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200/50 dark:border-zinc-800/50 no-print overflow-hidden">
               <button onClick={() => setFontSize(s => s - 2)} className="w-9 h-9 flex items-center justify-center text-zinc-400"><ZoomOut className="w-4 h-4" /></button>
-              <input type="text" value={localFontSize} onChange={e => /^\d*$/.test(e.target.value) && setLocalFontSize(e.target.value)} onBlur={() => { const val = parseInt(String(localFontSize), 10); setFontSize(isNaN(val) ? fontSize : val); }} className="w-12 h-9 bg-transparent text-center text-[11px] font-black outline-none" />
+              <input type="text" value={localFontSize} onChange={e => /^\d*$/.test(e.target.value) && setLocalFontSize(e.target.value)} onBlur={() => { const val = parseInt(String(localFontSize), 10); setFontSize(isNaN(val) ? fontSize : val); }} className={`w-12 h-9 bg-transparent text-center text-[11px] font-black outline-none ${isOSFullscreen ? 'text-white' : 'text-zinc-950 dark:text-zinc-950'}`} />
               <button onClick={() => setFontSize(s => s + 2)} className="w-9 h-9 flex items-center justify-center text-zinc-400"><ZoomIn className="w-4 h-4" /></button>
             </div>
         </div>
