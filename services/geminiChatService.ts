@@ -8,19 +8,20 @@ export interface GeminiResponse {
 }
 
 // Fonction utilitaire pour gérer les limites de quota avec des tentatives automatiques
-const callWithRetry = async (fn: () => Promise<any>, maxRetries = 2, delay = 2000) => {
+const callWithRetry = async (fn: () => Promise<any>, maxRetries = 3, delay = 5000) => {
   for (let i = 0; i <= maxRetries; i++) {
     try {
       return await fn();
     } catch (error: any) {
-      const isQuotaError = error.message?.includes("429") || 
-                           error.message?.includes("RESOURCE_EXHAUSTED") ||
-                           error.message?.includes("QUOTA_EXHAUSTED");
+      const errorMsg = error.message || "";
+      const isQuotaError = errorMsg.includes("429") || 
+                           errorMsg.includes("RESOURCE_EXHAUSTED") ||
+                           errorMsg.includes("QUOTA_EXHAUSTED");
       
       if (isQuotaError && i < maxRetries) {
-        console.warn(`Quota atteint. Tentative ${i + 1}/${maxRetries} après ${delay}ms...`);
+        console.warn(`[AI] Quota atteint. Tentative ${i + 1}/${maxRetries} dans ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
-        delay *= 2; // Backoff exponentiel
+        delay *= 2; // Augmentation progressive de l'attente
         continue;
       }
       throw error;
@@ -45,9 +46,9 @@ export const askGeminiChat = async (
     CITE TOUJOURS LE PARAGRAPHE : > "Texte" [Réf: ID_DOC, Para. N]
     Termine toujours par la référence exacte : [Réf: ID_DOC, Para. N].`;
 
-    // Optimisation du contexte : 100k caractères (~25k tokens) 
-    // pour éviter l'erreur RESOURCE_EXHAUSTED sur les comptes gratuits (limite 32k tokens/min)
-    const optimizedContext = contextText.substring(0, 100000); 
+    // Réduction du contexte à ~60k caractères (environ 15k tokens)
+    // Cela laisse une marge pour l'historique et la réponse sans saturer le quota de 32k/min
+    const optimizedContext = contextText.substring(0, 60000); 
     
     const userPromptWithContext = `INSTRUCTIONS :
 1. Utilise les documents fournis ci-dessous.
@@ -59,7 +60,7 @@ ${optimizedContext}
 QUESTION : "${prompt}"`;
 
     const contents = [
-      ...history.slice(-6).map(h => ({ 
+      ...history.slice(-4).map(h => ({ 
         role: h.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: h.content }]
       })),
@@ -70,7 +71,6 @@ QUESTION : "${prompt}"`;
     ];
 
     const response = await callWithRetry(() => ai.models.generateContent({
-      // Utilisation de Flash pour le chat : quota beaucoup plus élevé et réponse instantanée
       model: "gemini-3-flash-preview",
       contents: contents,
       config: { 
@@ -99,8 +99,9 @@ QUESTION : "${prompt}"`;
   } catch (error: any) {
     console.error("Gemini Chat Error:", error);
     
-    if (error.message?.includes("429") || error.message?.includes("QUOTA_EXHAUSTED") || error.message?.includes("RESOURCE_EXHAUSTED")) {
-      throw new Error("L'IA est très sollicitée. Veuillez patienter 30 à 60 secondes avant le prochain message.");
+    const errorMsg = error.message || "";
+    if (errorMsg.includes("429") || errorMsg.includes("RESOURCE_EXHAUSTED")) {
+      throw new Error("Limite de messages atteinte (Quota API). Veuillez attendre 60 secondes.");
     }
     
     throw new Error(`Erreur assistant : ${error.message || "Connexion perdue"}`);

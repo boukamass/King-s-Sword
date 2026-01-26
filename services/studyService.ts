@@ -2,14 +2,16 @@
 import { GoogleGenAI } from "@google/genai";
 import { Sermon } from "../types";
 
-const callWithRetry = async (fn: () => Promise<any>, maxRetries = 2, delay = 3000) => {
+const callWithRetry = async (fn: () => Promise<any>, maxRetries = 2, delay = 6000) => {
   for (let i = 0; i <= maxRetries; i++) {
     try {
       return await fn();
     } catch (error: any) {
-      const isQuotaError = error.message?.includes("429") || 
-                           error.message?.includes("RESOURCE_EXHAUSTED");
+      const errorMsg = error.message || "";
+      const isQuotaError = errorMsg.includes("429") || 
+                           errorMsg.includes("RESOURCE_EXHAUSTED");
       if (isQuotaError && i < maxRetries) {
+        console.warn(`[Study] Quota Pro atteint. Tentative ${i + 1} dans ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
         delay *= 2;
         continue;
@@ -30,19 +32,20 @@ export const analyzeSelectionContext = async (
   const ai = new GoogleGenAI({ apiKey });
 
   try {
-    // On limite le contexte global à 150k pour le modèle Pro pour rester sous les limites TPM
+    // Le modèle Pro est très limité en tokens/minute sur le plan gratuit (souvent 32k tokens)
+    // On doit être très économe avec le texte envoyé.
     const otherSermonsContext = allContextSermons
       .filter(s => s.id !== currentSermon.id)
-      .slice(0, 5) // On prend les 5 plus pertinents max pour le contexte croisé direct
-      .map(s => `ID: ${s.id} | ${s.title}\nCONTENU:\n${(s.text || '').substring(0, 20000)}`)
+      .slice(0, 3) // On réduit à 3 sermons max
+      .map(s => `ID: ${s.id} | ${s.title}\nCONTENU:\n${(s.text || '').substring(0, 8000)}`) // Max 8k par sermon
       .join("\n\n---\n\n");
 
     const prompt = `
       Analyse théologique de la sélection : "${selection}"
       
       DOCUMENT PRINCIPAL : ${currentSermon.title}
-      TEXTE :
-      ${currentSermon.text.substring(0, 50000)}
+      TEXTE PARTIEL :
+      ${currentSermon.text.substring(0, 30000)} 
       
       RÉFÉRENCES CROISÉES :
       ${otherSermonsContext}
@@ -64,6 +67,10 @@ export const analyzeSelectionContext = async (
     return response.text || "Analyse indisponible.";
   } catch (error: any) {
     console.error("Study Service Error:", error);
+    const errorMsg = error.message || "";
+    if (errorMsg.includes("429") || errorMsg.includes("RESOURCE_EXHAUSTED")) {
+        throw new Error("Quota d'analyse approfondie (Pro) saturé. Réessayez dans 60 secondes ou utilisez le chat classique.");
+    }
     throw new Error("Délai d'attente dépassé ou quota atteint. Réessayez dans une minute.");
   }
 };
