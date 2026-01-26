@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { ChatMessage } from '../types';
 
@@ -18,27 +19,27 @@ export const askGeminiChat = async (
   
   try {
     const systemInstruction = `Tu es l'assistant de King's Sword. 
-    Effectue une analyse théologique courte, profonde et solennelle en utilisant EXCLUSIVEMENT les sermons fournis dans le contexte.
+    Effectue une analyse théologique profonde et solennelle en utilisant les sermons fournis dans le contexte.
     Mets en lumière les liens prophétiques.
     CITE TOUJOURS LE PARAGRAPHE : > "Texte" [Réf: ID_DOC, Para. N]
     Termine toujours par la référence exacte : [Réf: ID_DOC, Para. N].`;
 
-    // Optimisation : réduction du contexte à 12000 caractères
-    const truncatedContext = contextText.substring(0, 12000); 
+    // Augmentation massive de la limite de caractères pour éviter les "problèmes de limites"
+    // Gemini 3 Pro supporte un contexte immense, 12k était trop restrictif.
+    const expandedContext = contextText.substring(0, 500000); 
     
-    // On renforce les instructions directement dans le prompt pour garantir l'obéissance au format de référence
     const userPromptWithContext = `INSTRUCTIONS CRITIQUES :
 1. Utilise les documents fournis ci-dessous pour répondre.
 2. Pour chaque citation ou preuve, utilise obligatoirement ce format exact : > "Citation" [Réf: ID_DOC, Para. N]
 3. Termine impérativement par la référence du sermon concerné : [Réf: ID_DOC, Para. N]
 
 CONTEXTE DES SERMONS :
-${truncatedContext}
+${expandedContext}
 
 QUESTION : "${prompt}"`;
 
     const contents = [
-      ...history.slice(-6).map(h => ({ 
+      ...history.slice(-10).map(h => ({ 
         role: h.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: h.content }]
       })),
@@ -49,12 +50,13 @@ QUESTION : "${prompt}"`;
     ];
 
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3-pro-preview",
       contents: contents,
       config: { 
         systemInstruction,
         temperature: 0.3,
-        tools: [{ googleSearch: {} }]
+        tools: [{ googleSearch: {} }],
+        thinkingConfig: { thinkingBudget: 4000 } // Ajout d'un budget de réflexion pour la profondeur théologique
       },
     });
     

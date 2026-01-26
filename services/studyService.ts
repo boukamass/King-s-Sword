@@ -13,32 +13,35 @@ export const analyzeSelectionContext = async (
   const ai = new GoogleGenAI({ apiKey });
 
   try {
-    // On limite drastiquement le texte des sermons secondaires pour économiser les tokens
+    // Suppression des limites restrictives de texte et de nombre de sermons
     const otherSermonsContext = allContextSermons
       .filter(s => s.id !== currentSermon.id)
-      .slice(0, 3) // Maximum 3 sermons en plus pour l'analyse croisée
-      .map(s => `ID: ${s.id} | ${s.title} (${s.date})\nExtrait: ${s.text ? s.text.substring(0, 500) : ''}...`)
-      .join("\n\n");
+      .map(s => `ID: ${s.id} | ${s.title} (${s.date})\nCONTENU:\n${s.text || ''}`)
+      .join("\n\n---\n\n");
 
     const prompt = `
-      Analyse théologique de : "${selection}"
-      Source principale : ${currentSermon.title} (${currentSermon.date})
+      Analyse théologique approfondie de la sélection suivante : "${selection}"
       
-      DOCS COMPLÉMENTAIRES POUR RÉFÉRENCE :
+      DOCUMENT PRINCIPAL : ${currentSermon.title} (${currentSermon.date})
+      TEXTE INTÉGRAL DU DOCUMENT PRINCIPAL :
+      ${currentSermon.text}
+      
+      DOCUMENTS DE RÉFÉRENCE CROISÉE :
       ${otherSermonsContext}
       
       INSTRUCTIONS :
-      - Analyse courte, profonde et solennelle.
-      - Mets en lumière les liens prophétiques.
+      - Effectue une analyse profonde, solennelle et exhaustive.
+      - Mets en lumière les mystères et liens prophétiques entre ces documents.
+      - Cite textuellement les paragraphes pertinents.
       - Termine par la référence exacte : [Réf: ID_SERMON, Para. N].
     `;
     
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3-pro-preview",
       contents: prompt,
       config: { 
-        temperature: 0.4,
-        maxOutputTokens: 1000 // Limite la taille de la réponse pour économiser le quota de tokens de sortie
+        temperature: 0.2, // Plus bas pour plus de précision scripturaire
+        thinkingConfig: { thinkingBudget: 8000 } // Budget de réflexion élevé pour une analyse complexe
       }
     });
 
@@ -46,9 +49,8 @@ export const analyzeSelectionContext = async (
   } catch (error: any) {
     console.error("Study Service Error:", error);
     
-    // Gestion de l'erreur de quota pour les analyses
     if (error.message?.includes("429") || error.message?.includes("QUOTA_EXHAUSTED") || error.message?.includes("RESOURCE_EXHAUSTED")) {
-      throw new Error("Quota d'analyse épuisé. Veuillez patienter environ une minute. L'utilisation gratuite de l'IA est limitée en fréquence.");
+      throw new Error("Le quota d'analyse est momentanément saturé. Réessayez dans quelques instants.");
     }
     
     throw new Error(`Erreur d'analyse : ${error.message}`);
