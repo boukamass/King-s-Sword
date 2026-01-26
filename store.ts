@@ -75,7 +75,7 @@ interface AppState {
 
   initializeDB: () => Promise<void>;
   resetLibrary: () => Promise<void>;
-  setSelectedSermonId: (id: string | null) => Promise<void>;
+  setSelectedSermonId: (id: string | null, multiSelect?: boolean) => Promise<void>;
   setSearchQuery: (query: string) => void;
   setSearchMode: (mode: SearchMode) => void;
   setSearchResults: (results: SearchResult[]) => void;
@@ -105,7 +105,7 @@ interface AppState {
   setFontSize: (updater: number | ((size: number) => number)) => void;
   setTheme: (theme: 'light' | 'dark' | 'system') => void;
   addChatMessage: (key: string, message: ChatMessage) => void;
-  toggleContextSermon: (id: string) => void;
+  toggleContextSermon: (id: string, multiSelect?: boolean) => void;
   setManualContextIds: (ids: string[]) => void;
   clearContextSermons: () => void;
   addNote: (note: Partial<Note>) => void;
@@ -167,7 +167,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   jumpToParagraph: null,
   projectionBlackout: false,
   isExternalMaskOpen: false,
-  sidebarWidth: 320,
+  sidebarWidth: 380,
   aiWidth: 400,
   notesWidth: 350,
   navigatedFromSearch: false,
@@ -309,14 +309,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  setSelectedSermonId: async (id) => {
+  setSelectedSermonId: async (id, multiSelect = false) => {
     if (!id) {
-      set({ selectedSermonId: null, activeSermon: null, contextSermonIds: get().manualContextIds });
+      set({ selectedSermonId: null, activeSermon: null });
       return;
     }
     
     const currentId = get().selectedSermonId;
-    if (currentId === id && get().activeSermon) return; 
+    if (currentId === id && get().activeSermon && !multiSelect) return; 
 
     set({ selectedSermonId: id, activeSermon: null }); 
     
@@ -330,8 +330,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
       
       const manual = get().manualContextIds;
-      const newContext = Array.from(new Set([id, ...manual].filter(Boolean) as string[]));
-      set({ contextSermonIds: newContext });
+      const newManual = multiSelect 
+        ? Array.from(new Set([...manual, id].filter(Boolean) as string[]))
+        : [id];
+        
+      set({ manualContextIds: newManual, contextSermonIds: newManual });
 
     } catch (error) {
       get().addNotification("Erreur lors du chargement du sermon", "error");
@@ -392,26 +395,28 @@ export const useAppStore = create<AppState>((set, get) => ({
     };
   }),
 
-  toggleContextSermon: (id) => set(s => {
+  toggleContextSermon: (id, multiSelect = false) => set(s => {
     const isManual = s.manualContextIds.includes(id);
-    const newManual = isManual 
-      ? s.manualContextIds.filter(x => x !== id) 
-      : [...s.manualContextIds, id];
+    let newManual;
     
-    const activeId = s.selectedSermonId;
-    const newContext = Array.from(new Set([activeId, ...newManual].filter(Boolean) as string[]));
+    if (multiSelect) {
+      newManual = isManual 
+        ? s.manualContextIds.filter(x => x !== id) 
+        : [...s.manualContextIds, id];
+    } else {
+      // Si déjà présent, on l'enlève. Sinon, on remplace tout par celui-ci.
+      newManual = isManual ? [] : [id];
+    }
     
-    return { manualContextIds: newManual, contextSermonIds: newContext };
+    return { manualContextIds: newManual, contextSermonIds: newManual };
   }),
 
   setManualContextIds: (ids) => set(s => {
-    const activeId = s.selectedSermonId;
-    return { manualContextIds: ids, contextSermonIds: activeId ? [activeId, ...ids] : ids };
+    return { manualContextIds: ids, contextSermonIds: ids };
   }),
 
   clearContextSermons: () => set(s => {
-    const activeId = s.selectedSermonId;
-    return { manualContextIds: [], contextSermonIds: activeId ? [activeId] : [] };
+    return { manualContextIds: [], contextSermonIds: [] };
   }),
 
   addNote: async (partial) => {

@@ -28,6 +28,8 @@ export const getAccentInsensitiveRegex = (query: string, isExactWord = false): R
     'n': '[nñ]',
   };
   
+  // Motif optionnel pour les caractères non-alphanumériques entre les lettres (ex: l'amour)
+  const charInterPattern = "[^a-z0-9À-ÿ]*";
   // Pattern qui accepte n'importe quelle ponctuation ou espace entre les mots
   const punctuationPattern = "[\\s.,;:!–?\"“”'()\\n\\r\\[\\]]+";
   
@@ -36,12 +38,12 @@ export const getAccentInsensitiveRegex = (query: string, isExactWord = false): R
     .trim()
     .split(/\s+/)
     .map(word => 
-      word.split('').map(char => map[char] || (/[a-z0-9]/.test(char) ? char : `\\${char}`)).join('')
+      word.split('').map(char => map[char] || (/[a-z0-9]/.test(char) ? char : `\\${char}`)).join(charInterPattern)
     )
     .join(punctuationPattern);
     
   if (isExactWord) {
-    // Utilisation de lookbehind/lookahead si supporté ou d'un pattern de bordure plus large
+    // Utilisation de groupes de capture pour isoler le terme des délimiteurs
     return new RegExp(`(?:^|[^a-z0-9À-ÿ])(${pattern})(?:$|[^a-z0-9À-ÿ])`, 'gi');
   }
   return new RegExp(`(${pattern})`, 'gi');
@@ -51,7 +53,7 @@ export const getAccentInsensitiveRegex = (query: string, isExactWord = false): R
  * Génère une expression régulière pour surligner plusieurs mots indépendamment (Mode DIVERSE ou EXACT_WORDS).
  */
 export const getMultiWordHighlightRegex = (query: string): RegExp => {
-  const words = query.trim().split(/\s+/).filter(w => w.length > 1);
+  const words = query.trim().split(/\s+/).filter(w => w.length > 0);
   if (words.length === 0) return new RegExp(query, 'gi');
 
   const map: Record<string, string> = {
@@ -65,10 +67,12 @@ export const getMultiWordHighlightRegex = (query: string): RegExp => {
     'n': '[nñ]',
   };
 
+  const charInterPattern = "[^a-z0-9À-ÿ]*";
+
   const wordPatterns = words.map(word => {
-    return word.toLowerCase().split('').map(char => map[char] || (/[a-z0-9]/.test(char) ? char : `\\${char}`)).join('');
+    return word.toLowerCase().split('').map(char => map[char] || (/[a-z0-9]/.test(char) ? char : `\\${char}`)).join(charInterPattern);
   });
 
-  // Capturer les mots même s'ils sont collés à des parenthèses ou ponctuation
+  // Capturer les mots indépendamment
   return new RegExp(`(${wordPatterns.join('|')})`, 'gi');
 };

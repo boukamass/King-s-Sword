@@ -119,7 +119,8 @@ const webSearchFallback = async (params: { query: string; mode: SearchMode; limi
           snippetContent = content.substring(0, 600) + (content.length > 600 ? '...' : '');
         }
 
-        const snippetHighlighted = snippetContent.replace(highlightRegex, (m) => `<mark class="${markClass}">${m}</mark>`);
+        // Amélioration : utiliser replace avec groupe de capture pour isoler le terme des délimititeurs
+        const snippetHighlighted = snippetContent.replace(highlightRegex, (m, g1) => `<mark class="${markClass}">${g1 || m}</mark>`);
         
         results.push({
           paragraphId: `${s.id}-${i}`,

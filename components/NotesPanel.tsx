@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, memo } from 'react';
 import { useAppStore } from '../store';
 import { translations } from '../translations';
@@ -86,7 +85,7 @@ const NoteCard = memo(({
                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate tracking-tight group-hover:text-teal-600 transition-colors">
                  {n.title}
                </h3>
-               <Pencil className="w-3 h-3 text-zinc-400 dark:text-zinc-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+               <Pencil className="w-3 h-3 text-zinc-400 dark:text-zinc-50 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
              </div>
            )}
         </div>
@@ -244,7 +243,7 @@ const NotesPanel: React.FC = () => {
   };
 
   return (
-    <div className="w-full border-l border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 h-full flex flex-col overflow-hidden">
+    <div className="w-full border-l border-zinc-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 h-full flex flex-col overflow-hidden">
       <div className="px-4 h-14 border-b border-zinc-100 dark:border-zinc-800/50 flex items-center justify-between shrink-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl z-50">
         <button 
           onClick={toggleNotes}
