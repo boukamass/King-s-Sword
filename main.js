@@ -1,3 +1,4 @@
+
 const { app, BrowserWindow, shell, ipcMain, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -273,16 +274,6 @@ ipcMain.handle('db:reorderNotes', (event, notes) => {
   } catch (e) {
     return { success: false, error: e.message };
   }
-});
-
-// Gestionnaires pour aistudio (Google Connect)
-ipcMain.handle('aistudio:hasKey', () => {
-  return !!process.env.API_KEY;
-});
-
-ipcMain.handle('aistudio:openKey', () => {
-  shell.openExternal('https://ai.google.dev/gemini-api/docs/billing');
-  return true;
 });
 
 function createWindow() {

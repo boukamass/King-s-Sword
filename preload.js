@@ -1,3 +1,4 @@
+
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -18,10 +19,4 @@ contextBridge.exposeInMainWorld('electronAPI', {
     deleteNote: (id) => ipcRenderer.invoke('db:deleteNote', id),
     reorderNotes: (notes) => ipcRenderer.invoke('db:reorderNotes', notes),
   }
-});
-
-// Exposition de l'objet aistudio pour la gestion des clés API / Connexion Google
-contextBridge.exposeInMainWorld('aistudio', {
-  hasSelectedApiKey: () => ipcRenderer.invoke('aistudio:hasKey'),
-  openSelectKey: () => ipcRenderer.invoke('aistudio:openKey')
 });
