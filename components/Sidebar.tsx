@@ -1,4 +1,4 @@
-// Add React import to the list of imports from 'react'
+
 import React, { useState, useRef, useEffect, useMemo, memo, useDeferredValue, useTransition, useCallback } from 'react';
 import { useAppStore } from '../store';
 import { translations } from '../translations';
@@ -67,10 +67,10 @@ const ModernDropdown: React.FC<DropdownProps> = ({ value, onChange, options, pla
 
       {isOpen && (
         <div className="absolute left-0 right-0 mt-1 py-1 bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 rounded-xl shadow-2xl z-[100] animate-in fade-in zoom-in-95 duration-200 overflow-hidden backdrop-blur-xl">
-          <div className="max-h-[160px] overflow-y-auto custom-scrollbar">
+          <div className="max-h-[160px] overflow-y-auto custom-scrollbar p-1">
             <button
               onClick={() => { onChange(null); setIsOpen(false); }}
-              className="w-full text-left px-3 py-1.5 text-[9px] font-black uppercase tracking-wider text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors"
+              className="w-full text-left px-3 py-1.5 text-[9px] font-black uppercase tracking-wider text-zinc-400 hover:bg-teal-600/[0.08] dark:hover:bg-teal-400/[0.06] border border-transparent hover:border-teal-600/10 dark:hover:border-teal-400/10 rounded-lg transition-all"
             >
               {placeholder}
             </button>
@@ -78,10 +78,10 @@ const ModernDropdown: React.FC<DropdownProps> = ({ value, onChange, options, pla
               <button
                 key={opt}
                 onClick={() => { onChange(opt); setIsOpen(false); }}
-                className={`w-full text-left px-3 py-1.5 text-[9px] font-black uppercase tracking-wider transition-all ${
+                className={`w-full text-left px-3 py-1.5 text-[9px] font-black uppercase tracking-wider transition-all rounded-lg border ${
                   value === opt 
-                    ? 'text-teal-600 bg-teal-600/5 dark:bg-teal-600/10' 
-                    : 'text-zinc-800 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700'
+                    ? 'text-teal-700 dark:text-teal-400 bg-teal-600/15 dark:bg-teal-600/25 border-teal-600/30' 
+                    : 'text-zinc-800 dark:text-zinc-200 hover:bg-teal-600/[0.08] dark:hover:bg-teal-400/[0.06] border-transparent hover:border-teal-600/10 dark:hover:border-teal-400/10'
                 }`}
               >
                 {displayValue ? displayValue(opt) : opt}

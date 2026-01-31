@@ -1,4 +1,4 @@
-// Fix: Added React to imports to resolve "Cannot find namespace 'React'" errors for React.FC and React.MouseEvent
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useAppStore } from '../store';
 import { askGeminiChat } from '../services/geminiChatService';
@@ -21,7 +21,12 @@ import {
   Library,
   Zap,
   Globe,
-  ExternalLink
+  ExternalLink,
+  User,
+  ShieldCheck,
+  AlertCircle,
+  LogIn,
+  CheckCircle
 } from 'lucide-react';
 
 interface ChatMessageWithSources extends ChatMessage {
@@ -56,11 +61,31 @@ const AIAssistant: React.FC = () => {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [noteSelectorData, setNoteSelectorData] = useState<{ text: string; sermon: Sermon } | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   
   const chatKey = contextSermonIds.join(',') || 'global';
   const history = (chatHistory[chatKey] || []) as ChatMessageWithSources[];
+
+  // Vérification de l'état de connexion Google
+  useEffect(() => {
+    const checkStatus = async () => {
+      if ((window as any).aistudio?.hasSelectedApiKey) {
+        const hasKey = await (window as any).aistudio.hasSelectedApiKey();
+        setIsConnected(hasKey);
+      }
+    };
+    checkStatus();
+  }, []);
+
+  const handleGoogleConnect = async () => {
+    if ((window as any).aistudio?.openSelectKey) {
+      await (window as any).aistudio.openSelectKey();
+      setIsConnected(true);
+      addNotification("Compte Google connecté. Accès gratuit activé.", "success");
+    }
+  };
   
   const selectedSermonsMetadata = useMemo(() => {
     const uniqueMap = new Map<string, any>();
@@ -121,11 +146,9 @@ const AIAssistant: React.FC = () => {
     return results.filter((s): s is Sermon => !!s && !!s.text);
   };
 
-  // Gestion automatique du bouton "Étudier"
   useEffect(() => {
     if (pendingStudyRequest && activeSermon) {
       const textToStudy = pendingStudyRequest;
-      // On réinitialise immédiatement la demande pour éviter les boucles
       triggerStudyRequest(null);
 
       const performStudy = async () => {
@@ -146,7 +169,12 @@ const AIAssistant: React.FC = () => {
             timestamp: new Date().toISOString()
           });
         } catch (e: any) {
-          addNotification(e.message, 'error');
+          if (e.message.includes("Requested entity was not found")) {
+            addNotification("Session expirée. Reconnectez-vous à votre compte Google.", "error");
+            handleGoogleConnect();
+          } else {
+            addNotification(e.message, 'error');
+          }
         } finally {
           setIsTyping(false);
         }
@@ -181,8 +209,15 @@ const AIAssistant: React.FC = () => {
       
       addChatMessage(chatKey, newMessage);
     } catch (e: any) {
-       addChatMessage(chatKey, { role: 'assistant', content: e.message, timestamp: new Date().toISOString() });
-       addNotification(e.message, 'error');
+       const errorText = e.message.includes("Requested entity was not found") 
+          ? "Accès restreint. Veuillez vous connecter avec votre compte Google en haut."
+          : e.message;
+       
+       addChatMessage(chatKey, { role: 'assistant', content: errorText, timestamp: new Date().toISOString() });
+       
+       if (e.message.includes("Requested entity was not found")) {
+         handleGoogleConnect();
+       }
     } finally { setIsTyping(false); }
   };
 
@@ -200,16 +235,48 @@ const AIAssistant: React.FC = () => {
           </div>
           <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-900 dark:text-zinc-50 leading-none group-hover/ai-title:text-teal-600 transition-colors">ASSISTANT IA</h2>
         </div>
-        <button onClick={toggleAI} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-red-500 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 active:scale-90">
-          <X className="w-4 h-4" />
-        </button>
+        
+        <div className="flex items-center gap-2">
+          {/* Bouton de connexion Google simplifié */}
+          <button 
+            onClick={handleGoogleConnect}
+            data-tooltip={isConnected ? "Compte Google Connecté" : "Se connecter pour un accès complet et gratuit"}
+            className={`flex items-center gap-2 px-3 h-8 rounded-lg transition-all active:scale-90 border text-[9px] font-black uppercase tracking-widest shadow-sm ${
+              isConnected 
+                ? "bg-emerald-600/10 text-emerald-600 border-emerald-600/20" 
+                : "bg-amber-600/10 text-amber-600 border-amber-600/20 animate-pulse"
+            }`}
+          >
+            {isConnected ? <CheckCircle className="w-3.5 h-3.5" /> : <LogIn className="w-3.5 h-3.5" />}
+            <span className="hidden sm:inline">{isConnected ? "Connecté" : "Accès Google"}</span>
+          </button>
+
+          <button onClick={toggleAI} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-red-500 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 active:scale-90">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       </div>
+
+      {!isConnected && (
+        <div className="bg-amber-500/10 border-b border-amber-500/20 px-5 py-2 flex items-center justify-between animate-in slide-in-from-top-1">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-3 h-3 text-amber-600" />
+            <span className="text-[8px] font-black text-amber-700 uppercase tracking-widest">Utilisation Limitée (Invité)</span>
+          </div>
+          <button 
+            onClick={handleGoogleConnect}
+            className="text-[7px] font-bold text-amber-600 underline uppercase hover:text-amber-700"
+          >
+            Se connecter pour l'accès gratuit
+          </button>
+        </div>
+      )}
 
       <div className="shrink-0 bg-zinc-50/50 dark:bg-zinc-900/40 border-b border-zinc-100 dark:border-zinc-800/50 px-5 py-3">
          <div className="flex items-center justify-between mb-2 px-1">
-            <span className="text-[8px] font-black uppercase tracking-[0.2em] text-zinc-500">Ressources en Mémoire ({selectedSermonsMetadata.length})</span>
+            <span className="text-[8px] font-black uppercase tracking-[0.2em] text-zinc-500">Documents en Analyse ({selectedSermonsMetadata.length})</span>
             {contextSermonIds.length > 0 && (
-              <button onClick={clearContextSermons} className="text-[8px] font-black text-red-500 hover:text-red-600 uppercase tracking-widest transition-colors">Vider le dock</button>
+              <button onClick={clearContextSermons} className="text-[8px] font-black text-red-500 hover:text-red-600 uppercase tracking-widest transition-colors">Vider la liste</button>
             )}
          </div>
 
@@ -251,7 +318,7 @@ const AIAssistant: React.FC = () => {
                 <div className="mt-4 pt-4 border-t border-teal-600/10 flex flex-wrap gap-2">
                   <div className="flex items-center gap-1.5 w-full mb-1">
                     <Globe className="w-2.5 h-2.5 text-teal-600" />
-                    <span className="text-[8px] font-black text-teal-600 uppercase tracking-widest">Sources consultées</span>
+                    <span className="text-[8px] font-black text-teal-600 uppercase tracking-widest">Sources Web Consultées</span>
                   </div>
                   {msg.sources.map((source, sIdx) => (
                     <a 
@@ -293,7 +360,7 @@ const AIAssistant: React.FC = () => {
                 <div className="w-1 h-1 bg-teal-600 rounded-full animate-bounce" style={{animationDelay: '200ms'}} />
                 <div className="w-1 h-1 bg-teal-600 rounded-full animate-bounce" style={{animationDelay: '400ms'}} />
             </div>
-            <span className="text-[8px] font-black uppercase tracking-[0.4em] text-teal-600">Recherche bibliographique...</span>
+            <span className="text-[8px] font-black uppercase tracking-[0.4em] text-teal-600">Recherche dans les archives...</span>
           </div>
         )}
       </div>
