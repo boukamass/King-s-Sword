@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo, useCallback, memo, useTransition } from 'react';
 import { useAppStore } from '../store';
 import { translations } from '../translations';
@@ -57,20 +58,30 @@ interface SimpleWord {
   globalIndex: number;
 }
 
-const ActionButton = memo(({ onClick, icon: Icon, tooltip, special = false, active = false }: any) => (
+const ActionButton = memo(({ onClick, icon: Icon, tooltip, special = false, active = false, isFullscreen = false, baseFontSize = 20 }: any) => (
   <div className="relative group/btn">
     <button 
       onClick={onClick} 
       data-tooltip={tooltip} 
-      className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all border active:scale-95 shadow-sm ${
+      className={`flex items-center justify-center transition-all border active:scale-95 shadow-sm ${
         special 
           ? "bg-teal-600/10 text-teal-600 border-teal-600/20" 
           : active 
             ? "bg-teal-600 text-white border-teal-600" 
             : "bg-white/50 dark:bg-zinc-800/50 border-zinc-200/50 dark:border-zinc-800/50 hover:bg-teal-600/5 hover:text-teal-600 hover:border-teal-600/20 text-zinc-400 dark:text-zinc-500"
       }`}
+      style={isFullscreen ? { 
+        width: '1.8em', 
+        height: '1.8em', 
+        fontSize: `${baseFontSize}px`,
+        borderRadius: '0.5em'
+      } : { 
+        width: '2.25rem', 
+        height: '2.25rem',
+        borderRadius: '0.75rem'
+      }}
     >
-      <Icon className="w-4 h-4" />
+      <Icon style={isFullscreen ? { width: '0.8em', height: '0.8em' } : { width: '1rem', height: '1rem' }} />
     </button>
   </div>
 ));
@@ -870,7 +881,7 @@ const Reader: React.FC = () => {
               <div className="space-y-10 pb-6">
                 <section className="animate-in slide-in-from-bottom-2 duration-500">
                   <div className="flex items-center gap-2 mb-4">
-                    <Info className="w-3.5 h-3.5 text-teal-600/50" />
+                    <div style={{ fontSize: 'inherit' }}><Info className="w-[1.2em] h-[1.2em] text-teal-600/50" /></div>
                     <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Définition & Sens</h4>
                   </div>
                   <div className="p-8 bg-white dark:bg-zinc-800/40 border border-teal-600/10 dark:border-teal-600/5 rounded-[32px] shadow-sm relative overflow-hidden group">
@@ -882,7 +893,7 @@ const Reader: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <section className="animate-in slide-in-from-bottom-2 duration-700">
                     <div className="flex items-center gap-2 mb-4 px-2">
-                      <History className="w-3.5 h-3.5 text-teal-600/50" />
+                      <div style={{ fontSize: 'inherit' }}><History className="w-[1.2em] h-[1.2em] text-teal-600/50" /></div>
                       <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Étymologie</h4>
                     </div>
                     <div className="p-6 bg-zinc-100/50 dark:bg-zinc-800/20 border border-zinc-200/50 dark:border-zinc-700/50 rounded-3xl min-h-[80px]">
@@ -894,7 +905,7 @@ const Reader: React.FC = () => {
 
                   <section className="animate-in slide-in-from-bottom-2 duration-700 delay-100">
                     <div className="flex items-center gap-2 mb-4 px-2">
-                      <Languages className="w-3.5 h-3.5 text-teal-600/50" />
+                      <div style={{ fontSize: 'inherit' }}><Languages className="w-[1.2em] h-[1.2em] text-teal-600/50" /></div>
                       <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Synonymes</h4>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -926,32 +937,64 @@ const Reader: React.FC = () => {
         </div>
       )}
       
-      <div className="px-4 md:px-8 h-14 border-b border-zinc-100 dark:border-zinc-900/50 flex items-center justify-between shrink-0 bg-slate-50/60 dark:bg-zinc-950/70 backdrop-blur-2xl z-[100001] no-print overflow-visible-important">
+      <div className={`px-4 md:px-8 border-b border-zinc-100 dark:border-zinc-900/50 flex items-center justify-between shrink-0 bg-slate-50/60 dark:bg-zinc-950/70 backdrop-blur-2xl z-[100001] no-print overflow-visible-important transition-all duration-300 ${isOSFullscreen ? 'min-h-[3.5rem] h-auto py-6' : 'h-14'}`}>
         <div className="flex items-center gap-4 min-w-0 flex-1 overflow-visible-important">
           {(!sidebarOpen || isOSFullscreen) && (
-             <button onClick={toggleSidebar} className="flex items-center gap-3 hover:opacity-80 active:scale-95 group shrink-0 mr-1">
-               <div className="w-8 h-8 flex items-center justify-center bg-teal-600/10 rounded-lg border border-teal-600/20 shadow-sm"><img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-4 h-4 grayscale" /></div>
+             <button onClick={toggleSidebar} className="flex items-center gap-3 hover:opacity-80 active:scale-95 group shrink-0 mr-1 transition-all">
+               <div 
+                 className="flex items-center justify-center bg-teal-600/10 rounded-lg border border-teal-600/20 shadow-sm transition-all shrink-0"
+                 style={isOSFullscreen ? { width: '1.8em', height: '1.8em', fontSize: `${fontSize}px`, borderRadius: '0.4em' } : { width: '2rem', height: '2rem' }}
+               >
+                 <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="grayscale" style={{ width: '0.6em', height: '0.6em' }} />
+               </div>
              </button>
           )}
           <div className="flex flex-col min-w-0 flex-1">
-            <h1 className="text-[16px] font-extrabold text-zinc-900 dark:text-zinc-50 truncate tracking-tight">{sermon.title}</h1>
-            <div className="flex items-center gap-2 text-[9px] font-bold text-zinc-400 uppercase tracking-wider leading-none mt-1">
-              <Calendar className="w-2.5 h-2.5 text-teal-600" /><span>{sermon.date}</span>
-              {sermon.time && <><span className="w-1 h-1 bg-zinc-300 rounded-full mx-1" /><Clock className="w-2.5 h-2.5 text-teal-600" /><span>{sermon.time}</span></>}
-              <span className="w-1 h-1 bg-zinc-300 rounded-full mx-1" /><MapPin className="w-2.5 h-2.5 text-teal-600" /><span>{sermon.city}</span>
+            <h1 
+              className={`font-extrabold text-zinc-900 dark:text-zinc-50 tracking-tight transition-all leading-tight ${isOSFullscreen ? '' : 'truncate'}`}
+              style={{ fontSize: isOSFullscreen ? `${fontSize}px` : '16px' }}
+            >
+              {sermon.title}
+            </h1>
+            <div 
+              className="flex items-center gap-x-2 gap-y-1 font-bold text-zinc-400 uppercase tracking-wider leading-none mt-1 transition-all flex-wrap"
+              style={{ fontSize: isOSFullscreen ? `${Math.max(12, fontSize * 0.45)}px` : '9px' }}
+            >
+              <div className="flex items-center gap-1"><Calendar style={{ width: '1em', height: '1em' }} className="text-teal-600" /><span>{sermon.date}</span></div>
+              {sermon.time && <div className="flex items-center gap-1"><span className="w-1 h-1 bg-zinc-300 rounded-full mx-1" /><Clock style={{ width: '1em', height: '1em' }} className="text-teal-600" /><span>{sermon.time}</span></div>}
+              <div className="flex items-center gap-1"><span className="w-1 h-1 bg-zinc-300 rounded-full mx-1" /><MapPin style={{ width: '1em', height: '1em' }} className="text-teal-600" /><span>{sermon.city}</span></div>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0 ml-4 overflow-visible-important">
-            {navigatedFromSearch && <button onClick={() => { startTransition(() => { setSearchQuery(lastSearchQuery); setIsFullTextSearch(true); setSelectedSermonId(null); setNavigatedFromSearch(false); setSearchOriginMatchIndices([]); }); }} className="px-3 py-1.5 bg-amber-600/10 text-amber-700 dark:text-amber-400 text-[9px] font-bold uppercase tracking-wider rounded-xl"><ChevronLeft className="w-3 h-3 inline mr-1" /> {t.reader_exit_search}</button>}
-            <ActionButton onClick={togglePlay} icon={isPlaying ? Pause : Play} tooltip={isPlaying ? t.tooltip_pause : t.tooltip_play} active={isPlaying} />
-            <ActionButton onClick={toggleProjection} icon={MonitorPlay} tooltip="Projeter" active={isProjectionOpen} special={isProjectionOpen} />
-            <ActionButton onClick={handleFullscreenToggle} icon={isOSFullscreen ? Minimize : Maximize} tooltip="Plein écran" special={isOSFullscreen} />
-            <ActionButton onClick={() => setTheme(theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light')} icon={ThemeIcon} tooltip="Thème" active={theme !== 'system'} />
-            <div className="flex items-center bg-white/50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200/50 dark:border-zinc-800/50 no-print overflow-hidden">
-              <button onClick={() => setFontSize(s => s - 2)} className="w-9 h-9 flex items-center justify-center text-zinc-400"><ZoomOut className="w-4 h-4" /></button>
-              <input type="text" value={localFontSize} onChange={e => /^\d*$/.test(e.target.value) && setLocalFontSize(e.target.value)} onBlur={() => { const val = parseInt(String(localFontSize), 10); setFontSize(isNaN(val) ? fontSize : val); }} className={`w-12 h-9 bg-transparent text-center text-[11px] font-black outline-none ${isOSFullscreen ? 'text-white' : 'text-zinc-950 dark:text-zinc-950'}`} />
-              <button onClick={() => setFontSize(s => s + 2)} className="w-9 h-9 flex items-center justify-center text-zinc-400"><ZoomIn className="w-4 h-4" /></button>
+        <div 
+          className="flex items-center shrink-0 ml-4 overflow-visible-important flex-wrap justify-end"
+          style={isOSFullscreen ? { gap: '0.4em' } : { gap: '0.5rem' }}
+        >
+            {navigatedFromSearch && (
+              <button 
+                onClick={() => { startTransition(() => { setSearchQuery(lastSearchQuery); setIsFullTextSearch(true); setSelectedSermonId(null); setNavigatedFromSearch(false); setSearchOriginMatchIndices([]); }); }} 
+                className="bg-amber-600/10 text-amber-700 dark:text-amber-400 font-bold uppercase tracking-wider rounded-xl flex items-center justify-center transition-all"
+                style={isOSFullscreen ? { fontSize: `${fontSize * 0.45}px`, padding: '0.8em 1.2em', borderRadius: '0.8em', minHeight: '1.8em' } : { fontSize: '9px', padding: '0.375rem 0.75rem' }}
+              >
+                <ChevronLeft className="inline mr-1" style={isOSFullscreen ? { width: '1em', height: '1em' } : { width: '12px', height: '12px' }} /> 
+                {t.reader_exit_search}
+              </button>
+            )}
+            <ActionButton onClick={togglePlay} icon={isPlaying ? Pause : Play} tooltip={isPlaying ? t.tooltip_pause : t.tooltip_play} active={isPlaying} isFullscreen={isOSFullscreen} baseFontSize={fontSize} />
+            <ActionButton onClick={toggleProjection} icon={MonitorPlay} tooltip="Projeter" active={isProjectionOpen} special={isProjectionOpen} isFullscreen={isOSFullscreen} baseFontSize={fontSize} />
+            <ActionButton onClick={handleFullscreenToggle} icon={isOSFullscreen ? Minimize : Maximize} tooltip="Plein écran" special={isOSFullscreen} isFullscreen={isOSFullscreen} baseFontSize={fontSize} />
+            <ActionButton onClick={() => setTheme(theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light')} icon={ThemeIcon} tooltip="Thème" active={theme !== 'system'} isFullscreen={isOSFullscreen} baseFontSize={fontSize} />
+            <div 
+              className="flex items-center bg-white/50 dark:bg-zinc-800/50 border border-zinc-200/50 dark:border-zinc-800/50 no-print overflow-hidden transition-all"
+              style={isOSFullscreen ? { fontSize: `${fontSize}px`, borderRadius: '0.5em', height: '1.8em' } : { borderRadius: '0.75rem' }}
+            >
+              <button onClick={() => setFontSize(s => s - 2)} className={`flex items-center justify-center text-zinc-400 hover:text-teal-600 ${isOSFullscreen ? '' : 'w-9 h-9'}`} style={isOSFullscreen ? { width: '1.5em', height: '100%' } : {}}>
+                <ZoomOut style={isOSFullscreen ? { width: '0.8em', height: '0.8em' } : { width: '1rem', height: '1rem' }} />
+              </button>
+              <input type="text" value={localFontSize} onDoubleClick={() => setFontSize(20)} onChange={e => /^\d*$/.test(e.target.value) && setLocalFontSize(e.target.value)} onBlur={() => { const val = parseInt(String(localFontSize), 10); setFontSize(isNaN(val) ? fontSize : val); }} className={`bg-transparent text-center font-black outline-none ${isOSFullscreen ? 'text-white' : 'text-zinc-950 dark:text-white'}`} style={isOSFullscreen ? { width: '2.2em', height: '100%', fontSize: '0.8em' } : { width: '3rem', height: '100%', fontSize: '11px' }} />
+              <button onClick={() => setFontSize(s => s + 2)} className={`flex items-center justify-center text-zinc-400 hover:text-teal-600 ${isOSFullscreen ? '' : 'w-9 h-9'}`} style={isOSFullscreen ? { width: '1.5em', height: '100%' } : {}}>
+                <ZoomIn style={isOSFullscreen ? { width: '0.8em', height: '0.8em' } : { width: '1rem', height: '1rem' }} />
+              </button>
             </div>
         </div>
       </div>
