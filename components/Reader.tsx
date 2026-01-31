@@ -71,10 +71,10 @@ const ActionButton = memo(({ onClick, icon: Icon, tooltip, special = false, acti
             : "bg-white/50 dark:bg-zinc-800/50 border-zinc-200/50 dark:border-zinc-800/50 hover:bg-teal-600/5 hover:text-teal-600 hover:border-teal-600/20 text-zinc-400 dark:text-zinc-500"
       }`}
       style={isFullscreen ? { 
-        width: '1.8em', 
-        height: '1.8em', 
-        fontSize: `${baseFontSize}px`,
-        borderRadius: '0.5em'
+        width: '1.5em', 
+        height: '1.5em', 
+        fontSize: `${baseFontSize * 0.6}px`,
+        borderRadius: '0.4em'
       } : { 
         width: '2.25rem', 
         height: '2.25rem',
@@ -943,7 +943,7 @@ const Reader: React.FC = () => {
              <button onClick={toggleSidebar} className="flex items-center gap-3 hover:opacity-80 active:scale-95 group shrink-0 mr-1 transition-all">
                <div 
                  className="flex items-center justify-center bg-teal-600/10 rounded-lg border border-teal-600/20 shadow-sm transition-all shrink-0"
-                 style={isOSFullscreen ? { width: '1.8em', height: '1.8em', fontSize: `${fontSize}px`, borderRadius: '0.4em' } : { width: '2rem', height: '2rem' }}
+                 style={isOSFullscreen ? { width: '1.5em', height: '1.5em', fontSize: `${fontSize * 0.6}px`, borderRadius: '0.4em' } : { width: '2rem', height: '2rem' }}
                >
                  <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="grayscale" style={{ width: '0.6em', height: '0.6em' }} />
                </div>
@@ -952,13 +952,13 @@ const Reader: React.FC = () => {
           <div className="flex flex-col min-w-0 flex-1">
             <h1 
               className={`font-extrabold text-zinc-900 dark:text-zinc-50 tracking-tight transition-all leading-tight ${isOSFullscreen ? '' : 'truncate'}`}
-              style={{ fontSize: isOSFullscreen ? `${fontSize}px` : '16px' }}
+              style={{ fontSize: isOSFullscreen ? `${fontSize * 0.6}px` : '16px' }}
             >
               {sermon.title}
             </h1>
             <div 
               className="flex items-center gap-x-2 gap-y-1 font-bold text-zinc-400 uppercase tracking-wider leading-none mt-1 transition-all flex-wrap"
-              style={{ fontSize: isOSFullscreen ? `${Math.max(12, fontSize * 0.45)}px` : '9px' }}
+              style={{ fontSize: isOSFullscreen ? `${Math.max(10, fontSize * 0.3)}px` : '9px' }}
             >
               <div className="flex items-center gap-1"><Calendar style={{ width: '1em', height: '1em' }} className="text-teal-600" /><span>{sermon.date}</span></div>
               {sermon.time && <div className="flex items-center gap-1"><span className="w-1 h-1 bg-zinc-300 rounded-full mx-1" /><Clock style={{ width: '1em', height: '1em' }} className="text-teal-600" /><span>{sermon.time}</span></div>}
@@ -968,13 +968,13 @@ const Reader: React.FC = () => {
         </div>
         <div 
           className="flex items-center shrink-0 ml-4 overflow-visible-important flex-wrap justify-end"
-          style={isOSFullscreen ? { gap: '0.4em' } : { gap: '0.5rem' }}
+          style={isOSFullscreen ? { gap: '0.25em' } : { gap: '0.5rem' }}
         >
             {navigatedFromSearch && (
               <button 
                 onClick={() => { startTransition(() => { setSearchQuery(lastSearchQuery); setIsFullTextSearch(true); setSelectedSermonId(null); setNavigatedFromSearch(false); setSearchOriginMatchIndices([]); }); }} 
                 className="bg-amber-600/10 text-amber-700 dark:text-amber-400 font-bold uppercase tracking-wider rounded-xl flex items-center justify-center transition-all"
-                style={isOSFullscreen ? { fontSize: `${fontSize * 0.45}px`, padding: '0.8em 1.2em', borderRadius: '0.8em', minHeight: '1.8em' } : { fontSize: '9px', padding: '0.375rem 0.75rem' }}
+                style={isOSFullscreen ? { fontSize: `${fontSize * 0.3}px`, padding: '0.8em 1.2em', borderRadius: '0.8em', minHeight: '1.8em' } : { fontSize: '9px', padding: '0.375rem 0.75rem' }}
               >
                 <ChevronLeft className="inline mr-1" style={isOSFullscreen ? { width: '1em', height: '1em' } : { width: '12px', height: '12px' }} /> 
                 {t.reader_exit_search}
@@ -986,7 +986,7 @@ const Reader: React.FC = () => {
             <ActionButton onClick={() => setTheme(theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light')} icon={ThemeIcon} tooltip="Thème" active={theme !== 'system'} isFullscreen={isOSFullscreen} baseFontSize={fontSize} />
             <div 
               className="flex items-center bg-white/50 dark:bg-zinc-800/50 border border-zinc-200/50 dark:border-zinc-800/50 no-print overflow-hidden transition-all"
-              style={isOSFullscreen ? { fontSize: `${fontSize}px`, borderRadius: '0.5em', height: '1.8em' } : { borderRadius: '0.75rem' }}
+              style={isOSFullscreen ? { fontSize: `${fontSize * 0.6}px`, borderRadius: '0.5em', height: '1.5em' } : { borderRadius: '0.75rem' }}
             >
               <button onClick={() => setFontSize(s => s - 2)} className={`flex items-center justify-center text-zinc-400 hover:text-teal-600 ${isOSFullscreen ? '' : 'w-9 h-9'}`} style={isOSFullscreen ? { width: '1.5em', height: '100%' } : {}}>
                 <ZoomOut style={isOSFullscreen ? { width: '0.8em', height: '0.8em' } : { width: '1rem', height: '1rem' }} />
