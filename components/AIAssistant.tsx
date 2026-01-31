@@ -24,7 +24,9 @@ import {
   ExternalLink,
   Key,
   ShieldCheck,
-  AlertTriangle
+  AlertTriangle,
+  ChevronRight,
+  ShieldAlert
 } from 'lucide-react';
 
 interface ChatMessageWithSources extends ChatMessage {
@@ -208,7 +210,7 @@ const AIAssistant: React.FC = () => {
       addChatMessage(chatKey, newMessage);
     } catch (e: any) {
        const errorText = e.message.includes("Requested entity was not found") 
-          ? "Erreur de clé API. Veuillez cliquer sur l'icône de clé en haut pour la configurer."
+          ? "Erreur de clé API. Veuillez cliquer sur le bouton d'activation en haut pour configurer votre quota."
           : e.message;
        
        addChatMessage(chatKey, { role: 'assistant', content: errorText, timestamp: new Date().toISOString() });
@@ -235,19 +237,12 @@ const AIAssistant: React.FC = () => {
         </div>
         
         <div className="flex items-center gap-2">
-          {/* Key Selector Button */}
-          <button 
-            onClick={handleOpenKeySelector}
-            data-tooltip={isIndividualKey ? "Quota Individuel Actif" : "Utiliser ma propre clé (Quota Illimité)"}
-            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all active:scale-90 border ${
-              isIndividualKey 
-                ? "bg-emerald-600/10 text-emerald-600 border-emerald-600/20" 
-                : "bg-amber-600/10 text-amber-600 border-amber-600/20 animate-pulse"
-            }`}
-          >
-            {isIndividualKey ? <ShieldCheck className="w-4 h-4" /> : <Key className="w-4 h-4" />}
-          </button>
-
+          {isIndividualKey && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/10 text-emerald-600 rounded-lg border border-emerald-600/20">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span className="text-[8px] font-black uppercase">Activé</span>
+            </div>
+          )}
           <button onClick={toggleAI} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-red-500 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 active:scale-90">
             <X className="w-4 h-4" />
           </button>
@@ -255,19 +250,21 @@ const AIAssistant: React.FC = () => {
       </div>
 
       {!isIndividualKey && (
-        <div className="bg-amber-500/10 border-b border-amber-500/20 px-5 py-2 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-3 h-3 text-amber-600" />
-            <span className="text-[8px] font-black text-amber-700 uppercase tracking-widest">Quota partagé (Limité)</span>
+        <button 
+          onClick={handleOpenKeySelector}
+          className="bg-amber-500 hover:bg-amber-600 border-b border-amber-600/20 px-5 py-4 flex items-center justify-between transition-all active:scale-[0.98] group/easy-key"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 flex items-center justify-center bg-white/20 rounded-full animate-pulse">
+              <Zap className="w-4 h-4 text-white" />
+            </div>
+            <div className="text-left">
+              <p className="text-[10px] font-black text-white uppercase tracking-widest leading-none">ACTIVER LE MODE ILLIMITÉ</p>
+              <p className="text-[8px] font-bold text-white/80 mt-1 uppercase tracking-tighter">Cliquez ici pour une étude rapide et sans limites</p>
+            </div>
           </div>
-          <a 
-            href="https://ai.google.dev/gemini-api/docs/billing" 
-            target="_blank" 
-            className="text-[7px] font-bold text-amber-600 underline uppercase"
-          >
-            Infos Facturation
-          </a>
-        </div>
+          <ChevronRight className="w-4 h-4 text-white group-hover/easy-key:translate-x-1 transition-transform" />
+        </button>
       )}
 
       <div className="shrink-0 bg-zinc-50/50 dark:bg-zinc-900/40 border-b border-zinc-100 dark:border-zinc-800/50 px-5 py-3">
@@ -300,6 +297,12 @@ const AIAssistant: React.FC = () => {
         className="flex-1 overflow-y-auto px-6 py-8 space-y-10 custom-scrollbar bg-slate-50 dark:bg-zinc-950 flex flex-col scroll-smooth transition-colors duration-500"
         onClick={handleContentClick}
       >
+        {history.length === 0 && (
+          <div className="h-full flex flex-col items-center justify-center opacity-20 p-8 text-center">
+            <Sparkles className="w-12 h-12 mb-4" />
+            <p className="text-[10px] font-black uppercase tracking-[0.4em]">Prêt pour l'étude</p>
+          </div>
+        )}
         {history.map((msg, i) => (
           <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-3 duration-700 w-full`}>
             <div className={`max-w-[94%] p-5 rounded-[28px] relative group transition-all duration-300 ${
