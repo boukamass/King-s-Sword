@@ -71,9 +71,9 @@ const ActionButton = memo(({ onClick, icon: Icon, tooltip, special = false, acti
             : "bg-white/50 dark:bg-zinc-800/50 border-zinc-200/50 dark:border-zinc-800/50 hover:bg-teal-600/5 hover:text-teal-600 hover:border-teal-600/20 text-zinc-400 dark:text-zinc-500"
       }`}
       style={isFullscreen ? { 
-        width: '1.5em', 
-        height: '1.5em', 
-        fontSize: `${baseFontSize * 0.6}px`,
+        width: '1.4em', 
+        height: '1.4em', 
+        fontSize: `${baseFontSize * 0.35}px`,
         borderRadius: '0.4em'
       } : { 
         width: '2.25rem', 
@@ -485,7 +485,6 @@ const Reader: React.FC = () => {
 
   const toggleProjection = () => {
     if (projectionWindow && !projectionWindow.closed) {
-      projectionWindow.close();
       projectionWindow = null;
       setIsProjectionOpen(false);
       setProjectedSegmentIndex(null);
@@ -937,13 +936,13 @@ const Reader: React.FC = () => {
         </div>
       )}
       
-      <div className={`px-4 md:px-8 border-b border-zinc-100 dark:border-zinc-900/50 flex items-center justify-between shrink-0 bg-slate-50/60 dark:bg-zinc-950/70 backdrop-blur-2xl z-[100001] no-print overflow-visible-important transition-all duration-300 ${isOSFullscreen ? 'min-h-[3.5rem] h-auto py-6' : 'h-14'}`}>
+      <div className={`px-4 md:px-8 border-b border-zinc-100 dark:border-zinc-900/50 flex items-center justify-between shrink-0 bg-slate-50/60 dark:bg-zinc-950/70 backdrop-blur-2xl z-[100001] no-print overflow-visible-important transition-all duration-300 ${isOSFullscreen ? 'min-h-[2.5rem] h-auto py-3' : 'h-14'}`}>
         <div className="flex items-center gap-4 min-w-0 flex-1 overflow-visible-important">
           {(!sidebarOpen || isOSFullscreen) && (
              <button onClick={toggleSidebar} className="flex items-center gap-3 hover:opacity-80 active:scale-95 group shrink-0 mr-1 transition-all">
                <div 
                  className="flex items-center justify-center bg-teal-600/10 rounded-lg border border-teal-600/20 shadow-sm transition-all shrink-0"
-                 style={isOSFullscreen ? { width: '1.5em', height: '1.5em', fontSize: `${fontSize * 0.6}px`, borderRadius: '0.4em' } : { width: '2rem', height: '2rem' }}
+                 style={isOSFullscreen ? { width: '1.4em', height: '1.4em', fontSize: `${fontSize * 0.3}px`, borderRadius: '0.4em' } : { width: '2rem', height: '2rem' }}
                >
                  <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="grayscale" style={{ width: '0.6em', height: '0.6em' }} />
                </div>
@@ -952,13 +951,13 @@ const Reader: React.FC = () => {
           <div className="flex flex-col min-w-0 flex-1">
             <h1 
               className={`font-extrabold text-zinc-900 dark:text-zinc-50 tracking-tight transition-all leading-tight ${isOSFullscreen ? '' : 'truncate'}`}
-              style={{ fontSize: isOSFullscreen ? `${fontSize * 0.6}px` : '16px' }}
+              style={{ fontSize: isOSFullscreen ? `${fontSize * 0.3}px` : '16px' }}
             >
               {sermon.title}
             </h1>
             <div 
               className="flex items-center gap-x-2 gap-y-1 font-bold text-zinc-400 uppercase tracking-wider leading-none mt-1 transition-all flex-wrap"
-              style={{ fontSize: isOSFullscreen ? `${Math.max(10, fontSize * 0.3)}px` : '9px' }}
+              style={{ fontSize: isOSFullscreen ? `${Math.max(10, fontSize * 0.2)}px` : '9px' }}
             >
               <div className="flex items-center gap-1"><Calendar style={{ width: '1em', height: '1em' }} className="text-teal-600" /><span>{sermon.date}</span></div>
               {sermon.time && <div className="flex items-center gap-1"><span className="w-1 h-1 bg-zinc-300 rounded-full mx-1" /><Clock style={{ width: '1em', height: '1em' }} className="text-teal-600" /><span>{sermon.time}</span></div>}
@@ -968,13 +967,13 @@ const Reader: React.FC = () => {
         </div>
         <div 
           className="flex items-center shrink-0 ml-4 overflow-visible-important flex-wrap justify-end"
-          style={isOSFullscreen ? { gap: '0.25em' } : { gap: '0.5rem' }}
+          style={isOSFullscreen ? { gap: '0.2em' } : { gap: '0.5rem' }}
         >
             {navigatedFromSearch && (
               <button 
                 onClick={() => { startTransition(() => { setSearchQuery(lastSearchQuery); setIsFullTextSearch(true); setSelectedSermonId(null); setNavigatedFromSearch(false); setSearchOriginMatchIndices([]); }); }} 
                 className="bg-amber-600/10 text-amber-700 dark:text-amber-400 font-bold uppercase tracking-wider rounded-xl flex items-center justify-center transition-all"
-                style={isOSFullscreen ? { fontSize: `${fontSize * 0.3}px`, padding: '0.8em 1.2em', borderRadius: '0.8em', minHeight: '1.8em' } : { fontSize: '9px', padding: '0.375rem 0.75rem' }}
+                style={isOSFullscreen ? { fontSize: `${fontSize * 0.25}px`, padding: '0.8em 1.2em', borderRadius: '0.8em', minHeight: '1.4em' } : { fontSize: '9px', padding: '0.375rem 0.75rem' }}
               >
                 <ChevronLeft className="inline mr-1" style={isOSFullscreen ? { width: '1em', height: '1em' } : { width: '12px', height: '12px' }} /> 
                 {t.reader_exit_search}
@@ -986,13 +985,13 @@ const Reader: React.FC = () => {
             <ActionButton onClick={() => setTheme(theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light')} icon={ThemeIcon} tooltip="Thème" active={theme !== 'system'} isFullscreen={isOSFullscreen} baseFontSize={fontSize} />
             <div 
               className="flex items-center bg-white/50 dark:bg-zinc-800/50 border border-zinc-200/50 dark:border-zinc-800/50 no-print overflow-hidden transition-all"
-              style={isOSFullscreen ? { fontSize: `${fontSize * 0.6}px`, borderRadius: '0.5em', height: '1.5em' } : { borderRadius: '0.75rem' }}
+              style={isOSFullscreen ? { fontSize: `${fontSize * 0.35}px`, borderRadius: '0.5em', height: '1.4em' } : { borderRadius: '0.75rem' }}
             >
-              <button onClick={() => setFontSize(s => s - 2)} className={`flex items-center justify-center text-zinc-400 hover:text-teal-600 ${isOSFullscreen ? '' : 'w-9 h-9'}`} style={isOSFullscreen ? { width: '1.5em', height: '100%' } : {}}>
+              <button onClick={() => setFontSize(s => s - 2)} className={`flex items-center justify-center text-zinc-400 hover:text-teal-600 ${isOSFullscreen ? '' : 'w-9 h-9'}`} style={isOSFullscreen ? { width: '1.4em', height: '100%' } : {}}>
                 <ZoomOut style={isOSFullscreen ? { width: '0.8em', height: '0.8em' } : { width: '1rem', height: '1rem' }} />
               </button>
               <input type="text" value={localFontSize} onDoubleClick={() => setFontSize(20)} onChange={e => /^\d*$/.test(e.target.value) && setLocalFontSize(e.target.value)} onBlur={() => { const val = parseInt(String(localFontSize), 10); setFontSize(isNaN(val) ? fontSize : val); }} className={`bg-transparent text-center font-black outline-none ${isOSFullscreen ? 'text-white' : 'text-zinc-950 dark:text-white'}`} style={isOSFullscreen ? { width: '2.2em', height: '100%', fontSize: '0.8em' } : { width: '3rem', height: '100%', fontSize: '11px' }} />
-              <button onClick={() => setFontSize(s => s + 2)} className={`flex items-center justify-center text-zinc-400 hover:text-teal-600 ${isOSFullscreen ? '' : 'w-9 h-9'}`} style={isOSFullscreen ? { width: '1.5em', height: '100%' } : {}}>
+              <button onClick={() => setFontSize(s => s + 2)} className={`flex items-center justify-center text-zinc-400 hover:text-teal-600 ${isOSFullscreen ? '' : 'w-9 h-9'}`} style={isOSFullscreen ? { width: '1.4em', height: '100%' } : {}}>
                 <ZoomIn style={isOSFullscreen ? { width: '0.8em', height: '0.8em' } : { width: '1rem', height: '1rem' }} />
               </button>
             </div>
@@ -1022,24 +1021,24 @@ const Reader: React.FC = () => {
 
           {selection && !isOSFullscreen && (
             <div 
-              className="absolute z-[200000] no-print selection-menu-container animate-in fade-in zoom-in-95 duration-200 ease-out" 
+              className="absolute z-[200000] no-print selection-menu-container animate-in fade-in zoom-in-95 duration-200 ease-out antialiased" 
               style={{ 
-                left: selection.x, 
-                top: selection.y, 
-                transform: 'translateX(-50%)' 
+                left: Math.round(selection.x), 
+                top: Math.round(selection.y), 
+                transform: 'translateX(-50%) translateZ(0)' 
               }}
             >
-              <div className="flex items-stretch bg-white/80 dark:bg-zinc-900/85 backdrop-blur-3xl p-1 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.1)] pointer-events-auto border border-white/20 dark:border-white/5 overflow-hidden">
-                <button onClick={handleHighlight} className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-amber-500/15 text-zinc-600 dark:text-zinc-400 hover:text-amber-600 dark:hover:text-amber-400 rounded-lg active:scale-95 group">
-                  <Highlighter className="w-3.5 h-3.5 text-amber-500/70" /><span className="text-[7px] font-black uppercase">Surligner</span>
+              <div className="flex items-stretch bg-white/95 dark:bg-zinc-900/95 backdrop-blur-3xl p-1 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.1)] pointer-events-auto border border-white/30 dark:border-white/10 overflow-hidden transform-gpu">
+                <button onClick={handleHighlight} className="flex flex-col items-center justify-center gap-0.5 px-3 py-2 hover:bg-amber-500/15 text-zinc-800 dark:text-zinc-200 hover:text-amber-700 dark:hover:text-amber-400 rounded-lg active:scale-95 group transition-colors">
+                  <Highlighter className="w-4 h-4 text-amber-500" /><span className="text-[8.5px] font-bold uppercase tracking-tight">Surligner</span>
                 </button>
-                <div className="w-px bg-zinc-200/50 my-1.5 mx-0.5" />
-                <button onClick={() => { handleCopy(); setSelection(null); }} className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 rounded-lg active:scale-95"><Copy className="w-3.5 h-3.5 text-zinc-400/70" /><span className="text-[7px] font-black uppercase">Copier</span></button>
-                <div className="w-px bg-zinc-200/50 my-1.5 mx-0.5" />
-                <button onClick={() => { handleDefine(); setSelection(null); }} className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-sky-500/15 text-zinc-600 dark:text-zinc-400 rounded-lg active:scale-95"><BookOpen className="w-3.5 h-3.5 text-sky-500/70" /><span className="text-[7px] font-black uppercase">Définer</span></button>
-                <button onClick={() => { triggerStudyRequest(selection.text); setSelection(null); }} className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-teal-600/15 text-zinc-600 dark:text-zinc-400 rounded-lg active:scale-95"><Sparkles className="w-3.5 h-3.5 text-teal-600/70 animate-pulse" /><span className="text-[7px] font-black uppercase">Étudier</span></button>
-                <div className="w-px bg-zinc-200/50 my-1.5 mx-0.5" />
-                <button onClick={() => { setNoteSelectorPayload({ text: selection.text, sermon }); setSelection(null); }} className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-emerald-500/15 text-zinc-600 dark:text-zinc-400 rounded-lg active:scale-95"><NotebookPen className="w-3.5 h-3.5 text-emerald-500/70" /><span className="text-[7px] font-black uppercase">Note</span></button>
+                <div className="w-px bg-zinc-200/60 dark:bg-zinc-700/60 my-2 mx-0.5" />
+                <button onClick={() => { handleCopy(); setSelection(null); }} className="flex flex-col items-center justify-center gap-0.5 px-3 py-2 hover:bg-zinc-500/10 text-zinc-800 dark:text-zinc-200 rounded-lg active:scale-95 transition-colors"><Copy className="w-4 h-4 text-zinc-500" /><span className="text-[8.5px] font-bold uppercase tracking-tight">Copier</span></button>
+                <div className="w-px bg-zinc-200/60 dark:bg-zinc-700/60 my-2 mx-0.5" />
+                <button onClick={() => { handleDefine(); setSelection(null); }} className="flex flex-col items-center justify-center gap-0.5 px-3 py-2 hover:bg-sky-500/15 text-zinc-800 dark:text-zinc-200 rounded-lg active:scale-95 transition-colors"><BookOpen className="w-4 h-4 text-sky-500" /><span className="text-[8.5px] font-bold uppercase tracking-tight">Définir</span></button>
+                <button onClick={() => { triggerStudyRequest(selection.text); setSelection(null); }} className="flex flex-col items-center justify-center gap-0.5 px-3 py-2 hover:bg-teal-600/15 text-zinc-800 dark:text-zinc-200 rounded-lg active:scale-95 transition-colors"><Sparkles className="w-4 h-4 text-teal-600 animate-pulse" /><span className="text-[8.5px] font-bold uppercase tracking-tight">Étudier</span></button>
+                <div className="w-px bg-zinc-200/60 dark:bg-zinc-700/60 my-2 mx-0.5" />
+                <button onClick={() => { setNoteSelectorPayload({ text: selection.text, sermon }); setSelection(null); }} className="flex flex-col items-center justify-center gap-0.5 px-3 py-2 hover:bg-emerald-500/15 text-zinc-800 dark:text-zinc-200 rounded-lg active:scale-95 transition-colors"><NotebookPen className="w-4 h-4 text-emerald-500" /><span className="text-[8.5px] font-bold uppercase tracking-tight">Note</span></button>
               </div>
             </div>
           )}
