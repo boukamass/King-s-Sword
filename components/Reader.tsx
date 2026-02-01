@@ -357,19 +357,10 @@ const Reader: React.FC = () => {
     const handleFullscreenChange = () => {
       const container = scrollContainerRef.current;
       if (!container) return;
-      const currentScrollTop = container.scrollTop;
-      const entries = Array.from(segmentRefs.current.entries()) as [number, HTMLDivElement][];
       
-      let anchorIndex = 0;
-      let closestDistance = Infinity;
-
-      for (const [idx, el] of entries) {
-        const distance = Math.abs(el.offsetTop - currentScrollTop);
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          anchorIndex = idx;
-        }
-      }
+      // Calcul du pourcentage actuel de défilement
+      const maxScroll = container.scrollHeight - container.clientHeight;
+      const scrollPct = maxScroll > 0 ? container.scrollTop / maxScroll : 0;
 
       const isFs = !!document.fullscreenElement;
       setIsOSFullscreen(isFs);
@@ -384,14 +375,18 @@ const Reader: React.FC = () => {
       }
 
       const restoreScroll = () => {
-        const targetEl = segmentRefs.current.get(anchorIndex);
-        if (targetEl && scrollContainerRef.current) {
-          scrollContainerRef.current.scrollTop = targetEl.offsetTop;
+        const c = scrollContainerRef.current;
+        if (c) {
+          // Application du même pourcentage sur la nouvelle hauteur de contenu
+          const newMax = c.scrollHeight - c.clientHeight;
+          c.scrollTop = scrollPct * newMax;
         }
       };
 
-      setTimeout(restoreScroll, 100);
-      setTimeout(restoreScroll, 300);
+      // Plusieurs tentatives pour s'assurer que le reflow est terminé
+      setTimeout(restoreScroll, 50);
+      setTimeout(restoreScroll, 150);
+      setTimeout(restoreScroll, 400);
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
