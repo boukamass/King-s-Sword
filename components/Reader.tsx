@@ -49,7 +49,8 @@ import {
   Info,
   History,
   Languages,
-  Plus
+  Plus,
+  ChevronRight
 } from 'lucide-react';
 
 interface SimpleWord {
@@ -90,7 +91,6 @@ const WordComponent = memo(({
   word, 
   isSearchResult, 
   isCurrentResult, 
-  isSearchOriginMatch, 
   isJumpHighlight, 
   citationColor, 
   highlight, 
@@ -101,7 +101,7 @@ const WordComponent = memo(({
 }: any) => {
   const highlightColorClass = highlight 
     ? PALETTE_HIGHLIGHT_COLORS[highlight.color || 'amber']
-    : (isJumpHighlight || isSearchOriginMatch || isSearchResult) 
+    : (isJumpHighlight || isSearchResult) 
       ? PALETTE_HIGHLIGHT_COLORS['amber'] 
       : '';
 
@@ -113,16 +113,16 @@ const WordComponent = memo(({
       className={`transition-all duration-300 ${citationColor || ''} ${
         isCurrentResult 
           ? 'bg-amber-600 shadow-[0_0_12px_rgba(245,158,11,0.5)] text-white px-0.5 rounded-sm font-bold' 
-          : (isSearchResult || isSearchOriginMatch || isJumpHighlight)
+          : (isSearchResult || isJumpHighlight)
             ? 'px-0.5 rounded-sm font-bold'
             : ''
-      } ${isSearchOriginMatch || isSearchResult ? 'underline decoration-amber-600/40 underline-offset-2' : ''}`}
+      } ${isSearchResult ? 'underline decoration-amber-600/40 underline-offset-2' : ''}`}
     >
       {word.text}
     </span>
   );
 
-  if (highlight || isJumpHighlight || isSearchOriginMatch || isSearchResult) {
+  if (highlight || isJumpHighlight || isSearchResult) {
     const handleRemove = (e: React.MouseEvent) => {
       e.stopPropagation();
       if (highlight) {
@@ -204,7 +204,6 @@ const Reader: React.FC = () => {
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [readerSearchQuery, setReaderSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<number[]>([]);
-  const [searchOriginMatchIndices, setSearchOriginMatchIndices] = useState<number[]>([]);
   const [currentResultIndex, setCurrentResultIndex] = useState(-1);
   const [isPlayerExpanded, setIsPlayerExpanded] = useState(false);
   const [noteSelectorPayload, setNoteSelectorPayload] = useState<{ text: string; sermon: Sermon; paragraphIndex?: number } | null>(null);
@@ -320,14 +319,18 @@ const Reader: React.FC = () => {
       if (e.key === 'Escape') {
         setSelection(null);
         setActiveDefinition(null);
+        setIsSearchVisible(false);
         window.getSelection()?.removeAllRanges();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        setIsSearchVisible(true);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Strict order: collapse library when modal appears
   useEffect(() => {
     if (activeDefinition) {
       setSidebarOpen(false);
@@ -358,7 +361,6 @@ const Reader: React.FC = () => {
       const container = scrollContainerRef.current;
       if (!container) return;
       
-      // Calcul du pourcentage actuel de défilement
       const maxScroll = container.scrollHeight - container.clientHeight;
       const scrollPct = maxScroll > 0 ? container.scrollTop / maxScroll : 0;
 
@@ -377,13 +379,11 @@ const Reader: React.FC = () => {
       const restoreScroll = () => {
         const c = scrollContainerRef.current;
         if (c) {
-          // Application du même pourcentage sur la nouvelle hauteur de contenu
           const newMax = c.scrollHeight - c.clientHeight;
           c.scrollTop = scrollPct * newMax;
         }
       };
 
-      // Plusieurs tentatives pour s'assurer que le reflow est terminé
       setTimeout(restoreScroll, 50);
       setTimeout(restoreScroll, 150);
       setTimeout(restoreScroll, 400);
@@ -445,7 +445,7 @@ const Reader: React.FC = () => {
               projectedWordsData = seg.words.map(w => {
                   const h = highlightMap.get(w.globalIndex);
                   const isJump = jumpHighlightIndices.includes(w.globalIndex);
-                  const isSearch = searchResults.includes(w.globalIndex) || searchOriginMatchIndices.includes(w.globalIndex);
+                  const isSearch = searchResults.includes(w.globalIndex);
                   
                   return {
                       text: w.text,
@@ -476,7 +476,7 @@ const Reader: React.FC = () => {
         activeDefinition
       });
     }
-  }, [sermon, projectedSegmentIndex, fontSize, theme, projectionBlackout, searchResults, currentResultIndex, activeDefinition, highlightMap, jumpHighlightIndices, searchOriginMatchIndices, structuredSegments, segments, selectionIndices, syncToggle]);
+  }, [sermon, projectedSegmentIndex, fontSize, theme, projectionBlackout, searchResults, currentResultIndex, activeDefinition, highlightMap, jumpHighlightIndices, structuredSegments, segments, selectionIndices, syncToggle]);
 
   const toggleProjection = () => {
     if (projectionWindow && !projectionWindow.closed) {
@@ -500,27 +500,6 @@ const Reader: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (sermon && words.length > 0 && lastSearchQuery) {
-        const regex = getAccentInsensitiveRegex(lastSearchQuery, lastSearchMode === SearchMode.EXACT_WORDS);
-        const fullSermonText = words.map(w => w.text).join('');
-        const matchIndices: number[] = [];
-        let match;
-        while ((match = regex.exec(fullSermonText)) !== null) {
-            const startChar = match.index;
-            const endChar = match.index + match[0].length;
-            let currentChar = 0;
-            for (let i = 0; i < words.length; i++) {
-                const wordLen = words[i].text.length;
-                if (currentChar + wordLen > startChar && currentChar < endChar) matchIndices.push(words[i].globalIndex);
-                currentChar += wordLen;
-            }
-            if (regex.lastIndex === match.index) regex.lastIndex++;
-        }
-        setSearchOriginMatchIndices(matchIndices);
-    } else setSearchOriginMatchIndices([]);
-  }, [sermon?.id, words, lastSearchQuery, lastSearchMode]);
-
-  useEffect(() => {
     if (sermon?.id && !jumpToText && !jumpToParagraph && scrollContainerRef.current) {
         scrollContainerRef.current.scrollTop = 0;
         setProjectedSegmentIndex(null);
@@ -538,6 +517,7 @@ const Reader: React.FC = () => {
                 if (segEl) {
                     let targetGlobalIndex = segment.words[0].globalIndex;
                     let targetHighlightIndices: number[] = [];
+                    
                     if (lastSearchQuery) {
                         const regex = getAccentInsensitiveRegex(lastSearchQuery, lastSearchMode === SearchMode.EXACT_WORDS);
                         const paraText = segment.words.map(w => w.text).join('');
@@ -554,6 +534,7 @@ const Reader: React.FC = () => {
                             }
                         }
                     }
+                    
                     if (targetHighlightIndices.length > 0) setJumpHighlightIndices(targetHighlightIndices);
                     else setJumpHighlightIndices(segment.words.map(w => w.globalIndex));
 
@@ -768,11 +749,10 @@ const Reader: React.FC = () => {
     highlightMap.forEach((_, k) => set.add(k));
     citationHighlightMap.forEach((_, k) => set.add(k));
     searchResults.forEach(idx => set.add(idx));
-    searchOriginMatchIndices.forEach(idx => set.add(idx));
     jumpHighlightIndices.forEach(idx => set.add(idx));
     selectionIndices.forEach(idx => set.add(idx));
     return set;
-  }, [highlightMap, citationHighlightMap, searchResults, searchOriginMatchIndices, jumpHighlightIndices, selectionIndices]);
+  }, [highlightMap, citationHighlightMap, searchResults, jumpHighlightIndices, selectionIndices]);
 
   const handleProjectSegment = (idx: number) => {
     if (!projectionWindow || projectionWindow.closed) toggleProjection();
@@ -793,7 +773,6 @@ const Reader: React.FC = () => {
             wordRef={(el: any) => { if(el) wordRefs.current.set(word.globalIndex, el); }} 
             isSearchResult={searchResults.includes(word.globalIndex)} 
             isCurrentResult={searchResults[currentResultIndex] === word.globalIndex} 
-            isSearchOriginMatch={searchOriginMatchIndices.includes(word.globalIndex)} 
             isJumpHighlight={jumpHighlightIndices.includes(word.globalIndex)} 
             citationColor={citationHighlightMap.get(word.globalIndex)?.colorClass} 
             highlight={highlightMap.get(word.globalIndex)} 
@@ -806,7 +785,25 @@ const Reader: React.FC = () => {
     });
     if (textBuffer) elements.push(textBuffer);
     return elements;
-  }, [interactiveIndices, searchResults, currentResultIndex, searchOriginMatchIndices, jumpHighlightIndices, citationHighlightMap, highlightMap, handleRemoveHighlight, handleRemoveJumpHighlight, handleTextSelection]);
+  }, [interactiveIndices, searchResults, currentResultIndex, jumpHighlightIndices, citationHighlightMap, highlightMap, handleRemoveHighlight, handleRemoveJumpHighlight, handleTextSelection]);
+
+  const handleSearchNext = () => {
+    if (searchResults.length === 0) return;
+    setCurrentResultIndex(prev => (prev < searchResults.length - 1 ? prev + 1 : 0));
+  };
+
+  const handleSearchPrev = () => {
+    if (searchResults.length === 0) return;
+    setCurrentResultIndex(prev => (prev > 0 ? prev - 1 : searchResults.length - 1));
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (e.shiftKey) handleSearchPrev();
+      else handleSearchNext();
+    }
+  };
 
   const ThemeIcon = theme === 'light' ? Sun : theme === 'dark' ? Moon : Monitor;
 
@@ -823,9 +820,14 @@ const Reader: React.FC = () => {
              </button>
           )}
         </div>
-        <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
-          <BookOpenCheck className="w-16 h-16 text-zinc-300 dark:text-zinc-700 mb-8" />
-          <p className="text-[11px] font-black uppercase tracking-[0.4em] text-zinc-400 dark:text-zinc-600">{t.reader_select_prompt}</p>
+        <div className="flex-1 flex flex-col items-center justify-center p-12 text-center group cursor-default">
+          <div className="relative mb-8 transition-transform duration-700 group-hover:scale-110">
+            <div className="absolute inset-0 bg-teal-600/20 blur-[60px] rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+            <BookOpenCheck className="w-20 h-20 text-zinc-300 dark:text-zinc-800 transition-colors duration-700 group-hover:text-teal-600/50 relative z-10" />
+          </div>
+          <p className="text-[11px] font-black uppercase tracking-[0.5em] text-zinc-400 dark:text-zinc-600 transition-all duration-700 group-hover:text-teal-600/60 group-hover:tracking-[0.6em]">
+            {t.reader_select_prompt}
+          </p>
         </div>
       </div>
     );
@@ -932,7 +934,7 @@ const Reader: React.FC = () => {
         </div>
       )}
       
-      <div className={`px-4 md:px-8 border-b border-zinc-100 dark:border-zinc-900/50 flex items-center justify-between shrink-0 bg-slate-50/60 dark:bg-zinc-950/70 backdrop-blur-2xl z-[100001] no-print overflow-visible-important transition-all duration-300 ${isOSFullscreen ? 'min-h-[3.5rem] h-auto py-6' : 'h-14'}`}>
+      <div className={`px-4 md:px-8 border-b border-zinc-100 dark:border-zinc-900/50 flex items-center justify-between shrink-0 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-2xl z-[100001] no-print overflow-visible-important transition-all duration-300 ${isOSFullscreen ? 'min-h-[3.5rem] h-auto py-6' : 'h-14'}`}>
         <div className="flex items-center gap-4 min-w-0 flex-1 overflow-visible-important">
           {(!sidebarOpen || isOSFullscreen) && (
              <button onClick={toggleSidebar} className="flex items-center gap-3 hover:opacity-80 active:scale-95 group shrink-0 mr-1 transition-all">
@@ -967,7 +969,7 @@ const Reader: React.FC = () => {
         >
             {navigatedFromSearch && (
               <button 
-                onClick={() => { startTransition(() => { setSearchQuery(lastSearchQuery); setIsFullTextSearch(true); setSelectedSermonId(null); setNavigatedFromSearch(false); setSearchOriginMatchIndices([]); }); }} 
+                onClick={() => { startTransition(() => { setSearchQuery(lastSearchQuery); setIsFullTextSearch(true); setSelectedSermonId(null); setNavigatedFromSearch(false); }); }} 
                 className="bg-amber-600/10 text-amber-700 dark:text-amber-400 font-bold uppercase tracking-wider rounded-xl flex items-center justify-center transition-all"
                 style={isOSFullscreen ? { fontSize: `${fontSize * 0.3}px`, padding: '0.8em 1.2em', borderRadius: '0.8em', minHeight: '1.8em' } : { fontSize: '9px', padding: '0.375rem 0.75rem' }}
               >
@@ -975,6 +977,7 @@ const Reader: React.FC = () => {
                 {t.reader_exit_search}
               </button>
             )}
+            <ActionButton onClick={() => setIsSearchVisible(!isSearchVisible)} icon={Search} tooltip={t.reader_search_tooltip} active={isSearchVisible} isFullscreen={isOSFullscreen} baseFontSize={fontSize} />
             <ActionButton onClick={togglePlay} icon={isPlaying ? Pause : Play} tooltip={isPlaying ? t.tooltip_pause : t.tooltip_play} active={isPlaying} isFullscreen={isOSFullscreen} baseFontSize={fontSize} />
             <ActionButton onClick={toggleProjection} icon={MonitorPlay} tooltip="Projeter" active={isProjectionOpen} special={isProjectionOpen} isFullscreen={isOSFullscreen} baseFontSize={fontSize} />
             <ActionButton onClick={handleFullscreenToggle} icon={isOSFullscreen ? Minimize : Maximize} tooltip="Plein écran" special={isOSFullscreen} isFullscreen={isOSFullscreen} baseFontSize={fontSize} />
@@ -993,6 +996,56 @@ const Reader: React.FC = () => {
             </div>
         </div>
       </div>
+
+      {isSearchVisible && (
+        <div className="shrink-0 h-14 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-xl border-b border-zinc-200 dark:border-zinc-800 flex items-center px-4 md:px-8 z-[100000] animate-in slide-in-from-top-4 duration-300">
+          <div className="max-w-4xl mx-auto w-full flex items-center gap-4">
+            <div className="relative flex-1 group">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 group-focus-within:text-teal-600 transition-colors" />
+              <input 
+                autoFocus
+                type="text" 
+                placeholder={t.reader_search_placeholder}
+                value={readerSearchQuery}
+                onChange={e => setReaderSearchQuery(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                className="w-full bg-zinc-100 dark:bg-zinc-800 border-none rounded-xl py-2.5 pl-10 pr-4 text-sm font-bold text-zinc-900 dark:text-white outline-none ring-2 ring-transparent focus:ring-teal-600/20 transition-all"
+              />
+            </div>
+            
+            {searchResults.length > 0 && (
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                  {currentResultIndex + 1} / {searchResults.length}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button 
+                    onClick={handleSearchPrev}
+                    data-tooltip="Précédent (Maj+Entrée)"
+                    className="w-9 h-9 flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 rounded-xl hover:bg-teal-600 hover:text-white transition-all active:scale-90"
+                  >
+                    <ChevronUp className="w-5 h-5" />
+                  </button>
+                  <button 
+                    onClick={handleSearchNext}
+                    data-tooltip="Suivant (Entrée)"
+                    className="w-9 h-9 flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 rounded-xl hover:bg-teal-600 hover:text-white transition-all active:scale-90"
+                  >
+                    <ChevronDown className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            <button 
+              onClick={() => { setIsSearchVisible(false); setReaderSearchQuery(''); }}
+              className="w-9 h-9 flex items-center justify-center text-zinc-400 hover:text-red-500 bg-zinc-100 dark:bg-zinc-800 rounded-xl transition-all"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 relative overflow-hidden flex justify-center">
         <div ref={scrollContainerRef} onMouseUp={handleTextSelection} className={`absolute inset-0 overflow-y-auto custom-scrollbar serif-text leading-relaxed text-zinc-800 dark:text-zinc-300 transition-all ${isOSFullscreen ? 'py-6 px-4 md:px-12' : 'py-12 px-4 md:px-12 lg:px-20'}`}>

@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
 import { useAppStore, SearchResult } from '../store';
 import { translations } from '../translations';
 import { SearchMode, Sermon } from '../types';
-import { FileText, Loader2, Calendar, Search, ChevronLeft, MapPin, Hash, NotebookPen, Sparkles, Layers, Type } from 'lucide-react';
+import { FileText, Loader2, Calendar, Search, ChevronLeft, MapPin, Hash, NotebookPen, Sparkles, Layers, Type, BookOpenCheck } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { searchSermons } from '../services/db';
 import NoteSelectorModal from './NoteSelectorModal';
@@ -36,32 +37,48 @@ const SkeletonCard = () => (
 const SearchResultCard = memo(({ 
     result, 
     index, 
+    isOpen,
     onClick,
     onAddToNotes
 }: { 
     result: SearchResult; 
     index: number; 
+    isOpen: boolean;
     onClick: () => void;
     onAddToNotes: (e: React.MouseEvent) => void;
 }) => (
     <div 
         onClick={onClick}
-        className="group bg-white dark:bg-zinc-900 border border-zinc-200/70 dark:border-zinc-800/70 rounded-[28px] p-7 shadow-sm hover:shadow-2xl hover:border-teal-500/40 transition-all duration-500 cursor-pointer relative overflow-hidden"
+        className={`group bg-white dark:bg-zinc-900 border rounded-[28px] p-7 shadow-sm hover:shadow-2xl transition-all duration-500 cursor-pointer relative overflow-hidden ${
+            isOpen ? 'border-teal-500/30 ring-1 ring-teal-500/10' : 'border-zinc-200/70 dark:border-zinc-800/70 hover:border-teal-500/40'
+        }`}
     >
         {/* Accent Bar */}
-        <div className="absolute top-0 left-0 w-1.5 h-full bg-teal-600/10 group-hover:bg-teal-600 transition-all duration-500" />
+        <div className={`absolute top-0 left-0 w-1.5 h-full transition-all duration-500 ${
+            isOpen ? 'bg-teal-600' : 'bg-teal-600/10 group-hover:bg-teal-600'
+        }`} />
         
         <div className="flex flex-col gap-5">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4 min-w-0">
-                    <div className="w-9 h-9 flex items-center justify-center bg-teal-600/5 text-teal-600 rounded-xl border border-teal-600/10 font-mono text-[10px] font-black shrink-0">
+                    <div className={`w-9 h-9 flex items-center justify-center rounded-xl border font-mono text-[10px] font-black shrink-0 ${
+                        isOpen ? 'bg-teal-600 text-white border-teal-600' : 'bg-teal-600/5 text-teal-600 border-teal-600/10'
+                    }`}>
                         {index + 1}
                     </div>
                     <div className="min-w-0">
-                      <h3 className="text-[14px] font-black text-zinc-900 dark:text-zinc-100 group-hover:text-teal-600 transition-colors uppercase tracking-tight truncate">
-                          {result.title}
-                      </h3>
-                      <div className="flex items-center gap-3 mt-1.5 text-[9px] font-bold text-zinc-400 uppercase tracking-widest">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <h3 className="text-[14px] font-black text-zinc-900 dark:text-zinc-100 group-hover:text-teal-600 transition-colors uppercase tracking-tight truncate">
+                            {result.title}
+                        </h3>
+                        {isOpen && (
+                          <span className="flex items-center gap-1 px-2 py-0.5 bg-teal-600/10 text-teal-600 rounded-full text-[7px] font-black uppercase tracking-wider border border-teal-600/20 whitespace-nowrap">
+                            <BookOpenCheck className="w-2.5 h-2.5" />
+                            Sermon ouvert
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 text-[9px] font-bold text-zinc-400 uppercase tracking-widest">
                           <div className="flex items-center gap-1">
                               <Calendar className="w-2.5 h-2.5 text-teal-600/50" />
                               <span className="font-mono">{result.date}</span>
@@ -109,6 +126,7 @@ const SearchResults: React.FC = () => {
     setSearchResults,
     isSearching,
     setIsSearching,
+    selectedSermonId,
     setSelectedSermonId, 
     languageFilter,
     setSearchQuery,
@@ -350,6 +368,7 @@ const SearchResults: React.FC = () => {
                     key={result.paragraphId} 
                     result={result} 
                     index={idx} 
+                    isOpen={selectedSermonId === result.sermonId}
                     onClick={() => handleResultClick(result)}
                     onAddToNotes={(e) => handleAddToNotes(e, result)}
                 />
