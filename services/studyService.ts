@@ -11,7 +11,6 @@ const callWithRetry = async (fn: () => Promise<any>, maxRetries = 2, delay = 600
       const isQuotaError = errorMsg.includes("429") || 
                            errorMsg.includes("RESOURCE_EXHAUSTED");
       if (isQuotaError && i < maxRetries) {
-        console.warn(`[Study] Quota Pro atteint. Tentative ${i + 1} dans ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
         delay *= 2;
         continue;
@@ -26,18 +25,13 @@ export const analyzeSelectionContext = async (
   currentSermon: Sermon,
   allContextSermons: Sermon[]
 ): Promise<string> => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) throw new Error("Clé API manquante.");
-
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   try {
-    // Le modèle Pro est très limité en tokens/minute sur le plan gratuit (souvent 32k tokens)
-    // On doit être très économe avec le texte envoyé.
     const otherSermonsContext = allContextSermons
       .filter(s => s.id !== currentSermon.id)
-      .slice(0, 3) // On réduit à 3 sermons max
-      .map(s => `ID: ${s.id} | ${s.title}\nCONTENU:\n${(s.text || '').substring(0, 8000)}`) // Max 8k par sermon
+      .slice(0, 5)
+      .map(s => `ID: ${s.id} | ${s.title}\nCONTENU:\n${(s.text || '').substring(0, 10000)}`)
       .join("\n\n---\n\n");
 
     const prompt = `
@@ -56,21 +50,19 @@ export const analyzeSelectionContext = async (
     `;
     
     const response = await callWithRetry(() => ai.models.generateContent({
-      model: "gemini-3-pro-preview",
+      model: "gemini-3-flash-preview",
       contents: prompt,
       config: { 
         temperature: 0.2,
-        thinkingConfig: { thinkingBudget: 8000 }
       }
     }));
 
     return response.text || "Analyse indisponible.";
   } catch (error: any) {
-    console.error("Study Service Error:", error);
     const errorMsg = error.message || "";
     if (errorMsg.includes("429") || errorMsg.includes("RESOURCE_EXHAUSTED")) {
-        throw new Error("Quota d'analyse approfondie (Pro) saturé. Réessayez dans 60 secondes ou utilisez le chat classique.");
+        throw new Error("L'assistant d'analyse est saturé. Réessayez dans 60 secondes.");
     }
-    throw new Error("Délai d'attente dépassé ou quota atteint. Réessayez dans une minute.");
+    throw new Error("Délai d'attente dépassé. Réessayez dans une minute.");
   }
 };

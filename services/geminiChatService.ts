@@ -7,7 +7,6 @@ export interface GeminiResponse {
   sources: { title: string; uri: string }[];
 }
 
-// Fonction utilitaire pour gérer les limites de quota avec des tentatives automatiques
 const callWithRetry = async (fn: () => Promise<any>, maxRetries = 3, delay = 5000) => {
   for (let i = 0; i <= maxRetries; i++) {
     try {
@@ -19,9 +18,8 @@ const callWithRetry = async (fn: () => Promise<any>, maxRetries = 3, delay = 500
                            errorMsg.includes("QUOTA_EXHAUSTED");
       
       if (isQuotaError && i < maxRetries) {
-        console.warn(`[AI] Quota atteint. Tentative ${i + 1}/${maxRetries} dans ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
-        delay *= 2; // Augmentation progressive de l'attente
+        delay *= 2;
         continue;
       }
       throw error;
@@ -34,10 +32,7 @@ export const askGeminiChat = async (
   contextText: string,
   history: ChatMessage[]
 ): Promise<GeminiResponse> => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) throw new Error("Clé API non configurée.");
-  
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   try {
     const systemInstruction = `Tu es l'assistant de King's Sword. 
@@ -46,8 +41,6 @@ export const askGeminiChat = async (
     CITE TOUJOURS LE PARAGRAPHE : > "Texte" [Réf: ID_DOC, Para. N]
     Termine toujours par la référence exacte : [Réf: ID_DOC, Para. N].`;
 
-    // Réduction du contexte à ~60k caractères (environ 15k tokens)
-    // Cela laisse une marge pour l'historique et la réponse sans saturer le quota de 32k/min
     const optimizedContext = contextText.substring(0, 60000); 
     
     const userPromptWithContext = `INSTRUCTIONS :
@@ -97,13 +90,10 @@ QUESTION : "${prompt}"`;
 
     return { text, sources };
   } catch (error: any) {
-    console.error("Gemini Chat Error:", error);
-    
     const errorMsg = error.message || "";
     if (errorMsg.includes("429") || errorMsg.includes("RESOURCE_EXHAUSTED")) {
-      throw new Error("Limite de messages atteinte (Quota API). Veuillez attendre 60 secondes.");
+      throw new Error("L'assistant est très sollicité. Veuillez patienter une minute.");
     }
-    
     throw new Error(`Erreur assistant : ${error.message || "Connexion perdue"}`);
   }
 };
