@@ -1,9 +1,10 @@
 
 import React, { useState, useRef, useEffect, useMemo, memo, useDeferredValue, useTransition, useCallback } from 'react';
-import { useAppStore } from '../store';
+import { useAppStore, SearchResult } from '../store';
 import { translations } from '../translations';
 import { SearchMode, Sermon } from '../types';
 import { normalizeText } from '../utils/textUtils';
+import NoteSelectorModal from './NoteSelectorModal';
 import { 
   Search, 
   Filter, 
@@ -21,10 +22,13 @@ import {
   Info,
   RotateCcw,
   Clock,
-  BookOpen
+  BookOpen,
+  Hash,
+  NotebookPen
 } from 'lucide-react';
 
-const ITEM_HEIGHT = 80; // Hauteur totale fixe (pixels) pour une virtualisation parfaite
+const ITEM_HEIGHT = 80; 
+const SEARCH_ITEM_HEIGHT = 110; // Extra height for snippets
 
 interface DropdownProps {
   value: string | null;
@@ -169,6 +173,60 @@ const SermonItem = memo(({
   );
 });
 
+const SearchResultItem = memo(({ 
+  result, 
+  isSelected, 
+  onSelect,
+  onAddToNotes
+}: { 
+  result: SearchResult; 
+  isSelected: boolean; 
+  onSelect: () => void;
+  onAddToNotes: (e: React.MouseEvent) => void;
+}) => {
+  return (
+    <div 
+      style={{ height: SEARCH_ITEM_HEIGHT }} 
+      className="px-3 flex items-center relative border-b border-slate-200/60 dark:border-slate-800/40 last:border-0"
+    >
+      <div 
+        className={`group w-full flex flex-col gap-1 p-3 rounded-xl transition-all duration-300 cursor-pointer h-[100px] overflow-hidden ${
+          isSelected 
+            ? 'bg-teal-600/15 dark:bg-teal-600/25 ring-1 ring-teal-600/30 shadow-md' 
+            : 'hover:bg-teal-600/[0.08] dark:hover:bg-teal-400/[0.06] border border-transparent hover:border-teal-600/10 dark:hover:border-teal-400/10'
+        }`}
+        onClick={onSelect}
+      >
+        <div className="flex items-center justify-between gap-1">
+          <span className="text-[10px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-tight truncate max-w-[70%]">
+            {result.title}
+          </span>
+          <div className="flex items-center gap-1">
+            <span className="text-[7px] font-mono text-zinc-400">{result.date}</span>
+            <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-[7px] font-black text-zinc-500">
+               <Hash className="w-2 h-2" />
+               <span>{result.paragraphIndex}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-hidden">
+          <p className="text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-400 serif-text italic line-clamp-2" dangerouslySetInnerHTML={{ __html: result.snippet || '' }} />
+        </div>
+
+        <div className="flex items-center justify-end mt-1">
+          <button 
+            onClick={onAddToNotes}
+            className="w-6 h-6 flex items-center justify-center bg-teal-600/5 text-teal-600 rounded-lg hover:bg-teal-600 hover:text-white transition-all active:scale-90"
+          >
+            <NotebookPen className="w-3 h-3" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 const SearchModeButton = memo(({ mode, label, tooltip, currentMode, setMode }: { 
   mode: SearchMode; 
   label: string; 
@@ -192,11 +250,13 @@ const SearchModeButton = memo(({ mode, label, tooltip, currentMode, setMode }: {
 const Sidebar: React.FC = () => {
   const [isPending, startTransition] = useTransition();
   const sermons = useAppStore(s => s.sermons);
+  const searchResults = useAppStore(s => s.searchResults);
   const selectedSermonId = useAppStore(s => s.selectedSermonId);
   const setSelectedSermonId = useAppStore(s => s.setSelectedSermonId);
   const manualContextIds = useAppStore(s => s.manualContextIds);
   const toggleContextSermon = useAppStore(s => s.toggleContextSermon);
   const setManualContextIds = useAppStore(s => s.setManualContextIds);
+  const setJumpToParagraph = useAppStore(s => s.setJumpToParagraph);
   
   const searchQuery = useAppStore(s => s.searchQuery);
   const searchMode = useAppStore(s => s.searchMode);
@@ -206,14 +266,22 @@ const Sidebar: React.FC = () => {
   const includeSynonyms = useAppStore(s => s.includeSynonyms);
   const setIncludeSynonyms = useAppStore(s => s.setIncludeSynonyms);
   const isSearching = useAppStore(s => s.isSearching);
+  const triggerSearch = useAppStore(s => s.triggerSearch);
   
   const cityFilter = useAppStore(s => s.cityFilter);
+  // Add missing setters from store
+  const setCityFilter = useAppStore(s => s.setCityFilter);
   const yearFilter = useAppStore(s => s.yearFilter);
+  const setYearFilter = useAppStore(s => s.setYearFilter);
   const monthFilter = useAppStore(s => s.monthFilter);
+  const setMonthFilter = useAppStore(s => s.setMonthFilter);
   const dayFilter = useAppStore(s => s.dayFilter);
+  const setDayFilter = useAppStore(s => s.setDayFilter);
   const languageFilter = useAppStore(s => s.languageFilter);
   const versionFilter = useAppStore(s => s.versionFilter);
+  const setVersionFilter = useAppStore(s => s.setVersionFilter);
   const timeFilter = useAppStore(s => s.timeFilter);
+  const setTimeFilter = useAppStore(s => s.setTimeFilter);
   const audioFilter = useAppStore(s => s.audioFilter);
   const setAudioFilter = useAppStore(s => s.setAudioFilter);
   const resetFilters = useAppStore(s => s.resetFilters);
@@ -224,16 +292,19 @@ const Sidebar: React.FC = () => {
 
   const [internalQuery, setInternalQuery] = useState(searchQuery);
   const deferredSearchQuery = useDeferredValue(searchQuery);
-  const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
   const [isFooterVisible, setIsFooterVisible] = useState(false);
+  const [noteSelectorPayload, setNoteSelectorPayload] = useState<{ text: string; sermon: Sermon; paragraphIndex?: number } | null>(null);
   
-  // --- ÉTAT DE VIRTUALISATION ---
+  // --- VIRTUALIZATION STATE ---
   const [scrollTop, setScrollTop] = useState(0);
   const [containerHeight, setContainerHeight] = useState(800);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const lang = languageFilter === 'Anglais' ? 'en' : 'fr';
   const t = translations[lang];
+
+  const currentItemHeight = isFullTextSearch && searchQuery.length >= 2 ? SEARCH_ITEM_HEIGHT : ITEM_HEIGHT;
 
   useEffect(() => {
     if (!scrollContainerRef.current) return;
@@ -257,36 +328,6 @@ const Sidebar: React.FC = () => {
     });
   }, []);
 
-  const setCityFilter = useCallback((val: string | null) => startTransition(() => {
-    useAppStore.getState().setCityFilter(val);
-    if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
-  }), []);
-
-  const setYearFilter = useCallback((val: string | null) => startTransition(() => {
-    useAppStore.getState().setYearFilter(val);
-    if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
-  }), []);
-
-  const setMonthFilter = useCallback((val: string | null) => startTransition(() => {
-    useAppStore.getState().setMonthFilter(val);
-    if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
-  }), []);
-
-  const setDayFilter = useCallback((val: string | null) => startTransition(() => {
-    useAppStore.getState().setDayFilter(val);
-    if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
-  }), []);
-
-  const setVersionFilter = useCallback((val: string | null) => startTransition(() => {
-    useAppStore.getState().setVersionFilter(val);
-    if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
-  }), []);
-
-  const setTimeFilter = useCallback((val: string | null) => startTransition(() => {
-    useAppStore.getState().setTimeFilter(val);
-    if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
-  }), []);
-
   const dynamicYears = useMemo(() => {
     const set = new Set<string>();
     for (let i = 0; i < sermons.length; i++) {
@@ -299,9 +340,7 @@ const Sidebar: React.FC = () => {
     return Array.from(set).sort((a, b) => b.localeCompare(a));
   }, [sermons]);
 
-  const dynamicMonths = useMemo(() => [
-    "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"
-  ], []);
+  const dynamicMonths = useMemo(() => ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"], []);
 
   const getMonthName = (month: string) => {
     const namesFR = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
@@ -312,33 +351,25 @@ const Sidebar: React.FC = () => {
 
   const dynamicDays = useMemo(() => {
     const days = [];
-    for (let i = 1; i <= 31; i++) {
-      days.push(i.toString().padStart(2, '0'));
-    }
+    for (let i = 1; i <= 31; i++) days.push(i.toString().padStart(2, '0'));
     return days;
   }, []);
 
   const dynamicCities = useMemo(() => {
     const set = new Set<string>();
-    for (let i = 0; i < sermons.length; i++) {
-        if (sermons[i].city) set.add(sermons[i].city);
-    }
+    for (let i = 0; i < sermons.length; i++) if (sermons[i].city) set.add(sermons[i].city);
     return Array.from(set).sort();
   }, [sermons]);
 
   const dynamicVersions = useMemo(() => {
     const set = new Set<string>();
-    for (let i = 0; i < sermons.length; i++) {
-        if (sermons[i].version) set.add(sermons[i].version);
-    }
+    for (let i = 0; i < sermons.length; i++) if (sermons[i].version) set.add(sermons[i].version);
     return Array.from(set).sort();
   }, [sermons]);
 
   const dynamicTimes = useMemo(() => {
     const set = new Set<string>();
-    for (let i = 0; i < sermons.length; i++) {
-        if (sermons[i].time) set.add(sermons[i].time);
-    }
+    for (let i = 0; i < sermons.length; i++) if (sermons[i].time) set.add(sermons[i].time);
     return Array.from(set).sort();
   }, [sermons]);
 
@@ -368,33 +399,23 @@ const Sidebar: React.FC = () => {
     });
   }, [sermons, deferredSearchQuery, cityFilter, yearFilter, monthFilter, dayFilter, versionFilter, timeFilter, audioFilter, isFullTextSearch]);
 
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    setScrollTop(e.currentTarget.scrollTop);
-  };
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => setScrollTop(e.currentTarget.scrollTop);
 
-  const startIndex = Math.max(0, Math.floor(scrollTop / ITEM_HEIGHT) - 5);
-  const endIndex = Math.min(filteredSermons.length, startIndex + Math.ceil(containerHeight / ITEM_HEIGHT) + 10);
-  const visibleSermons = filteredSermons.slice(startIndex, endIndex);
-
-  const totalListHeight = filteredSermons.length * ITEM_HEIGHT;
-  const offsetY = startIndex * ITEM_HEIGHT;
+  const displayList = isFullTextSearch && searchQuery.length >= 2 ? searchResults : filteredSermons;
+  const totalListHeight = displayList.length * currentItemHeight;
+  const startIndex = Math.max(0, Math.floor(scrollTop / currentItemHeight) - 5);
+  const endIndex = Math.min(displayList.length, startIndex + Math.ceil(containerHeight / currentItemHeight) + 10);
+  const visibleItems = displayList.slice(startIndex, endIndex);
+  const offsetY = startIndex * currentItemHeight;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setInternalQuery(val);
-    if (!isFullTextSearch) {
-      setSearchQuery(val);
-    }
-  };
-
-  const triggerSearch = () => {
-    setSearchQuery(internalQuery);
+    if (!isFullTextSearch) setSearchQuery(val);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      triggerSearch();
-    }
+    if (e.key === 'Enter') triggerSearch();
   };
 
   const areAllFilteredSelected = useMemo(() => {
@@ -414,10 +435,33 @@ const Sidebar: React.FC = () => {
     }
   };
 
+  const handleResultClick = async (res: SearchResult) => {
+    await setSelectedSermonId(res.sermonId);
+    setJumpToParagraph(res.paragraphIndex);
+  };
+
+  const handleAddToNotes = (e: React.MouseEvent, res: SearchResult) => {
+    e.stopPropagation();
+    const cleanText = res.snippet?.replace(/<mark[^>]*>|<\/mark>/g, '') || '';
+    setNoteSelectorPayload({
+        text: cleanText,
+        sermon: { id: res.sermonId, title: res.title, date: res.date, city: res.city, text: '' },
+        paragraphIndex: res.paragraphIndex
+    });
+  };
+
   if (!sidebarOpen) return null;
 
   return (
     <div className={`w-full border-r border-slate-200/50 dark:border-slate-800/80 bg-slate-50 dark:bg-zinc-950 h-full flex flex-col overflow-hidden transition-all duration-500 ${isPending ? 'opacity-70' : ''}`}>
+      {noteSelectorPayload && (
+        <NoteSelectorModal 
+            selectionText={noteSelectorPayload.text} 
+            sermon={noteSelectorPayload.sermon} 
+            paragraphIndex={noteSelectorPayload.paragraphIndex}
+            onClose={() => setNoteSelectorPayload(null)} 
+        />
+      )}
       <div className={`h-14 border-b border-slate-200 dark:border-slate-800/50 flex items-center shrink-0 bg-slate-50 dark:bg-zinc-950 z-50 transition-all duration-500 px-4 justify-between`}>
         <button 
           onClick={toggleSidebar} 
@@ -432,7 +476,7 @@ const Sidebar: React.FC = () => {
               {t.sidebar_subtitle}
             </h2>
             <p className="text-[7px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-widest mt-0.5">
-              {filteredSermons.length} {filteredSermons.length > 1 ? t.sermon_count : t.sermon_count_one}
+              {isFullTextSearch && searchQuery.length >= 2 ? `${searchResults.length} résultats` : `${filteredSermons.length} sermons`}
             </p>
           </div>
         </button>
@@ -459,7 +503,7 @@ const Sidebar: React.FC = () => {
           <div className="relative group/search-input flex items-center">
             <input
               type="text"
-              placeholder={isFullTextSearch ? "Appuyez sur Entrée pour chercher partout..." : t.search_placeholder}
+              placeholder={isFullTextSearch ? "Chercher partout..." : t.search_placeholder}
               className={`w-full pl-9 pr-12 py-2.5 bg-white dark:bg-zinc-900 border rounded-xl text-xs font-bold text-slate-950 dark:text-white focus:outline-none focus:ring-4 transition-all shadow-sm ${
                 isFullTextSearch 
                   ? 'border-teal-600 dark:border-teal-500 focus:ring-teal-600/10' 
@@ -474,7 +518,7 @@ const Sidebar: React.FC = () => {
             <div className="absolute right-1.5 flex items-center gap-1">
               {internalQuery && (
                 <button 
-                  onClick={() => { setInternalQuery(''); setSearchQuery(''); }}
+                  onClick={() => { setInternalQuery(''); setSearchQuery(''); useAppStore.getState().setSearchResults([]); }}
                   data-tooltip="Effacer"
                   className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all animate-in zoom-in-90 tooltip-bottom"
                 >
@@ -488,75 +532,37 @@ const Sidebar: React.FC = () => {
                   data-tooltip="Lancer la recherche intégrale"
                   className="w-8 h-8 flex items-center justify-center bg-teal-600 text-white rounded-lg hover:bg-teal-700 active:scale-90 transition-all shadow-lg shadow-teal-600/20 disabled:opacity-50 tooltip-bottom group/search-btn"
                 >
-                  {isSearching ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <ArrowRight className="w-4 h-4 transition-all duration-300 ease-out group-hover/search-btn:translate-x-0.5" />
-                  )}
+                  {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4 transition-all duration-300 group-hover/search-btn:translate-x-0.5" />}
                 </button>
               )}
             </div>
           </div>
 
           <div className="flex items-center justify-between gap-2 px-1">
-            <div className="flex items-center gap-4">
-              <div 
-                onClick={() => {
-                  const newVal = !isFullTextSearch;
-                  setIsFullTextSearch(newVal);
-                  if (!newVal) {
-                    setSearchQuery(internalQuery);
-                  }
-                }}
-                data-tooltip="Activer/Désactiver la recherche intégrale"
-                className="flex items-center gap-2.5 cursor-pointer group/toggle select-none tooltip-right"
-              >
-                <div className={`relative w-8 h-4.5 rounded-full transition-all duration-500 flex items-center px-0.5 ${isFullTextSearch ? 'bg-teal-600 shadow-lg shadow-teal-600/20' : 'bg-slate-200 dark:bg-zinc-700 shadow-inner'}`}>
-                  <div className={`w-3.5 h-3.5 bg-white rounded-full shadow-md transition-all duration-500 transform ${isFullTextSearch ? 'translate-x-3.5 scale-100' : 'translate-x-0 scale-90'}`} />
-                </div>
-                <span className={`text-[9px] font-black uppercase tracking-widest transition-colors duration-500 ${isFullTextSearch ? 'text-teal-600' : 'text-slate-400 dark:text-zinc-500'}`}>
-                  {t.full_text_search}
-                </span>
+            <div 
+              onClick={() => setIsFullTextSearch(!isFullTextSearch)}
+              data-tooltip="Activer/Désactiver la recherche intégrale"
+              className="flex items-center gap-2.5 cursor-pointer group/toggle select-none tooltip-right"
+            >
+              <div className={`relative w-8 h-4.5 rounded-full transition-all duration-500 flex items-center px-0.5 ${isFullTextSearch ? 'bg-teal-600 shadow-lg shadow-teal-600/20' : 'bg-slate-200 dark:bg-zinc-700 shadow-inner'}`}>
+                <div className={`w-3.5 h-3.5 bg-white rounded-full shadow-md transition-all duration-500 transform ${isFullTextSearch ? 'translate-x-3.5 scale-100' : 'translate-x-0 scale-90'}`} />
               </div>
-              
-              {isFullTextSearch && (
-                <div 
-                  onClick={() => setIncludeSynonyms(!includeSynonyms)}
-                  data-tooltip="Inclure les synonymes (IA)"
-                  className="flex items-center gap-2.5 cursor-pointer group/syn-toggle select-none tooltip-right"
-                >
-                  <div className={`relative w-8 h-4.5 rounded-full transition-all duration-500 flex items-center px-0.5 ${includeSynonyms ? 'bg-amber-600 shadow-lg shadow-amber-600/20' : 'bg-slate-200 dark:bg-zinc-700 shadow-inner'}`}>
-                    <div className={`w-3.5 h-3.5 bg-white rounded-full shadow-md transition-all duration-500 transform ${includeSynonyms ? 'translate-x-3.5 scale-100' : 'translate-x-0 scale-90'}`} />
-                  </div>
-                  <BookOpen className={`w-3 h-3 transition-colors ${includeSynonyms ? 'text-amber-600' : 'text-slate-400'}`} />
-                </div>
-              )}
+              <span className={`text-[9px] font-black uppercase tracking-widest transition-colors duration-500 ${isFullTextSearch ? 'text-teal-600' : 'text-slate-400 dark:text-zinc-500'}`}>
+                {t.full_text_search}
+              </span>
             </div>
 
             <div className="flex items-center gap-2">
-              {activeFiltersCount > 0 && (
-                <button 
-                  onClick={resetFilters}
-                  data-tooltip={t.reset_filters}
-                  className="w-8 h-8 flex items-center justify-center bg-white dark:bg-zinc-800 text-slate-400 hover:text-red-500 rounded-xl border border-slate-200 dark:border-zinc-700 transition-all active:scale-90 tooltip-bottom"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                </button>
-              )}
               <button 
                 onClick={() => setShowFilters(!showFilters)}
-                data-tooltip={showFilters ? "Masquer filtres" : "Afficher filtres"}
                 className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl border text-[8px] font-black uppercase tracking-widest transition-all duration-300 ease-out tooltip-left group/filter-btn active:scale-95 ${
                   showFilters || activeFiltersCount > 0
                     ? 'bg-teal-600 text-white border-teal-600 shadow-xl shadow-teal-600/20'
-                    : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-500 hover:border-teal-500/50 hover:bg-teal-50/30 dark:hover:bg-teal-950/20 shadow-sm'
+                    : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-500 hover:border-teal-500/50 hover:bg-teal-50/30 shadow-sm'
                 }`}
               >
                 <Filter className={`w-2.5 h-2.5 transition-all duration-300 ease-out group-hover/filter-btn:rotate-[15deg] group-hover/filter-btn:scale-110 ${showFilters ? 'rotate-180' : ''}`} />
                 <span>Filtres</span>
-                {activeFiltersCount > 0 && (
-                  <span className="w-3.5 h-3.5 flex items-center justify-center bg-white text-teal-600 rounded-full text-[7px] animate-in zoom-in duration-300 group-hover/filter-btn:scale-110 font-black">{activeFiltersCount}</span>
-                )}
               </button>
             </div>
           </div>
@@ -576,34 +582,8 @@ const Sidebar: React.FC = () => {
               <ModernDropdown value={dayFilter} onChange={setDayFilter} options={dynamicDays} placeholder={t.filter_day} />
               <ModernDropdown value={cityFilter} onChange={setCityFilter} options={dynamicCities} placeholder={t.filter_city} />
               <ModernDropdown value={versionFilter} onChange={setVersionFilter} options={dynamicVersions} placeholder={t.filter_version} />
-              <ModernDropdown value={timeFilter} onChange={setTimeFilter} options={dynamicTimes} placeholder={t.filter_time} />
             </div>
           )}
-        </div>
-
-        <div className="px-3 py-2 border-b border-slate-200 dark:border-slate-800/50 flex items-center gap-3 bg-slate-50 dark:bg-zinc-950 z-40">
-          <button 
-            onClick={handleToggleAllFiltered}
-            data-tooltip={areAllFilteredSelected ? "Tout retirer du contexte IA" : "Tout ajouter au contexte IA (filtrés)"}
-            className={`w-8 h-8 flex items-center justify-center rounded-xl border transition-all active:scale-90 group/context-all tooltip-right shrink-0 ${
-              areAllFilteredSelected 
-                ? 'bg-teal-600 text-white border-teal-600 shadow-lg shadow-teal-600/20' 
-                : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 text-slate-400 dark:text-zinc-500 hover:border-teal-600/50 hover:bg-teal-50 dark:hover:bg-teal-900/10'
-            }`}
-          >
-            <Sparkles className={`w-4 h-4 transition-transform duration-500 ${areAllFilteredSelected ? 'scale-110 rotate-12' : 'opacity-60 group-hover/context-all:opacity-100 group-hover/context-all:scale-110'}`} />
-          </button>
-
-          <div 
-            onClick={() => setAudioFilter(!audioFilter)}
-            data-tooltip="Sermons avec audio uniquement"
-            className="flex items-center gap-2.5 cursor-pointer group/audio-toggle select-none tooltip-bottom"
-          >
-            <div className={`relative w-8 h-4.5 rounded-full transition-all duration-500 flex items-center px-0.5 ${audioFilter ? 'bg-amber-500 shadow-lg shadow-amber-500/20' : 'bg-slate-200 dark:bg-zinc-700 shadow-inner'}`}>
-              <div className={`w-3.5 h-3.5 bg-white rounded-full shadow-md transition-all duration-500 transform ${audioFilter ? 'translate-x-3.5 scale-100' : 'translate-x-0 scale-90'}`} />
-            </div>
-            <Headphones className={`w-3 h-3 transition-colors ${audioFilter ? 'text-amber-500' : 'text-slate-400'}`} />
-          </div>
         </div>
 
         <div 
@@ -611,66 +591,58 @@ const Sidebar: React.FC = () => {
           onScroll={handleScroll}
           className="flex-1 overflow-y-auto custom-scrollbar relative bg-white dark:bg-zinc-900"
         >
-          {filteredSermons.length === 0 ? (
+          {isSearching && displayList.length === 0 ? (
+            <div className="p-20 flex flex-col items-center justify-center gap-4 text-teal-600 animate-pulse">
+                <Loader2 className="w-8 h-8 animate-spin" />
+                <span className="text-[10px] font-black uppercase tracking-[0.3em]">Exploration...</span>
+            </div>
+          ) : displayList.length === 0 ? (
             <div className="p-12 text-center text-slate-400 text-[10px] font-black uppercase tracking-[0.3em] opacity-30">
               {t.no_results}
             </div>
           ) : (
             <div style={{ height: totalListHeight, position: 'relative' }}>
               <div style={{ transform: `translateY(${offsetY}px)`, position: 'absolute', top: 0, left: 0, right: 0 }}>
-                {visibleSermons.map((sermon, idx) => (
-                  <SermonItem 
-                    key={`${sermon.id}-${startIndex + idx}`}
-                    sermon={sermon}
-                    isSelected={selectedSermonId === sermon.id}
-                    isContextSelected={manualContextIds.includes(sermon.id)}
-                    onSelect={(multi) => setSelectedSermonId(sermon.id, multi)}
-                    onToggleContext={(multi) => toggleContextSermon(sermon.id, multi)}
-                  />
-                ))}
+                {visibleItems.map((item, idx) => {
+                  const globalIdx = startIndex + idx;
+                  if (isFullTextSearch && searchQuery.length >= 2) {
+                    const res = item as SearchResult;
+                    return (
+                      <SearchResultItem 
+                        key={res.paragraphId}
+                        result={res}
+                        isSelected={selectedSermonId === res.sermonId && useAppStore.getState().jumpToParagraph === res.paragraphIndex}
+                        onSelect={() => handleResultClick(res)}
+                        onAddToNotes={(e) => handleAddToNotes(e, res)}
+                      />
+                    );
+                  }
+                  const s = item as Omit<Sermon, 'text'>;
+                  return (
+                    <SermonItem 
+                      key={s.id}
+                      sermon={s}
+                      isSelected={selectedSermonId === s.id}
+                      isContextSelected={manualContextIds.includes(s.id)}
+                      onSelect={(multi) => setSelectedSermonId(s.id, multi)}
+                      onToggleContext={(multi) => toggleContextSermon(s.id, multi)}
+                    />
+                  );
+                })}
               </div>
             </div>
           )}
         </div>
         
         <div className={`border-t border-slate-200 dark:border-slate-800/50 bg-slate-50/60 dark:bg-zinc-950/60 no-print group/footer transition-all duration-500 shrink-0 relative ${isFooterVisible ? 'py-6 px-4' : 'py-2 px-4'}`}>
-          <button 
-            onClick={() => setIsFooterVisible(!isFooterVisible)}
-            className="absolute -top-3 left-1/2 -translate-x-1/2 w-6 h-6 flex items-center justify-center bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-full text-zinc-400 hover:text-teal-600 shadow-sm transition-all z-[60] active:scale-90"
-            data-tooltip={isFooterVisible ? "Masquer les détails" : "Afficher les détails"}
-          >
+          <button onClick={() => setIsFooterVisible(!isFooterVisible)} className="absolute -top-3 left-1/2 -translate-x-1/2 w-6 h-6 flex items-center justify-center bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-full text-zinc-400 hover:text-teal-600 shadow-sm transition-all z-[60] active:scale-90">
             {isFooterVisible ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
           </button>
-
-          {isFooterVisible ? (
-            <div className="text-center animate-in fade-in slide-in-from-bottom-2 duration-500">
-              <div className="flex flex-col items-center mb-3 gap-1">
-                <p className="text-[10px] font-black text-slate-900 dark:text-zinc-50 uppercase tracking-[0.25em]">
-                  KING'S SWORD V <span className="text-teal-600 dark:text-blue-400 ml-1">1.0.3</span>
-                </p>
-                <div className="h-0.5 w-8 bg-teal-600/20 dark:bg-blue-400/20 rounded-full" />
-                <p className="text-[8px] font-black text-teal-600 uppercase tracking-widest mt-0.5">
-                  VISION DE L'AIGLE TABERNACLE
-                </p>
-              </div>
-              
-              <div className="pt-1.5 border-t border-zinc-200/30 dark:border-zinc-800/30 opacity-40 group-hover/footer:opacity-100 transition-all duration-500 space-y-1">
-                <div className="flex items-center justify-center gap-1.5 text-[7px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">
-                  <MapPin className="w-1.5 h-1.5 text-teal-600" />
-                  <span>Koufoli, PNR, Congo</span>
-                </div>
-                <p className="text-[7px] font-black text-zinc-800 dark:text-zinc-100 uppercase tracking-[0.3em] text-center leading-none">
-                  © 2024 Bienvenu Sédin MASSAMBA
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center animate-in fade-in duration-500">
-               <p className="text-[8px] font-black text-zinc-400 uppercase tracking-[0.2em] text-center leading-none">
-                  KSW V 1.0.3 © <span className="text-teal-600 dark:text-blue-400">VISION DE L'AIGLE TABERNACLE</span>
-               </p>
-            </div>
-          )}
+          <div className="flex items-center justify-center animate-in fade-in duration-500">
+             <p className="text-[8px] font-black text-zinc-400 uppercase tracking-[0.2em] text-center leading-none">
+                KSW V 1.0.3 © <span className="text-teal-600 dark:text-blue-400">VISION DE L'AIGLE TABERNACLE</span>
+             </p>
+          </div>
         </div>
       </div>
     </div>

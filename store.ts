@@ -10,7 +10,8 @@ import {
   deleteNoteFromDB,
   syncNotesOrder,
   getSermonsCount,
-  isDatabaseReady
+  isDatabaseReady,
+  searchSermons
 } from './services/db';
 
 export interface SearchResult {
@@ -79,6 +80,7 @@ interface AppState {
   setSearchQuery: (query: string) => void;
   setSearchMode: (mode: SearchMode) => void;
   setSearchResults: (results: SearchResult[]) => void;
+  triggerSearch: () => Promise<void>;
   setIsSearching: (val: boolean) => void;
   setIsFullTextSearch: (active: boolean) => void;
   setIncludeSynonyms: (active: boolean) => void;
@@ -167,7 +169,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   jumpToParagraph: null,
   projectionBlackout: false,
   isExternalMaskOpen: false,
-  sidebarWidth: 380,
+  sidebarWidth: 420,
   aiWidth: 400,
   notesWidth: 350,
   navigatedFromSearch: false,
@@ -345,6 +347,35 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSearchMode: (mode) => set({ searchMode: mode, lastSearchMode: mode }),
   setSearchResults: (results) => set({ searchResults: results }),
   setIsSearching: (val) => set({ isSearching: val }),
+  
+  triggerSearch: async () => {
+    const { searchQuery, searchMode, isSearching } = get();
+    if (isSearching || searchQuery.trim().length < 2) return;
+    
+    set({ isSearching: true, searchResults: [] });
+    try {
+      const results = await searchSermons({
+        query: searchQuery,
+        mode: searchMode,
+        limit: 100,
+        offset: 0
+      });
+      
+      set({ searchResults: results, isSearching: false });
+      
+      // Auto-select first result if any
+      if (results.length > 0) {
+        const first = results[0];
+        await get().setSelectedSermonId(first.sermonId);
+        get().setJumpToParagraph(first.paragraphIndex);
+      }
+    } catch (error) {
+      console.error("Search failed:", error);
+      set({ isSearching: false });
+      get().addNotification("Erreur lors de la recherche intégrale", "error");
+    }
+  },
+
   setIsFullTextSearch: (active) => set({ isFullTextSearch: active }),
   setIncludeSynonyms: (active) => set({ includeSynonyms: active, showOnlySynonyms: false, showOnlyQuery: false }),
   setShowOnlySynonyms: (active) => set({ showOnlySynonyms: active, showOnlyQuery: active ? false : get().showOnlyQuery }),

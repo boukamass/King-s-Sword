@@ -1,8 +1,8 @@
+
 import React, { useCallback, useRef, useState, useEffect, useMemo, memo } from 'react';
 import { useAppStore } from './store';
 import Sidebar from './components/Sidebar';
 import Reader from './components/Reader';
-import SearchResults from './components/SearchResults';
 import AIAssistant from './components/AIAssistant';
 import NotesPanel from './components/NotesPanel';
 import Notifications from './components/Notifications';
@@ -44,8 +44,7 @@ const GlobalTooltip = memo(({ data }: { data: { x: number, y: number, text: stri
   );
 });
 
-const MainContent = memo(({ showSearchResults, activeNoteId }: { showSearchResults: boolean; activeNoteId: string | null }) => {
-  if (showSearchResults) return <SearchResults />;
+const MainContent = memo(({ activeNoteId }: { activeNoteId: string | null }) => {
   if (activeNoteId) return <NoteEditor />;
   return <Reader />;
 });
@@ -205,7 +204,6 @@ const MaskView = memo(() => {
 
 const App: React.FC = () => {
   const sidebarOpen = useAppStore(s => s.sidebarOpen);
-  const toggleSidebar = useAppStore(s => s.toggleSidebar);
   const aiOpen = useAppStore(s => s.aiOpen);
   const toggleAI = useAppStore(s => s.toggleAI);
   const notesOpen = useAppStore(s => s.notesOpen);
@@ -219,8 +217,6 @@ const App: React.FC = () => {
   const setSidebarOpen = useAppStore(s => s.setSidebarOpen);
   const setAiOpen = useAppStore(s => s.setAiOpen);
   const setNotesOpen = useAppStore(s => s.setNotesOpen);
-  const isFullTextSearch = useAppStore(s => s.isFullTextSearch);
-  const searchQuery = useAppStore(s => s.searchQuery);
   const initializeDB = useAppStore(s => s.initializeDB);
   const isLoading = useAppStore(s => s.isLoading);
   const loadingMessage = useAppStore(s => s.loadingMessage);
@@ -280,7 +276,7 @@ const App: React.FC = () => {
   const handleResizingMove = useCallback((e: MouseEvent) => {
     if (!activeHandle.current) return;
     if (activeHandle.current === 'sidebar') {
-      const newWidth = Math.max(40, Math.min(600, e.clientX));
+      const newWidth = Math.max(300, Math.min(800, e.clientX));
       if (newWidth < 60) { if (sidebarOpen) setSidebarOpen(false); }
       else { if (!sidebarOpen && newWidth > 80) setSidebarOpen(true); setSidebarWidth(newWidth); }
     } else if (activeHandle.current === 'notes') {
@@ -312,75 +308,25 @@ const App: React.FC = () => {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-zinc-950 relative overflow-hidden">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-teal-600/5 rounded-full blur-[120px] pointer-events-none" />
-        <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-teal-900/10 rounded-full blur-[100px] pointer-events-none" />
-        
         <div className="flex flex-col items-center gap-12 w-80 relative z-10">
            <div className="relative w-28 h-28 flex items-center justify-center">
              <div className="absolute inset-0 border-2 border-dashed border-teal-600/20 rounded-full animate-[spin_10s_linear_infinite]"></div>
              <div className="absolute inset-2 border border-teal-600/40 rounded-full animate-[spin_6s_linear_infinite_reverse]"></div>
              <div className="absolute inset-4 bg-zinc-900 rounded-full shadow-2xl border border-zinc-800 flex items-center justify-center overflow-hidden">
-               <img 
-                 src="https://branham.fr/source/favicon/favicon-32x32.png" 
-                 alt="King's Sword" 
-                 className="w-10 h-10 opacity-80 grayscale brightness-150 animate-pulse" 
-               />
+               <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="King's Sword" className="w-10 h-10 opacity-80 grayscale brightness-150 animate-pulse" />
              </div>
-             <div className="absolute -top-1 -right-1 bg-teal-600 w-3 h-3 rounded-full blur-[4px] animate-ping" />
            </div>
-
            <div className="w-full space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-1000">
              <div className="relative">
                 <div className="w-full h-2.5 bg-zinc-900 border border-zinc-800 rounded-full overflow-hidden shadow-inner">
-                  <div 
-                    className="h-full bg-gradient-to-r from-teal-600 to-teal-400 transition-all duration-700 ease-out shadow-[0_0_15px_rgba(20,184,166,0.4)] relative" 
-                    style={{ width: `${loadingProgress}%` }} 
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent w-20 animate-[shimmer_2s_infinite] skew-x-[-20deg]" />
-                  </div>
-                </div>
-                
-                <div 
-                  className="absolute -top-8 transition-all duration-700 ease-out flex flex-col items-center" 
-                  style={{ left: `${Math.max(5, Math.min(95, loadingProgress))}%`, transform: 'translateX(-50%)' }}
-                >
-                  <div className="px-2 py-0.5 bg-teal-600 text-[10px] font-mono font-black text-white rounded-md shadow-lg shadow-teal-600/20 animate-bounce">
-                    {loadingProgress}%
-                  </div>
+                  <div className="h-full bg-gradient-to-r from-teal-600 to-teal-400 transition-all duration-700 ease-out" style={{ width: `${loadingProgress}%` }} />
                 </div>
              </div>
-
              <div className="flex flex-col items-center gap-3 text-center">
-                <div className="flex flex-col items-center gap-1">
-                  <span className="text-[11px] font-black uppercase tracking-[0.3em] text-zinc-100 drop-shadow-sm min-h-[1em]">
-                    {loadingMessage || "Chargement..."}
-                  </span>
-                  <div className="h-0.5 w-8 bg-teal-600/20 rounded-full" />
-                </div>
-                
-                <div className="flex items-center gap-3 opacity-40">
-                  <div className="flex gap-1">
-                    <div className="w-1 h-1 bg-teal-500 rounded-full animate-pulse" />
-                    <div className="w-1 h-1 bg-teal-500 rounded-full animate-pulse delay-75" />
-                    <div className="w-1 h-1 bg-teal-500 rounded-full animate-pulse delay-150" />
-                  </div>
-                  <span className="text-[8px] font-black uppercase tracking-[0.4em] text-teal-500">
-                    WILLIAM MARRION BRANHAM
-                  </span>
-                </div>
+                <span className="text-[11px] font-black uppercase tracking-[0.3em] text-zinc-100">{loadingMessage || "Chargement..."}</span>
              </div>
            </div>
         </div>
-
-        <div className="absolute bottom-10 text-[8px] font-black uppercase tracking-[0.5em] text-zinc-600 opacity-20 pointer-events-none">
-          VISION DE L'AIGLE TABERNACLE • v{process.env.APP_VERSION}
-        </div>
-
-        <style>{`
-          @keyframes shimmer {
-            0% { transform: translateX(-100%) skewX(-20deg); }
-            100% { transform: translateX(400%) skewX(-20deg); }
-          }
-        `}</style>
       </div>
     );
   }
@@ -398,7 +344,7 @@ const App: React.FC = () => {
           {sidebarOpen && !isFullscreen && <div onMouseDown={startResizing('sidebar')} className="absolute right-0 top-0 w-1.5 h-full hover:bg-teal-600/40 cursor-col-resize z-50 transition-colors" />}
         </div>
         <div className={`flex-1 flex flex-col min-w-[300px] relative z-10 border-x border-zinc-100 dark:border-zinc-900 shadow-sm ${transitionClass}`}>
-          <MainContent showSearchResults={isFullTextSearch && searchQuery.length >= 2} activeNoteId={activeNoteId} />
+          <MainContent activeNoteId={activeNoteId} />
           <div className="absolute top-16 right-4 z-[100] flex flex-col gap-3 no-print">
             {!notesOpen && !isFullscreen && (<button data-tooltip="Journal" onClick={toggleNotes} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/70 dark:bg-zinc-900/70 backdrop-blur-xl text-zinc-400 border border-zinc-200/50 dark:border-zinc-800/50 hover:text-teal-600"><NotebookPen className="w-4.5 h-4.5" /></button>)}
             {!aiOpen && !isFullscreen && (<button data-tooltip="Assistant IA" onClick={toggleAI} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/70 dark:bg-zinc-900/70 backdrop-blur-xl text-zinc-400 border border-zinc-200/50 dark:border-zinc-800/50 hover:text-teal-600"><Sparkles className="w-4.5 h-4.5" /></button>)}
