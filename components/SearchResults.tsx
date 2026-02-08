@@ -1,16 +1,16 @@
+
 import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
 import { useAppStore, SearchResult } from '../store';
 import { translations } from '../translations';
 import { SearchMode, Sermon } from '../types';
-import { FileText, Loader2, Calendar, Search, ChevronLeft, MapPin, Hash, NotebookPen, Sparkles, Layers, Type } from 'lucide-react';
+import { FileText, Loader2, Calendar, Search, ChevronLeft, MapPin, Hash, NotebookPen, Sparkles, Layers, Type, BookOpenCheck, Headphones } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { searchSermons } from '../services/db';
 import NoteSelectorModal from './NoteSelectorModal';
 
 const RESULTS_PER_PAGE = 50;
 
-// Variables persistantes hors du cycle de vie du composant pour garder la position de scroll entre les montages
-let savedSearchScrollTop = 0;
+let savedSearchScrollTopFull = 0;
 let lastSearchContext = "";
 
 const SkeletonCard = () => (
@@ -36,66 +36,85 @@ const SkeletonCard = () => (
 const SearchResultCard = memo(({ 
     result, 
     index, 
+    isOpen,
     onClick,
     onAddToNotes
 }: { 
     result: SearchResult; 
     index: number; 
+    isOpen: boolean;
     onClick: () => void;
     onAddToNotes: (e: React.MouseEvent) => void;
 }) => (
     <div 
         onClick={onClick}
-        className="group bg-white dark:bg-zinc-900 border border-zinc-200/70 dark:border-zinc-800/70 rounded-[28px] p-7 shadow-sm hover:shadow-2xl hover:border-teal-500/40 transition-all duration-500 cursor-pointer relative overflow-hidden"
+        className={`group bg-white dark:bg-zinc-900 border rounded-[28px] p-8 shadow-sm hover:shadow-2xl transition-all duration-500 cursor-pointer relative overflow-hidden ${
+            isOpen ? 'border-teal-500/30 ring-1 ring-teal-500/10' : 'border-zinc-200/70 dark:border-zinc-800/70 hover:border-teal-500/40'
+        }`}
     >
-        {/* Accent Bar */}
-        <div className="absolute top-0 left-0 w-1.5 h-full bg-teal-600/10 group-hover:bg-teal-600 transition-all duration-500" />
+        <div className={`absolute top-0 left-0 w-2 h-full transition-all duration-500 ${
+            isOpen ? 'bg-teal-600' : 'bg-teal-600/10 group-hover:bg-teal-600'
+        }`} />
         
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-6">
             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4 min-w-0">
-                    <div className="w-9 h-9 flex items-center justify-center bg-teal-600/5 text-teal-600 rounded-xl border border-teal-600/10 font-mono text-[10px] font-black shrink-0">
+                <div className="flex items-center gap-5 min-w-0">
+                    <div className={`w-10 h-10 flex items-center justify-center rounded-xl border font-mono text-[11px] font-black shrink-0 ${
+                        isOpen ? 'bg-teal-600 text-white border-teal-600' : 'bg-teal-600/5 text-teal-600 border-teal-600/10'
+                    }`}>
                         {index + 1}
                     </div>
                     <div className="min-w-0">
-                      <h3 className="text-[14px] font-black text-zinc-900 dark:text-zinc-100 group-hover:text-teal-600 transition-colors uppercase tracking-tight truncate">
-                          {result.title}
-                      </h3>
-                      <div className="flex items-center gap-3 mt-1.5 text-[9px] font-bold text-zinc-400 uppercase tracking-widest">
-                          <div className="flex items-center gap-1">
-                              <Calendar className="w-2.5 h-2.5 text-teal-600/50" />
+                      <div className="flex items-center gap-3 mb-1">
+                        <h3 className="text-[16px] font-black text-zinc-900 dark:text-zinc-100 group-hover:text-teal-600 transition-colors uppercase tracking-tight truncate">
+                            {result.title}
+                        </h3>
+                        {isOpen && (
+                          <span className="flex items-center gap-1 px-2.5 py-0.5 bg-teal-600/10 text-teal-600 rounded-full text-[8px] font-black uppercase tracking-wider border border-teal-600/20 whitespace-nowrap">
+                            <BookOpenCheck className="w-3 h-3" />
+                            Sermon ouvert
+                          </span>
+                        )}
+                        {result.audio_url && (
+                          <span className="flex items-center gap-1 px-2.5 py-0.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-full text-[8px] font-black uppercase tracking-wider border border-amber-500/20 whitespace-nowrap">
+                            <Headphones className="w-3 h-3" />
+                            Audio
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                          <div className="flex items-center gap-1.5">
+                              <Calendar className="w-3 h-3 text-teal-600/50" />
                               <span className="font-mono">{result.date}</span>
                           </div>
-                          <span className="w-1 h-1 bg-zinc-200 dark:bg-zinc-800 rounded-full" />
-                          <div className="flex items-center gap-1">
-                              <MapPin className="w-2.5 h-2.5 text-teal-600/50" />
+                          <span className="w-1.5 h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full" />
+                          <div className="flex items-center gap-1.5">
+                              <MapPin className="w-3 h-3 text-teal-600/50" />
                               <span className="truncate">{result.city}</span>
                           </div>
                       </div>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                     <button 
                         onClick={onAddToNotes}
                         data-tooltip="Ajouter à une note d'étude"
-                        className="w-9 h-9 flex items-center justify-center bg-teal-600/5 text-teal-600 rounded-xl border border-teal-600/10 hover:bg-teal-600 hover:text-white transition-all active:scale-90 shadow-sm"
+                        className="w-10 h-10 flex items-center justify-center bg-teal-600/5 text-teal-600 rounded-xl border border-teal-600/10 hover:bg-teal-600 hover:text-white transition-all active:scale-90 shadow-sm"
                     >
-                        <NotebookPen className="w-4 h-4" />
+                        <NotebookPen className="w-4.5 h-4.5" />
                     </button>
-                    <div className="shrink-0 flex items-center gap-1.5 bg-zinc-50 dark:bg-zinc-800/50 px-3 py-1.5 rounded-xl border border-zinc-100 dark:border-zinc-800">
-                        <Hash className="w-3 h-3 text-teal-600/40" />
-                        <span className="text-[10px] font-black text-zinc-500">PARA {result.paragraphIndex}</span>
+                    <div className="shrink-0 flex items-center gap-2 bg-zinc-50 dark:bg-zinc-800/50 px-4 py-2 rounded-xl border border-zinc-100 dark:border-zinc-800 font-black text-[11px] text-zinc-500">
+                        <Hash className="w-3.5 h-3.5 text-teal-600/40" />
+                        <span>PARA {result.paragraphIndex}</span>
                     </div>
                 </div>
             </div>
 
             <div className="relative">
-                <div className="serif-text text-[15px] leading-relaxed text-zinc-700 dark:text-zinc-300 pl-4 border-l-2 border-zinc-100 dark:border-zinc-800 group-hover:border-teal-600/30 transition-all duration-500 italic">
+                <div className="serif-text text-[18px] leading-[1.8] text-zinc-700 dark:text-zinc-200 pl-6 border-l-4 border-teal-600/20 group-hover:border-teal-600/40 transition-all duration-500 italic py-1 line-clamp-4">
                     <span dangerouslySetInnerHTML={{ __html: result.snippet || '' }} />
                 </div>
-                
-                {/* Visual quote indicator */}
-                <div className="absolute -left-1 -top-2 text-4xl text-teal-600/5 select-none font-serif">"</div>
+                <div className="absolute -left-2 -top-4 text-5xl text-teal-600/5 select-none font-serif rotate-12 opacity-50">"</div>
             </div>
         </div>
     </div>
@@ -109,18 +128,28 @@ const SearchResults: React.FC = () => {
     setSearchResults,
     isSearching,
     setIsSearching,
+    selectedSermonId,
     setSelectedSermonId, 
     languageFilter,
     setSearchQuery,
     setJumpToParagraph,
     setNavigatedFromSearch,
     setIsFullTextSearch,
+    triggerSearch,
     includeSynonyms,
     showOnlySynonyms,
     setShowOnlySynonyms,
     showOnlyQuery,
     setShowOnlyQuery,
     activeSynonyms,
+    selectedSynonym,
+    setSelectedSynonym,
+    yearFilter,
+    monthFilter,
+    dayFilter,
+    cityFilter,
+    versionFilter,
+    audioFilter,
     sidebarOpen,
     toggleSidebar
   } = useAppStore();
@@ -136,7 +165,7 @@ const SearchResults: React.FC = () => {
   const performSearch = useCallback(async (q: string, m: SearchMode, off: number) => {
     if (!q || q.length < 2) return;
     
-    const searchId = `${q}-${m}-${off}-${showOnlySynonyms}-${showOnlyQuery}-${includeSynonyms}`;
+    const searchId = `${q}-${m}-${off}-${showOnlySynonyms}-${showOnlyQuery}-${includeSynonyms}-${selectedSynonym}-${yearFilter}-${monthFilter}-${dayFilter}-${cityFilter}-${versionFilter}-${audioFilter}`;
     if (off === 0 && searchId === lastPerformedSearchRef.current && searchResults.length > 0) return;
     
     setIsSearching(true);
@@ -161,28 +190,25 @@ const SearchResults: React.FC = () => {
     } finally {
       setIsSearching(false);
     }
-  }, [setSearchResults, setIsSearching, showOnlySynonyms, showOnlyQuery, includeSynonyms, searchResults.length]);
+  }, [setSearchResults, setIsSearching, showOnlySynonyms, showOnlyQuery, includeSynonyms, selectedSynonym, yearFilter, monthFilter, dayFilter, cityFilter, versionFilter, audioFilter, searchResults.length]);
 
   useEffect(() => {
-    // Si les paramètres de recherche changent, on réinitialise la position de scroll mémorisée
-    const currentSearchId = `${searchQuery}-${searchMode}-${showOnlySynonyms}-${showOnlyQuery}-${includeSynonyms}`;
+    const currentSearchId = `${searchQuery}-${searchMode}-${showOnlySynonyms}-${showOnlyQuery}-${includeSynonyms}-${selectedSynonym}-${yearFilter}-${monthFilter}-${dayFilter}-${cityFilter}-${versionFilter}-${audioFilter}`;
     if (currentSearchId !== lastSearchContext) {
-      savedSearchScrollTop = 0;
+      savedSearchScrollTopFull = 0;
       lastSearchContext = currentSearchId;
     }
 
     setOffset(0);
     setHasMore(true);
     performSearch(searchQuery, searchMode, 0);
-  }, [searchQuery, searchMode, performSearch, showOnlySynonyms, showOnlyQuery, includeSynonyms]);
+  }, [searchQuery, searchMode, performSearch, showOnlySynonyms, showOnlyQuery, includeSynonyms, selectedSynonym, yearFilter, monthFilter, dayFilter, cityFilter, versionFilter, audioFilter]);
 
-  // Restaurer la position de scroll une fois les résultats chargés dans le DOM
   useEffect(() => {
-    if (scrollContainerRef.current && savedSearchScrollTop > 0 && searchResults.length > 0) {
-      // Utilisation de requestAnimationFrame pour s'assurer que le rendu est terminé avant le scroll
+    if (scrollContainerRef.current && savedSearchScrollTopFull > 0 && searchResults.length > 0) {
       requestAnimationFrame(() => {
         if (scrollContainerRef.current) {
-          scrollContainerRef.current.scrollTop = savedSearchScrollTop;
+          scrollContainerRef.current.scrollTop = savedSearchScrollTopFull;
         }
       });
     }
@@ -195,9 +221,8 @@ const SearchResults: React.FC = () => {
   };
 
   const handleResultClick = async (res: SearchResult) => {
-    // Sauvegarder la position actuelle avant que le composant ne soit démonté
     if (scrollContainerRef.current) {
-      savedSearchScrollTop = scrollContainerRef.current.scrollTop;
+      savedSearchScrollTopFull = scrollContainerRef.current.scrollTop;
     }
     setNavigatedFromSearch(true);
     await setSelectedSermonId(res.sermonId);
@@ -222,6 +247,14 @@ const SearchResults: React.FC = () => {
         sermon: partialSermon,
         paragraphIndex: res.paragraphIndex
     });
+  };
+
+  const handleSynonymClick = (syn: string) => {
+      const newVal = selectedSynonym === syn ? null : syn;
+      setSelectedSynonym(newVal);
+      setTimeout(() => {
+          triggerSearch();
+      }, 50);
   };
 
   const handleExportPdf = () => {
@@ -279,30 +312,28 @@ const SearchResults: React.FC = () => {
             {includeSynonyms && activeSynonyms.length > 0 && (
                 <div className="flex items-center gap-2 bg-zinc-100/50 dark:bg-zinc-900/50 p-1 rounded-2xl border border-zinc-200/50 dark:border-zinc-800/50">
                     <button 
-                      onClick={() => setShowOnlyQuery(!showOnlyQuery)}
-                      data-tooltip={showOnlyQuery ? "Voir tous les résultats" : "Mot recherché uniquement"}
+                      onClick={() => { setShowOnlyQuery(!showOnlyQuery); if(!showOnlyQuery) setShowOnlySynonyms(false); }}
                       className={`flex items-center gap-2 px-4 h-9 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm tooltip-bottom ${
                         showOnlyQuery 
-                          ? 'bg-amber-600 text-white border-amber-600' 
+                          ? 'bg-amber-600 text-white border-amber-600 shadow-md' 
                           : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-400 hover:text-amber-600'
                       }`}
                     >
-                      <Search className={`w-3.5 h-3.5 ${showOnlyQuery ? 'animate-pulse' : ''}`} />
-                      <span className="hidden lg:inline">{showOnlyQuery ? "Mot Strict (Filtre Actif)" : "Mot recherché"}</span>
+                      <Type className={`w-3.5 h-3.5 ${showOnlyQuery ? 'animate-pulse' : ''}`} />
+                      <span className="hidden lg:inline">{showOnlyQuery ? "Mot Strict (Activé)" : "Mot Strict"}</span>
                       <span className="lg:hidden">Strict</span>
                     </button>
 
                     <button 
-                      onClick={() => setShowOnlySynonyms(!showOnlySynonyms)}
-                      data-tooltip={showOnlySynonyms ? "Voir tous les résultats" : "Synonymes uniquement"}
+                      onClick={() => { setShowOnlySynonyms(!showOnlySynonyms); if(!showOnlySynonyms) setShowOnlyQuery(false); }}
                       className={`flex items-center gap-2 px-4 h-9 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm tooltip-bottom ${
                         showOnlySynonyms 
-                          ? 'bg-teal-600 text-white border-teal-600' 
+                          ? 'bg-teal-600 text-white border-teal-600 shadow-md' 
                           : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-400 hover:text-teal-600'
                       }`}
                     >
                       <Layers className={`w-3.5 h-3.5 ${showOnlySynonyms ? 'animate-pulse' : ''}`} />
-                      <span className="hidden lg:inline">{showOnlySynonyms ? "Synonymes (Filtre Actif)" : "Synonymes"}</span>
+                      <span className="hidden lg:inline">{showOnlySynonyms ? "Synonymes (Activé)" : "Synonymes"}</span>
                       <span className="lg:hidden">Syns</span>
                     </button>
                 </div>
@@ -324,18 +355,36 @@ const SearchResults: React.FC = () => {
       </div>
 
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto custom-scrollbar">
-        <div className="max-w-4xl mx-auto p-10 space-y-8 pb-32">
+        {includeSynonyms && activeSynonyms.length > 0 && (
+            <div className="max-w-4xl mx-auto px-10 pt-6">
+                <div className="flex flex-wrap items-center gap-2 p-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm animate-in slide-in-from-top-2 duration-500">
+                    <div className="flex items-center gap-2 mr-2">
+                        <Sparkles className="w-3 h-3 text-amber-500" />
+                        <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Rebondir vers :</span>
+                    </div>
+                    {activeSynonyms.map(syn => {
+                        const isActive = selectedSynonym === syn;
+                        return (
+                          <button
+                              key={syn}
+                              onClick={() => handleSynonymClick(syn)}
+                              className={`px-3 py-1.5 rounded-xl text-[10px] font-bold transition-all active:scale-90 border ${
+                                  isActive 
+                                    ? 'bg-teal-600 text-white border-teal-600 shadow-md ring-2 ring-teal-600/20 animate-pulse' 
+                                    : 'bg-zinc-50 dark:bg-zinc-800/50 hover:bg-amber-600 hover:text-white border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300'
+                              }`}
+                          >
+                              {syn}
+                          </button>
+                        );
+                    })}
+                </div>
+            </div>
+        )}
+
+        <div className="max-w-5xl mx-auto p-10 space-y-10 pb-32">
           {searchResults.length === 0 && isSearching ? (
              <div className="space-y-8 animate-in fade-in duration-300">
-                <div className="flex flex-col items-center justify-center py-10 gap-3">
-                   <div className="w-12 h-12 bg-teal-600/10 rounded-full flex items-center justify-center border border-teal-600/20">
-                      <Loader2 className="w-6 h-6 animate-spin text-teal-600" />
-                   </div>
-                   <div className="text-center">
-                      <p className="text-[10px] font-black uppercase tracking-[0.4em] text-teal-600 animate-pulse">Exploration des archives...</p>
-                      <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest mt-1">Recherche de "{searchQuery}" dans toute la collection</p>
-                   </div>
-                </div>
                 {[1, 2, 3].map(i => <SkeletonCard key={i} />)}
              </div>
           ) : searchResults.length === 0 && !isSearching ? (
@@ -350,6 +399,7 @@ const SearchResults: React.FC = () => {
                     key={result.paragraphId} 
                     result={result} 
                     index={idx} 
+                    isOpen={selectedSermonId === result.sermonId}
                     onClick={() => handleResultClick(result)}
                     onAddToNotes={(e) => handleAddToNotes(e, result)}
                 />
@@ -358,10 +408,6 @@ const SearchResults: React.FC = () => {
               {isSearching && (
                 <div className="space-y-8 mt-8 animate-in fade-in duration-300">
                    {[1, 2].map(i => <SkeletonCard key={`more-${i}`} />)}
-                   <div className="py-10 flex flex-col items-center justify-center gap-4 text-teal-600 animate-pulse">
-                     <Loader2 className="w-8 h-8 animate-spin" />
-                     <span className="text-[10px] font-black uppercase tracking-[0.3em]">Chargement des segments suivants...</span>
-                   </div>
                 </div>
               )}
 

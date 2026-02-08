@@ -22,9 +22,7 @@ import {
   Zap,
   Globe,
   ExternalLink,
-  Key,
-  ShieldCheck,
-  AlertTriangle
+  ShieldCheck
 } from 'lucide-react';
 
 interface ChatMessageWithSources extends ChatMessage {
@@ -59,32 +57,12 @@ const AIAssistant: React.FC = () => {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [noteSelectorData, setNoteSelectorData] = useState<{ text: string; sermon: Sermon } | null>(null);
-  const [isIndividualKey, setIsIndividualKey] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   
   const chatKey = contextSermonIds.join(',') || 'global';
   const history = (chatHistory[chatKey] || []) as ChatMessageWithSources[];
 
-  // Vérification de la clé au montage
-  useEffect(() => {
-    const checkKey = async () => {
-      if ((window as any).aistudio?.hasSelectedApiKey) {
-        const hasKey = await (window as any).aistudio.hasSelectedApiKey();
-        setIsIndividualKey(hasKey);
-      }
-    };
-    checkKey();
-  }, []);
-
-  const handleOpenKeySelector = async () => {
-    if ((window as any).aistudio?.openSelectKey) {
-      await (window as any).aistudio.openSelectKey();
-      setIsIndividualKey(true); // On assume le succès après l'ouverture du dialogue
-      addNotification("Clé API mise à jour. Vos quotas sont désormais individuels.", "success");
-    }
-  };
-  
   const selectedSermonsMetadata = useMemo(() => {
     const uniqueMap = new Map<string, any>();
     sermons.forEach(s => {
@@ -167,12 +145,7 @@ const AIAssistant: React.FC = () => {
             timestamp: new Date().toISOString()
           });
         } catch (e: any) {
-          if (e.message.includes("Requested entity was not found")) {
-            addNotification("Erreur de configuration de clé. Veuillez resélectionner votre clé.", "error");
-            handleOpenKeySelector();
-          } else {
-            addNotification(e.message, 'error');
-          }
+          addNotification(e.message || "Erreur lors de l'étude", 'error');
         } finally {
           setIsTyping(false);
         }
@@ -207,20 +180,12 @@ const AIAssistant: React.FC = () => {
       
       addChatMessage(chatKey, newMessage);
     } catch (e: any) {
-       const errorText = e.message.includes("Requested entity was not found") 
-          ? "Erreur de clé API. Veuillez cliquer sur l'icône de clé en haut pour la configurer."
-          : e.message;
-       
-       addChatMessage(chatKey, { role: 'assistant', content: errorText, timestamp: new Date().toISOString() });
-       
-       if (e.message.includes("Requested entity was not found")) {
-         handleOpenKeySelector();
-       }
+       addChatMessage(chatKey, { role: 'assistant', content: e.message || "Une erreur est survenue.", timestamp: new Date().toISOString() });
     } finally { setIsTyping(false); }
   };
 
   return (
-    <div className="w-full bg-slate-50 dark:bg-zinc-950 h-full flex flex-col min-w-0 border-l border-zinc-200 dark:border-zinc-800 transition-all duration-500 shadow-2xl relative">
+    <div className="w-full bg-slate-50 dark:bg-zinc-950 h-full flex flex-col min-0 border-l border-zinc-200 dark:border-zinc-800 transition-all duration-500 shadow-2xl relative">
       {noteSelectorData && <NoteSelectorModal selectionText={noteSelectorData.text} sermon={noteSelectorData.sermon} onClose={() => setNoteSelectorData(null)} />}
       
       <div className="px-6 h-14 border-b border-zinc-100 dark:border-zinc-800/50 flex items-center justify-between shrink-0 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-3xl z-50">
@@ -235,40 +200,11 @@ const AIAssistant: React.FC = () => {
         </div>
         
         <div className="flex items-center gap-2">
-          {/* Key Selector Button */}
-          <button 
-            onClick={handleOpenKeySelector}
-            data-tooltip={isIndividualKey ? "Quota Individuel Actif" : "Utiliser ma propre clé (Quota Illimité)"}
-            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all active:scale-90 border ${
-              isIndividualKey 
-                ? "bg-emerald-600/10 text-emerald-600 border-emerald-600/20" 
-                : "bg-amber-600/10 text-amber-600 border-amber-600/20 animate-pulse"
-            }`}
-          >
-            {isIndividualKey ? <ShieldCheck className="w-4 h-4" /> : <Key className="w-4 h-4" />}
-          </button>
-
           <button onClick={toggleAI} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-red-500 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 active:scale-90">
             <X className="w-4 h-4" />
           </button>
         </div>
       </div>
-
-      {!isIndividualKey && (
-        <div className="bg-amber-500/10 border-b border-amber-500/20 px-5 py-2 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-3 h-3 text-amber-600" />
-            <span className="text-[8px] font-black text-amber-700 uppercase tracking-widest">Quota partagé (Limité)</span>
-          </div>
-          <a 
-            href="https://ai.google.dev/gemini-api/docs/billing" 
-            target="_blank" 
-            className="text-[7px] font-bold text-amber-600 underline uppercase"
-          >
-            Infos Facturation
-          </a>
-        </div>
-      )}
 
       <div className="shrink-0 bg-zinc-50/50 dark:bg-zinc-900/40 border-b border-zinc-100 dark:border-zinc-800/50 px-5 py-3">
          <div className="flex items-center justify-between mb-2 px-1">

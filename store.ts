@@ -10,7 +10,8 @@ import {
   deleteNoteFromDB,
   syncNotesOrder,
   getSermonsCount,
-  isDatabaseReady
+  isDatabaseReady,
+  searchSermons
 } from './services/db';
 
 export interface SearchResult {
@@ -21,6 +22,7 @@ export interface SearchResult {
   city: string;
   paragraphIndex: number;
   snippet?: string;
+  audio_url?: string;
 }
 
 interface AppState {
@@ -47,6 +49,7 @@ interface AppState {
   showOnlySynonyms: boolean;
   showOnlyQuery: boolean;
   activeSynonyms: string[];
+  selectedSynonym: string | null;
   cityFilter: string | null;
   yearFilter: string | null;
   monthFilter: string | null;
@@ -79,12 +82,14 @@ interface AppState {
   setSearchQuery: (query: string) => void;
   setSearchMode: (mode: SearchMode) => void;
   setSearchResults: (results: SearchResult[]) => void;
+  triggerSearch: () => Promise<void>;
   setIsSearching: (val: boolean) => void;
   setIsFullTextSearch: (active: boolean) => void;
   setIncludeSynonyms: (active: boolean) => void;
   setShowOnlySynonyms: (active: boolean) => void;
   setShowOnlyQuery: (active: boolean) => void;
   setActiveSynonyms: (syns: string[]) => void;
+  setSelectedSynonym: (syn: string | null) => void;
   addNotification: (message: string, type: 'success' | 'error') => void;
   removeNotification: (id: string) => void;
   setActiveNoteId: (id: string | null) => void;
@@ -150,6 +155,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   showOnlySynonyms: false,
   showOnlyQuery: false,
   activeSynonyms: [],
+  selectedSynonym: null,
   cityFilter: null,
   yearFilter: null,
   monthFilter: null,
@@ -167,7 +173,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   jumpToParagraph: null,
   projectionBlackout: false,
   isExternalMaskOpen: false,
-  sidebarWidth: 380,
+  sidebarWidth: 420,
   aiWidth: 400,
   notesWidth: 350,
   navigatedFromSearch: false,
@@ -341,15 +347,52 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  setSearchQuery: (query) => set({ searchQuery: query, lastSearchQuery: query }),
+  setSearchQuery: (query) => set({ searchQuery: query, lastSearchQuery: query, selectedSynonym: null }),
   setSearchMode: (mode) => set({ searchMode: mode, lastSearchMode: mode }),
   setSearchResults: (results) => set({ searchResults: results }),
   setIsSearching: (val) => set({ isSearching: val }),
-  setIsFullTextSearch: (active) => set({ isFullTextSearch: active }),
-  setIncludeSynonyms: (active) => set({ includeSynonyms: active, showOnlySynonyms: false, showOnlyQuery: false }),
-  setShowOnlySynonyms: (active) => set({ showOnlySynonyms: active, showOnlyQuery: active ? false : get().showOnlyQuery }),
-  setShowOnlyQuery: (active) => set({ showOnlyQuery: active, showOnlySynonyms: active ? false : get().showOnlySynonyms }),
+  
+  triggerSearch: async () => {
+    const { searchQuery, searchMode, isSearching } = get();
+    if (isSearching || searchQuery.trim().length < 2) return;
+    
+    // Étape 1 : Mettre à jour l'état de chargement immédiatement pour que React l'affiche
+    set({ isSearching: true, searchResults: [] });
+
+    // Étape 2 : Micro-délai pour laisser le temps au thread UI de "peindre" le loader
+    // Cela évite l'effet de gel instantané lors du calcul lourd
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    try {
+      const results = await searchSermons({
+        query: searchQuery,
+        mode: searchMode,
+        limit: 100,
+        offset: 0
+      });
+      
+      set({ searchResults: results, isSearching: false });
+      
+      if (results.length > 0) {
+        const first = results[0];
+        await get().setSelectedSermonId(first.sermonId);
+        get().setJumpToParagraph(first.paragraphIndex);
+      } else {
+        get().addNotification("Aucun segment trouvé.", "error");
+      }
+    } catch (error) {
+      console.error("Search failed:", error);
+      set({ isSearching: false });
+      get().addNotification("Erreur lors de la recherche intégrale", "error");
+    }
+  },
+
+  setIsFullTextSearch: (active) => set({ isFullTextSearch: active, searchResults: [], selectedSynonym: null }),
+  setIncludeSynonyms: (active) => set({ includeSynonyms: active, showOnlySynonyms: false, showOnlyQuery: false, selectedSynonym: null }),
+  setShowOnlySynonyms: (active) => set({ showOnlySynonyms: active, showOnlyQuery: active ? false : get().showOnlyQuery, selectedSynonym: null }),
+  setShowOnlyQuery: (active) => set({ showOnlyQuery: active, showOnlySynonyms: active ? false : get().showOnlySynonyms, selectedSynonym: null }),
   setActiveSynonyms: (syns) => set({ activeSynonyms: syns }),
+  setSelectedSynonym: (syn) => set({ selectedSynonym: syn }),
   addNotification: (message, type) => set(state => ({
     notifications: [{ id: crypto.randomUUID(), message, type }, ...state.notifications]
   })),
@@ -404,7 +447,6 @@ export const useAppStore = create<AppState>((set, get) => ({
         ? s.manualContextIds.filter(x => x !== id) 
         : [...s.manualContextIds, id];
     } else {
-      // Si déjà présent, on l'enlève. Sinon, on remplace tout par celui-ci.
       newManual = isManual ? [] : [id];
     }
     
