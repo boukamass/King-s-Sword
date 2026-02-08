@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 
 const ITEM_HEIGHT = 80; 
-const SEARCH_ITEM_HEIGHT = 110; // Extra height for snippets
+const SEARCH_ITEM_HEIGHT = 110; 
 
 interface DropdownProps {
   value: string | null;
@@ -263,13 +263,11 @@ const Sidebar: React.FC = () => {
   const setSearchMode = useAppStore(s => s.setSearchMode);
   const isFullTextSearch = useAppStore(s => s.isFullTextSearch);
   const setIsFullTextSearch = useAppStore(s => s.setIsFullTextSearch);
-  const includeSynonyms = useAppStore(s => s.includeSynonyms);
-  const setIncludeSynonyms = useAppStore(s => s.setIncludeSynonyms);
   const isSearching = useAppStore(s => s.isSearching);
   const triggerSearch = useAppStore(s => s.triggerSearch);
+  const setSearchQueryStore = useAppStore(s => s.setSearchQuery);
   
   const cityFilter = useAppStore(s => s.cityFilter);
-  // Add missing setters from store
   const setCityFilter = useAppStore(s => s.setCityFilter);
   const yearFilter = useAppStore(s => s.yearFilter);
   const setYearFilter = useAppStore(s => s.setYearFilter);
@@ -296,7 +294,6 @@ const Sidebar: React.FC = () => {
   const [isFooterVisible, setIsFooterVisible] = useState(false);
   const [noteSelectorPayload, setNoteSelectorPayload] = useState<{ text: string; sermon: Sermon; paragraphIndex?: number } | null>(null);
   
-  // --- VIRTUALIZATION STATE ---
   const [scrollTop, setScrollTop] = useState(0);
   const [containerHeight, setContainerHeight] = useState(800);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -304,7 +301,7 @@ const Sidebar: React.FC = () => {
   const lang = languageFilter === 'Anglais' ? 'en' : 'fr';
   const t = translations[lang];
 
-  const currentItemHeight = isFullTextSearch && searchQuery.length >= 2 ? SEARCH_ITEM_HEIGHT : ITEM_HEIGHT;
+  const currentItemHeight = isFullTextSearch && searchResults.length > 0 ? SEARCH_ITEM_HEIGHT : ITEM_HEIGHT;
 
   useEffect(() => {
     if (!scrollContainerRef.current) return;
@@ -321,12 +318,12 @@ const Sidebar: React.FC = () => {
     return () => resizeObserver.disconnect();
   }, [sidebarOpen]);
 
-  const setSearchQuery = useCallback((q: string) => {
+  const updateSearchQuery = useCallback((q: string) => {
     startTransition(() => {
-      useAppStore.getState().setSearchQuery(q);
+      setSearchQueryStore(q);
       if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
     });
-  }, []);
+  }, [setSearchQueryStore]);
 
   const dynamicYears = useMemo(() => {
     const set = new Set<string>();
@@ -401,7 +398,7 @@ const Sidebar: React.FC = () => {
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => setScrollTop(e.currentTarget.scrollTop);
 
-  const displayList = isFullTextSearch && searchQuery.length >= 2 ? searchResults : filteredSermons;
+  const displayList = (isFullTextSearch && searchResults.length > 0) ? searchResults : filteredSermons;
   const totalListHeight = displayList.length * currentItemHeight;
   const startIndex = Math.max(0, Math.floor(scrollTop / currentItemHeight) - 5);
   const endIndex = Math.min(displayList.length, startIndex + Math.ceil(containerHeight / currentItemHeight) + 10);
@@ -411,28 +408,11 @@ const Sidebar: React.FC = () => {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setInternalQuery(val);
-    if (!isFullTextSearch) setSearchQuery(val);
+    updateSearchQuery(val);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') triggerSearch();
-  };
-
-  const areAllFilteredSelected = useMemo(() => {
-    if (filteredSermons.length === 0) return false;
-    return filteredSermons.every(s => manualContextIds.includes(s.id));
-  }, [filteredSermons, manualContextIds]);
-
-  const handleToggleAllFiltered = () => {
-    if (areAllFilteredSelected) {
-      const filteredIds = filteredSermons.map(s => s.id);
-      const newManual = manualContextIds.filter(id => !filteredIds.includes(id));
-      setManualContextIds(newManual);
-    } else {
-      const filteredIds = filteredSermons.map(s => s.id);
-      const newManual = Array.from(new Set([...manualContextIds, ...filteredIds]));
-      setManualContextIds(newManual);
-    }
   };
 
   const handleResultClick = async (res: SearchResult) => {
@@ -476,7 +456,7 @@ const Sidebar: React.FC = () => {
               {t.sidebar_subtitle}
             </h2>
             <p className="text-[7px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-widest mt-0.5">
-              {isFullTextSearch && searchQuery.length >= 2 ? `${searchResults.length} résultats` : `${filteredSermons.length} sermons`}
+              {isFullTextSearch && searchResults.length > 0 ? `${searchResults.length} résultats` : `${filteredSermons.length} sermons`}
             </p>
           </div>
         </button>
@@ -518,7 +498,7 @@ const Sidebar: React.FC = () => {
             <div className="absolute right-1.5 flex items-center gap-1">
               {internalQuery && (
                 <button 
-                  onClick={() => { setInternalQuery(''); setSearchQuery(''); useAppStore.getState().setSearchResults([]); }}
+                  onClick={() => { setInternalQuery(''); updateSearchQuery(''); useAppStore.getState().setSearchResults([]); }}
                   data-tooltip="Effacer"
                   className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all animate-in zoom-in-90 tooltip-bottom"
                 >
@@ -591,7 +571,7 @@ const Sidebar: React.FC = () => {
           onScroll={handleScroll}
           className="flex-1 overflow-y-auto custom-scrollbar relative bg-white dark:bg-zinc-900"
         >
-          {isSearching && displayList.length === 0 ? (
+          {isSearching ? (
             <div className="p-20 flex flex-col items-center justify-center gap-4 text-teal-600 animate-pulse">
                 <Loader2 className="w-8 h-8 animate-spin" />
                 <span className="text-[10px] font-black uppercase tracking-[0.3em]">Exploration...</span>
@@ -604,8 +584,7 @@ const Sidebar: React.FC = () => {
             <div style={{ height: totalListHeight, position: 'relative' }}>
               <div style={{ transform: `translateY(${offsetY}px)`, position: 'absolute', top: 0, left: 0, right: 0 }}>
                 {visibleItems.map((item, idx) => {
-                  const globalIdx = startIndex + idx;
-                  if (isFullTextSearch && searchQuery.length >= 2) {
+                  if (isFullTextSearch && searchResults.length > 0) {
                     const res = item as SearchResult;
                     return (
                       <SearchResultItem 

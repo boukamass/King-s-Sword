@@ -363,11 +363,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       
       set({ searchResults: results, isSearching: false });
       
-      // Auto-select first result if any
       if (results.length > 0) {
         const first = results[0];
         await get().setSelectedSermonId(first.sermonId);
         get().setJumpToParagraph(first.paragraphIndex);
+      } else {
+        get().addNotification("Aucun segment trouvé pour cette recherche.", "error");
       }
     } catch (error) {
       console.error("Search failed:", error);
@@ -376,7 +377,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  setIsFullTextSearch: (active) => set({ isFullTextSearch: active }),
+  setIsFullTextSearch: (active) => set({ isFullTextSearch: active, searchResults: [] }),
   setIncludeSynonyms: (active) => set({ includeSynonyms: active, showOnlySynonyms: false, showOnlyQuery: false }),
   setShowOnlySynonyms: (active) => set({ showOnlySynonyms: active, showOnlyQuery: active ? false : get().showOnlyQuery }),
   setShowOnlyQuery: (active) => set({ showOnlyQuery: active, showOnlySynonyms: active ? false : get().showOnlySynonyms }),
@@ -435,7 +436,6 @@ export const useAppStore = create<AppState>((set, get) => ({
         ? s.manualContextIds.filter(x => x !== id) 
         : [...s.manualContextIds, id];
     } else {
-      // Si déjà présent, on l'enlève. Sinon, on remplace tout par celui-ci.
       newManual = isManual ? [] : [id];
     }
     

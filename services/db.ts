@@ -22,8 +22,10 @@ export const getAllSermonsMetadata = async (): Promise<Omit<Sermon, 'text'>[]> =
 
 export const getSermonsCount = async (): Promise<number> => {
   if (!isElectron) return 0;
-  const meta = await window.electronAPI.db.getSermonsMetadata();
-  return meta ? meta.length : 0;
+  try {
+    const meta = await window.electronAPI.db.getSermonsMetadata();
+    return meta ? meta.length : 0;
+  } catch { return 0; }
 };
 
 export const getSermonById = async (id: string): Promise<Sermon | null> => {
@@ -43,10 +45,6 @@ export const bulkAddSermons = async (sermons: Sermon[]): Promise<{ success: bool
   };
 };
 
-/**
- * Moteur de recherche de secours pour le Web (Fallback)
- * Optimisé pour ne pas figer l'UI
- */
 const webSearchFallback = async (params: { query: string; mode: SearchMode; limit: number; offset: number; synonyms?: string[]; showOnlySynonyms?: boolean; showOnlyQuery?: boolean }): Promise<any[]> => {
   const store = useAppStore.getState();
   const sermonsMap = store.sermonsMap;
@@ -55,8 +53,9 @@ const webSearchFallback = async (params: { query: string; mode: SearchMode; limi
   
   if (!query && (!params.synonyms || params.synonyms.length === 0)) return [];
 
-  const safeLimit = Math.min(params.limit, 50);
   const allSermons = Array.from(sermonsMap.values()) as Sermon[];
+  if (allSermons.length === 0) return [];
+  
   const markClass = "bg-amber-400/40 dark:bg-amber-500/40 text-amber-950 dark:text-white font-bold px-0.5 rounded-sm shadow-sm border-b-2 border-amber-600/30";
   
   const highlightRegex = (params.synonyms && params.synonyms.length > 0 && !params.showOnlyQuery)
@@ -69,16 +68,14 @@ const webSearchFallback = async (params: { query: string; mode: SearchMode; limi
   const queryWords = normalizedQuery.split(/\s+/).filter(w => w.length > 0);
   const synonymWords = (params.synonyms && !params.showOnlyQuery) ? params.synonyms.map(s => normalizeText(s)).filter(w => w.length > 0) : [];
 
-  // Traitement par lots pour laisser l'UI respirer
   for (let idx = 0; idx < allSermons.length; idx++) {
-    // Rend la main au navigateur tous les 25 sermons
-    if (idx > 0 && idx % 25 === 0) {
-      await new Promise(resolve => setTimeout(resolve, 0));
-    }
-
     const s = allSermons[idx];
     if (!s.text) continue;
     
+    if (idx > 0 && idx % 30 === 0) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
+
     const paragraphs = s.text.split(/\n\s*\n/);
     paragraphs.forEach((p, i) => {
       const content = p.trim();
@@ -119,7 +116,6 @@ const webSearchFallback = async (params: { query: string; mode: SearchMode; limi
           snippetContent = content.substring(0, 600) + (content.length > 600 ? '...' : '');
         }
 
-        // Amélioration : utiliser replace avec groupe de capture pour isoler le terme des délimititeurs
         const snippetHighlighted = snippetContent.replace(highlightRegex, (m, g1) => `<mark class="${markClass}">${g1 || m}</mark>`);
         
         results.push({
@@ -136,7 +132,7 @@ const webSearchFallback = async (params: { query: string; mode: SearchMode; limi
   }
 
   results.sort((a, b) => b.date.localeCompare(a.date));
-  return results.slice(params.offset, params.offset + safeLimit);
+  return results.slice(params.offset, params.offset + params.limit);
 };
 
 export const searchSermons = async (params: { query: string; mode: SearchMode; limit: number; offset: number }): Promise<any[]> => {
@@ -148,7 +144,7 @@ export const searchSermons = async (params: { query: string; mode: SearchMode; l
   
   let synonyms: string[] = [];
   
-  if (includeSynonyms && params.query.trim().split(/\s+/).length === 1) {
+  if (includeSynonyms && params.query.trim().split(/\s+/).length === 1 && params.query.length > 2) {
     try {
       const def = await getDefinition(params.query.trim());
       if (def && def.synonyms) {
@@ -156,7 +152,7 @@ export const searchSermons = async (params: { query: string; mode: SearchMode; l
         store.setActiveSynonyms(synonyms);
       }
     } catch (e) {
-      console.warn("Échec de la récupération des synonymes via Gemini:", e);
+      console.warn("Synonym retrieval failed:", e);
     }
   } else if (!includeSynonyms) {
     store.setActiveSynonyms([]);
@@ -164,20 +160,23 @@ export const searchSermons = async (params: { query: string; mode: SearchMode; l
   
   const searchParams = { ...params, synonyms, showOnlySynonyms, showOnlyQuery };
 
-  if (!isElectron || !isSqliteAvailable) {
-    return webSearchFallback(searchParams);
+  if (isElectron && isSqliteAvailable) {
+    try {
+      const results = await window.electronAPI.db.search(searchParams);
+      if (results && results.length > 0) return results;
+      
+      if (params.offset === 0 && params.query.length > 2) {
+          const count = await getSermonsCount();
+          if (count === 0) {
+              console.warn("DB is empty, fallback to web results if available");
+          }
+      }
+    } catch (error) {
+      console.error("IPC Search Error:", error);
+    }
   }
   
-  try {
-    const results = await window.electronAPI.db.search(searchParams);
-    if (!results || (results.length === 0 && params.offset === 0 && params.query.length > 2)) {
-      return webSearchFallback(searchParams);
-    }
-    return results || [];
-  } catch (error) {
-    console.error("Erreur Search IPC (Fallback activé):", error);
-    return webSearchFallback(searchParams);
-  }
+  return webSearchFallback(searchParams);
 };
 
 export const getAllNotes = async (): Promise<Note[]> => {
