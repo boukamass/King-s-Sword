@@ -603,7 +603,7 @@ const Reader: React.FC = () => {
   }, [activeNoteId, notes, sermon?.id, words]);
 
   useEffect(() => {
-    if (readerSearchQuery.length > 2) {
+    if (readerSearchQuery.length >= 1) { // On réduit le seuil pour permettre la recherche d'un seul chiffre
       startTransition(() => {
         const regex = getAccentInsensitiveRegex(readerSearchQuery, false);
         const fullSermonText = words.map(w => w.text).join('');
@@ -612,8 +612,13 @@ const Reader: React.FC = () => {
         while ((match = regex.exec(fullSermonText)) !== null) {
             let currentChar = 0;
             for (let i = 0; i < words.length; i++) {
-                if (currentChar >= match.index) { results.push(words[i].globalIndex); break; }
-                currentChar += words[i].text.length;
+                const wordLen = words[i].text.length;
+                // Correction : on détecte le mot si le match commence n'importe où à l'intérieur de sa plage
+                if (currentChar + wordLen > match.index) { 
+                   results.push(words[i].globalIndex); 
+                   break; 
+                }
+                currentChar += wordLen;
             }
             if (regex.lastIndex === match.index) regex.lastIndex++;
         }
