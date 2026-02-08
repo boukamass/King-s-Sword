@@ -603,7 +603,7 @@ const Reader: React.FC = () => {
   }, [activeNoteId, notes, sermon?.id, words]);
 
   useEffect(() => {
-    if (readerSearchQuery.length > 2) {
+    if (readerSearchQuery.length >= 1) {
       startTransition(() => {
         const regex = getAccentInsensitiveRegex(readerSearchQuery, false);
         const fullSermonText = words.map(w => w.text).join('');
@@ -612,8 +612,12 @@ const Reader: React.FC = () => {
         while ((match = regex.exec(fullSermonText)) !== null) {
             let currentChar = 0;
             for (let i = 0; i < words.length; i++) {
-                if (currentChar >= match.index) { results.push(words[i].globalIndex); break; }
-                currentChar += words[i].text.length;
+                const wordLen = words[i].text.length;
+                if (currentChar + wordLen > match.index) {
+                  results.push(words[i].globalIndex);
+                  break;
+                }
+                currentChar += wordLen;
             }
             if (regex.lastIndex === match.index) regex.lastIndex++;
         }
@@ -1015,21 +1019,21 @@ const Reader: React.FC = () => {
             
             {searchResults.length > 0 && (
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                <span className="text-[10px] font-black uppercase tracking-widest text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 px-3 py-1.5 rounded-lg border border-teal-100 dark:border-teal-800/50">
                   {currentResultIndex + 1} / {searchResults.length}
                 </span>
                 <div className="flex items-center gap-1">
                   <button 
                     onClick={handleSearchPrev}
                     data-tooltip="Précédent (Maj+Entrée)"
-                    className="w-9 h-9 flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 rounded-xl hover:bg-teal-600 hover:text-white transition-all active:scale-90"
+                    className="w-9 h-9 flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 rounded-xl hover:bg-teal-600 text-zinc-600 dark:text-zinc-300 hover:text-white transition-all active:scale-90"
                   >
                     <ChevronUp className="w-5 h-5" />
                   </button>
                   <button 
                     onClick={handleSearchNext}
                     data-tooltip="Suivant (Entrée)"
-                    className="w-9 h-9 flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 rounded-xl hover:bg-teal-600 hover:text-white transition-all active:scale-90"
+                    className="w-9 h-9 flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 rounded-xl hover:bg-teal-600 text-zinc-600 dark:text-zinc-300 hover:text-white transition-all active:scale-90"
                   >
                     <ChevronDown className="w-5 h-5" />
                   </button>
