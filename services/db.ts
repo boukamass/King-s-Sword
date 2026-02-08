@@ -68,16 +68,15 @@ const webSearchFallback = async (params: {
   const results: any[] = [];
   
   const activeTerm = params.selectedSynonym || params.query.trim();
-  const query = activeTerm.toLowerCase();
-  
-  if (!query && (!params.synonyms || params.synonyms.length === 0)) return [];
+  if (!activeTerm && (!params.synonyms || params.synonyms.length === 0)) return [];
 
   const allSermons = Array.from(sermonsMap.values()) as Sermon[];
   if (allSermons.length === 0) return [];
   
-  // Style avec soulignement explicite (underline)
-  const markClass = "bg-amber-400/20 dark:bg-amber-500/20 text-amber-900 dark:text-amber-200 font-black px-0.5 rounded-sm underline decoration-amber-600 decoration-2 underline-offset-2";
-  const synonymMarkClass = "bg-teal-400/20 dark:bg-teal-500/20 text-teal-900 dark:text-teal-200 font-black px-0.5 rounded-sm underline decoration-teal-600 decoration-2 underline-offset-2";
+  // Styles CSS renforcés pour une visibilité maximale (Fond contrasté + soulignement épais)
+  const markBase = "font-black px-1 rounded-sm underline decoration-[3px] underline-offset-4 shadow-sm inline-block";
+  const markClass = `${markBase} bg-amber-400/40 dark:bg-amber-500/50 text-amber-950 dark:text-amber-50 decoration-amber-600 dark:decoration-amber-400`;
+  const synonymMarkClass = `${markBase} bg-teal-400/40 dark:bg-teal-500/50 text-teal-950 dark:text-teal-50 decoration-teal-600 dark:decoration-teal-400`;
   
   let regexSource = "";
   if (params.selectedSynonym) {
@@ -110,8 +109,6 @@ const webSearchFallback = async (params: {
       if (version && s.version !== version) continue;
       if (audio && !s.audio_url) continue;
     }
-    
-    if (idx > 0 && idx % 30 === 0) await new Promise(r => setTimeout(r, 0));
 
     const paragraphs = s.text.split(/\n\s*\n/);
     paragraphs.forEach((p, i) => {
@@ -126,37 +123,28 @@ const webSearchFallback = async (params: {
       } else if (synonymWords.length > 0 && !params.showOnlyQuery) {
         const queryMatch = normalizedContent.includes(normalizeText(params.query));
         const synMatch = synonymWords.some(w => normalizedContent.includes(w));
-        
-        if (params.showOnlySynonyms) {
-          matchFound = synMatch;
-        } else {
-          matchFound = queryMatch || synMatch;
-        }
+        if (params.showOnlySynonyms) matchFound = synMatch;
+        else matchFound = queryMatch || synMatch;
       } else {
         const queryWords = normalizeText(params.query).split(/\s+/).filter(w => w.length > 0);
-        if (params.mode === SearchMode.EXACT_PHRASE) {
-          matchFound = normalizedContent.includes(normalizeText(params.query));
-        } else if (params.mode === SearchMode.DIVERSE) {
-          matchFound = queryWords.some(w => normalizedContent.includes(w));
-        } else { 
-          matchFound = queryWords.every(w => normalizedContent.includes(w));
-        }
+        if (params.mode === SearchMode.EXACT_PHRASE) matchFound = normalizedContent.includes(normalizeText(params.query));
+        else if (params.mode === SearchMode.DIVERSE) matchFound = queryWords.some(w => normalizedContent.includes(w));
+        else matchFound = queryWords.every(w => normalizedContent.includes(w));
       }
 
       if (matchFound) {
         let snippetContent = content;
+        highlightRegex.lastIndex = 0;
         const matchExec = highlightRegex.exec(content);
-        highlightRegex.lastIndex = 0; 
 
         if (matchExec) {
           const matchPos = matchExec.index;
-          const windowStart = Math.max(0, matchPos - 200);
-          const windowEnd = Math.min(content.length, matchPos + 500);
+          // Fenêtrage intelligent : on prend environ 80 caractères avant et 220 après pour centrer
+          const windowStart = Math.max(0, matchPos - 80);
+          const windowEnd = Math.min(content.length, matchPos + 220);
           snippetContent = content.substring(windowStart, windowEnd);
           if (windowStart > 0) snippetContent = '...' + snippetContent;
           if (windowEnd < content.length) snippetContent = snippetContent + '...';
-        } else {
-          snippetContent = content.substring(0, 800) + (content.length > 800 ? '...' : '');
         }
 
         const snippetHighlighted = snippetContent.replace(highlightRegex, (m) => {
@@ -164,8 +152,9 @@ const webSearchFallback = async (params: {
             const isSpecificSynonymMatch = params.selectedSynonym && normalizedMatch.includes(normalizeText(params.selectedSynonym));
             const isGeneralSynonymMatch = synonymWords.some(sw => normalizedMatch.includes(sw));
             
-            if (isSpecificSynonymMatch) return `<mark class="${synonymMarkClass}">${m}</mark>`;
-            if (isGeneralSynonymMatch && !params.showOnlyQuery) return `<mark class="${synonymMarkClass}">${m}</mark>`;
+            if (isSpecificSynonymMatch || (isGeneralSynonymMatch && !params.showOnlyQuery)) {
+                return `<mark class="${synonymMarkClass}">${m}</mark>`;
+            }
             return `<mark class="${markClass}">${m}</mark>`;
         });
         

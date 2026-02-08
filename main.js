@@ -122,21 +122,31 @@ ipcMain.handle('db:getSermonFull', (event, id) => {
   }
 });
 
-ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0, synonyms = [], showOnlySynonyms = false, filters = {} }) => {
+ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0, synonyms = [], showOnlySynonyms = false, showOnlyQuery = false, selectedSynonym = null, filters = {} }) => {
   if (!db) {
     console.warn("[DB] Recherche impossible: Base de données non initialisée.");
     return [];
   }
   
   const rawQuery = (query || "").trim();
-  if (!rawQuery && (!synonyms || synonyms.length === 0)) return [];
-
   const cleanTerms = rawQuery.replace(/[*\-"'()]/g, ' ').split(/\s+/).filter(v => v.length > 0);
   
   let ftsQuery = '';
-  if (synonyms && synonyms.length > 0) {
-    const termsToUse = showOnlySynonyms ? synonyms : [rawQuery, ...synonyms];
+
+  if (selectedSynonym) {
+    ftsQuery = `${selectedSynonym.trim().replace(/[*\-"'()]/g, ' ')}*`;
+  } else if (synonyms && synonyms.length > 0) {
+    let termsToUse = [];
+    if (showOnlySynonyms) {
+      termsToUse = synonyms;
+    } else if (showOnlyQuery) {
+      termsToUse = [rawQuery];
+    } else {
+      termsToUse = [rawQuery, ...synonyms];
+    }
+    
     const allTerms = termsToUse.map(s => s.trim().replace(/[*\-"'()]/g, ' ')).filter(s => s.length > 0);
+    if (allTerms.length === 0) return [];
     ftsQuery = allTerms.map(t => `${t}*`).join(' OR ');
   } else {
     if (cleanTerms.length === 0) return [];
@@ -153,8 +163,9 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0, synon
   const safeOffset = Number(offset) || 0;
 
   try {
-    // Style avec soulignement explicite pour Electron
-    const highlightOpen = '<mark class="bg-amber-400/20 dark:bg-amber-500/20 text-amber-900 dark:text-amber-100 font-black px-0.5 rounded-sm underline decoration-amber-600 decoration-2 underline-offset-2">';
+    // Classes CSS unifiées pour l'élégance et la visibilité
+    const markBase = "font-black px-1 rounded-sm underline decoration-[3px] underline-offset-4 shadow-sm inline-block";
+    const highlightOpen = `<mark class="${markBase} bg-amber-400/40 dark:bg-amber-500/50 text-amber-950 dark:text-amber-50 decoration-amber-600 dark:decoration-amber-400">`;
     const highlightClose = '</mark>';
     
     let filterClauses = '';
@@ -191,7 +202,7 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0, synon
         f.rowid as paragraphId, 
         f.sermon_id as sermonId, 
         f.paragraph_index as paragraphIndex, 
-        snippet(paragraphs_fts, 0, ?, ?, '...', 128) as snippet,
+        snippet(paragraphs_fts, 0, ?, ?, '...', 64) as snippet,
         s.title, s.date, s.city, s.audio_url
       FROM paragraphs_fts f
       INNER JOIN sermons s ON f.sermon_id = s.id

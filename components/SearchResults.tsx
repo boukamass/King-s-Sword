@@ -111,7 +111,7 @@ const SearchResultCard = memo(({
             </div>
 
             <div className="relative">
-                <div className="serif-text text-[16.5px] leading-[1.8] text-zinc-700 dark:text-zinc-200 pl-6 border-l-4 border-teal-600/20 group-hover:border-teal-600/40 transition-all duration-500 italic py-1">
+                <div className="serif-text text-[18px] leading-[1.8] text-zinc-700 dark:text-zinc-200 pl-6 border-l-4 border-teal-600/20 group-hover:border-teal-600/40 transition-all duration-500 italic py-1 line-clamp-4">
                     <span dangerouslySetInnerHTML={{ __html: result.snippet || '' }} />
                 </div>
                 <div className="absolute -left-2 -top-4 text-5xl text-teal-600/5 select-none font-serif rotate-12 opacity-50">"</div>

@@ -23,7 +23,7 @@ import {
   NotebookPen,
   Layers,
   Type,
-  Plus
+  User
 } from 'lucide-react';
 
 const ITEM_HEIGHT = 80; 
@@ -305,7 +305,7 @@ const Sidebar: React.FC = () => {
   const [internalQuery, setInternalQuery] = useState(searchQuery);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [showFilters, setShowFilters] = useState(false);
-  const [isFooterVisible, setIsFooterVisible] = useState(false);
+  const [isFooterExpanded, setIsFooterExpanded] = useState(false);
   const [noteSelectorPayload, setNoteSelectorPayload] = useState<{ text: string; sermon: Sermon; paragraphIndex?: number } | null>(null);
   
   const [scrollTop, setScrollTop] = useState(0);
@@ -321,7 +321,10 @@ const Sidebar: React.FC = () => {
     if (isFullTextSearch && searchQuery.trim().length >= 2) {
       triggerSearch();
     }
-  }, [yearFilter, monthFilter, dayFilter, cityFilter, versionFilter, audioFilter, triggerSearch, isFullTextSearch]);
+  }, [
+    yearFilter, monthFilter, dayFilter, cityFilter, versionFilter, audioFilter, triggerSearch, 
+    isFullTextSearch, showOnlySynonyms, showOnlyQuery, selectedSynonym, includeSynonyms
+  ]);
 
   useEffect(() => {
     if (!scrollContainerRef.current) return;
@@ -437,7 +440,6 @@ const Sidebar: React.FC = () => {
   const handleSynonymClick = (syn: string) => {
     const newVal = selectedSynonym === syn ? null : syn;
     setSelectedSynonym(newVal);
-    setTimeout(() => { triggerSearch(); }, 50);
   };
 
   const currentItemsForDock = useMemo(() => {
@@ -576,14 +578,22 @@ const Sidebar: React.FC = () => {
 
                 <div className="flex items-center gap-2">
                     <button 
-                      onClick={() => { setShowOnlyQuery(!showOnlyQuery); if(!showOnlyQuery) setShowOnlySynonyms(false); }}
+                      onClick={() => { 
+                        const nextVal = !showOnlyQuery;
+                        setShowOnlyQuery(nextVal); 
+                        if(nextVal) setShowOnlySynonyms(false); 
+                      }}
                       className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg border transition-all active:scale-95 ${showOnlyQuery ? 'bg-amber-600 border-amber-600 text-white shadow-md' : 'bg-white dark:bg-zinc-800 border-amber-200 dark:border-amber-800 text-amber-600'}`}
                     >
                         <Type className="w-3 h-3" />
                         <span className="text-[8px] font-black uppercase tracking-widest">Mot Strict</span>
                     </button>
                     <button 
-                      onClick={() => { setShowOnlySynonyms(!showOnlySynonyms); if(!showOnlySynonyms) setShowOnlyQuery(false); }}
+                      onClick={() => { 
+                        const nextVal = !showOnlySynonyms;
+                        setShowOnlySynonyms(nextVal); 
+                        if(nextVal) setShowOnlyQuery(false); 
+                      }}
                       className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg border transition-all active:scale-95 ${showOnlySynonyms ? 'bg-teal-600 border-teal-600 text-white shadow-md' : 'bg-white dark:bg-zinc-800 border-teal-200 dark:border-teal-800 text-teal-600'}`}
                     >
                         <Layers className="w-3 h-3" />
@@ -624,7 +634,7 @@ const Sidebar: React.FC = () => {
             <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-200 dark:border-zinc-700/50">
               <ModernDropdown value={yearFilter} onChange={setYearFilter} options={dynamicYears} placeholder={t.filter_year} />
               <ModernDropdown value={monthFilter} onChange={setMonthFilter} options={dynamicMonths} placeholder={t.filter_month} displayValue={getMonthName} />
-              <ModernDropdown value={dayFilter} onChange={setDayFilter} options={dynamicDays} placeholder={t.filter_day} />
+              <ModernDropdown value={dayFilter} onChange={setDayFilter} options={dynamicMonths} placeholder={t.filter_day} />
               <ModernDropdown value={cityFilter} onChange={setCityFilter} options={dynamicCities} placeholder={t.filter_city} />
               <ModernDropdown value={versionFilter} onChange={setVersionFilter} options={dynamicVersions} placeholder={t.filter_version} />
             </div>
@@ -657,35 +667,46 @@ const Sidebar: React.FC = () => {
           )}
         </div>
         
-        <div className={`border-t border-slate-200 dark:border-slate-800/50 bg-slate-50/60 dark:bg-zinc-950/60 transition-all shrink-0 relative ${isFooterVisible ? 'pt-5 pb-3 px-4' : 'py-2 px-4'}`}>
-          <button onClick={() => setIsFooterVisible(!isFooterVisible)} className="absolute -top-3 left-1/2 -translate-x-1/2 w-6 h-6 flex items-center justify-center bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-full text-zinc-400 hover:text-teal-600 shadow-sm transition-all z-[60] active:scale-90">
-            {isFooterVisible ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
-          </button>
+        {/* Footer Ultra Compact, Elégant et Non-intrusif */}
+        <div className={`border-t border-zinc-200/40 dark:border-zinc-800/60 bg-white/60 dark:bg-zinc-950/80 backdrop-blur-2xl transition-all duration-500 overflow-hidden flex flex-col shrink-0 relative ${isFooterExpanded ? 'py-4 px-4 h-auto' : 'py-2 px-4 h-[38px]'}`}>
           
-          {isFooterVisible ? (
-            <div className="flex flex-col items-center text-center space-y-1.5 animate-in fade-in slide-in-from-bottom-2 duration-500">
-               <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-7 h-7 grayscale opacity-50 mb-1" />
-               <div className="leading-tight">
-                  <p className="text-[9px] font-black text-zinc-800 dark:text-zinc-200 uppercase tracking-widest hover:text-teal-600 cursor-default transition-colors">King's Sword</p>
-                  <p className="text-[7px] font-bold text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 uppercase tracking-widest transition-colors">Logiciel d'étude du message par W.M.BRANHAM</p>
-               </div>
-               <div className="flex flex-col gap-0.5 pt-1">
-                  <p className="text-[7px] font-black text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 uppercase tracking-widest transition-colors">Développé par <span className="text-teal-600 dark:text-teal-400">Bienvenu Sédin Massamba</span></p>
-                  <p className="text-[7px] font-black text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 uppercase transition-colors">Vision de l'Aigle Tabernacle, Koufoli, PNR, CCongo</p>
-               </div>
-               <div className="pt-1.5 border-t border-zinc-200 dark:border-zinc-800 w-full">
-                  <p className="text-[7px] font-black text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 uppercase tracking-[0.15em] transition-colors">
-                     KSW 1.0.3 © {new Date().getFullYear()} Tous droits réservés
-                  </p>
-               </div>
+          {/* Poignée Chevron Centrée */}
+          <button 
+            onClick={() => setIsFooterExpanded(!isFooterExpanded)}
+            className="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-4 flex items-center justify-center text-zinc-300 dark:text-zinc-600 hover:text-teal-600 transition-all z-20"
+          >
+            {isFooterExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
+          </button>
+
+          <div className="flex flex-col items-center text-center">
+            {/* Mode Réduit : KSW 1.0.3 et Localisation uniquement, sans logo */}
+            {!isFooterExpanded && (
+              <div className="flex items-center justify-center gap-3 animate-in fade-in duration-500 mt-1">
+                <span className="text-[6.5px] font-black text-zinc-400/80 uppercase tracking-[0.2em]">KSW 1.0.3</span>
+                <span className="w-0.5 h-0.5 bg-zinc-300 dark:bg-zinc-700 rounded-full" />
+                <span className="text-[6.5px] font-bold text-zinc-400/80 uppercase tracking-tight">Vision de l'Aigle Tabernacle, Koufoli, PNR, Congo</span>
+              </div>
+            )}
+
+            {/* Mode Étendu : Détails complets avec Logo */}
+            <div className={`space-y-2 transition-all duration-500 origin-top flex flex-col items-center ${isFooterExpanded ? 'opacity-100 scale-y-100 mt-2 pb-2' : 'opacity-0 scale-y-0 h-0 overflow-hidden'}`}>
+              <div className="flex flex-col items-center mb-1">
+                <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-3.5 h-3.5 grayscale opacity-60 mb-0.5" />
+                <h3 className="text-[8px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-[0.3em] leading-none">King's Sword</h3>
+              </div>
+              
+              <p className="text-[6.5px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-[0.2em] leading-none">Logiciel d'étude du message par W.M.BRANHAM</p>
+              
+              <div className="flex flex-col items-center gap-1 mt-1">
+                <p className="text-[6.5px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest leading-none">Développé par Bienvenu Sédin Massamba</p>
+                <p className="text-[6.5px] font-bold text-zinc-400 uppercase tracking-tight leading-none opacity-80">Vision de l'Aigle Tabernacle, Koufoli, PNR, Congo</p>
+              </div>
+
+              <p className="text-[6.5px] font-black text-zinc-400/60 uppercase tracking-[0.25em] flex items-center justify-center gap-2 mt-2">
+                KSW 1.0.3 <span className="w-0.5 h-0.5 bg-teal-600/20 rounded-full" /> © 2026 Tous droits réservés
+              </p>
             </div>
-          ) : (
-            <div className="flex items-center justify-center">
-               <p className="text-[8px] font-black text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 uppercase tracking-[0.2em] text-center leading-none transition-colors">
-                  KSW V 1.0.3 © <span className="text-teal-600 dark:text-blue-400">VISION DE L'AIGLE</span>
-               </p>
-            </div>
-          )}
+          </div>
         </div>
       </div>
     </div>
