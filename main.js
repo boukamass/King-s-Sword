@@ -84,7 +84,6 @@ function initDatabase() {
       );
     `);
 
-    // Check for column exists (migration)
     try {
       db.prepare('SELECT sermon_version_snapshot FROM citations LIMIT 1').get();
     } catch (e) {
@@ -123,7 +122,7 @@ ipcMain.handle('db:getSermonFull', (event, id) => {
   }
 });
 
-ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0, synonyms = [], showOnlySynonyms = false }) => {
+ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0, synonyms = [], showOnlySynonyms = false, filters = {} }) => {
   if (!db) {
     console.warn("[DB] Recherche impossible: Base de données non initialisée.");
     return [];
@@ -135,8 +134,6 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0, synon
   const cleanTerms = rawQuery.replace(/[*\-"'()]/g, ' ').split(/\s+/).filter(v => v.length > 0);
   
   let ftsQuery = '';
-  
-  // Si on a des synonymes, on construit une requête OR automatique
   if (synonyms && synonyms.length > 0) {
     const termsToUse = showOnlySynonyms ? synonyms : [rawQuery, ...synonyms];
     const allTerms = termsToUse.map(s => s.trim().replace(/[*\-"'()]/g, ' ')).filter(s => s.length > 0);
@@ -159,21 +156,49 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0, synon
     const highlightOpen = '<mark class="bg-amber-400/40 dark:bg-amber-500/40 text-amber-950 dark:text-white font-bold px-0.5 rounded-sm shadow-sm border-b-2 border-amber-600/30">';
     const highlightClose = '</mark>';
     
-    const stmt = db.prepare(`
+    // Dynamic Filter Clauses
+    let filterClauses = '';
+    const queryParams = [highlightOpen, highlightClose, ftsQuery];
+
+    if (filters.year) {
+      filterClauses += ' AND s.date LIKE ?';
+      queryParams.push(`${filters.year}%`);
+    }
+    if (filters.month) {
+      filterClauses += ' AND SUBSTR(s.date, 6, 2) = ?';
+      queryParams.push(filters.month);
+    }
+    if (filters.day) {
+      filterClauses += ' AND SUBSTR(s.date, 9, 2) = ?';
+      queryParams.push(filters.day);
+    }
+    if (filters.city) {
+      filterClauses += ' AND s.city = ?';
+      queryParams.push(filters.city);
+    }
+    if (filters.version) {
+      filterClauses += ' AND s.version = ?';
+      queryParams.push(filters.version);
+    }
+
+    queryParams.push(safeLimit, safeOffset);
+
+    const sql = `
       SELECT 
         f.rowid as paragraphId, 
         f.sermon_id as sermonId, 
         f.paragraph_index as paragraphIndex, 
-        snippet(paragraphs_fts, 0, ?, ?, '...', 96) as snippet,
+        snippet(paragraphs_fts, 0, ?, ?, '...', 128) as snippet,
         s.title, s.date, s.city
       FROM paragraphs_fts f
       INNER JOIN sermons s ON f.sermon_id = s.id
       WHERE paragraphs_fts MATCH ? 
+      ${filterClauses}
       ORDER BY s.date DESC
       LIMIT ? OFFSET ?
-    `);
+    `;
     
-    return stmt.all(highlightOpen, highlightClose, ftsQuery, safeLimit, safeOffset);
+    return db.prepare(sql).all(...queryParams);
   } catch (e) {
     console.error("[DB] Erreur SQL lors de la recherche intégrale:", e.message);
     return [];
@@ -289,7 +314,6 @@ function createWindow() {
     },
   });
 
-  // Maximise la fenêtre par défaut au lancement
   mainWindow.maximize();
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {

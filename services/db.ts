@@ -45,11 +45,30 @@ export const bulkAddSermons = async (sermons: Sermon[]): Promise<{ success: bool
   };
 };
 
-const webSearchFallback = async (params: { query: string; mode: SearchMode; limit: number; offset: number; synonyms?: string[]; showOnlySynonyms?: boolean; showOnlyQuery?: boolean }): Promise<any[]> => {
+const webSearchFallback = async (params: { 
+  query: string; 
+  mode: SearchMode; 
+  limit: number; 
+  offset: number; 
+  synonyms?: string[]; 
+  selectedSynonym?: string | null;
+  showOnlySynonyms?: boolean; 
+  showOnlyQuery?: boolean;
+  filters?: {
+    year: string | null;
+    month: string | null;
+    day: string | null;
+    city: string | null;
+    version: string | null;
+  }
+}): Promise<any[]> => {
   const store = useAppStore.getState();
   const sermonsMap = store.sermonsMap;
   const results: any[] = [];
-  const query = params.query.trim().toLowerCase();
+  
+  // Si un synonyme est sélectionné, on utilise CELUI-CI comme base de recherche principale
+  const activeTerm = params.selectedSynonym || params.query.trim();
+  const query = activeTerm.toLowerCase();
   
   if (!query && (!params.synonyms || params.synonyms.length === 0)) return [];
 
@@ -57,24 +76,44 @@ const webSearchFallback = async (params: { query: string; mode: SearchMode; limi
   if (allSermons.length === 0) return [];
   
   const markClass = "bg-amber-400/40 dark:bg-amber-500/40 text-amber-950 dark:text-white font-bold px-0.5 rounded-sm shadow-sm border-b-2 border-amber-600/30";
+  const synonymMarkClass = "bg-teal-400/40 dark:bg-teal-500/40 text-teal-950 dark:text-white font-bold px-0.5 rounded-sm shadow-sm border-b-2 border-teal-600/30";
   
-  const highlightRegex = (params.synonyms && params.synonyms.length > 0 && !params.showOnlyQuery)
-    ? getMultiWordHighlightRegex(params.showOnlySynonyms ? params.synonyms.join(' ') : [query, ...params.synonyms].join(' '))
-    : (params.mode === SearchMode.EXACT_PHRASE 
-        ? getAccentInsensitiveRegex(query, false)
-        : getMultiWordHighlightRegex(query));
+  // Highlighting logic
+  let regexSource = "";
+  if (params.selectedSynonym) {
+      // Si un synonyme spécifique est coché, on ne surligne que lui en priorité (en Teal)
+      regexSource = params.selectedSynonym;
+  } else if (params.synonyms && params.synonyms.length > 0) {
+    if (params.showOnlySynonyms) {
+      regexSource = params.synonyms!.join('|');
+    } else if (params.showOnlyQuery) {
+      regexSource = params.query;
+    } else {
+      regexSource = [params.query, ...params.synonyms!].join('|');
+    }
+  } else {
+    regexSource = params.query;
+  }
 
-  const normalizedQuery = normalizeText(query);
-  const queryWords = normalizedQuery.split(/\s+/).filter(w => w.length > 0);
+  const highlightRegex = getMultiWordHighlightRegex(regexSource);
+  const normalizedActiveTerm = normalizeText(query);
   const synonymWords = (params.synonyms && !params.showOnlyQuery) ? params.synonyms.map(s => normalizeText(s)).filter(w => w.length > 0) : [];
 
   for (let idx = 0; idx < allSermons.length; idx++) {
     const s = allSermons[idx];
     if (!s.text) continue;
-    
-    if (idx > 0 && idx % 30 === 0) {
-      await new Promise(resolve => setTimeout(resolve, 0));
+
+    // Apply metadata filters
+    if (params.filters) {
+      const { year, month, day, city, version } = params.filters;
+      if (year && (!s.date || !s.date.startsWith(year))) continue;
+      if (month && (!s.date || s.date.substring(5, 7) !== month)) continue;
+      if (day && (!s.date || s.date.substring(8, 10) !== day)) continue;
+      if (city && s.city !== city) continue;
+      if (version && s.version !== version) continue;
     }
+    
+    if (idx > 0 && idx % 30 === 0) await new Promise(r => setTimeout(r, 0));
 
     const paragraphs = s.text.split(/\n\s*\n/);
     paragraphs.forEach((p, i) => {
@@ -84,15 +123,22 @@ const webSearchFallback = async (params: { query: string; mode: SearchMode; limi
       const normalizedContent = normalizeText(content);
       let matchFound = false;
       
-      if (synonymWords.length > 0 && !params.showOnlyQuery) {
+      if (params.selectedSynonym) {
+          // Filtrage EXCLUSIF sur le synonyme sélectionné
+          matchFound = normalizedContent.includes(normalizeText(params.selectedSynonym));
+      } else if (synonymWords.length > 0 && !params.showOnlyQuery) {
+        const queryMatch = normalizedContent.includes(normalizeText(params.query));
+        const synMatch = synonymWords.some(w => normalizedContent.includes(w));
+        
         if (params.showOnlySynonyms) {
-            matchFound = synonymWords.some(w => normalizedContent.includes(w));
+          matchFound = synMatch;
         } else {
-            matchFound = [normalizedQuery, ...synonymWords].some(w => normalizedContent.includes(w));
+          matchFound = queryMatch || synMatch;
         }
       } else {
+        const queryWords = normalizeText(params.query).split(/\s+/).filter(w => w.length > 0);
         if (params.mode === SearchMode.EXACT_PHRASE) {
-          matchFound = normalizedContent.includes(normalizedQuery);
+          matchFound = normalizedContent.includes(normalizeText(params.query));
         } else if (params.mode === SearchMode.DIVERSE) {
           matchFound = queryWords.some(w => normalizedContent.includes(w));
         } else { 
@@ -107,16 +153,25 @@ const webSearchFallback = async (params: { query: string; mode: SearchMode; limi
 
         if (matchExec) {
           const matchPos = matchExec.index;
-          const windowStart = Math.max(0, matchPos - 150);
-          const windowEnd = Math.min(content.length, matchPos + 450);
+          // Optimisation : Centrage du snippet autour du mot-clé
+          const windowStart = Math.max(0, matchPos - 200);
+          const windowEnd = Math.min(content.length, matchPos + 500);
           snippetContent = content.substring(windowStart, windowEnd);
           if (windowStart > 0) snippetContent = '...' + snippetContent;
           if (windowEnd < content.length) snippetContent = snippetContent + '...';
         } else {
-          snippetContent = content.substring(0, 600) + (content.length > 600 ? '...' : '');
+          snippetContent = content.substring(0, 800) + (content.length > 800 ? '...' : '');
         }
 
-        const snippetHighlighted = snippetContent.replace(highlightRegex, (m, g1) => `<mark class="${markClass}">${g1 || m}</mark>`);
+        const snippetHighlighted = snippetContent.replace(highlightRegex, (m) => {
+            const normalizedMatch = normalizeText(m);
+            const isSpecificSynonymMatch = params.selectedSynonym && normalizedMatch.includes(normalizeText(params.selectedSynonym));
+            const isGeneralSynonymMatch = synonymWords.some(sw => normalizedMatch.includes(sw));
+            
+            if (isSpecificSynonymMatch) return `<mark class="${synonymMarkClass}">${m}</mark>`;
+            if (isGeneralSynonymMatch && !params.showOnlyQuery) return `<mark class="${synonymMarkClass}">${m}</mark>`;
+            return `<mark class="${markClass}">${m}</mark>`;
+        });
         
         results.push({
           paragraphId: `${s.id}-${i}`,
@@ -141,14 +196,23 @@ export const searchSermons = async (params: { query: string; mode: SearchMode; l
   const includeSynonyms = store.includeSynonyms;
   const showOnlySynonyms = store.showOnlySynonyms;
   const showOnlyQuery = store.showOnlyQuery;
+  const selectedSynonym = store.selectedSynonym;
+  
+  const filters = {
+    year: store.yearFilter,
+    month: store.monthFilter,
+    day: store.dayFilter,
+    city: store.cityFilter,
+    version: store.versionFilter
+  };
   
   let synonyms: string[] = [];
   
-  if (includeSynonyms && params.query.trim().split(/\s+/).length === 1 && params.query.length > 2) {
+  if (includeSynonyms && params.query.trim().split(/\s+/).length === 1 && params.query.trim().length > 2) {
     try {
       const def = await getDefinition(params.query.trim());
       if (def && def.synonyms) {
-        synonyms = def.synonyms.slice(0, 8);
+        synonyms = def.synonyms.slice(0, 10);
         store.setActiveSynonyms(synonyms);
       }
     } catch (e) {
@@ -158,19 +222,13 @@ export const searchSermons = async (params: { query: string; mode: SearchMode; l
     store.setActiveSynonyms([]);
   }
   
-  const searchParams = { ...params, synonyms, showOnlySynonyms, showOnlyQuery };
+  const searchParams = { ...params, synonyms, selectedSynonym, showOnlySynonyms, showOnlyQuery, filters };
 
   if (isElectron && isSqliteAvailable) {
     try {
+      // Pour SQLite, on modifie la requête FTS si un synonyme est sélectionné
       const results = await window.electronAPI.db.search(searchParams);
-      if (results && results.length > 0) return results;
-      
-      if (params.offset === 0 && params.query.length > 2) {
-          const count = await getSermonsCount();
-          if (count === 0) {
-              console.warn("DB is empty, fallback to web results if available");
-          }
-      }
+      if (results) return results;
     } catch (error) {
       console.error("IPC Search Error:", error);
     }

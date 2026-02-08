@@ -24,11 +24,14 @@ import {
   Clock,
   BookOpen,
   Hash,
-  NotebookPen
+  NotebookPen,
+  Layers,
+  Type,
+  ToggleRight
 } from 'lucide-react';
 
 const ITEM_HEIGHT = 80; 
-const SEARCH_ITEM_HEIGHT = 110; 
+const SEARCH_ITEM_HEIGHT = 125; 
 
 interface DropdownProps {
   value: string | null;
@@ -190,7 +193,7 @@ const SearchResultItem = memo(({
       className="px-3 flex items-center relative border-b border-slate-200/60 dark:border-slate-800/40 last:border-0"
     >
       <div 
-        className={`group w-full flex flex-col gap-1 p-3 rounded-xl transition-all duration-300 cursor-pointer h-[100px] overflow-hidden ${
+        className={`group w-full flex flex-col gap-1.5 p-3 rounded-xl transition-all duration-300 cursor-pointer h-[115px] overflow-hidden ${
           isSelected 
             ? 'bg-teal-600/15 dark:bg-teal-600/25 ring-1 ring-teal-600/30 shadow-md' 
             : 'hover:bg-teal-600/[0.08] dark:hover:bg-teal-400/[0.06] border border-transparent hover:border-teal-600/10 dark:hover:border-teal-400/10'
@@ -198,23 +201,26 @@ const SearchResultItem = memo(({
         onClick={onSelect}
       >
         <div className="flex items-center justify-between gap-1">
-          <span className="text-[10px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-tight truncate max-w-[70%]">
+          <span className="text-[10px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-tight truncate max-w-[65%]">
             {result.title}
           </span>
-          <div className="flex items-center gap-1">
-            <span className="text-[7px] font-mono text-zinc-400">{result.date}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[7px] font-mono text-zinc-400 font-bold">{result.date}</span>
             <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-[7px] font-black text-zinc-500">
-               <Hash className="w-2 h-2" />
+               <Hash className="w-2 h-2 text-teal-500/50" />
                <span>{result.paragraphIndex}</span>
             </div>
           </div>
         </div>
 
         <div className="flex-1 overflow-hidden">
-          <p className="text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-400 serif-text italic line-clamp-2" dangerouslySetInnerHTML={{ __html: result.snippet || '' }} />
+          <p 
+            className="text-[11.5px] leading-relaxed text-zinc-600 dark:text-zinc-300 serif-text italic line-clamp-3 border-l-2 border-teal-600/20 pl-2.5 py-0.5" 
+            dangerouslySetInnerHTML={{ __html: result.snippet || '' }} 
+          />
         </div>
 
-        <div className="flex items-center justify-end mt-1">
+        <div className="flex items-center justify-end mt-0.5">
           <button 
             onClick={onAddToNotes}
             className="w-6 h-6 flex items-center justify-center bg-teal-600/5 text-teal-600 rounded-lg hover:bg-teal-600 hover:text-white transition-all active:scale-90"
@@ -267,6 +273,16 @@ const Sidebar: React.FC = () => {
   const triggerSearch = useAppStore(s => s.triggerSearch);
   const setSearchQueryStore = useAppStore(s => s.setSearchQuery);
   
+  const includeSynonyms = useAppStore(s => s.includeSynonyms);
+  const setIncludeSynonyms = useAppStore(s => s.setIncludeSynonyms);
+  const showOnlySynonyms = useAppStore(s => s.showOnlySynonyms);
+  const setShowOnlySynonyms = useAppStore(s => s.setShowOnlySynonyms);
+  const showOnlyQuery = useAppStore(s => s.showOnlyQuery);
+  const setShowOnlyQuery = useAppStore(s => s.setShowOnlyQuery);
+  const activeSynonyms = useAppStore(s => s.activeSynonyms);
+  const selectedSynonym = useAppStore(s => s.selectedSynonym);
+  const setSelectedSynonym = useAppStore(s => s.setSelectedSynonym);
+
   const cityFilter = useAppStore(s => s.cityFilter);
   const setCityFilter = useAppStore(s => s.setCityFilter);
   const yearFilter = useAppStore(s => s.yearFilter);
@@ -301,20 +317,22 @@ const Sidebar: React.FC = () => {
   const lang = languageFilter === 'Anglais' ? 'en' : 'fr';
   const t = translations[lang];
 
-  const currentItemHeight = isFullTextSearch && searchResults.length > 0 ? SEARCH_ITEM_HEIGHT : ITEM_HEIGHT;
+  const currentItemHeight = (isFullTextSearch && searchResults.length > 0) ? SEARCH_ITEM_HEIGHT : ITEM_HEIGHT;
+
+  // Effet pour redéclencher la recherche intégrale dès qu'un filtre change
+  useEffect(() => {
+    if (isFullTextSearch && searchQuery.trim().length >= 2) {
+      triggerSearch();
+    }
+  }, [yearFilter, monthFilter, dayFilter, cityFilter, versionFilter, triggerSearch, isFullTextSearch]);
 
   useEffect(() => {
     if (!scrollContainerRef.current) return;
-    
     const resizeObserver = new ResizeObserver(entries => {
-      for (let entry of entries) {
-        setContainerHeight(entry.contentRect.height);
-      }
+      for (let entry of entries) setContainerHeight(entry.contentRect.height);
     });
-    
     resizeObserver.observe(scrollContainerRef.current);
     setContainerHeight(scrollContainerRef.current.clientHeight);
-    
     return () => resizeObserver.disconnect();
   }, [sidebarOpen]);
 
@@ -364,21 +382,12 @@ const Sidebar: React.FC = () => {
     return Array.from(set).sort();
   }, [sermons]);
 
-  const dynamicTimes = useMemo(() => {
-    const set = new Set<string>();
-    for (let i = 0; i < sermons.length; i++) if (sermons[i].time) set.add(sermons[i].time);
-    return Array.from(set).sort();
-  }, [sermons]);
-
-  useEffect(() => {
-    setInternalQuery(searchQuery);
-  }, [searchQuery]);
+  useEffect(() => { setInternalQuery(searchQuery); }, [searchQuery]);
 
   const activeFiltersCount = [yearFilter, monthFilter, dayFilter, cityFilter, versionFilter, timeFilter, audioFilter].filter(f => f === true || (typeof f === 'string' && f !== null)).length;
 
   const filteredSermons = useMemo(() => {
     const q = isFullTextSearch ? "" : normalizeText(deferredSearchQuery);
-
     return sermons.filter(s => {
       if (!s) return false;
       if (q) {
@@ -390,11 +399,10 @@ const Sidebar: React.FC = () => {
       if (monthFilter && (!s.date || s.date.substring(5, 7) !== monthFilter)) return false;
       if (dayFilter && (!s.date || s.date.substring(8, 10) !== dayFilter)) return false;
       if (versionFilter && s.version !== versionFilter) return false;
-      if (timeFilter && s.time !== timeFilter) return false;
       if (audioFilter && !s.audio_url) return false;
       return true;
     });
-  }, [sermons, deferredSearchQuery, cityFilter, yearFilter, monthFilter, dayFilter, versionFilter, timeFilter, audioFilter, isFullTextSearch]);
+  }, [sermons, deferredSearchQuery, cityFilter, yearFilter, monthFilter, dayFilter, versionFilter, audioFilter, isFullTextSearch]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => setScrollTop(e.currentTarget.scrollTop);
 
@@ -411,11 +419,11 @@ const Sidebar: React.FC = () => {
     updateSearchQuery(val);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') triggerSearch();
-  };
+  const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter') triggerSearch(); };
 
   const handleResultClick = async (res: SearchResult) => {
+    // Sauvegarder la position actuelle avant que le composant ne soit démonté
+    savedSearchScrollTop = scrollTop;
     await setSelectedSermonId(res.sermonId);
     setJumpToParagraph(res.paragraphIndex);
   };
@@ -428,6 +436,17 @@ const Sidebar: React.FC = () => {
         sermon: { id: res.sermonId, title: res.title, date: res.date, city: res.city, text: '' },
         paragraphIndex: res.paragraphIndex
     });
+  };
+
+  const handleSynonymClick = (syn: string) => {
+    // Si déjà sélectionné, on déselectionne. Sinon on sélectionne.
+    const newVal = selectedSynonym === syn ? null : syn;
+    setSelectedSynonym(newVal);
+    
+    // Déclencher la recherche avec le nouvel état
+    setTimeout(() => {
+        triggerSearch();
+    }, 50);
   };
 
   if (!sidebarOpen) return null;
@@ -443,16 +462,12 @@ const Sidebar: React.FC = () => {
         />
       )}
       <div className={`h-14 border-b border-slate-200 dark:border-slate-800/50 flex items-center shrink-0 bg-slate-50 dark:bg-zinc-950 z-50 transition-all duration-500 px-4 justify-between`}>
-        <button 
-          onClick={toggleSidebar} 
-          className={`flex items-center gap-2 hover:opacity-80 transition-all active:scale-95 min-w-0 group tooltip-br`}
-          data-tooltip="Réduire la bibliothèque"
-        >
-          <div className="w-7 h-7 flex items-center justify-center bg-teal-600/10 rounded-lg border border-teal-600/20 shadow-sm shrink-0 group-hover:border-teal-600/40 transition-all duration-300">
-            <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-3.5 h-3.5 grayscale group-hover:grayscale-0 group-hover:scale-110 group-hover:rotate-[-5deg] transition-all duration-300" />
+        <button onClick={toggleSidebar} className="flex items-center gap-2 hover:opacity-80 transition-all active:scale-95 group">
+          <div className="w-7 h-7 flex items-center justify-center bg-teal-600/10 rounded-lg border border-teal-600/20 shadow-sm shrink-0">
+            <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-3.5 h-3.5 grayscale group-hover:grayscale-0 transition-all" />
           </div>
-          <div className="text-left truncate animate-in fade-in slide-in-from-left-2 duration-500">
-            <h2 className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-900 dark:text-zinc-50 leading-tight truncate group-hover:text-teal-600 transition-colors">
+          <div className="text-left truncate">
+            <h2 className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-900 dark:text-zinc-50 leading-tight truncate">
               {t.sidebar_subtitle}
             </h2>
             <p className="text-[7px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-widest mt-0.5">
@@ -460,103 +475,114 @@ const Sidebar: React.FC = () => {
             </p>
           </div>
         </button>
-        <div className="flex items-center gap-1 animate-in fade-in duration-500">
-          <button 
-            onClick={(e) => { e.stopPropagation(); if (confirm("Actualiser la bibliothèque ?")) resetLibrary(); }}
-            data-tooltip="Actualiser"
-            className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-teal-600 transition-all rounded-lg hover:bg-teal-50 dark:hover:bg-teal-900/20 active:scale-95 tooltip-bottom"
-          >
-            <RefreshCw className={`w-3 h-3 ${isPending ? 'animate-spin' : ''}`} />
-          </button>
-          <button 
-            onClick={toggleSidebar} 
-            data-tooltip={t.tooltip_close}
-            className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-red-500 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 active:scale-95 tooltip-bottom"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
+        <div className="flex items-center gap-1">
+          <button onClick={(e) => { e.stopPropagation(); if (confirm("Actualiser ?")) resetLibrary(); }} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-teal-600 transition-all active:scale-95"><RefreshCw className={`w-3 h-3 ${isPending ? 'animate-spin' : ''}`} /></button>
+          <button onClick={toggleSidebar} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-red-500 transition-all active:scale-95"><X className="w-3.5 h-3.5" /></button>
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col overflow-hidden animate-in fade-in duration-700">
-        <div className="p-4 space-y-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-zinc-950/60 transition-colors duration-500">
-          <div className="relative group/search-input flex items-center">
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="p-4 space-y-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-zinc-950/60">
+          <div className="relative flex items-center">
             <input
               type="text"
-              placeholder={isFullTextSearch ? "Chercher partout..." : t.search_placeholder}
-              className={`w-full pl-9 pr-12 py-2.5 bg-white dark:bg-zinc-900 border rounded-xl text-xs font-bold text-slate-950 dark:text-white focus:outline-none focus:ring-4 transition-all shadow-sm ${
-                isFullTextSearch 
-                  ? 'border-teal-600 dark:border-teal-500 focus:ring-teal-600/10' 
-                  : 'border-slate-200 dark:border-zinc-700/60 focus:border-teal-500 focus:ring-teal-500/10'
-              }`}
+              placeholder={isFullTextSearch ? "Recherche intégrale..." : t.search_placeholder}
+              className={`w-full pl-9 pr-12 py-2.5 bg-white dark:bg-zinc-900 border rounded-xl text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:ring-4 transition-all shadow-sm ${isFullTextSearch ? 'border-teal-600 dark:border-teal-500 focus:ring-teal-600/10' : 'border-slate-200 dark:border-zinc-700/60 focus:border-teal-500 focus:ring-teal-500/10'}`}
               value={internalQuery}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
             />
-            <Search className={`absolute left-3 w-3.5 h-3.5 transition-all duration-300 ease-out group-hover/search-input:scale-110 group-hover/search-input:rotate-[-10deg] ${isFullTextSearch ? 'text-teal-600' : 'text-slate-400'}`} />
-            
+            <Search className={`absolute left-3 w-3.5 h-3.5 ${isFullTextSearch ? 'text-teal-600' : 'text-slate-400'}`} />
             <div className="absolute right-1.5 flex items-center gap-1">
-              {internalQuery && (
-                <button 
-                  onClick={() => { setInternalQuery(''); updateSearchQuery(''); useAppStore.getState().setSearchResults([]); }}
-                  data-tooltip="Effacer"
-                  className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all animate-in zoom-in-90 tooltip-bottom"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-              {isFullTextSearch && (
-                <button 
-                  onClick={triggerSearch}
-                  disabled={isSearching}
-                  data-tooltip="Lancer la recherche intégrale"
-                  className="w-8 h-8 flex items-center justify-center bg-teal-600 text-white rounded-lg hover:bg-teal-700 active:scale-90 transition-all shadow-lg shadow-teal-600/20 disabled:opacity-50 tooltip-bottom group/search-btn"
-                >
-                  {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4 transition-all duration-300 group-hover/search-btn:translate-x-0.5" />}
-                </button>
-              )}
+              {internalQuery && <button onClick={() => { setInternalQuery(''); updateSearchQuery(''); useAppStore.getState().setSearchResults([]); }} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-red-500"><X className="w-4 h-4" /></button>}
+              {isFullTextSearch && <button onClick={triggerSearch} disabled={isSearching} className="w-8 h-8 flex items-center justify-center bg-teal-600 text-white rounded-lg hover:bg-teal-700 shadow-lg shadow-teal-600/20 active:scale-90">{isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}</button>}
             </div>
           </div>
 
           <div className="flex items-center justify-between gap-2 px-1">
-            <div 
-              onClick={() => setIsFullTextSearch(!isFullTextSearch)}
-              data-tooltip="Activer/Désactiver la recherche intégrale"
-              className="flex items-center gap-2.5 cursor-pointer group/toggle select-none tooltip-right"
-            >
-              <div className={`relative w-8 h-4.5 rounded-full transition-all duration-500 flex items-center px-0.5 ${isFullTextSearch ? 'bg-teal-600 shadow-lg shadow-teal-600/20' : 'bg-slate-200 dark:bg-zinc-700 shadow-inner'}`}>
-                <div className={`w-3.5 h-3.5 bg-white rounded-full shadow-md transition-all duration-500 transform ${isFullTextSearch ? 'translate-x-3.5 scale-100' : 'translate-x-0 scale-90'}`} />
+            <div onClick={() => setIsFullTextSearch(!isFullTextSearch)} className="flex items-center gap-2.5 cursor-pointer group select-none">
+              <div className={`relative w-8 h-4.5 rounded-full transition-all flex items-center px-0.5 ${isFullTextSearch ? 'bg-teal-600 shadow-lg shadow-teal-600/20' : 'bg-slate-200 dark:bg-zinc-700 shadow-inner'}`}>
+                <div className={`w-3.5 h-3.5 bg-white rounded-full shadow-md transition-all transform ${isFullTextSearch ? 'translate-x-3.5 scale-100' : 'translate-x-0 scale-90'}`} />
               </div>
-              <span className={`text-[9px] font-black uppercase tracking-widest transition-colors duration-500 ${isFullTextSearch ? 'text-teal-600' : 'text-slate-400 dark:text-zinc-500'}`}>
+              <span className={`text-[9px] font-black uppercase tracking-widest ${isFullTextSearch ? 'text-teal-600' : 'text-slate-400 dark:text-zinc-500'}`}>
                 {t.full_text_search}
               </span>
             </div>
 
             <div className="flex items-center gap-2">
-              <button 
-                onClick={() => setShowFilters(!showFilters)}
-                className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl border text-[8px] font-black uppercase tracking-widest transition-all duration-300 ease-out tooltip-left group/filter-btn active:scale-95 ${
-                  showFilters || activeFiltersCount > 0
-                    ? 'bg-teal-600 text-white border-teal-600 shadow-xl shadow-teal-600/20'
-                    : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-500 hover:border-teal-500/50 hover:bg-teal-50/30 shadow-sm'
-                }`}
-              >
-                <Filter className={`w-2.5 h-2.5 transition-all duration-300 ease-out group-hover/filter-btn:rotate-[15deg] group-hover/filter-btn:scale-110 ${showFilters ? 'rotate-180' : ''}`} />
+              {isFullTextSearch && (
+                  <button 
+                    onClick={() => setIncludeSynonyms(!includeSynonyms)}
+                    className={`flex items-center gap-2 px-3 h-8 rounded-lg border transition-all active:scale-95 shadow-sm ${includeSynonyms ? 'bg-amber-600 border-amber-600 text-white' : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-400'}`}
+                  >
+                    <Layers className="w-3 h-3" />
+                    <span className="text-[8px] font-black uppercase tracking-widest">Synonymes</span>
+                  </button>
+              )}
+              <button onClick={() => setShowFilters(!showFilters)} className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl border text-[8px] font-black uppercase tracking-widest transition-all ${showFilters || activeFiltersCount > 0 ? 'bg-teal-600 text-white border-teal-600 shadow-xl shadow-teal-600/20' : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-500'}`}>
+                <Filter className="w-2.5 h-2.5" />
                 <span>Filtres</span>
               </button>
             </div>
           </div>
 
+          {isFullTextSearch && includeSynonyms && activeSynonyms.length > 0 && (
+             <div className="flex flex-col gap-3 p-3 bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-800/30 rounded-xl animate-in slide-in-from-top-2 duration-300">
+                <div className="flex items-center justify-between">
+                   <div className="flex items-center gap-1.5">
+                     <Sparkles className="w-3 h-3 text-amber-600" />
+                     <span className="text-[8px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-500">Filtrage des segments</span>
+                   </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => { setShowOnlyQuery(!showOnlyQuery); if(!showOnlyQuery) setShowOnlySynonyms(false); }}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg border transition-all active:scale-95 ${showOnlyQuery ? 'bg-amber-600 border-amber-600 text-white shadow-md' : 'bg-white dark:bg-zinc-800 border-amber-200 dark:border-amber-800 text-amber-600'}`}
+                    >
+                        <Type className="w-3 h-3" />
+                        <span className="text-[8px] font-black uppercase tracking-widest">Mot Strict</span>
+                    </button>
+                    <button 
+                      onClick={() => { setShowOnlySynonyms(!showOnlySynonyms); if(!showOnlySynonyms) setShowOnlyQuery(false); }}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg border transition-all active:scale-95 ${showOnlySynonyms ? 'bg-teal-600 border-teal-600 text-white shadow-md' : 'bg-white dark:bg-zinc-800 border-teal-200 dark:border-teal-800 text-teal-600'}`}
+                    >
+                        <Layers className="w-3 h-3" />
+                        <span className="text-[8px] font-black uppercase tracking-widest">Synonymes</span>
+                    </button>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5 max-h-[60px] overflow-y-auto custom-scrollbar pt-1">
+                   {activeSynonyms.map(s => {
+                     const isActive = selectedSynonym === s;
+                     return (
+                       <button 
+                        key={s} 
+                        onClick={() => handleSynonymClick(s)}
+                        className={`text-[8px] font-bold px-2 py-1 rounded-md border transition-all active:scale-90 shadow-sm ${
+                          isActive 
+                            ? 'bg-teal-600 text-white border-teal-600 ring-2 ring-teal-600/30 animate-pulse' 
+                            : 'bg-white/80 dark:bg-zinc-800/80 border-amber-100 dark:border-amber-900/50 text-amber-800 dark:text-amber-400 hover:bg-amber-600 hover:text-white hover:border-amber-600'
+                        }`}
+                       >
+                          {s}
+                       </button>
+                     );
+                   })}
+                </div>
+             </div>
+          )}
+
           {isFullTextSearch && (
-            <div className="flex items-stretch gap-1 bg-white dark:bg-zinc-900/30 p-1.5 rounded-xl animate-in slide-in-from-top-1 duration-300 border border-slate-200/40 dark:border-zinc-700/40 shadow-inner">
-              <SearchModeButton mode={SearchMode.EXACT_PHRASE} label={t.search_mode_exact_phrase} tooltip={t.search_mode_exact_phrase} currentMode={searchMode} setMode={setSearchMode} />
-              <SearchModeButton mode={SearchMode.DIVERSE} label={t.search_mode_diverse} tooltip={t.search_mode_diverse} currentMode={searchMode} setMode={setSearchMode} />
-              <SearchModeButton mode={SearchMode.EXACT_WORDS} label={t.search_mode_exact_words} tooltip={t.search_mode_exact_words} currentMode={searchMode} setMode={setSearchMode} />
+            <div className="flex items-stretch gap-1 bg-white dark:bg-zinc-900/30 p-1 rounded-xl border border-slate-200/40 dark:border-zinc-700/40 shadow-inner">
+              <SearchModeButton mode={SearchMode.EXACT_PHRASE} label="PHRASE" tooltip="Recherche exacte" currentMode={searchMode} setMode={setSearchMode} />
+              <SearchModeButton mode={SearchMode.DIVERSE} label="LARGES" tooltip="Au moins un mot" currentMode={searchMode} setMode={setSearchMode} />
+              <SearchModeButton mode={SearchMode.EXACT_WORDS} label="STRICTS" tooltip="Tous les mots" currentMode={searchMode} setMode={setSearchMode} />
             </div>
           )}
 
           {showFilters && (
-            <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-200 dark:border-zinc-700/50 animate-in slide-in-from-top-1 duration-300">
+            <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-200 dark:border-zinc-700/50">
               <ModernDropdown value={yearFilter} onChange={setYearFilter} options={dynamicYears} placeholder={t.filter_year} />
               <ModernDropdown value={monthFilter} onChange={setMonthFilter} options={dynamicMonths} placeholder={t.filter_month} displayValue={getMonthName} />
               <ModernDropdown value={dayFilter} onChange={setDayFilter} options={dynamicDays} placeholder={t.filter_day} />
@@ -566,11 +592,7 @@ const Sidebar: React.FC = () => {
           )}
         </div>
 
-        <div 
-          ref={scrollContainerRef}
-          onScroll={handleScroll}
-          className="flex-1 overflow-y-auto custom-scrollbar relative bg-white dark:bg-zinc-900"
-        >
+        <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto custom-scrollbar relative bg-white dark:bg-zinc-900">
           {isSearching ? (
             <div className="p-20 flex flex-col items-center justify-center gap-4 text-teal-600 animate-pulse">
                 <Loader2 className="w-8 h-8 animate-spin" />
@@ -586,38 +608,21 @@ const Sidebar: React.FC = () => {
                 {visibleItems.map((item, idx) => {
                   if (isFullTextSearch && searchResults.length > 0) {
                     const res = item as SearchResult;
-                    return (
-                      <SearchResultItem 
-                        key={res.paragraphId}
-                        result={res}
-                        isSelected={selectedSermonId === res.sermonId && useAppStore.getState().jumpToParagraph === res.paragraphIndex}
-                        onSelect={() => handleResultClick(res)}
-                        onAddToNotes={(e) => handleAddToNotes(e, res)}
-                      />
-                    );
+                    return <SearchResultItem key={res.paragraphId} result={res} isSelected={selectedSermonId === res.sermonId && useAppStore.getState().jumpToParagraph === res.paragraphIndex} onSelect={() => handleResultClick(res)} onAddToNotes={(e) => handleAddToNotes(e, res)} />;
                   }
                   const s = item as Omit<Sermon, 'text'>;
-                  return (
-                    <SermonItem 
-                      key={s.id}
-                      sermon={s}
-                      isSelected={selectedSermonId === s.id}
-                      isContextSelected={manualContextIds.includes(s.id)}
-                      onSelect={(multi) => setSelectedSermonId(s.id, multi)}
-                      onToggleContext={(multi) => toggleContextSermon(s.id, multi)}
-                    />
-                  );
+                  return <SermonItem key={s.id} sermon={s} isSelected={selectedSermonId === s.id} isContextSelected={manualContextIds.includes(s.id)} onSelect={(multi) => setSelectedSermonId(s.id, multi)} onToggleContext={(multi) => toggleContextSermon(s.id, multi)} />;
                 })}
               </div>
             </div>
           )}
         </div>
         
-        <div className={`border-t border-slate-200 dark:border-slate-800/50 bg-slate-50/60 dark:bg-zinc-950/60 no-print group/footer transition-all duration-500 shrink-0 relative ${isFooterVisible ? 'py-6 px-4' : 'py-2 px-4'}`}>
+        <div className={`border-t border-slate-200 dark:border-slate-800/50 bg-slate-50/60 dark:bg-zinc-950/60 transition-all shrink-0 relative ${isFooterVisible ? 'py-6 px-4' : 'py-2 px-4'}`}>
           <button onClick={() => setIsFooterVisible(!isFooterVisible)} className="absolute -top-3 left-1/2 -translate-x-1/2 w-6 h-6 flex items-center justify-center bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-full text-zinc-400 hover:text-teal-600 shadow-sm transition-all z-[60] active:scale-90">
             {isFooterVisible ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
           </button>
-          <div className="flex items-center justify-center animate-in fade-in duration-500">
+          <div className="flex items-center justify-center">
              <p className="text-[8px] font-black text-zinc-400 uppercase tracking-[0.2em] text-center leading-none">
                 KSW V 1.0.3 © <span className="text-teal-600 dark:text-blue-400">VISION DE L'AIGLE TABERNACLE</span>
              </p>
@@ -627,5 +632,8 @@ const Sidebar: React.FC = () => {
     </div>
   );
 };
+
+// Variable persistante pour mémoriser le scroll de recherche
+let savedSearchScrollTop = 0;
 
 export default Sidebar;

@@ -48,6 +48,7 @@ interface AppState {
   showOnlySynonyms: boolean;
   showOnlyQuery: boolean;
   activeSynonyms: string[];
+  selectedSynonym: string | null;
   cityFilter: string | null;
   yearFilter: string | null;
   monthFilter: string | null;
@@ -87,6 +88,7 @@ interface AppState {
   setShowOnlySynonyms: (active: boolean) => void;
   setShowOnlyQuery: (active: boolean) => void;
   setActiveSynonyms: (syns: string[]) => void;
+  setSelectedSynonym: (syn: string | null) => void;
   addNotification: (message: string, type: 'success' | 'error') => void;
   removeNotification: (id: string) => void;
   setActiveNoteId: (id: string | null) => void;
@@ -152,6 +154,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   showOnlySynonyms: false,
   showOnlyQuery: false,
   activeSynonyms: [],
+  selectedSynonym: null,
   cityFilter: null,
   yearFilter: null,
   monthFilter: null,
@@ -343,7 +346,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  setSearchQuery: (query) => set({ searchQuery: query, lastSearchQuery: query }),
+  setSearchQuery: (query) => set({ searchQuery: query, lastSearchQuery: query, selectedSynonym: null }),
   setSearchMode: (mode) => set({ searchMode: mode, lastSearchMode: mode }),
   setSearchResults: (results) => set({ searchResults: results }),
   setIsSearching: (val) => set({ isSearching: val }),
@@ -368,7 +371,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         await get().setSelectedSermonId(first.sermonId);
         get().setJumpToParagraph(first.paragraphIndex);
       } else {
-        get().addNotification("Aucun segment trouvé pour cette recherche.", "error");
+        get().addNotification("Aucun segment trouvé.", "error");
       }
     } catch (error) {
       console.error("Search failed:", error);
@@ -377,11 +380,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  setIsFullTextSearch: (active) => set({ isFullTextSearch: active, searchResults: [] }),
-  setIncludeSynonyms: (active) => set({ includeSynonyms: active, showOnlySynonyms: false, showOnlyQuery: false }),
-  setShowOnlySynonyms: (active) => set({ showOnlySynonyms: active, showOnlyQuery: active ? false : get().showOnlyQuery }),
-  setShowOnlyQuery: (active) => set({ showOnlyQuery: active, showOnlySynonyms: active ? false : get().showOnlySynonyms }),
+  setIsFullTextSearch: (active) => set({ isFullTextSearch: active, searchResults: [], selectedSynonym: null }),
+  setIncludeSynonyms: (active) => set({ includeSynonyms: active, showOnlySynonyms: false, showOnlyQuery: false, selectedSynonym: null }),
+  setShowOnlySynonyms: (active) => set({ showOnlySynonyms: active, showOnlyQuery: active ? false : get().showOnlyQuery, selectedSynonym: null }),
+  setShowOnlyQuery: (active) => set({ showOnlyQuery: active, showOnlySynonyms: active ? false : get().showOnlySynonyms, selectedSynonym: null }),
   setActiveSynonyms: (syns) => set({ activeSynonyms: syns }),
+  setSelectedSynonym: (syn) => set({ selectedSynonym: syn }),
   addNotification: (message, type) => set(state => ({
     notifications: [{ id: crypto.randomUUID(), message, type }, ...state.notifications]
   })),
