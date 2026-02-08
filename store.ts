@@ -353,12 +353,17 @@ export const useAppStore = create<AppState>((set, get) => ({
   setIsSearching: (val) => set({ isSearching: val }),
   
   triggerSearch: async () => {
-    const { searchQuery, searchMode, isSearching, audioFilter } = get();
+    const { searchQuery, searchMode, isSearching } = get();
     if (isSearching || searchQuery.trim().length < 2) return;
     
+    // Étape 1 : Mettre à jour l'état de chargement immédiatement pour que React l'affiche
     set({ isSearching: true, searchResults: [] });
+
+    // Étape 2 : Micro-délai pour laisser le temps au thread UI de "peindre" le loader
+    // Cela évite l'effet de gel instantané lors du calcul lourd
+    await new Promise(resolve => setTimeout(resolve, 50));
+
     try {
-      // Les filtres sont récupérés à l'intérieur de searchSermons depuis le store
       const results = await searchSermons({
         query: searchQuery,
         mode: searchMode,

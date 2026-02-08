@@ -654,9 +654,15 @@ const Sidebar: React.FC = () => {
 
         <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto custom-scrollbar relative bg-white dark:bg-zinc-900">
           {isSearching ? (
-            <div className="p-20 flex flex-col items-center justify-center gap-4 text-teal-600 animate-pulse">
-                <Loader2 className="w-8 h-8 animate-spin" />
-                <span className="text-[10px] font-black uppercase tracking-[0.3em]">Exploration...</span>
+            <div className="p-20 flex flex-col items-center justify-center gap-6 text-teal-600">
+                <div className="relative">
+                   <div className="absolute inset-0 bg-teal-500/20 blur-xl rounded-full animate-pulse" />
+                   <Loader2 className="w-10 h-10 animate-spin relative z-10" />
+                </div>
+                <div className="flex flex-col items-center gap-1">
+                   <span className="text-[11px] font-black uppercase tracking-[0.4em] animate-pulse">Exploration</span>
+                   <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Analyse de la bibliothèque...</span>
+                </div>
             </div>
           ) : displayList.length === 0 ? (
             <div className="p-12 text-center text-slate-400 text-[10px] font-black uppercase tracking-[0.3em] opacity-30">
