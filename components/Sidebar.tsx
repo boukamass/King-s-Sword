@@ -18,16 +18,12 @@ import {
   Loader2,
   RefreshCw,
   Calendar,
-  Library,
-  Info,
-  RotateCcw,
   Clock,
-  BookOpen,
   Hash,
   NotebookPen,
   Layers,
   Type,
-  ToggleRight
+  Plus
 } from 'lucide-react';
 
 const ITEM_HEIGHT = 80; 
@@ -205,6 +201,7 @@ const SearchResultItem = memo(({
             {result.title}
           </span>
           <div className="flex items-center gap-1.5">
+            {result.audio_url && <Headphones className="w-2.5 h-2.5 text-teal-500" />}
             <span className="text-[7px] font-mono text-zinc-400 font-bold">{result.date}</span>
             <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-[7px] font-black text-zinc-500">
                <Hash className="w-2 h-2 text-teal-500/50" />
@@ -299,6 +296,7 @@ const Sidebar: React.FC = () => {
   const audioFilter = useAppStore(s => s.audioFilter);
   const setAudioFilter = useAppStore(s => s.setAudioFilter);
   const resetFilters = useAppStore(s => s.resetFilters);
+  const addNotification = useAppStore(s => s.addNotification);
   
   const sidebarOpen = useAppStore(s => s.sidebarOpen);
   const toggleSidebar = useAppStore(s => s.toggleSidebar);
@@ -319,12 +317,11 @@ const Sidebar: React.FC = () => {
 
   const currentItemHeight = (isFullTextSearch && searchResults.length > 0) ? SEARCH_ITEM_HEIGHT : ITEM_HEIGHT;
 
-  // Effet pour redéclencher la recherche intégrale dès qu'un filtre change
   useEffect(() => {
     if (isFullTextSearch && searchQuery.trim().length >= 2) {
       triggerSearch();
     }
-  }, [yearFilter, monthFilter, dayFilter, cityFilter, versionFilter, triggerSearch, isFullTextSearch]);
+  }, [yearFilter, monthFilter, dayFilter, cityFilter, versionFilter, audioFilter, triggerSearch, isFullTextSearch]);
 
   useEffect(() => {
     if (!scrollContainerRef.current) return;
@@ -384,7 +381,7 @@ const Sidebar: React.FC = () => {
 
   useEffect(() => { setInternalQuery(searchQuery); }, [searchQuery]);
 
-  const activeFiltersCount = [yearFilter, monthFilter, dayFilter, cityFilter, versionFilter, timeFilter, audioFilter].filter(f => f === true || (typeof f === 'string' && f !== null)).length;
+  const activeFiltersCount = [yearFilter, monthFilter, dayFilter, cityFilter, versionFilter, timeFilter].filter(f => typeof f === 'string' && f !== null).length;
 
   const filteredSermons = useMemo(() => {
     const q = isFullTextSearch ? "" : normalizeText(deferredSearchQuery);
@@ -422,7 +419,6 @@ const Sidebar: React.FC = () => {
   const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter') triggerSearch(); };
 
   const handleResultClick = async (res: SearchResult) => {
-    // Sauvegarder la position actuelle avant que le composant ne soit démonté
     savedSearchScrollTop = scrollTop;
     await setSelectedSermonId(res.sermonId);
     setJumpToParagraph(res.paragraphIndex);
@@ -439,14 +435,37 @@ const Sidebar: React.FC = () => {
   };
 
   const handleSynonymClick = (syn: string) => {
-    // Si déjà sélectionné, on déselectionne. Sinon on sélectionne.
     const newVal = selectedSynonym === syn ? null : syn;
     setSelectedSynonym(newVal);
+    setTimeout(() => { triggerSearch(); }, 50);
+  };
+
+  const currentItemsForDock = useMemo(() => {
+    if (isFullTextSearch && searchResults.length > 0) {
+      const ids = new Set(searchResults.map(r => r.sermonId));
+      return Array.from(ids);
+    }
+    return filteredSermons.map(s => s.id);
+  }, [isFullTextSearch, searchResults, filteredSermons]);
+
+  const areAllItemsInDock = useMemo(() => {
+    if (currentItemsForDock.length === 0) return false;
+    return currentItemsForDock.every(id => manualContextIds.includes(id));
+  }, [currentItemsForDock, manualContextIds]);
+
+  const handleToggleAllToContext = () => {
+    if (currentItemsForDock.length === 0) return;
     
-    // Déclencher la recherche avec le nouvel état
-    setTimeout(() => {
-        triggerSearch();
-    }, 50);
+    if (areAllItemsInDock) {
+      const currentIdsSet = new Set(currentItemsForDock);
+      const newManual = manualContextIds.filter(id => !currentIdsSet.has(id));
+      setManualContextIds(newManual);
+      addNotification(`${currentItemsForDock.length} sermons retirés du dock IA`, 'success');
+    } else {
+      const newManual = Array.from(new Set([...manualContextIds, ...currentItemsForDock]));
+      setManualContextIds(newManual);
+      addNotification(`${currentItemsForDock.length} sermons ajoutés au dock IA`, 'success');
+    }
   };
 
   if (!sidebarOpen) return null;
@@ -510,6 +529,26 @@ const Sidebar: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2">
+                <button 
+                  onClick={handleToggleAllToContext}
+                  data-tooltip={areAllItemsInDock ? "Tout retirer du dock IA" : "Tout ajouter au dock IA"}
+                  className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-all active:scale-95 shadow-sm tooltip-bottom ${
+                    areAllItemsInDock 
+                      ? 'bg-amber-500 border-amber-600 text-white shadow-amber-500/20' 
+                      : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-teal-600 hover:bg-teal-50 dark:hover:bg-zinc-700'
+                  }`}
+                >
+                  <Sparkles className={`w-4 h-4 ${areAllItemsInDock ? 'animate-pulse' : ''}`} />
+                </button>
+                <button 
+                  onClick={() => setAudioFilter(!audioFilter)}
+                  data-tooltip={audioFilter ? "Afficher tous les sermons" : "Sermons avec audio uniquement"}
+                  className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-all active:scale-95 shadow-sm tooltip-bottom ${
+                    audioFilter ? 'bg-teal-600 border-teal-600 text-white shadow-teal-600/20' : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-400'
+                  }`}
+                >
+                  <Headphones className="w-4 h-4" />
+                </button>
               {isFullTextSearch && (
                   <button 
                     onClick={() => setIncludeSynonyms(!includeSynonyms)}
@@ -618,22 +657,41 @@ const Sidebar: React.FC = () => {
           )}
         </div>
         
-        <div className={`border-t border-slate-200 dark:border-slate-800/50 bg-slate-50/60 dark:bg-zinc-950/60 transition-all shrink-0 relative ${isFooterVisible ? 'py-6 px-4' : 'py-2 px-4'}`}>
+        <div className={`border-t border-slate-200 dark:border-slate-800/50 bg-slate-50/60 dark:bg-zinc-950/60 transition-all shrink-0 relative ${isFooterVisible ? 'pt-5 pb-3 px-4' : 'py-2 px-4'}`}>
           <button onClick={() => setIsFooterVisible(!isFooterVisible)} className="absolute -top-3 left-1/2 -translate-x-1/2 w-6 h-6 flex items-center justify-center bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-full text-zinc-400 hover:text-teal-600 shadow-sm transition-all z-[60] active:scale-90">
             {isFooterVisible ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
           </button>
-          <div className="flex items-center justify-center">
-             <p className="text-[8px] font-black text-zinc-400 uppercase tracking-[0.2em] text-center leading-none">
-                KSW V 1.0.3 © <span className="text-teal-600 dark:text-blue-400">VISION DE L'AIGLE TABERNACLE</span>
-             </p>
-          </div>
+          
+          {isFooterVisible ? (
+            <div className="flex flex-col items-center text-center space-y-1.5 animate-in fade-in slide-in-from-bottom-2 duration-500">
+               <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-7 h-7 grayscale opacity-50 mb-1" />
+               <div className="leading-tight">
+                  <p className="text-[9px] font-black text-zinc-800 dark:text-zinc-200 uppercase tracking-widest hover:text-teal-600 cursor-default transition-colors">King's Sword</p>
+                  <p className="text-[7px] font-bold text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 uppercase tracking-widest transition-colors">Logiciel d'étude du message par W.M.BRANHAM</p>
+               </div>
+               <div className="flex flex-col gap-0.5 pt-1">
+                  <p className="text-[7px] font-black text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 uppercase tracking-widest transition-colors">Développé par <span className="text-teal-600 dark:text-teal-400">Bienvenu Sédin Massamba</span></p>
+                  <p className="text-[7px] font-black text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 uppercase transition-colors">Vision de l'Aigle Tabernacle, Koufoli, PNR, CCongo</p>
+               </div>
+               <div className="pt-1.5 border-t border-zinc-200 dark:border-zinc-800 w-full">
+                  <p className="text-[7px] font-black text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 uppercase tracking-[0.15em] transition-colors">
+                     KSW 1.0.3 © {new Date().getFullYear()} Tous droits réservés
+                  </p>
+               </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center">
+               <p className="text-[8px] font-black text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 uppercase tracking-[0.2em] text-center leading-none transition-colors">
+                  KSW V 1.0.3 © <span className="text-teal-600 dark:text-blue-400">VISION DE L'AIGLE</span>
+               </p>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 };
 
-// Variable persistante pour mémoriser le scroll de recherche
 let savedSearchScrollTop = 0;
 
 export default Sidebar;

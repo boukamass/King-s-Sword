@@ -22,6 +22,7 @@ export interface SearchResult {
   city: string;
   paragraphIndex: number;
   snippet?: string;
+  audio_url?: string;
 }
 
 interface AppState {
@@ -352,11 +353,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   setIsSearching: (val) => set({ isSearching: val }),
   
   triggerSearch: async () => {
-    const { searchQuery, searchMode, isSearching } = get();
+    const { searchQuery, searchMode, isSearching, audioFilter } = get();
     if (isSearching || searchQuery.trim().length < 2) return;
     
     set({ isSearching: true, searchResults: [] });
     try {
+      // Les filtres sont récupérés à l'intérieur de searchSermons depuis le store
       const results = await searchSermons({
         query: searchQuery,
         mode: searchMode,

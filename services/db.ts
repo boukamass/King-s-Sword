@@ -60,13 +60,13 @@ const webSearchFallback = async (params: {
     day: string | null;
     city: string | null;
     version: string | null;
+    audio: boolean;
   }
 }): Promise<any[]> => {
   const store = useAppStore.getState();
   const sermonsMap = store.sermonsMap;
   const results: any[] = [];
   
-  // Si un synonyme est sélectionné, on utilise CELUI-CI comme base de recherche principale
   const activeTerm = params.selectedSynonym || params.query.trim();
   const query = activeTerm.toLowerCase();
   
@@ -78,10 +78,8 @@ const webSearchFallback = async (params: {
   const markClass = "bg-amber-400/40 dark:bg-amber-500/40 text-amber-950 dark:text-white font-bold px-0.5 rounded-sm shadow-sm border-b-2 border-amber-600/30";
   const synonymMarkClass = "bg-teal-400/40 dark:bg-teal-500/40 text-teal-950 dark:text-white font-bold px-0.5 rounded-sm shadow-sm border-b-2 border-teal-600/30";
   
-  // Highlighting logic
   let regexSource = "";
   if (params.selectedSynonym) {
-      // Si un synonyme spécifique est coché, on ne surligne que lui en priorité (en Teal)
       regexSource = params.selectedSynonym;
   } else if (params.synonyms && params.synonyms.length > 0) {
     if (params.showOnlySynonyms) {
@@ -96,21 +94,20 @@ const webSearchFallback = async (params: {
   }
 
   const highlightRegex = getMultiWordHighlightRegex(regexSource);
-  const normalizedActiveTerm = normalizeText(query);
   const synonymWords = (params.synonyms && !params.showOnlyQuery) ? params.synonyms.map(s => normalizeText(s)).filter(w => w.length > 0) : [];
 
   for (let idx = 0; idx < allSermons.length; idx++) {
     const s = allSermons[idx];
     if (!s.text) continue;
 
-    // Apply metadata filters
     if (params.filters) {
-      const { year, month, day, city, version } = params.filters;
+      const { year, month, day, city, version, audio } = params.filters;
       if (year && (!s.date || !s.date.startsWith(year))) continue;
       if (month && (!s.date || s.date.substring(5, 7) !== month)) continue;
       if (day && (!s.date || s.date.substring(8, 10) !== day)) continue;
       if (city && s.city !== city) continue;
       if (version && s.version !== version) continue;
+      if (audio && !s.audio_url) continue;
     }
     
     if (idx > 0 && idx % 30 === 0) await new Promise(r => setTimeout(r, 0));
@@ -124,7 +121,6 @@ const webSearchFallback = async (params: {
       let matchFound = false;
       
       if (params.selectedSynonym) {
-          // Filtrage EXCLUSIF sur le synonyme sélectionné
           matchFound = normalizedContent.includes(normalizeText(params.selectedSynonym));
       } else if (synonymWords.length > 0 && !params.showOnlyQuery) {
         const queryMatch = normalizedContent.includes(normalizeText(params.query));
@@ -153,7 +149,6 @@ const webSearchFallback = async (params: {
 
         if (matchExec) {
           const matchPos = matchExec.index;
-          // Optimisation : Centrage du snippet autour du mot-clé
           const windowStart = Math.max(0, matchPos - 200);
           const windowEnd = Math.min(content.length, matchPos + 500);
           snippetContent = content.substring(windowStart, windowEnd);
@@ -180,7 +175,8 @@ const webSearchFallback = async (params: {
           snippet: snippetHighlighted,
           title: s.title,
           date: s.date,
-          city: s.city
+          city: s.city,
+          audio_url: s.audio_url
         });
       }
     });
@@ -203,7 +199,8 @@ export const searchSermons = async (params: { query: string; mode: SearchMode; l
     month: store.monthFilter,
     day: store.dayFilter,
     city: store.cityFilter,
-    version: store.versionFilter
+    version: store.versionFilter,
+    audio: store.audioFilter
   };
   
   let synonyms: string[] = [];
@@ -226,7 +223,6 @@ export const searchSermons = async (params: { query: string; mode: SearchMode; l
 
   if (isElectron && isSqliteAvailable) {
     try {
-      // Pour SQLite, on modifie la requête FTS si un synonyme est sélectionné
       const results = await window.electronAPI.db.search(searchParams);
       if (results) return results;
     } catch (error) {

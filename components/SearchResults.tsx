@@ -3,14 +3,13 @@ import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
 import { useAppStore, SearchResult } from '../store';
 import { translations } from '../translations';
 import { SearchMode, Sermon } from '../types';
-import { FileText, Loader2, Calendar, Search, ChevronLeft, MapPin, Hash, NotebookPen, Sparkles, Layers, Type, BookOpenCheck } from 'lucide-react';
+import { FileText, Loader2, Calendar, Search, ChevronLeft, MapPin, Hash, NotebookPen, Sparkles, Layers, Type, BookOpenCheck, Headphones } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { searchSermons } from '../services/db';
 import NoteSelectorModal from './NoteSelectorModal';
 
 const RESULTS_PER_PAGE = 50;
 
-// Variables persistantes hors du cycle de vie du composant pour garder la position de scroll entre les montages
 let savedSearchScrollTopFull = 0;
 let lastSearchContext = "";
 
@@ -53,7 +52,6 @@ const SearchResultCard = memo(({
             isOpen ? 'border-teal-500/30 ring-1 ring-teal-500/10' : 'border-zinc-200/70 dark:border-zinc-800/70 hover:border-teal-500/40'
         }`}
     >
-        {/* Accent Bar */}
         <div className={`absolute top-0 left-0 w-2 h-full transition-all duration-500 ${
             isOpen ? 'bg-teal-600' : 'bg-teal-600/10 group-hover:bg-teal-600'
         }`} />
@@ -75,6 +73,12 @@ const SearchResultCard = memo(({
                           <span className="flex items-center gap-1 px-2.5 py-0.5 bg-teal-600/10 text-teal-600 rounded-full text-[8px] font-black uppercase tracking-wider border border-teal-600/20 whitespace-nowrap">
                             <BookOpenCheck className="w-3 h-3" />
                             Sermon ouvert
+                          </span>
+                        )}
+                        {result.audio_url && (
+                          <span className="flex items-center gap-1 px-2.5 py-0.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-full text-[8px] font-black uppercase tracking-wider border border-amber-500/20 whitespace-nowrap">
+                            <Headphones className="w-3 h-3" />
+                            Audio
                           </span>
                         )}
                       </div>
@@ -110,8 +114,6 @@ const SearchResultCard = memo(({
                 <div className="serif-text text-[16.5px] leading-[1.8] text-zinc-700 dark:text-zinc-200 pl-6 border-l-4 border-teal-600/20 group-hover:border-teal-600/40 transition-all duration-500 italic py-1">
                     <span dangerouslySetInnerHTML={{ __html: result.snippet || '' }} />
                 </div>
-                
-                {/* Visual quote indicator */}
                 <div className="absolute -left-2 -top-4 text-5xl text-teal-600/5 select-none font-serif rotate-12 opacity-50">"</div>
             </div>
         </div>
@@ -147,6 +149,7 @@ const SearchResults: React.FC = () => {
     dayFilter,
     cityFilter,
     versionFilter,
+    audioFilter,
     sidebarOpen,
     toggleSidebar
   } = useAppStore();
@@ -162,8 +165,7 @@ const SearchResults: React.FC = () => {
   const performSearch = useCallback(async (q: string, m: SearchMode, off: number) => {
     if (!q || q.length < 2) return;
     
-    // Inclure les filtres de métadonnées dans l'ID de recherche pour détecter les changements
-    const searchId = `${q}-${m}-${off}-${showOnlySynonyms}-${showOnlyQuery}-${includeSynonyms}-${selectedSynonym}-${yearFilter}-${monthFilter}-${dayFilter}-${cityFilter}-${versionFilter}`;
+    const searchId = `${q}-${m}-${off}-${showOnlySynonyms}-${showOnlyQuery}-${includeSynonyms}-${selectedSynonym}-${yearFilter}-${monthFilter}-${dayFilter}-${cityFilter}-${versionFilter}-${audioFilter}`;
     if (off === 0 && searchId === lastPerformedSearchRef.current && searchResults.length > 0) return;
     
     setIsSearching(true);
@@ -188,11 +190,10 @@ const SearchResults: React.FC = () => {
     } finally {
       setIsSearching(false);
     }
-  }, [setSearchResults, setIsSearching, showOnlySynonyms, showOnlyQuery, includeSynonyms, selectedSynonym, yearFilter, monthFilter, dayFilter, cityFilter, versionFilter, searchResults.length]);
+  }, [setSearchResults, setIsSearching, showOnlySynonyms, showOnlyQuery, includeSynonyms, selectedSynonym, yearFilter, monthFilter, dayFilter, cityFilter, versionFilter, audioFilter, searchResults.length]);
 
   useEffect(() => {
-    // Si les paramètres de recherche OU les filtres de métadonnées changent, on réinitialise
-    const currentSearchId = `${searchQuery}-${searchMode}-${showOnlySynonyms}-${showOnlyQuery}-${includeSynonyms}-${selectedSynonym}-${yearFilter}-${monthFilter}-${dayFilter}-${cityFilter}-${versionFilter}`;
+    const currentSearchId = `${searchQuery}-${searchMode}-${showOnlySynonyms}-${showOnlyQuery}-${includeSynonyms}-${selectedSynonym}-${yearFilter}-${monthFilter}-${dayFilter}-${cityFilter}-${versionFilter}-${audioFilter}`;
     if (currentSearchId !== lastSearchContext) {
       savedSearchScrollTopFull = 0;
       lastSearchContext = currentSearchId;
@@ -201,9 +202,8 @@ const SearchResults: React.FC = () => {
     setOffset(0);
     setHasMore(true);
     performSearch(searchQuery, searchMode, 0);
-  }, [searchQuery, searchMode, performSearch, showOnlySynonyms, showOnlyQuery, includeSynonyms, selectedSynonym, yearFilter, monthFilter, dayFilter, cityFilter, versionFilter]);
+  }, [searchQuery, searchMode, performSearch, showOnlySynonyms, showOnlyQuery, includeSynonyms, selectedSynonym, yearFilter, monthFilter, dayFilter, cityFilter, versionFilter, audioFilter]);
 
-  // Restaurer la position de scroll une fois les résultats chargés dans le DOM
   useEffect(() => {
     if (scrollContainerRef.current && savedSearchScrollTopFull > 0 && searchResults.length > 0) {
       requestAnimationFrame(() => {
@@ -385,15 +385,6 @@ const SearchResults: React.FC = () => {
         <div className="max-w-5xl mx-auto p-10 space-y-10 pb-32">
           {searchResults.length === 0 && isSearching ? (
              <div className="space-y-8 animate-in fade-in duration-300">
-                <div className="flex flex-col items-center justify-center py-10 gap-3">
-                   <div className="w-12 h-12 bg-teal-600/10 rounded-full flex items-center justify-center border border-teal-600/20">
-                      <Loader2 className="w-6 h-6 animate-spin text-teal-600" />
-                   </div>
-                   <div className="text-center">
-                      <p className="text-[10px] font-black uppercase tracking-[0.4em] text-teal-600 animate-pulse">Exploration des archives...</p>
-                      <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest mt-1">Recherche de "{searchQuery}" dans toute la collection</p>
-                   </div>
-                </div>
                 {[1, 2, 3].map(i => <SkeletonCard key={i} />)}
              </div>
           ) : searchResults.length === 0 && !isSearching ? (
@@ -417,10 +408,6 @@ const SearchResults: React.FC = () => {
               {isSearching && (
                 <div className="space-y-8 mt-8 animate-in fade-in duration-300">
                    {[1, 2].map(i => <SkeletonCard key={`more-${i}`} />)}
-                   <div className="py-10 flex flex-col items-center justify-center gap-4 text-teal-600 animate-pulse">
-                     <Loader2 className="w-8 h-8 animate-spin" />
-                     <span className="text-[10px] font-black uppercase tracking-[0.3em]">Chargement des segments suivants...</span>
-                   </div>
                 </div>
               )}
 

@@ -101,7 +101,7 @@ ipcMain.handle('db:isReady', () => db !== null);
 ipcMain.handle('db:getSermonsMetadata', () => {
   if (!db) return [];
   try {
-    return db.prepare('SELECT id, title, date, city, version FROM sermons ORDER BY date DESC').all();
+    return db.prepare('SELECT id, title, date, city, version, audio_url FROM sermons ORDER BY date DESC').all();
   } catch (e) {
     console.error("[DB] Metadata error:", e.message);
     return [];
@@ -156,7 +156,6 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0, synon
     const highlightOpen = '<mark class="bg-amber-400/40 dark:bg-amber-500/40 text-amber-950 dark:text-white font-bold px-0.5 rounded-sm shadow-sm border-b-2 border-amber-600/30">';
     const highlightClose = '</mark>';
     
-    // Dynamic Filter Clauses
     let filterClauses = '';
     const queryParams = [highlightOpen, highlightClose, ftsQuery];
 
@@ -180,6 +179,9 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0, synon
       filterClauses += ' AND s.version = ?';
       queryParams.push(filters.version);
     }
+    if (filters.audio) {
+      filterClauses += " AND s.audio_url IS NOT NULL AND s.audio_url != ''";
+    }
 
     queryParams.push(safeLimit, safeOffset);
 
@@ -189,7 +191,7 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0, synon
         f.sermon_id as sermonId, 
         f.paragraph_index as paragraphIndex, 
         snippet(paragraphs_fts, 0, ?, ?, '...', 128) as snippet,
-        s.title, s.date, s.city
+        s.title, s.date, s.city, s.audio_url
       FROM paragraphs_fts f
       INNER JOIN sermons s ON f.sermon_id = s.id
       WHERE paragraphs_fts MATCH ? 
