@@ -75,8 +75,9 @@ const webSearchFallback = async (params: {
   const allSermons = Array.from(sermonsMap.values()) as Sermon[];
   if (allSermons.length === 0) return [];
   
-  const markClass = "bg-amber-400/40 dark:bg-amber-500/40 text-amber-950 dark:text-white font-bold px-0.5 rounded-sm shadow-sm border-b-2 border-amber-600/30";
-  const synonymMarkClass = "bg-teal-400/40 dark:bg-teal-500/40 text-teal-950 dark:text-white font-bold px-0.5 rounded-sm shadow-sm border-b-2 border-teal-600/30";
+  // Style avec soulignement explicite (underline)
+  const markClass = "bg-amber-400/20 dark:bg-amber-500/20 text-amber-900 dark:text-amber-200 font-black px-0.5 rounded-sm underline decoration-amber-600 decoration-2 underline-offset-2";
+  const synonymMarkClass = "bg-teal-400/20 dark:bg-teal-500/20 text-teal-900 dark:text-teal-200 font-black px-0.5 rounded-sm underline decoration-teal-600 decoration-2 underline-offset-2";
   
   let regexSource = "";
   if (params.selectedSynonym) {

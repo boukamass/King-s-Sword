@@ -318,12 +318,13 @@ const App: React.FC = () => {
            </div>
            <div className="w-full space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-1000">
              <div className="relative">
+                <div className="flex justify-between items-end mb-2 px-1">
+                   <span className="text-[11px] font-black uppercase tracking-[0.3em] text-zinc-100">{loadingMessage || "Chargement..."}</span>
+                   <span className="text-[12px] font-black text-teal-500 font-mono tracking-tighter">{loadingProgress}%</span>
+                </div>
                 <div className="w-full h-2.5 bg-zinc-900 border border-zinc-800 rounded-full overflow-hidden shadow-inner">
                   <div className="h-full bg-gradient-to-r from-teal-600 to-teal-400 transition-all duration-700 ease-out" style={{ width: `${loadingProgress}%` }} />
                 </div>
-             </div>
-             <div className="flex flex-col items-center gap-3 text-center">
-                <span className="text-[11px] font-black uppercase tracking-[0.3em] text-zinc-100">{loadingMessage || "Chargement..."}</span>
              </div>
            </div>
         </div>

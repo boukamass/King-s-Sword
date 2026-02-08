@@ -153,7 +153,8 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0, synon
   const safeOffset = Number(offset) || 0;
 
   try {
-    const highlightOpen = '<mark class="bg-amber-400/40 dark:bg-amber-500/40 text-amber-950 dark:text-white font-bold px-0.5 rounded-sm shadow-sm border-b-2 border-amber-600/30">';
+    // Style avec soulignement explicite pour Electron
+    const highlightOpen = '<mark class="bg-amber-400/20 dark:bg-amber-500/20 text-amber-900 dark:text-amber-100 font-black px-0.5 rounded-sm underline decoration-amber-600 decoration-2 underline-offset-2">';
     const highlightClose = '</mark>';
     
     let filterClauses = '';
