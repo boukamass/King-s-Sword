@@ -73,10 +73,10 @@ const webSearchFallback = async (params: {
   const allSermons = Array.from(sermonsMap.values()) as Sermon[];
   if (allSermons.length === 0) return [];
   
-  // Styles CSS renforcés pour une visibilité maximale (Fond contrasté + soulignement épais)
-  const markBase = "font-black px-1 rounded-sm underline decoration-[3px] underline-offset-4 shadow-sm inline-block";
-  const markClass = `${markBase} bg-amber-400/40 dark:bg-amber-500/50 text-amber-950 dark:text-amber-50 decoration-amber-600 dark:decoration-amber-400`;
-  const synonymMarkClass = `${markBase} bg-teal-400/40 dark:bg-teal-500/50 text-teal-950 dark:text-teal-50 decoration-teal-600 dark:decoration-teal-400`;
+  // Styles CSS Ultra-Visibles
+  const markBase = "font-black px-1.5 py-0.5 rounded-md underline decoration-[3px] underline-offset-4 shadow-sm inline-block mx-0.5";
+  const markClass = `${markBase} bg-amber-500 text-white dark:bg-amber-600 decoration-amber-200`;
+  const synonymMarkClass = `${markBase} bg-teal-600 text-white dark:bg-teal-700 decoration-teal-200`;
   
   let regexSource = "";
   if (params.selectedSynonym) {
@@ -96,7 +96,14 @@ const webSearchFallback = async (params: {
   const highlightRegex = getMultiWordHighlightRegex(regexSource);
   const synonymWords = (params.synonyms && !params.showOnlyQuery) ? params.synonyms.map(s => normalizeText(s)).filter(w => w.length > 0) : [];
 
+  // Traitement par lots pour éviter de bloquer le thread principal
+  const BATCH_SIZE = 15; 
   for (let idx = 0; idx < allSermons.length; idx++) {
+    // Micro-pause tous les N sermons pour laisser l'UI se mettre à jour (spinner)
+    if (idx % BATCH_SIZE === 0 && idx > 0) {
+        await new Promise(resolve => setTimeout(resolve, 0));
+    }
+
     const s = allSermons[idx];
     if (!s.text) continue;
 
@@ -137,16 +144,17 @@ const webSearchFallback = async (params: {
         highlightRegex.lastIndex = 0;
         const matchExec = highlightRegex.exec(content);
 
+        // Fenêtrage centré sur le mot trouvé pour qu'il soit TOUJOURS visible
         if (matchExec) {
           const matchPos = matchExec.index;
-          // Fenêtrage intelligent : on prend environ 80 caractères avant et 220 après pour centrer
-          const windowStart = Math.max(0, matchPos - 80);
-          const windowEnd = Math.min(content.length, matchPos + 220);
+          const windowStart = Math.max(0, matchPos - 100);
+          const windowEnd = Math.min(content.length, matchPos + 300);
           snippetContent = content.substring(windowStart, windowEnd);
           if (windowStart > 0) snippetContent = '...' + snippetContent;
           if (windowEnd < content.length) snippetContent = snippetContent + '...';
         }
 
+        // Application du surlignage avec les classes CSS renforcées
         const snippetHighlighted = snippetContent.replace(highlightRegex, (m) => {
             const normalizedMatch = normalizeText(m);
             const isSpecificSynonymMatch = params.selectedSynonym && normalizedMatch.includes(normalizeText(params.selectedSynonym));

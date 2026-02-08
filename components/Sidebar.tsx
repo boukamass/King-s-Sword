@@ -685,23 +685,23 @@ const Sidebar: React.FC = () => {
         </div>
         
         {/* Footer Ultra Compact, Elégant et Non-intrusif */}
-        <div className={`border-t border-zinc-200/40 dark:border-zinc-800/60 bg-white/60 dark:bg-zinc-950/80 backdrop-blur-2xl transition-all duration-500 overflow-hidden flex flex-col shrink-0 relative ${isFooterExpanded ? 'py-4 px-4 h-auto' : 'py-2 px-4 h-[38px]'}`}>
+        <div className={`border-t border-zinc-200/40 dark:border-zinc-800/60 bg-white/60 dark:bg-zinc-950/80 backdrop-blur-2xl transition-all duration-500 overflow-hidden flex flex-col shrink-0 relative ${isFooterExpanded ? 'py-4 px-4 h-auto' : 'py-1 px-4 h-[26px]'}`}>
           
           {/* Poignée Chevron Centrée */}
           <button 
             onClick={() => setIsFooterExpanded(!isFooterExpanded)}
-            className="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-4 flex items-center justify-center text-zinc-300 dark:text-zinc-600 hover:text-teal-600 transition-all z-20"
+            className={`absolute left-1/2 -translate-x-1/2 w-10 h-4 flex items-center justify-center text-zinc-300 dark:text-zinc-600 hover:text-teal-600 transition-all z-20 ${isFooterExpanded ? 'top-0' : 'top-[-2px]'}`}
           >
-            {isFooterExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
+            {isFooterExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-2.5 h-2.5" />}
           </button>
 
           <div className="flex flex-col items-center text-center">
             {/* Mode Réduit : KSW 1.0.3 et Localisation uniquement, sans logo */}
             {!isFooterExpanded && (
               <div className="flex items-center justify-center gap-3 animate-in fade-in duration-500 mt-1">
-                <span className="text-[6.5px] font-black text-zinc-400/80 uppercase tracking-[0.2em]">KSW 1.0.3</span>
+                <span className="text-[6px] font-black text-zinc-400/80 uppercase tracking-[0.2em]">KSW 1.0.3</span>
                 <span className="w-0.5 h-0.5 bg-zinc-300 dark:bg-zinc-700 rounded-full" />
-                <span className="text-[6.5px] font-bold text-zinc-400/80 uppercase tracking-tight">Vision de l'Aigle Tabernacle, Koufoli, PNR, Congo</span>
+                <span className="text-[6px] font-bold text-zinc-400/80 uppercase tracking-tight">Vision de l'Aigle Tabernacle, Koufoli, PNR, Congo</span>
               </div>
             )}
 
