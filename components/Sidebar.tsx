@@ -189,41 +189,41 @@ const SearchResultItem = memo(({
       className="px-3 flex items-center relative border-b border-slate-200/60 dark:border-slate-800/40 last:border-0"
     >
       <div 
-        className={`group w-full flex flex-col gap-1.5 p-3 rounded-xl transition-all duration-300 cursor-pointer h-[115px] overflow-hidden ${
+        className={`group w-full flex flex-col gap-2 p-3 rounded-xl transition-all duration-300 cursor-pointer h-[115px] overflow-hidden ${
           isSelected 
             ? 'bg-teal-600/15 dark:bg-teal-600/25 ring-1 ring-teal-600/30 shadow-md' 
             : 'hover:bg-teal-600/[0.08] dark:hover:bg-teal-400/[0.06] border border-transparent hover:border-teal-600/10 dark:hover:border-teal-400/10'
         }`}
         onClick={onSelect}
       >
-        <div className="flex items-center justify-between gap-1">
-          <span className="text-[10px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-tight truncate max-w-[65%]">
-            {result.title}
-          </span>
-          <div className="flex items-center gap-1.5">
-            {result.audio_url && <Headphones className="w-2.5 h-2.5 text-teal-500" />}
-            <span className="text-[7px] font-mono text-zinc-400 font-bold">{result.date}</span>
-            <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-[7px] font-black text-zinc-500">
-               <Hash className="w-2 h-2 text-teal-500/50" />
-               <span>{result.paragraphIndex}</span>
-            </div>
+        <div className="flex items-start justify-between gap-1">
+          <div className="min-w-0 flex-1">
+             <span className="text-[10px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-tight truncate block mb-1">
+                {result.title}
+             </span>
+             <div className="flex items-center gap-1.5 overflow-hidden">
+                {result.audio_url && <Headphones className="w-2.5 h-2.5 text-teal-500 shrink-0" />}
+                <span className="text-[7px] font-mono text-zinc-400 font-bold shrink-0">{result.date}</span>
+                <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-[7px] font-black text-zinc-500 shrink-0">
+                   <Hash className="w-2 h-2 text-teal-500/50" />
+                   <span>{result.paragraphIndex}</span>
+                </div>
+             </div>
           </div>
+          <button 
+            onClick={onAddToNotes}
+            className="w-7 h-7 flex items-center justify-center bg-teal-600/5 text-teal-600 rounded-lg border border-teal-600/10 hover:bg-teal-600 hover:text-white transition-all active:scale-90 shrink-0"
+            data-tooltip="Ajouter à une note"
+          >
+            <NotebookPen className="w-3.5 h-3.5" />
+          </button>
         </div>
 
         <div className="flex-1 overflow-hidden">
           <p 
-            className="text-[11.5px] leading-relaxed text-zinc-600 dark:text-zinc-300 serif-text italic line-clamp-3 border-l-2 border-teal-600/20 pl-2.5 py-0.5" 
+            className="text-[11.5px] leading-[1.45] text-zinc-600 dark:text-zinc-300 serif-text italic line-clamp-4 border-l-2 border-teal-600/20 pl-2.5 py-0.5" 
             dangerouslySetInnerHTML={{ __html: result.snippet || '' }} 
           />
-        </div>
-
-        <div className="flex items-center justify-end mt-0.5">
-          <button 
-            onClick={onAddToNotes}
-            className="w-6 h-6 flex items-center justify-center bg-teal-600/5 text-teal-600 rounded-lg hover:bg-teal-600 hover:text-white transition-all active:scale-90"
-          >
-            <NotebookPen className="w-3 h-3" />
-          </button>
         </div>
       </div>
     </div>
@@ -712,7 +712,7 @@ const Sidebar: React.FC = () => {
                 <h3 className="text-[8px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-[0.3em] leading-none">King's Sword</h3>
               </div>
               
-              <p className="text-[6.5px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-[0.2em] leading-none">Logiciel d'étude du message par W.M.BRANHAM</p>
+              <p className="text-[6.5px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-[0.2em] pour-message-par-W.M.BRANHAM">Logiciel d'étude du message par W.M.BRANHAM</p>
               
               <div className="flex flex-col items-center gap-1 mt-1">
                 <p className="text-[6.5px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest leading-none">Développé par Bienvenu Sédin Massamba</p>

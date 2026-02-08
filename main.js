@@ -163,9 +163,9 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0, synon
   const safeOffset = Number(offset) || 0;
 
   try {
-    // Classes CSS unifiées pour l'élégance et la visibilité
-    const markBase = "font-black px-1 rounded-sm underline decoration-[3px] underline-offset-4 shadow-sm inline-block";
-    const highlightOpen = `<mark class="${markBase} bg-amber-400/40 dark:bg-amber-500/50 text-amber-950 dark:text-amber-50 decoration-amber-600 dark:decoration-amber-400">`;
+    // Classes CSS unifiées pour l'élégance et la visibilité (Style Ultra-Black)
+    const markBase = "font-black px-1 rounded-sm underline decoration-[3.5px] underline-offset-4 shadow-sm";
+    const highlightOpen = `<mark class="${markBase} bg-amber-500 text-white dark:bg-amber-600 decoration-amber-200">`;
     const highlightClose = '</mark>';
     
     let filterClauses = '';

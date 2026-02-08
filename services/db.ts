@@ -73,33 +73,41 @@ const webSearchFallback = async (params: {
   const allSermons = Array.from(sermonsMap.values()) as Sermon[];
   if (allSermons.length === 0) return [];
   
-  // Styles CSS Ultra-Visibles
-  const markBase = "font-black px-1.5 py-0.5 rounded-md underline decoration-[3px] underline-offset-4 shadow-sm inline-block mx-0.5";
+  // Styles CSS Ultra-Visibles : Fond ambre, texte blanc, gras extrême et soulignage épais
+  const markBase = "font-black px-1 rounded-sm underline decoration-[3.5px] underline-offset-4 shadow-sm";
   const markClass = `${markBase} bg-amber-500 text-white dark:bg-amber-600 decoration-amber-200`;
   const synonymMarkClass = `${markBase} bg-teal-600 text-white dark:bg-teal-700 decoration-teal-200`;
   
-  let regexSource = "";
+  // Construction du pattern de surlignage : on inclut TOUT ce qui est pertinent par défaut
+  let termsForHighlight: string[] = [];
   if (params.selectedSynonym) {
-      regexSource = params.selectedSynonym;
+    termsForHighlight = [params.selectedSynonym];
   } else if (params.synonyms && params.synonyms.length > 0) {
     if (params.showOnlySynonyms) {
-      regexSource = params.synonyms!.join('|');
+      termsForHighlight = params.synonyms;
     } else if (params.showOnlyQuery) {
-      regexSource = params.query;
+      termsForHighlight = [params.query];
     } else {
-      regexSource = [params.query, ...params.synonyms!].join('|');
+      // Par défaut, on surligne le mot recherché ET ses synonymes
+      termsForHighlight = [params.query, ...params.synonyms];
     }
   } else {
-    regexSource = params.query;
+    termsForHighlight = [params.query];
   }
 
-  const highlightRegex = getMultiWordHighlightRegex(regexSource);
+  // Nettoyage des termes pour le regex
+  const finalRegexSource = termsForHighlight
+    .map(t => t.trim())
+    .filter(t => t.length > 1)
+    .join('|');
+
+  if (!finalRegexSource) return [];
+
+  const highlightRegex = getMultiWordHighlightRegex(finalRegexSource);
   const synonymWords = (params.synonyms && !params.showOnlyQuery) ? params.synonyms.map(s => normalizeText(s)).filter(w => w.length > 0) : [];
 
-  // Traitement par lots pour éviter de bloquer le thread principal
-  const BATCH_SIZE = 15; 
+  const BATCH_SIZE = 20; 
   for (let idx = 0; idx < allSermons.length; idx++) {
-    // Micro-pause tous les N sermons pour laisser l'UI se mettre à jour (spinner)
     if (idx % BATCH_SIZE === 0 && idx > 0) {
         await new Promise(resolve => setTimeout(resolve, 0));
     }
@@ -125,6 +133,7 @@ const webSearchFallback = async (params: {
       const normalizedContent = normalizeText(content);
       let matchFound = false;
       
+      // Logique de détection de match (doit correspondre aux filtres actifs)
       if (params.selectedSynonym) {
           matchFound = normalizedContent.includes(normalizeText(params.selectedSynonym));
       } else if (synonymWords.length > 0 && !params.showOnlyQuery) {
@@ -144,22 +153,24 @@ const webSearchFallback = async (params: {
         highlightRegex.lastIndex = 0;
         const matchExec = highlightRegex.exec(content);
 
-        // Fenêtrage centré sur le mot trouvé pour qu'il soit TOUJOURS visible
+        // Fenêtrage : on s'assure que le premier mot trouvé est bien visible
         if (matchExec) {
           const matchPos = matchExec.index;
-          const windowStart = Math.max(0, matchPos - 100);
-          const windowEnd = Math.min(content.length, matchPos + 300);
+          const windowStart = Math.max(0, matchPos - 60); // Moins de contexte avant pour plus de texte après
+          const windowEnd = Math.min(content.length, matchPos + 380);
           snippetContent = content.substring(windowStart, windowEnd);
           if (windowStart > 0) snippetContent = '...' + snippetContent;
           if (windowEnd < content.length) snippetContent = snippetContent + '...';
         }
 
-        // Application du surlignage avec les classes CSS renforcées
+        // Application du surlignage
+        highlightRegex.lastIndex = 0;
         const snippetHighlighted = snippetContent.replace(highlightRegex, (m) => {
             const normalizedMatch = normalizeText(m);
             const isSpecificSynonymMatch = params.selectedSynonym && normalizedMatch.includes(normalizeText(params.selectedSynonym));
             const isGeneralSynonymMatch = synonymWords.some(sw => normalizedMatch.includes(sw));
             
+            // On utilise une couleur différente pour les synonymes si on veut les distinguer
             if (isSpecificSynonymMatch || (isGeneralSynonymMatch && !params.showOnlyQuery)) {
                 return `<mark class="${synonymMarkClass}">${m}</mark>`;
             }
