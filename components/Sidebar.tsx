@@ -306,6 +306,7 @@ const Sidebar: React.FC = () => {
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [showFilters, setShowFilters] = useState(false);
   const [isFooterExpanded, setIsFooterExpanded] = useState(false);
+  const [isSynonymFilterExpanded, setIsSynonymFilterExpanded] = useState(true);
   const [noteSelectorPayload, setNoteSelectorPayload] = useState<{ text: string; sermon: Sermon; paragraphIndex?: number } | null>(null);
   
   const [scrollTop, setScrollTop] = useState(0);
@@ -574,51 +575,61 @@ const Sidebar: React.FC = () => {
                      <Sparkles className="w-3 h-3 text-amber-600" />
                      <span className="text-[8px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-500">Filtrage des segments</span>
                    </div>
+                   <button 
+                     onClick={() => setIsSynonymFilterExpanded(!isSynonymFilterExpanded)}
+                     className="w-6 h-6 flex items-center justify-center text-amber-600 hover:bg-amber-600/10 rounded-lg transition-all"
+                   >
+                     {isSynonymFilterExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                   </button>
                 </div>
 
-                <div className="flex items-center gap-2">
-                    <button 
-                      onClick={() => { 
-                        const nextVal = !showOnlyQuery;
-                        setShowOnlyQuery(nextVal); 
-                        if(nextVal) setShowOnlySynonyms(false); 
-                      }}
-                      className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg border transition-all active:scale-95 ${showOnlyQuery ? 'bg-amber-600 border-amber-600 text-white shadow-md' : 'bg-white dark:bg-zinc-800 border-amber-200 dark:border-amber-800 text-amber-600'}`}
-                    >
-                        <Type className="w-3 h-3" />
-                        <span className="text-[8px] font-black uppercase tracking-widest">Mot Strict</span>
-                    </button>
-                    <button 
-                      onClick={() => { 
-                        const nextVal = !showOnlySynonyms;
-                        setShowOnlySynonyms(nextVal); 
-                        if(nextVal) setShowOnlyQuery(false); 
-                      }}
-                      className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg border transition-all active:scale-95 ${showOnlySynonyms ? 'bg-teal-600 border-teal-600 text-white shadow-md' : 'bg-white dark:bg-zinc-800 border-teal-200 dark:border-teal-800 text-teal-600'}`}
-                    >
-                        <Layers className="w-3 h-3" />
-                        <span className="text-[8px] font-black uppercase tracking-widest">Synonymes</span>
-                    </button>
-                </div>
+                {isSynonymFilterExpanded && (
+                  <div className="space-y-3 animate-in fade-in zoom-in-95 duration-300 origin-top">
+                    <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => { 
+                            const nextVal = !showOnlyQuery;
+                            setShowOnlyQuery(nextVal); 
+                            if(nextVal) setShowOnlySynonyms(false); 
+                          }}
+                          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg border transition-all active:scale-95 ${showOnlyQuery ? 'bg-amber-600 border-amber-600 text-white shadow-md' : 'bg-white dark:bg-zinc-800 border-amber-200 dark:border-amber-800 text-amber-600'}`}
+                        >
+                            <Type className="w-3 h-3" />
+                            <span className="text-[8px] font-black uppercase tracking-widest">Mot Strict</span>
+                        </button>
+                        <button 
+                          onClick={() => { 
+                            const nextVal = !showOnlySynonyms;
+                            setShowOnlySynonyms(nextVal); 
+                            if(nextVal) setShowOnlyQuery(false); 
+                          }}
+                          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg border transition-all active:scale-95 ${showOnlySynonyms ? 'bg-teal-600 border-teal-600 text-white shadow-md' : 'bg-white dark:bg-zinc-800 border-teal-200 dark:border-teal-800 text-teal-600'}`}
+                        >
+                            <Layers className="w-3 h-3" />
+                            <span className="text-[8px] font-black uppercase tracking-widest">Synonymes</span>
+                        </button>
+                    </div>
 
-                <div className="flex flex-wrap gap-1.5 max-h-[60px] overflow-y-auto custom-scrollbar pt-1">
-                   {activeSynonyms.map(s => {
-                     const isActive = selectedSynonym === s;
-                     return (
-                       <button 
-                        key={s} 
-                        onClick={() => handleSynonymClick(s)}
-                        className={`text-[8px] font-bold px-2 py-1 rounded-md border transition-all active:scale-90 shadow-sm ${
-                          isActive 
-                            ? 'bg-teal-600 text-white border-teal-600 ring-2 ring-teal-600/30 animate-pulse' 
-                            : 'bg-white/80 dark:bg-zinc-800/80 border-amber-100 dark:border-amber-900/50 text-amber-800 dark:text-amber-400 hover:bg-amber-600 hover:text-white hover:border-amber-600'
-                        }`}
-                       >
-                          {s}
-                       </button>
-                     );
-                   })}
-                </div>
+                    <div className="flex flex-wrap gap-1.5 max-h-[60px] overflow-y-auto custom-scrollbar pt-1">
+                       {activeSynonyms.map(s => {
+                         const isActive = selectedSynonym === s;
+                         return (
+                           <button 
+                            key={s} 
+                            onClick={() => handleSynonymClick(s)}
+                            className={`text-[8px] font-bold px-2 py-1 rounded-md border transition-all active:scale-90 shadow-sm ${
+                              isActive 
+                                ? 'bg-teal-600 text-white border-teal-600 ring-2 ring-teal-600/30 animate-pulse' 
+                                : 'bg-white/80 dark:bg-zinc-800/80 border-amber-100 dark:border-amber-900/50 text-amber-800 dark:text-amber-400 hover:bg-amber-600 hover:text-white hover:border-amber-600'
+                            }`}
+                           >
+                              {s}
+                           </button>
+                         );
+                       })}
+                    </div>
+                  </div>
+                )}
              </div>
           )}
 
