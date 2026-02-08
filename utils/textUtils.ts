@@ -51,8 +51,11 @@ export const getAccentInsensitiveRegex = (query: string, isExactWord = false): R
  * Génère une expression régulière pour surligner plusieurs mots indépendamment.
  */
 export const getMultiWordHighlightRegex = (query: string): RegExp => {
-  const words = query.trim().split(/\s+/).filter(w => w.length > 0);
-  if (words.length === 0) return new RegExp(query, 'gi');
+  // Si la requête contient déjà des |, on les sépare d'abord pour ne pas casser le split par espace
+  const terms = query.includes('|') ? query.split('|') : [query];
+  const allWords = terms.flatMap(t => t.trim().split(/\s+/)).filter(w => w.length > 0);
+  
+  if (allWords.length === 0) return new RegExp(query, 'gi');
 
   const map: Record<string, string> = {
     'a': '[aàáâãäå]',
@@ -67,9 +70,12 @@ export const getMultiWordHighlightRegex = (query: string): RegExp => {
 
   const charInterPattern = "[^a-z0-9À-ÿ]*";
 
-  const wordPatterns = words.map(word => {
+  const wordPatterns = allWords.map(word => {
     return word.toLowerCase().split('').map(char => map[char] || (/[a-z0-9]/.test(char) ? char : `\\${char}`)).join(charInterPattern);
   });
+
+  // Tri par longueur décroissante pour éviter que "chaton" soit matché par "chat" partiellement si les deux sont présents
+  wordPatterns.sort((a, b) => b.length - a.length);
 
   return new RegExp(`(${wordPatterns.join('|')})`, 'gi');
 };
