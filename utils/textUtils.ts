@@ -8,7 +8,7 @@ export const normalizeText = (str: string): string => {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
-    .replace(/[;:“”"?!()]/g, "") // On garde le point pour les recherches de paragraphes
+    .replace(/[.,;:“”"?!()]/g, "") // Supprime la ponctuation pour la comparaison de base
     .replace(/\s+/g, ' ')
     .trim();
 };
@@ -28,8 +28,9 @@ export const getAccentInsensitiveRegex = (query: string, isExactWord = false): R
     'n': '[nñ]',
   };
   
-  // Motif optionnel pour les caractères non-alphanumériques entre les lettres
+  // Motif optionnel pour les caractères non-alphanumériques entre les lettres (ex: l'amour)
   const charInterPattern = "[^a-z0-9À-ÿ]*";
+  // Pattern qui accepte n'importe quelle ponctuation ou espace entre les mots
   const punctuationPattern = "[\\s.,;:!–?\"“”'()\\n\\r\\[\\]]+";
   
   const pattern = query
@@ -42,13 +43,14 @@ export const getAccentInsensitiveRegex = (query: string, isExactWord = false): R
     .join(punctuationPattern);
     
   if (isExactWord) {
+    // Utilisation de groupes de capture pour isoler le terme des délimiteurs
     return new RegExp(`(?:^|[^a-z0-9À-ÿ])(${pattern})(?:$|[^a-z0-9À-ÿ])`, 'gi');
   }
   return new RegExp(`(${pattern})`, 'gi');
 };
 
 /**
- * Génère une expression régulière pour surligner plusieurs mots indépendamment.
+ * Génère une expression régulière pour surligner plusieurs mots indépendamment (Mode DIVERSE ou EXACT_WORDS).
  */
 export const getMultiWordHighlightRegex = (query: string): RegExp => {
   const words = query.trim().split(/\s+/).filter(w => w.length > 0);
@@ -71,5 +73,6 @@ export const getMultiWordHighlightRegex = (query: string): RegExp => {
     return word.toLowerCase().split('').map(char => map[char] || (/[a-z0-9]/.test(char) ? char : `\\${char}`)).join(charInterPattern);
   });
 
+  // Capturer les mots indépendamment
   return new RegExp(`(${wordPatterns.join('|')})`, 'gi');
 };
