@@ -191,7 +191,7 @@ const webSearchFallback = async (params: {
     });
   }
 
-  results.sort((a, b) => b.date.localeCompare(a.date));
+  results.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   return results.slice(params.offset, params.offset + params.limit);
 };
 

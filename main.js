@@ -347,6 +347,9 @@ function createWindow() {
           width: externalDisplay.bounds.width,
           height: externalDisplay.bounds.height,
           fullscreen: true,
+          kiosk: true,
+          frame: false,
+          titleBarStyle: 'hidden',
           autoHideMenuBar: true,
           backgroundColor: '#000000',
           webPreferences: {

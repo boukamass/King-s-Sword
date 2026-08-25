@@ -1,6 +1,10 @@
 {
   "name": "kings-sword",
+<<<<<<< HEAD
   "version": "1.1.0",
+=======
+  "version": "2.0.0",
+>>>>>>> 17f18d444a6f9fabfac7128c12e15ba194793a33
   "description": "Logiciel d'étude des sermons de W.M. Branham",
   "main": "main.js",
   "author": "Bienvenu Sédin Massamba",
@@ -20,15 +24,22 @@
     "docx": "^8.5.0",
     "electron-updater": "^6.1.8",
     "file-saver": "^2.0.5",
+<<<<<<< HEAD
     "jspdf": "^4.0.0",
     "lucide-react": "^0.562.0",
+=======
+    "jspdf": "^2.5.1",
+    "lucide-react": "^1.34.0",
+>>>>>>> 17f18d444a6f9fabfac7128c12e15ba194793a33
     "marked": "^12.0.2",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "zustand": "^5.0.9"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
     "@vitejs/plugin-react": "^4.2.1",
+<<<<<<< HEAD
     "concurrently": "^8.2.2",
     "electron": "^28.3.3",
     "electron-builder": "^24.13.3",
@@ -86,5 +97,17 @@
       "uninstallerIcon": "public/icon.ico",
       "installerHeaderIcon": "public/icon.ico"
     }
+=======
+    "autoprefixer": "^10.5.4",
+    "concurrently": "^8.2.2",
+    "electron": "^29.1.0",
+    "electron-builder": "^24.13.3",
+    "electron-rebuild": "^3.2.9",
+    "postcss": "^8.5.26",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.3.3",
+    "vite": "^5.1.4",
+    "wait-on": "^7.2.0"
+>>>>>>> 17f18d444a6f9fabfac7128c12e15ba194793a33
   }
 }
