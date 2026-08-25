@@ -1,6 +1,7 @@
 
 import { create } from 'zustand';
 import { Sermon, Note, ChatMessage, SearchMode, Notification, Citation, Highlight } from './types';
+import { BibleVersion } from './types/bible';
 import { 
   getAllSermonsMetadata,
   bulkAddSermons, 
@@ -13,6 +14,7 @@ import {
   isDatabaseReady,
   searchSermons
 } from './services/db';
+import { getBibleChapterSermon, getBibleBookSermon, searchBibleVersesAdvanced } from './services/bibleService';
 
 export interface SearchResult {
   paragraphId: string;
@@ -34,6 +36,11 @@ interface AppState {
   activeNoteId: string | null;
   contextSermonIds: string[];
   manualContextIds: string[];
+  libraryMode: 'sermons' | 'bible';
+  bibleTestamentFilter: 'ALL' | 'OT' | 'NT';
+  bibleVersion: BibleVersion;
+  selectedBibleBookId: string | null;
+  selectedBibleChapter: number | null;
   sidebarOpen: boolean;
   aiOpen: boolean;
   notesOpen: boolean;
@@ -59,7 +66,7 @@ interface AppState {
   audioFilter: boolean;
   languageFilter: string;
   fontSize: number;
-  theme: 'light' | 'dark' | 'system';
+  theme: 'light' | 'dark';
   notifications: Notification[];
   chatHistory: Record<string, ChatMessage[]>;
   pendingStudyRequest: string | null;
@@ -67,6 +74,7 @@ interface AppState {
   jumpToParagraph: number | null;
   projectionBlackout: boolean;
   isExternalMaskOpen: boolean;
+  isBibleModalOpen: boolean;
   sidebarWidth: number;
   aiWidth: number;
   notesWidth: number;
@@ -79,9 +87,14 @@ interface AppState {
   initializeDB: () => Promise<void>;
   resetLibrary: () => Promise<void>;
   setSelectedSermonId: (id: string | null, multiSelect?: boolean) => Promise<void>;
+  setLibraryMode: (mode: 'sermons' | 'bible') => void;
+  setBibleTestamentFilter: (filter: 'ALL' | 'OT' | 'NT') => void;
+  setBibleVersion: (version: BibleVersion) => Promise<void>;
+  setSelectedBibleBookId: (bookId: string | null) => void;
+  setSelectedBibleChapter: (chapter: number | null) => void;
   setSearchQuery: (query: string) => void;
   setSearchMode: (mode: SearchMode) => void;
-  setSearchResults: (results: SearchResult[]) => void;
+  setSearchResults: (results: SearchResult[] | ((prev: SearchResult[]) => SearchResult[])) => void;
   triggerSearch: () => Promise<void>;
   setIsSearching: (val: boolean) => void;
   setIsFullTextSearch: (active: boolean) => void;
@@ -96,6 +109,8 @@ interface AppState {
   toggleSidebar: () => void;
   toggleAI: () => void;
   toggleNotes: () => void;
+  toggleBibleModal: () => void;
+  setBibleModalOpen: (v: boolean) => void;
   setSidebarOpen: (v: boolean) => void;
   setAiOpen: (v: boolean) => void;
   setNotesOpen: (v: boolean) => void;
@@ -108,7 +123,7 @@ interface AppState {
   setAudioFilter: (v: boolean) => void;
   resetFilters: () => void;
   setFontSize: (updater: number | ((size: number) => number)) => void;
-  setTheme: (theme: 'light' | 'dark' | 'system') => void;
+  setTheme: (theme: 'light' | 'dark') => void;
   addChatMessage: (key: string, message: ChatMessage) => void;
   toggleContextSermon: (id: string, multiSelect?: boolean) => void;
   setManualContextIds: (ids: string[]) => void;
@@ -140,6 +155,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   activeNoteId: null,
   contextSermonIds: [], 
   manualContextIds: [],
+  libraryMode: 'sermons',
+  bibleTestamentFilter: 'ALL',
+  bibleVersion: 'lsg1910',
+  selectedBibleBookId: null,
+  selectedBibleChapter: null,
   sidebarOpen: true,
   aiOpen: false,
   notesOpen: false,
@@ -165,7 +185,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   audioFilter: false,
   languageFilter: 'Français',
   fontSize: 20,
-  theme: 'system',
+  theme: 'light',
   notifications: [],
   chatHistory: {},
   pendingStudyRequest: null,
@@ -173,6 +193,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   jumpToParagraph: null,
   projectionBlackout: false,
   isExternalMaskOpen: false,
+  isBibleModalOpen: false,
   sidebarWidth: 420,
   aiWidth: 400,
   notesWidth: 350,
@@ -327,7 +348,20 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ selectedSermonId: id, activeSermon: null }); 
     
     try {
-      if (!get().isSqliteAvailable) {
+      if (id.startsWith('bible-')) {
+        const parts = id.split('-');
+        const bookId = parts[1];
+        const chapterStr = parts[2];
+        let bibleSermon: Sermon | null = null;
+        if (chapterStr === 'all') {
+          bibleSermon = await getBibleBookSermon(bookId, get().bibleVersion);
+          set({ activeSermon: bibleSermon, selectedBibleBookId: bookId, selectedBibleChapter: 1 });
+        } else {
+          const chapter = parseInt(chapterStr, 10) || 1;
+          bibleSermon = await getBibleChapterSermon(bookId, chapter, get().bibleVersion);
+          set({ activeSermon: bibleSermon, selectedBibleBookId: bookId, selectedBibleChapter: chapter });
+        }
+      } else if (!get().isSqliteAvailable) {
         const s = get().sermonsMap.get(id) as Sermon;
         set({ activeSermon: s });
       } else {
@@ -343,42 +377,92 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ manualContextIds: newManual, contextSermonIds: newManual });
 
     } catch (error) {
-      get().addNotification("Erreur lors du chargement du sermon", "error");
+      get().addNotification("Erreur lors du chargement du document", "error");
     }
   },
 
+  setLibraryMode: (mode) => set({ libraryMode: mode, searchResults: [], isSearching: false }),
+  setBibleTestamentFilter: (filter) => set({ bibleTestamentFilter: filter }),
+  setBibleVersion: async (version: BibleVersion) => {
+    set({ bibleVersion: version });
+    const { selectedSermonId, libraryMode, isFullTextSearch, searchQuery } = get();
+
+    // Si on lit un chapitre biblique, le recharger immédiatement dans la nouvelle version
+    if (selectedSermonId && selectedSermonId.startsWith('bible-')) {
+      const parts = selectedSermonId.split('-');
+      const bookId = parts[1];
+      const chapter = parseInt(parts[2], 10) || 1;
+      const updatedSermon = await getBibleChapterSermon(bookId, chapter, version);
+      if (updatedSermon) {
+        set({ activeSermon: updatedSermon });
+      }
+    }
+
+    // Si une recherche biblique est active, la relancer
+    if (libraryMode === 'bible' && (isFullTextSearch || searchQuery.trim().length >= 2)) {
+      get().triggerSearch();
+    }
+  },
+  setSelectedBibleBookId: (bookId) => set({ selectedBibleBookId: bookId }),
+  setSelectedBibleChapter: (chapter) => set({ selectedBibleChapter: chapter }),
+
   setSearchQuery: (query) => set({ searchQuery: query, lastSearchQuery: query, selectedSynonym: null }),
   setSearchMode: (mode) => set({ searchMode: mode, lastSearchMode: mode }),
-  setSearchResults: (results) => set({ searchResults: results }),
+  setSearchResults: (results) => set((state) => ({ 
+    searchResults: typeof results === 'function' ? results(state.searchResults) : results 
+  })),
   setIsSearching: (val) => set({ isSearching: val }),
   
   triggerSearch: async () => {
-    const { searchQuery, searchMode, isSearching } = get();
+    const { searchQuery, searchMode, isSearching, libraryMode, bibleVersion } = get();
     if (isSearching || searchQuery.trim().length < 2) return;
     
     // Étape 1 : Mettre à jour l'état de chargement immédiatement pour que React l'affiche
     set({ isSearching: true, searchResults: [] });
 
     // Étape 2 : Micro-délai pour laisser le temps au thread UI de "peindre" le loader
-    // Cela évite l'effet de gel instantané lors du calcul lourd
     await new Promise(resolve => setTimeout(resolve, 50));
 
     try {
-      const results = await searchSermons({
-        query: searchQuery,
-        mode: searchMode,
-        limit: 100,
-        offset: 0
-      });
-      
-      set({ searchResults: results, isSearching: false });
-      
-      if (results.length > 0) {
-        const first = results[0];
-        await get().setSelectedSermonId(first.sermonId);
-        get().setJumpToParagraph(first.paragraphIndex);
+      if (libraryMode === 'bible') {
+        const results = await searchBibleVersesAdvanced({
+          query: searchQuery,
+          mode: searchMode,
+          limit: 100,
+          synonyms: get().activeSynonyms,
+          selectedSynonym: get().selectedSynonym,
+          showOnlySynonyms: get().showOnlySynonyms,
+          showOnlyQuery: get().showOnlyQuery,
+          testamentFilter: get().bibleTestamentFilter,
+          version: bibleVersion
+        });
+        
+        set({ searchResults: results, isSearching: false });
+        
+        if (results.length > 0) {
+          const first = results[0];
+          await get().setSelectedSermonId(first.sermonId);
+          get().setJumpToParagraph(first.paragraphIndex);
+        } else {
+          get().addNotification("Aucun verset biblique trouvé.", "error");
+        }
       } else {
-        get().addNotification("Aucun segment trouvé.", "error");
+        const results = await searchSermons({
+          query: searchQuery,
+          mode: searchMode,
+          limit: 100,
+          offset: 0
+        });
+        
+        set({ searchResults: results, isSearching: false });
+        
+        if (results.length > 0) {
+          const first = results[0];
+          await get().setSelectedSermonId(first.sermonId);
+          get().setJumpToParagraph(first.paragraphIndex);
+        } else {
+          get().addNotification("Aucun segment trouvé.", "error");
+        }
       }
     } catch (error) {
       console.error("Search failed:", error);
@@ -403,6 +487,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleSidebar: () => set(s => ({ sidebarOpen: !s.sidebarOpen })),
   toggleAI: () => set(s => ({ aiOpen: !s.aiOpen })),
   toggleNotes: () => set(s => ({ notesOpen: !s.notesOpen })),
+  toggleBibleModal: () => set(s => ({ isBibleModalOpen: !s.isBibleModalOpen })),
+  setBibleModalOpen: (v) => set({ isBibleModalOpen: v }),
   setSidebarOpen: (v) => set({ sidebarOpen: v }),
   setAiOpen: (v) => set({ aiOpen: v }),
   setNotesOpen: (v) => set({ notesOpen: v }),

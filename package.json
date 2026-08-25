@@ -1,7 +1,6 @@
-
 {
   "name": "kings-sword",
-  "version": "1.0.3",
+  "version": "2.0.0",
   "description": "Logiciel d'étude des sermons de W.M. Branham",
   "main": "main.js",
   "author": "Bienvenu Sédin Massamba",
@@ -16,23 +15,28 @@
   "dependencies": {
     "@google/genai": "^1.34.0",
     "better-sqlite3": "^11.3.0",
-    "zustand": "^5.0.9",
+    "docx": "^8.5.0",
+    "electron-updater": "^6.1.8",
+    "file-saver": "^2.0.5",
+    "jspdf": "^2.5.1",
+    "lucide-react": "^1.34.0",
+    "marked": "^12.0.2",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "electron-updater": "^6.1.8",
-    "marked": "^12.0.2",
-    "jspdf": "^2.5.1",
-    "docx": "^8.5.0",
-    "file-saver": "^2.0.5"
+    "zustand": "^5.0.9"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
     "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.5.4",
+    "concurrently": "^8.2.2",
     "electron": "^29.1.0",
     "electron-builder": "^24.13.3",
     "electron-rebuild": "^3.2.9",
+    "postcss": "^8.5.26",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.3.3",
     "vite": "^5.1.4",
-    "concurrently": "^8.2.2",
-    "wait-on": "^7.2.0",
-    "typescript": "^5.3.3"
+    "wait-on": "^7.2.0"
   }
 }

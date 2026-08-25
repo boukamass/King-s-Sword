@@ -17,6 +17,7 @@ export const normalizeText = (str: string): string => {
  * Génère une expression régulière qui ignore les accents et la ponctuation intermédiaire.
  */
 export const getAccentInsensitiveRegex = (query: string, isExactWord = false): RegExp => {
+  if (!query || !query.trim()) return /(?!)/;
   const map: Record<string, string> = {
     'a': '[aàáâãäå]',
     'e': '[eèéêë]',
@@ -51,6 +52,7 @@ export const getAccentInsensitiveRegex = (query: string, isExactWord = false): R
  * Génère une expression régulière pour surligner plusieurs mots indépendamment.
  */
 export const getMultiWordHighlightRegex = (query: string): RegExp => {
+  if (!query || !query.trim()) return /(?!)/;
   // Si la requête contient déjà des |, on les sépare d'abord pour ne pas casser le split par espace
   const terms = query.includes('|') ? query.split('|') : [query];
   const allWords = terms.flatMap(t => t.trim().split(/\s+/)).filter(w => w.length > 0);

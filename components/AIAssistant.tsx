@@ -4,9 +4,13 @@ import { useAppStore } from '../store';
 import { askGeminiChat } from '../services/geminiChatService';
 import { analyzeSelectionContext } from '../services/studyService';
 import { getSermonById } from '../services/db';
+import { getBibleChapterSermon, getBibleBookSermon } from '../services/bibleService';
+import { BIBLE_BOOKS_META } from '../services/bibleMetadata';
 import { translations } from '../translations';
 import { marked } from 'marked';
 import NoteSelectorModal from './NoteSelectorModal';
+import { ApiKeyModal } from './ApiKeyModal';
+import { hasValidGeminiApiKey } from '../utils/apiKeyHelper';
 import { Sermon, ChatMessage } from '../types';
 import { 
   Sparkles, 
@@ -22,7 +26,10 @@ import {
   Zap,
   Globe,
   ExternalLink,
-  ShieldCheck
+  ShieldCheck,
+  Key,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 
 interface ChatMessageWithSources extends ChatMessage {
@@ -57,25 +64,64 @@ const AIAssistant: React.FC = () => {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [noteSelectorData, setNoteSelectorData] = useState<{ text: string; sermon: Sermon } | null>(null);
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [hasKey, setHasKey] = useState(hasValidGeminiApiKey());
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const refreshKeyState = () => {
+    setHasKey(hasValidGeminiApiKey());
+  };
 
   const scrollRef = useRef<HTMLDivElement>(null);
   
   const chatKey = contextSermonIds.join(',') || 'global';
   const history = (chatHistory[chatKey] || []) as ChatMessageWithSources[];
 
+  const bibleVersion = useAppStore(s => s.bibleVersion);
+
   const selectedSermonsMetadata = useMemo(() => {
     const uniqueMap = new Map<string, any>();
-    sermons.forEach(s => {
-      if (contextSermonIds.includes(s.id)) {
-        uniqueMap.set(s.id, s);
+    contextSermonIds.forEach(id => {
+      if (id.startsWith('bible-')) {
+        const parts = id.split('-');
+        const bookId = parts[1];
+        const chapterStr = parts[2];
+        const meta = BIBLE_BOOKS_META.find(b => b.id.toUpperCase() === bookId.toUpperCase());
+        if (meta) {
+          const title = chapterStr === 'all' 
+            ? `${meta.name} (Livre entier)`
+            : `${meta.name} ${chapterStr}`;
+          uniqueMap.set(id, {
+            id,
+            title,
+            date: bibleVersion.toUpperCase(),
+            city: meta.testament === 'OT' ? 'Ancien Testament' : 'Nouveau Testament'
+          });
+        }
+      } else {
+        const s = sermonsMap.get(id) || sermons.find(item => item.id === id);
+        if (s) {
+          uniqueMap.set(id, s);
+        }
       }
     });
     return Array.from(uniqueMap.values());
-  }, [sermons, contextSermonIds]);
+  }, [sermons, sermonsMap, contextSermonIds, bibleVersion]);
 
   const formatAIResponse = (text: string) => {
     const formattedText = text.replace(/\[Réf:\s*([\w-]+),\s*Para\.\s*(\d+)\s*\]/gi, (match, sermonId, paraNum) => {
-      const sermon = sermons.find(s => s.id === sermonId);
+      const sermon = selectedSermonsMetadata.find(s => s.id === sermonId) || sermons.find(s => s.id === sermonId);
       if (sermon) {
         return `<a href="#" data-sermon-id="${sermonId}" data-para-num="${paraNum}" class="sermon-ref inline-flex items-center gap-1.5 px-2 py-0.5 bg-teal-600/5 dark:bg-teal-400/10 text-teal-700 dark:text-teal-300 rounded-md text-[9px] font-black hover:bg-teal-600/20 transition-all border border-teal-600/10 mx-1 align-middle shadow-sm"><span>Para. ${paraNum} - ${sermon.title} (${sermon.date})</span></a>`;
       }
@@ -92,14 +138,12 @@ const AIAssistant: React.FC = () => {
         const sermonId = link.dataset.sermonId;
         const paraNumStr = link.dataset.paraNum;
         
-        if (sermons.some(s => s.id === sermonId)) {
-            setSelectedSermonId(sermonId);
-            if (paraNumStr) {
-                const num = parseInt(paraNumStr);
-                if (!isNaN(num)) {
-                    setJumpToParagraph(num);
-                    return;
-                }
+        setSelectedSermonId(sermonId);
+        if (paraNumStr) {
+            const num = parseInt(paraNumStr);
+            if (!isNaN(num)) {
+                setJumpToParagraph(num);
+                return;
             }
         }
     }
@@ -114,6 +158,17 @@ const AIAssistant: React.FC = () => {
   const getFullSermons = async (ids: string[]): Promise<Sermon[]> => {
     const uniqueIds = Array.from(new Set(ids));
     const results = await Promise.all(uniqueIds.map(async id => {
+      if (id.startsWith('bible-')) {
+        const parts = id.split('-');
+        const bookId = parts[1];
+        const chapterStr = parts[2];
+        if (chapterStr === 'all') {
+          return await getBibleBookSermon(bookId, bibleVersion);
+        } else {
+          const chapter = parseInt(chapterStr, 10) || 1;
+          return await getBibleChapterSermon(bookId, chapter, bibleVersion);
+        }
+      }
       if (!isSqliteAvailable) {
         return sermonsMap.get(id) as Sermon;
       }
@@ -187,6 +242,11 @@ const AIAssistant: React.FC = () => {
   return (
     <div className="w-full bg-slate-50 dark:bg-zinc-950 h-full flex flex-col min-0 border-l border-zinc-200 dark:border-zinc-800 transition-all duration-500 shadow-2xl relative">
       {noteSelectorData && <NoteSelectorModal selectionText={noteSelectorData.text} sermon={noteSelectorData.sermon} onClose={() => setNoteSelectorData(null)} />}
+      <ApiKeyModal 
+        isOpen={isApiKeyModalOpen} 
+        onClose={() => setIsApiKeyModalOpen(false)} 
+        onSaved={refreshKeyState}
+      />
       
       <div className="px-6 h-14 border-b border-zinc-100 dark:border-zinc-800/50 flex items-center justify-between shrink-0 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-3xl z-50">
         <div 
@@ -200,10 +260,50 @@ const AIAssistant: React.FC = () => {
         </div>
         
         <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setIsApiKeyModalOpen(true)}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-bold transition-all border ${
+              hasKey 
+                ? 'bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800' 
+                : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800 animate-pulse'
+            }`}
+            title="Configurer ma clé Google Gemini"
+          >
+            <Key className="w-3 h-3" />
+            <span>{hasKey ? 'Clé IA Active' : 'Activer IA'}</span>
+          </button>
+
           <button onClick={toggleAI} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-red-500 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 active:scale-90">
             <X className="w-4 h-4" />
           </button>
         </div>
+      </div>
+
+      {/* Connection & Engine Status Banner */}
+      <div className="px-5 py-2 bg-zinc-100/70 dark:bg-zinc-900/60 border-b border-zinc-200/50 dark:border-zinc-800/50 flex items-center justify-between text-[10px]">
+        <div className="flex items-center gap-2">
+          {isOnline ? (
+            <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
+              <Wifi className="w-3 h-3" />
+              <span>En ligne</span>
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-semibold">
+              <WifiOff className="w-3 h-3" />
+              <span>Hors-ligne</span>
+            </span>
+          )}
+          <span className="text-zinc-300 dark:text-zinc-700">•</span>
+          <span className="text-zinc-500 dark:text-zinc-400">
+            {isOnline && hasKey ? 'Moteur : Gemini Cloud' : 'Moteur : Index Local'}
+          </span>
+        </div>
+        <button 
+          onClick={() => setIsApiKeyModalOpen(true)}
+          className="text-teal-600 dark:text-teal-400 hover:underline font-bold text-[9px] uppercase tracking-wider"
+        >
+          {hasKey ? 'Gérer' : '+ Clé Google'}
+        </button>
       </div>
 
       <div className="shrink-0 bg-zinc-50/50 dark:bg-zinc-900/40 border-b border-zinc-100 dark:border-zinc-800/50 px-5 py-3">

@@ -3,9 +3,10 @@ import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
 import { useAppStore, SearchResult } from '../store';
 import { translations } from '../translations';
 import { SearchMode, Sermon } from '../types';
-import { FileText, Loader2, Calendar, Search, ChevronLeft, MapPin, Hash, NotebookPen, Sparkles, Layers, Type, BookOpenCheck, Headphones } from 'lucide-react';
+import { FileText, Loader2, Calendar, Search, ChevronLeft, MapPin, Hash, NotebookPen, Sparkles, Layers, Type, BookOpenCheck, Headphones, PanelLeftOpen } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { searchSermons } from '../services/db';
+import { searchBibleVersesAdvanced } from '../services/bibleService';
 import NoteSelectorModal from './NoteSelectorModal';
 
 const RESULTS_PER_PAGE = 50;
@@ -150,6 +151,9 @@ const SearchResults: React.FC = () => {
     cityFilter,
     versionFilter,
     audioFilter,
+    libraryMode,
+    bibleTestamentFilter,
+    bibleVersion,
     sidebarOpen,
     toggleSidebar
   } = useAppStore();
@@ -165,17 +169,32 @@ const SearchResults: React.FC = () => {
   const performSearch = useCallback(async (q: string, m: SearchMode, off: number) => {
     if (!q || q.length < 2) return;
     
-    const searchId = `${q}-${m}-${off}-${showOnlySynonyms}-${showOnlyQuery}-${includeSynonyms}-${selectedSynonym}-${yearFilter}-${monthFilter}-${dayFilter}-${cityFilter}-${versionFilter}-${audioFilter}`;
+    const searchId = `${libraryMode}-${bibleVersion}-${bibleTestamentFilter}-${q}-${m}-${off}-${showOnlySynonyms}-${showOnlyQuery}-${includeSynonyms}-${selectedSynonym}-${yearFilter}-${monthFilter}-${dayFilter}-${cityFilter}-${versionFilter}-${audioFilter}`;
     if (off === 0 && searchId === lastPerformedSearchRef.current && searchResults.length > 0) return;
     
     setIsSearching(true);
     try {
-      const results = await searchSermons({ 
-        query: q, 
-        mode: m, 
-        limit: RESULTS_PER_PAGE, 
-        offset: off 
-      });
+      let results: SearchResult[] = [];
+      if (libraryMode === 'bible') {
+        results = await searchBibleVersesAdvanced({
+          query: q,
+          mode: m,
+          limit: RESULTS_PER_PAGE,
+          synonyms: activeSynonyms,
+          selectedSynonym,
+          showOnlySynonyms,
+          showOnlyQuery,
+          testamentFilter: bibleTestamentFilter,
+          version: bibleVersion
+        });
+      } else {
+        results = await searchSermons({ 
+          query: q, 
+          mode: m, 
+          limit: RESULTS_PER_PAGE, 
+          offset: off 
+        });
+      }
       
       if (off === 0) {
         setSearchResults(results);
@@ -184,16 +203,16 @@ const SearchResults: React.FC = () => {
         setSearchResults(prev => [...prev, ...results]);
       }
       
-      setHasMore(results.length === RESULTS_PER_PAGE);
+      setHasMore(libraryMode === 'bible' ? false : results.length === RESULTS_PER_PAGE);
     } catch (e) {
       console.error("Search error:", e);
     } finally {
       setIsSearching(false);
     }
-  }, [setSearchResults, setIsSearching, showOnlySynonyms, showOnlyQuery, includeSynonyms, selectedSynonym, yearFilter, monthFilter, dayFilter, cityFilter, versionFilter, audioFilter, searchResults.length]);
+  }, [setSearchResults, setIsSearching, showOnlySynonyms, showOnlyQuery, includeSynonyms, selectedSynonym, activeSynonyms, yearFilter, monthFilter, dayFilter, cityFilter, versionFilter, audioFilter, libraryMode, bibleVersion, bibleTestamentFilter, searchResults.length]);
 
   useEffect(() => {
-    const currentSearchId = `${searchQuery}-${searchMode}-${showOnlySynonyms}-${showOnlyQuery}-${includeSynonyms}-${selectedSynonym}-${yearFilter}-${monthFilter}-${dayFilter}-${cityFilter}-${versionFilter}-${audioFilter}`;
+    const currentSearchId = `${libraryMode}-${bibleVersion}-${bibleTestamentFilter}-${searchQuery}-${searchMode}-${showOnlySynonyms}-${showOnlyQuery}-${includeSynonyms}-${selectedSynonym}-${yearFilter}-${monthFilter}-${dayFilter}-${cityFilter}-${versionFilter}-${audioFilter}`;
     if (currentSearchId !== lastSearchContext) {
       savedSearchScrollTopFull = 0;
       lastSearchContext = currentSearchId;
@@ -202,7 +221,7 @@ const SearchResults: React.FC = () => {
     setOffset(0);
     setHasMore(true);
     performSearch(searchQuery, searchMode, 0);
-  }, [searchQuery, searchMode, performSearch, showOnlySynonyms, showOnlyQuery, includeSynonyms, selectedSynonym, yearFilter, monthFilter, dayFilter, cityFilter, versionFilter, audioFilter]);
+  }, [searchQuery, searchMode, performSearch, showOnlySynonyms, showOnlyQuery, includeSynonyms, selectedSynonym, yearFilter, monthFilter, dayFilter, cityFilter, versionFilter, audioFilter, libraryMode, bibleVersion, bibleTestamentFilter]);
 
   useEffect(() => {
     if (scrollContainerRef.current && savedSearchScrollTopFull > 0 && searchResults.length > 0) {
@@ -285,15 +304,14 @@ const SearchResults: React.FC = () => {
       <div className="px-4 md:px-8 h-14 border-b border-zinc-200/50 dark:border-zinc-800/50 flex items-center justify-between shrink-0 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-2xl z-20">
         <div className="flex items-center gap-4">
           {!sidebarOpen && (
-             <button 
-                onClick={toggleSidebar} 
-                data-tooltip="Ouvrir la bibliothèque" 
-                className="flex items-center gap-3 hover:opacity-80 active:scale-95 group shrink-0 mr-1"
-             >
-               <div className="w-8 h-8 flex items-center justify-center bg-teal-600/10 rounded-lg border border-teal-600/20 shadow-sm shrink-0 group-hover:border-teal-600/40 transition-all duration-300">
-                 <img src="https://branham.fr/source/favicon/favicon-32x32.png" alt="Logo" className="w-4 h-4 grayscale group-hover:grayscale-0 group-hover:scale-110 group-hover:rotate-[-5deg] transition-all duration-300" />
-               </div>
-             </button>
+            <button 
+               onClick={toggleSidebar} 
+               data-tooltip="Ouvrir la bibliothèque" 
+               title="Ouvrir la bibliothèque"
+               className="p-2 text-zinc-500 hover:text-teal-600 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:border-teal-500/30 shadow-sm transition-all shrink-0 active:scale-95 cursor-pointer mr-1"
+            >
+              <PanelLeftOpen className="w-4 h-4 text-teal-600" />
+            </button>
           )}
           <div className="flex items-center gap-4">
             <div className="w-8 h-8 hidden sm:flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-lg border border-teal-600/20 shadow-sm">
@@ -302,7 +320,7 @@ const SearchResults: React.FC = () => {
             <div>
               <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-900 dark:text-zinc-50 leading-none">Résultats de recherche</h2>
               <p className="text-[7px] font-black text-teal-600 uppercase tracking-widest mt-0.5">
-                {isSearching ? "Scan de la bibliothèque..." : `${searchResults.length} segments trouvés`}
+                {isSearching ? "Scan de la bibliothèque..." : `${searchResults.length} ${libraryMode === 'bible' ? 'versets trouvés' : 'segments trouvés'}`}
               </p>
             </div>
           </div>
