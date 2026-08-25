@@ -6,11 +6,10 @@
   "author": "Bienvenu Sédin Massamba",
 
   "scripts": {
-    "dev": "vite",
     "start": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:dev": "concurrently \"npm start\" \"wait-on http://localhost:5173 && electron .\"",
     "electron:build": "npm run build && electron-builder",
     "publish": "npm run build && electron-builder --publish always",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
@@ -34,7 +33,6 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
     "@vitejs/plugin-react": "^4.2.1",
-    "autoprefixer": "^10.5.4",
     "concurrently": "^8.2.2",
     "electron": "^29.1.0",
     "electron-builder": "^24.13.3",
@@ -49,7 +47,7 @@
   "build": {
     "appId": "com.kingssword.app",
     "productName": "King's Sword",
-    "copyright": "© 2026 Bienvenu Sédin Massamba",
+    "copyright": "Copyright © 2026 Bienvenu Sédin Massamba. Tous droits réservés.",
 
     "directories": {
       "output": "release"
@@ -58,26 +56,48 @@
     "files": [
       "dist/**/*",
       "main.js",
-      "package.json",
-      "node_modules/**/*"
+      "preload.js"
+    ],
+
+    "extraResources": [
+      {
+        "from": "public",
+        "to": "public",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "boukamass",
+        "repo": "kings-sword"
+      }
     ],
 
     "win": {
-      "target": {
-        "target": "nsis",
-        "arch": [
-          "x64"
-        ]
-      },
-      "icon": "public/favicon.ico"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "public/icon.ico"
     },
 
     "nsis": {
-      "oneClick": true,
-      "perMachine": false,
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "King's Sword"
+      "shortcutName": "King's Sword",
+      "installerIcon": "public/icon.ico",
+      "uninstallerIcon": "public/icon.ico",
+      "installerHeaderIcon": "public/icon.ico"
     }
   }
 }
