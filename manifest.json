@@ -1,1 +1,17 @@
-{}
+{
+  "name": "King's Sword - Étude de Sermons",
+  "short_name": "King's Sword",
+  "description": "Application complète d'étude de sermons, cantiques et Bibles",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/favicon-32x32.png",
+      "sizes": "32x32 64x64 128x128 192x192 512x512",
+      "type": "image/png"
+    }
+  ]
+}

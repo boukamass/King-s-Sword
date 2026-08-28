@@ -67,6 +67,16 @@ export interface ChatMessage {
   timestamp: string;
 }
 
+export interface Song {
+  id: number | string;
+  title: string;
+  filename?: string;
+  content: string;
+  language?: string;
+  custom?: boolean;
+  updatedAt?: string;
+}
+
 export interface ElectronAPI {
   platform: string;
   onUpdateAvailable: (callback: () => void) => void;

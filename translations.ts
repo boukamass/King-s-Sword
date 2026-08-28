@@ -2,7 +2,7 @@
 export const translations = {
   fr: {
     sidebar_title: "SERMONS",
-    sidebar_subtitle: "Bibliothèque",
+    sidebar_subtitle: "King's Sword",
     search_placeholder: "Rechercher...",
     full_text_search: "Recherche Intégrale",
     search_mode_diverse: "Quelconque",
@@ -22,7 +22,7 @@ export const translations = {
     ai_memory_on: "Oublier",
     ai_memory_off: "Enseigner",
     no_results: "Aucun sermon trouvé",
-    reader_select_prompt: "Sélectionnez un sermon",
+    reader_select_prompt: "King's Sword",
     reader_rename: "Renommer",
     reader_notes: "NOTES",
     reader_assistant: "ASSISTANT",
@@ -78,7 +78,7 @@ export const translations = {
   },
   en: {
     sidebar_title: "SERMONS",
-    sidebar_subtitle: "Library",
+    sidebar_subtitle: "King's Sword",
     search_placeholder: "Search...",
     full_text_search: "Full Text Search",
     search_mode_diverse: "Any word",
@@ -98,7 +98,7 @@ export const translations = {
     ai_memory_on: "Forget",
     ai_memory_off: "Teach",
     no_results: "No sermons found",
-    reader_select_prompt: "Select a sermon",
+    reader_select_prompt: "King's Sword",
     reader_rename: "Rename",
     reader_notes: "NOTES",
     reader_assistant: "ASSISTANT",

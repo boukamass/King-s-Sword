@@ -16,6 +16,8 @@ import {
 } from './services/db';
 import { getBibleChapterSermon, getBibleBookSermon, searchBibleVersesAdvanced } from './services/bibleService';
 
+const generateUUID = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 9));
+
 export interface SearchResult {
   paragraphId: string;
   sermonId: string;
@@ -36,11 +38,14 @@ interface AppState {
   activeNoteId: string | null;
   contextSermonIds: string[];
   manualContextIds: string[];
-  libraryMode: 'sermons' | 'bible';
+  libraryMode: 'sermons' | 'bible' | 'expose' | 'songs';
+  songsSortOrder: 'number-asc' | 'number-desc' | 'title-asc' | 'title-desc';
   bibleTestamentFilter: 'ALL' | 'OT' | 'NT';
   bibleVersion: BibleVersion;
   selectedBibleBookId: string | null;
   selectedBibleChapter: number | null;
+  selectedExposeChapter: string | null;
+  selectedExposeSection: string | null;
   sidebarOpen: boolean;
   aiOpen: boolean;
   notesOpen: boolean;
@@ -86,12 +91,15 @@ interface AppState {
 
   initializeDB: () => Promise<void>;
   resetLibrary: () => Promise<void>;
-  setSelectedSermonId: (id: string | null, multiSelect?: boolean) => Promise<void>;
-  setLibraryMode: (mode: 'sermons' | 'bible') => void;
+  setSelectedSermonId: (id: string | null, multiSelect?: boolean, forceReload?: boolean) => Promise<void>;
+  setLibraryMode: (mode: 'sermons' | 'bible' | 'expose' | 'songs') => void;
+  setSongsSortOrder: (order: 'number-asc' | 'number-desc' | 'title-asc' | 'title-desc') => void;
   setBibleTestamentFilter: (filter: 'ALL' | 'OT' | 'NT') => void;
   setBibleVersion: (version: BibleVersion) => Promise<void>;
   setSelectedBibleBookId: (bookId: string | null) => void;
   setSelectedBibleChapter: (chapter: number | null) => void;
+  setSelectedExposeChapter: (chapter: string | null) => void;
+  setSelectedExposeSection: (section: string | null) => void;
   setSearchQuery: (query: string) => void;
   setSearchMode: (mode: SearchMode) => void;
   setSearchResults: (results: SearchResult[] | ((prev: SearchResult[]) => SearchResult[])) => void;
@@ -156,10 +164,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   contextSermonIds: [], 
   manualContextIds: [],
   libraryMode: 'sermons',
+  songsSortOrder: 'number-asc',
   bibleTestamentFilter: 'ALL',
   bibleVersion: 'lsg1910',
   selectedBibleBookId: null,
   selectedBibleChapter: null,
+  selectedExposeChapter: null,
+  selectedExposeSection: null,
   sidebarOpen: true,
   aiOpen: false,
   notesOpen: false,
@@ -336,14 +347,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  setSelectedSermonId: async (id, multiSelect = false) => {
+  setSelectedSermonId: async (id, multiSelect = false, forceReload = false) => {
     if (!id) {
       set({ selectedSermonId: null, activeSermon: null });
       return;
     }
     
     const currentId = get().selectedSermonId;
-    if (currentId === id && get().activeSermon && !multiSelect) return; 
+    if (currentId === id && get().activeSermon && !multiSelect && !forceReload) return; 
 
     set({ selectedSermonId: id, activeSermon: null }); 
     
@@ -355,33 +366,64 @@ export const useAppStore = create<AppState>((set, get) => ({
         let bibleSermon: Sermon | null = null;
         if (chapterStr === 'all') {
           bibleSermon = await getBibleBookSermon(bookId, get().bibleVersion);
+          if (get().selectedSermonId !== id) return;
           set({ activeSermon: bibleSermon, selectedBibleBookId: bookId, selectedBibleChapter: 1 });
         } else {
           const chapter = parseInt(chapterStr, 10) || 1;
           bibleSermon = await getBibleChapterSermon(bookId, chapter, get().bibleVersion);
+          if (get().selectedSermonId !== id) return;
           set({ activeSermon: bibleSermon, selectedBibleBookId: bookId, selectedBibleChapter: chapter });
         }
+      } else if (id.startsWith('expose-')) {
+          const { getExposePage, getExposeChapter, loadExposeData } = await import('./services/exposeService');
+          if (id.startsWith('expose-pg-')) {
+              const pageNumber = parseInt(id.replace('expose-pg-', ''), 10);
+              const [exposeSermon, data] = await Promise.all([
+                getExposePage(pageNumber),
+                loadExposeData()
+              ]);
+              if (get().selectedSermonId !== id) return;
+              const pageData = data?.pages?.[pageNumber];
+              const chapNum = pageData?.chapter_number !== null && pageData?.chapter_number !== undefined
+                ? String(pageData.chapter_number)
+                : (pageNumber <= 10 ? '0' : null);
+
+              set({ 
+                activeSermon: exposeSermon,
+                selectedExposeChapter: chapNum !== null ? chapNum : get().selectedExposeChapter
+              });
+          } else if (id.startsWith('expose-ch-')) {
+              const chNumber = id.replace('expose-ch-', '');
+              const exposeSermon = await getExposeChapter(chNumber);
+              if (get().selectedSermonId !== id) return;
+              set({ 
+                activeSermon: exposeSermon,
+                selectedExposeChapter: chNumber
+              });
+          }
+      } else if (id.startsWith('song-')) {
+          const { getSongAsSermon } = await import('./services/songService');
+          const songSermon = await getSongAsSermon(id);
+          if (get().selectedSermonId !== id) return;
+          set({ activeSermon: songSermon });
       } else if (!get().isSqliteAvailable) {
         const s = get().sermonsMap.get(id) as Sermon;
+        if (get().selectedSermonId !== id) return;
         set({ activeSermon: s });
       } else {
         const fullSermon = await getSermonById(id);
+        if (get().selectedSermonId !== id) return;
         set({ activeSermon: fullSermon });
       }
-      
-      const manual = get().manualContextIds;
-      const newManual = multiSelect 
-        ? Array.from(new Set([...manual, id].filter(Boolean) as string[]))
-        : [id];
-        
-      set({ manualContextIds: newManual, contextSermonIds: newManual });
-
     } catch (error) {
-      get().addNotification("Erreur lors du chargement du document", "error");
+      if (get().selectedSermonId === id) {
+        get().addNotification("Erreur lors du chargement du document", "error");
+      }
     }
   },
 
   setLibraryMode: (mode) => set({ libraryMode: mode, searchResults: [], isSearching: false }),
+  setSongsSortOrder: (order) => set({ songsSortOrder: order }),
   setBibleTestamentFilter: (filter) => set({ bibleTestamentFilter: filter }),
   setBibleVersion: async (version: BibleVersion) => {
     set({ bibleVersion: version });
@@ -405,6 +447,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   setSelectedBibleBookId: (bookId) => set({ selectedBibleBookId: bookId }),
   setSelectedBibleChapter: (chapter) => set({ selectedBibleChapter: chapter }),
+  setSelectedExposeChapter: (chapter) => set({ selectedExposeChapter: chapter }),
+  setSelectedExposeSection: (section) => set({ selectedExposeSection: section }),
 
   setSearchQuery: (query) => set({ searchQuery: query, lastSearchQuery: query, selectedSynonym: null }),
   setSearchMode: (mode) => set({ searchMode: mode, lastSearchMode: mode }),
@@ -428,7 +472,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         const results = await searchBibleVersesAdvanced({
           query: searchQuery,
           mode: searchMode,
-          limit: 100,
+          limit: 10000,
           synonyms: get().activeSynonyms,
           selectedSynonym: get().selectedSynonym,
           showOnlySynonyms: get().showOnlySynonyms,
@@ -446,11 +490,35 @@ export const useAppStore = create<AppState>((set, get) => ({
         } else {
           get().addNotification("Aucun verset biblique trouvé.", "error");
         }
+      } else if (libraryMode === 'expose') {
+          const { searchExpose } = await import('./services/exposeService');
+          const results = await searchExpose(searchQuery);
+          set({ searchResults: results, isSearching: false });
+          
+          if (results.length > 0) {
+              const first = results[0];
+              await get().setSelectedSermonId(first.sermonId);
+              get().setJumpToParagraph(first.paragraphIndex);
+          } else {
+              get().addNotification("Aucun résultat trouvé dans l'Exposé.", "error");
+          }
+      } else if (libraryMode === 'songs') {
+          const { searchSongs } = await import('./services/songService');
+          const results = await searchSongs(searchQuery, searchMode);
+          set({ searchResults: results, isSearching: false });
+          
+          if (results.length > 0) {
+              const first = results[0];
+              await get().setSelectedSermonId(first.sermonId);
+              get().setJumpToParagraph(first.paragraphIndex);
+          } else {
+              get().addNotification("Aucun cantique trouvé.", "error");
+          }
       } else {
         const results = await searchSermons({
           query: searchQuery,
           mode: searchMode,
-          limit: 100,
+          limit: 10000,
           offset: 0
         });
         
@@ -478,7 +546,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setActiveSynonyms: (syns) => set({ activeSynonyms: syns }),
   setSelectedSynonym: (syn) => set({ selectedSynonym: syn }),
   addNotification: (message, type) => set(state => ({
-    notifications: [{ id: crypto.randomUUID(), message, type }, ...state.notifications]
+    notifications: [{ id: generateUUID(), message, type }, ...state.notifications]
   })),
   removeNotification: (id) => set(state => ({
     notifications: state.notifications.filter(n => n.id !== id)
@@ -552,7 +620,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const randomColor = palette[Math.floor(Math.random() * palette.length)];
     
     const newNote: Note = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       title: partial.title || 'Nouvelle Note',
       content: partial.content || '',
       citations: partial.citations || [],
@@ -594,7 +662,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (noteIndex === -1) return;
 
     const citation: Citation = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       date_added: new Date().toISOString(),
       sermon_id: partialCitation.sermon_id || '',
       sermon_title_snapshot: partialCitation.sermon_title_snapshot || '',

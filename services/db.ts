@@ -3,6 +3,7 @@ import { Sermon, Note, SearchMode } from '../types';
 import { normalizeText, getAccentInsensitiveRegex, getMultiWordHighlightRegex } from '../utils/textUtils';
 import { useAppStore } from '../store';
 import { getDefinition } from './dictionaryService';
+import { get as idbGet, set as idbSet } from 'idb-keyval';
 
 const isElectron = !!window.electronAPI;
 
@@ -106,7 +107,11 @@ const webSearchFallback = async (params: {
   const highlightRegex = getMultiWordHighlightRegex(finalRegexSource);
   const synonymWords = (params.synonyms && !params.showOnlyQuery) ? params.synonyms.map(s => normalizeText(s)).filter(w => w.length > 0) : [];
 
-  const BATCH_SIZE = 20; 
+  const normalizedQuery = normalizeText(params.query);
+  const queryWords = normalizedQuery.split(/\s+/).filter(w => w.length > 0);
+  const normalizedSelectedSynonym = params.selectedSynonym ? normalizeText(params.selectedSynonym) : '';
+
+  const BATCH_SIZE = 50; 
   for (let idx = 0; idx < allSermons.length; idx++) {
     if (idx % BATCH_SIZE === 0 && idx > 0) {
         await new Promise(resolve => setTimeout(resolve, 0));
@@ -134,16 +139,15 @@ const webSearchFallback = async (params: {
       let matchFound = false;
       
       // Logique de détection de match (doit correspondre aux filtres actifs)
-      if (params.selectedSynonym) {
-          matchFound = normalizedContent.includes(normalizeText(params.selectedSynonym));
+      if (normalizedSelectedSynonym) {
+          matchFound = normalizedContent.includes(normalizedSelectedSynonym);
       } else if (synonymWords.length > 0 && !params.showOnlyQuery) {
-        const queryMatch = normalizedContent.includes(normalizeText(params.query));
+        const queryMatch = normalizedContent.includes(normalizedQuery);
         const synMatch = synonymWords.some(w => normalizedContent.includes(w));
         if (params.showOnlySynonyms) matchFound = synMatch;
         else matchFound = queryMatch || synMatch;
       } else {
-        const queryWords = normalizeText(params.query).split(/\s+/).filter(w => w.length > 0);
-        if (params.mode === SearchMode.EXACT_PHRASE) matchFound = normalizedContent.includes(normalizeText(params.query));
+        if (params.mode === SearchMode.EXACT_PHRASE) matchFound = normalizedContent.includes(normalizedQuery);
         else if (params.mode === SearchMode.DIVERSE) matchFound = queryWords.some(w => normalizedContent.includes(w));
         else matchFound = queryWords.every(w => normalizedContent.includes(w));
       }
@@ -244,8 +248,12 @@ export const searchSermons = async (params: { query: string; mode: SearchMode; l
 
 export const getAllNotes = async (): Promise<Note[]> => {
   if (!isElectron) {
-    const saved = localStorage.getItem('kings_sword_web_notes');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = await idbGet<Note[]>('kings_sword_web_notes');
+      if (saved && Array.isArray(saved)) return saved;
+    } catch (e) {}
+    const savedLocal = localStorage.getItem('kings_sword_web_notes');
+    return savedLocal ? JSON.parse(savedLocal) : [];
   }
   try {
     return await window.electronAPI.db.getNotes();
@@ -260,7 +268,8 @@ export const saveNoteToDB = async (note: Note): Promise<void> => {
     const index = saved.findIndex(n => n.id === note.id);
     if (index >= 0) saved[index] = note;
     else saved.push(note);
-    localStorage.setItem('kings_sword_web_notes', JSON.stringify(saved));
+    try { await idbSet('kings_sword_web_notes', saved); } catch (e) {}
+    try { localStorage.setItem('kings_sword_web_notes', JSON.stringify(saved)); } catch (e) {}
     return;
   }
   try {
@@ -274,7 +283,8 @@ export const deleteNoteFromDB = async (id: string): Promise<void> => {
   if (!isElectron) {
     const saved = await getAllNotes();
     const filtered = saved.filter(n => n.id !== id);
-    localStorage.setItem('kings_sword_web_notes', JSON.stringify(filtered));
+    try { await idbSet('kings_sword_web_notes', filtered); } catch (e) {}
+    try { localStorage.setItem('kings_sword_web_notes', JSON.stringify(filtered)); } catch (e) {}
     return;
   }
   try {
@@ -286,7 +296,8 @@ export const deleteNoteFromDB = async (id: string): Promise<void> => {
 
 export const syncNotesOrder = async (notes: Note[]): Promise<void> => {
   if (!isElectron) {
-    localStorage.setItem('kings_sword_web_notes', JSON.stringify(notes));
+    try { await idbSet('kings_sword_web_notes', notes); } catch (e) {}
+    try { localStorage.setItem('kings_sword_web_notes', JSON.stringify(notes)); } catch (e) {}
     return;
   }
   try {

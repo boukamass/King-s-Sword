@@ -307,7 +307,6 @@ const SearchResults: React.FC = () => {
             <button 
                onClick={toggleSidebar} 
                data-tooltip="Ouvrir la bibliothèque" 
-               title="Ouvrir la bibliothèque"
                className="p-2 text-zinc-500 hover:text-teal-600 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:border-teal-500/30 shadow-sm transition-all shrink-0 active:scale-95 cursor-pointer mr-1"
             >
               <PanelLeftOpen className="w-4 h-4 text-teal-600" />
@@ -365,6 +364,7 @@ const SearchResults: React.FC = () => {
             </button>
             <button 
               onClick={() => { setIsFullTextSearch(false); setSearchQuery(''); }}
+              data-tooltip="Fermer les résultats de recherche"
               className="px-4 py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-red-50 dark:hover:bg-red-900/20 text-zinc-500 hover:text-red-500 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95"
             >
               Fermer

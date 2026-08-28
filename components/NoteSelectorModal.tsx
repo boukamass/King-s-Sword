@@ -151,6 +151,7 @@ const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({ selectionText, se
             </div>
             <button 
               onClick={onClose} 
+              data-tooltip="Fermer"
               className="w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-red-500 bg-zinc-50 dark:bg-zinc-800 rounded-xl transition-all border border-zinc-100 dark:border-zinc-700 hover:border-red-500/20 active:scale-90"
             >
                 <X className="w-5 h-5" />
@@ -213,7 +214,8 @@ const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({ selectionText, se
                     <button
                         onClick={handleShowNewNoteView}
                         className="w-12 h-12 flex items-center justify-center bg-teal-600 text-white rounded-2xl hover:bg-teal-700 shadow-xl shadow-teal-600/20 transition-all active:scale-90 group/add-btn"
-                        title="Créer une nouvelle note"
+                        data-tooltip="Créer une nouvelle note"
+                        data-tooltip-icon="notes"
                     >
                         <Plus className="w-6 h-6 transition-transform group-hover/add-btn:rotate-90" />
                     </button>

@@ -72,6 +72,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
           </div>
           <button 
             onClick={onClose}
+            data-tooltip="Fermer la fenêtre"
             className="w-8 h-8 rounded-xl flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
           >
             <X className="w-4 h-4" />
