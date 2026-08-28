@@ -959,7 +959,7 @@ const Sidebar: React.FC = () => {
           data-tooltip={sidebarOpen ? "Fermer le panneau" : "Ouvrir le panneau"}
         >
           <div className="w-8 h-8 flex items-center justify-center bg-teal-600/10 rounded-xl border border-teal-600/20 shadow-sm shrink-0 transition-transform group-hover:bg-teal-600/20 group-hover:border-teal-600/40 overflow-hidden">
-            <img src="/apple-touch-icon.png" onError={(e) => { (e.target as HTMLImageElement).src = "/logo.png"; }} alt="Logo" className="w-6 h-6 object-cover rounded-full" />
+            <img src="/logo.png" alt="Logo" className="w-6 h-6 object-cover rounded-full" />
           </div>
           <div className="text-left truncate">
             <h2 className="text-[9.5px] font-black uppercase tracking-[0.2em] text-slate-900 dark:text-zinc-50 leading-tight truncate">
@@ -1622,7 +1622,7 @@ const Sidebar: React.FC = () => {
 
             <div className={`space-y-2 transition-all duration-500 origin-top flex flex-col items-center ${isFooterExpanded ? 'opacity-100 scale-y-100 mt-2 pb-2' : 'opacity-0 scale-y-0 h-0 overflow-hidden'}`}>
               <div className="flex flex-col items-center mb-1">
-                <img src="/apple-touch-icon.png" onError={(e) => { (e.target as HTMLImageElement).src = "/logo.png"; }} alt="Logo" className="w-6 h-6 mb-0.5 object-cover rounded-full" />
+                <img src="/logo.png" alt="Logo" className="w-6 h-6 mb-0.5 object-cover rounded-full" />
                 <h3 className="text-[8px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-[0.3em] leading-none">King's Sword</h3>
               </div>
               
