@@ -92,7 +92,7 @@ const NoteEditor: React.FC = () => {
         let formattedText = processedText.replace(/\[Réf:\s*([\w-]+)\s*\]/gi, (match, sermonId) => {
           const sermon = sermons.find(s => s.id === sermonId);
           if (sermon) {
-            return `<a href="#" data-sermon-id="${sermonId}" class="sermon-ref text-teal-600 dark:text-blue-400 font-black hover:underline decoration-teal-500/30 underline-offset-4 inline-flex items-center gap-1" title="Voir la source"><span>[${sermon.title}]</span></a>`;
+            return `<a href="#" data-sermon-id="${sermonId}" class="sermon-ref text-teal-600 dark:text-blue-400 font-black hover:underline decoration-teal-500/30 underline-offset-4 inline-flex items-center gap-1" data-tooltip="Voir la source"><span>[${sermon.title}]</span></a>`;
           }
           return match;
         });
@@ -100,7 +100,7 @@ const NoteEditor: React.FC = () => {
         if (sourceSermonId && !sourceSermonId.includes('ia-') && !sourceSermonId.includes('definition') && !formattedText.includes('sermon-ref')) {
             const sermon = sermons.find(s => s.id === sourceSermonId);
             if (sermon) {
-                formattedText += ` <a href="#" data-sermon-id="${sourceSermonId}" class="sermon-ref text-teal-600 dark:text-blue-400 font-black hover:underline decoration-teal-500/30 underline-offset-4" title="Ouvrir le sermon source">[Source: ${sermon.title}]</a>`;
+                formattedText += ` <a href="#" data-sermon-id="${sourceSermonId}" class="sermon-ref text-teal-600 dark:text-blue-400 font-black hover:underline decoration-teal-500/30 underline-offset-4" data-tooltip="Ouvrir le sermon source">[Source: ${sermon.title}]</a>`;
             }
         }
         
@@ -228,7 +228,7 @@ const NoteEditor: React.FC = () => {
                         <ActionButton icon={Printer} tooltip={t.print} onClick={handlePrint} />
                         <ActionButton icon={FileText} tooltip={t.export_pdf} onClick={handleExportPdf} />
                         <div className="w-px h-5 bg-zinc-200 dark:bg-zinc-800 mx-2" />
-                        <button onClick={() => setActiveNoteId(null)} className="px-5 py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-red-500 hover:text-white dark:hover:bg-red-600 text-[9px] font-black uppercase tracking-[0.2em] rounded-lg transition-all active:scale-95 text-zinc-600 dark:text-zinc-300 shadow-sm">
+                        <button onClick={() => setActiveNoteId(null)} data-tooltip="Fermer et retourner au lecteur" className="px-5 py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-red-500 hover:text-white dark:hover:bg-red-600 text-[9px] font-black uppercase tracking-[0.2em] rounded-lg transition-all active:scale-95 text-zinc-600 dark:text-zinc-300 shadow-sm">
                             {t.reader_exit}
                         </button>
                     </div>
@@ -251,7 +251,7 @@ const NoteEditor: React.FC = () => {
                                             className="text-2xl font-black text-zinc-900 dark:text-white uppercase tracking-tight bg-transparent border-none focus:ring-0 p-0 w-full"
                                         />
                                     ) : (
-                                        <h3 onClick={() => setEditingTitle(true)} className="text-2xl font-black text-zinc-900 dark:text-white uppercase tracking-tight cursor-text hover:text-teal-600 transition-colors">
+                                        <h3 onClick={() => setEditingTitle(true)} data-tooltip="Cliquer pour modifier le titre" className="text-2xl font-black text-zinc-900 dark:text-white uppercase tracking-tight cursor-text hover:text-teal-600 transition-colors">
                                             {note.title}
                                         </h3>
                                     )}
@@ -272,7 +272,7 @@ const NoteEditor: React.FC = () => {
                                         placeholder="Notez vos réflexions ici..."
                                     />
                                 ) : (
-                                    <div onClick={() => setEditingContent(true)} className="min-h-[60px] cursor-text">
+                                    <div onClick={() => setEditingContent(true)} data-tooltip="Cliquer pour modifier les notes" className="min-h-[60px] cursor-text">
                                         {note.content ? (
                                           <p className="font-medium">{note.content}</p>
                                         ) : (

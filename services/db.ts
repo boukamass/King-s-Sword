@@ -106,7 +106,11 @@ const webSearchFallback = async (params: {
   const highlightRegex = getMultiWordHighlightRegex(finalRegexSource);
   const synonymWords = (params.synonyms && !params.showOnlyQuery) ? params.synonyms.map(s => normalizeText(s)).filter(w => w.length > 0) : [];
 
-  const BATCH_SIZE = 20; 
+  const normalizedQuery = normalizeText(params.query);
+  const queryWords = normalizedQuery.split(/\s+/).filter(w => w.length > 0);
+  const normalizedSelectedSynonym = params.selectedSynonym ? normalizeText(params.selectedSynonym) : '';
+
+  const BATCH_SIZE = 50; 
   for (let idx = 0; idx < allSermons.length; idx++) {
     if (idx % BATCH_SIZE === 0 && idx > 0) {
         await new Promise(resolve => setTimeout(resolve, 0));
@@ -134,16 +138,15 @@ const webSearchFallback = async (params: {
       let matchFound = false;
       
       // Logique de détection de match (doit correspondre aux filtres actifs)
-      if (params.selectedSynonym) {
-          matchFound = normalizedContent.includes(normalizeText(params.selectedSynonym));
+      if (normalizedSelectedSynonym) {
+          matchFound = normalizedContent.includes(normalizedSelectedSynonym);
       } else if (synonymWords.length > 0 && !params.showOnlyQuery) {
-        const queryMatch = normalizedContent.includes(normalizeText(params.query));
+        const queryMatch = normalizedContent.includes(normalizedQuery);
         const synMatch = synonymWords.some(w => normalizedContent.includes(w));
         if (params.showOnlySynonyms) matchFound = synMatch;
         else matchFound = queryMatch || synMatch;
       } else {
-        const queryWords = normalizeText(params.query).split(/\s+/).filter(w => w.length > 0);
-        if (params.mode === SearchMode.EXACT_PHRASE) matchFound = normalizedContent.includes(normalizeText(params.query));
+        if (params.mode === SearchMode.EXACT_PHRASE) matchFound = normalizedContent.includes(normalizedQuery);
         else if (params.mode === SearchMode.DIVERSE) matchFound = queryWords.some(w => normalizedContent.includes(w));
         else matchFound = queryWords.every(w => normalizedContent.includes(w));
       }

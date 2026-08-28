@@ -6,6 +6,8 @@ import { analyzeSelectionContext } from '../services/studyService';
 import { getSermonById } from '../services/db';
 import { getBibleChapterSermon, getBibleBookSermon } from '../services/bibleService';
 import { BIBLE_BOOKS_META } from '../services/bibleMetadata';
+import { getSongAsSermon, loadAllSongs } from '../services/songService';
+import { getExposePage, getExposeChapter } from '../services/exposeService';
 import { translations } from '../translations';
 import { marked } from 'marked';
 import NoteSelectorModal from './NoteSelectorModal';
@@ -90,6 +92,12 @@ const AIAssistant: React.FC = () => {
 
   const bibleVersion = useAppStore(s => s.bibleVersion);
 
+  const [allLoadedSongs, setAllLoadedSongs] = useState<any[]>([]);
+
+  useEffect(() => {
+    loadAllSongs().then(s => setAllLoadedSongs(s || [])).catch(() => {});
+  }, []);
+
   const selectedSermonsMetadata = useMemo(() => {
     const uniqueMap = new Map<string, any>();
     contextSermonIds.forEach(id => {
@@ -109,6 +117,31 @@ const AIAssistant: React.FC = () => {
             city: meta.testament === 'OT' ? 'Ancien Testament' : 'Nouveau Testament'
           });
         }
+      } else if (id.startsWith('song-')) {
+        const rawId = id.replace('song-', '');
+        const found = allLoadedSongs.find(s => String(s.id) === rawId);
+        uniqueMap.set(id, {
+          id,
+          title: found ? `${found.id}. ${found.title}` : `Cantique #${rawId}`,
+          date: 'Cantique',
+          city: found?.language ? found.language.toUpperCase() : 'Chant'
+        });
+      } else if (id.startsWith('expose-pg-')) {
+        const pg = id.replace('expose-pg-', '');
+        uniqueMap.set(id, {
+          id,
+          title: `Exposé des Sept Âges - Page ${pg}`,
+          date: 'Exposé',
+          city: 'W.M. Branham'
+        });
+      } else if (id.startsWith('expose-ch-')) {
+        const ch = id.replace('expose-ch-', '');
+        uniqueMap.set(id, {
+          id,
+          title: `Exposé - Chapitre ${ch}`,
+          date: 'Exposé',
+          city: 'W.M. Branham'
+        });
       } else {
         const s = sermonsMap.get(id) || sermons.find(item => item.id === id);
         if (s) {
@@ -117,7 +150,7 @@ const AIAssistant: React.FC = () => {
       }
     });
     return Array.from(uniqueMap.values());
-  }, [sermons, sermonsMap, contextSermonIds, bibleVersion]);
+  }, [sermons, sermonsMap, contextSermonIds, bibleVersion, allLoadedSongs]);
 
   const formatAIResponse = (text: string) => {
     const formattedText = text.replace(/\[Réf:\s*([\w-]+),\s*Para\.\s*(\d+)\s*\]/gi, (match, sermonId, paraNum) => {
@@ -168,6 +201,17 @@ const AIAssistant: React.FC = () => {
           const chapter = parseInt(chapterStr, 10) || 1;
           return await getBibleChapterSermon(bookId, chapter, bibleVersion);
         }
+      }
+      if (id.startsWith('song-')) {
+        return await getSongAsSermon(id);
+      }
+      if (id.startsWith('expose-pg-')) {
+        const pageNum = parseInt(id.replace('expose-pg-', ''), 10);
+        return await getExposePage(pageNum);
+      }
+      if (id.startsWith('expose-ch-')) {
+        const chNum = id.replace('expose-ch-', '');
+        return await getExposeChapter(chNum);
       }
       if (!isSqliteAvailable) {
         return sermonsMap.get(id) as Sermon;
@@ -267,13 +311,13 @@ const AIAssistant: React.FC = () => {
                 ? 'bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800' 
                 : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800 animate-pulse'
             }`}
-            title="Configurer ma clé Google Gemini"
+            data-tooltip="Configurer ma clé Google Gemini"
           >
             <Key className="w-3 h-3" />
             <span>{hasKey ? 'Clé IA Active' : 'Activer IA'}</span>
           </button>
 
-          <button onClick={toggleAI} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-red-500 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 active:scale-90">
+          <button onClick={toggleAI} data-tooltip="Fermer l'Assistant IA" className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-red-500 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 active:scale-90">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -300,6 +344,7 @@ const AIAssistant: React.FC = () => {
         </div>
         <button 
           onClick={() => setIsApiKeyModalOpen(true)}
+          data-tooltip="Gérer les clés API Google Gemini"
           className="text-teal-600 dark:text-teal-400 hover:underline font-bold text-[9px] uppercase tracking-wider"
         >
           {hasKey ? 'Gérer' : '+ Clé Google'}
@@ -310,7 +355,7 @@ const AIAssistant: React.FC = () => {
          <div className="flex items-center justify-between mb-2 px-1">
             <span className="text-[8px] font-black uppercase tracking-[0.2em] text-zinc-500">Ressources en Mémoire ({selectedSermonsMetadata.length})</span>
             {contextSermonIds.length > 0 && (
-              <button onClick={clearContextSermons} className="text-[8px] font-black text-red-500 hover:text-red-600 uppercase tracking-widest transition-colors">Vider le dock</button>
+              <button onClick={clearContextSermons} data-tooltip="Vider toutes les ressources du dock IA" data-tooltip-icon="trash" className="text-[8px] font-black text-red-500 hover:text-red-600 uppercase tracking-widest transition-colors">Vider le dock</button>
             )}
          </div>
 
@@ -326,6 +371,14 @@ const AIAssistant: React.FC = () => {
                        <p className="text-[7px] font-bold text-zinc-400 mt-0.5 uppercase tracking-tighter">{s.date}</p>
                     </div>
                  </div>
+                 <button
+                   onClick={(e) => { e.stopPropagation(); toggleContextSermon(s.id); }}
+                   data-tooltip={`Retirer "${s.title}"`}
+                   data-tooltip-icon="trash"
+                   className="absolute top-1.5 right-1.5 w-5 h-5 rounded-md bg-white dark:bg-zinc-800 text-zinc-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-xs"
+                 >
+                   <X className="w-3 h-3" />
+                 </button>
               </div>
             ))}
          </div>
@@ -373,7 +426,8 @@ const AIAssistant: React.FC = () => {
                  <button 
                   onClick={() => setNoteSelectorData({ text: msg.content, sermon: { id: `ia-${Date.now()}`, title: 'Réponse Assistant IA', date: new Date().toISOString().split('T')[0], city: 'Grounding Search', text: '' } })} 
                   className="absolute -right-2 -bottom-2 w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-zinc-800 text-zinc-400 hover:text-teal-600 opacity-0 group-hover:opacity-100 transition-all shadow-xl border border-zinc-100 dark:border-zinc-700 z-10"
-                  title="Ajouter au journal"
+                  data-tooltip="Ajouter cette réponse au journal de notes"
+                  data-tooltip-icon="notes"
                  >
                     <Notebook className="w-3.5 h-3.5" />
                  </button>

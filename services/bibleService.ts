@@ -332,7 +332,7 @@ export const searchBibleVersesAdvanced = async (params: {
   await ensureFullBibleLoaded(version);
 
   const results: any[] = [];
-  const limit = params.limit || 100;
+  const limit = params.limit || 10000;
 
   const markBase = "font-black px-1 rounded-sm underline decoration-[3.5px] underline-offset-4 shadow-sm";
   const markClass = `${markBase} bg-amber-500 text-white dark:bg-amber-600 decoration-amber-200`;
@@ -363,6 +363,10 @@ export const searchBibleVersesAdvanced = async (params: {
   const highlightRegex = getMultiWordHighlightRegex(finalRegexSource);
   const synonymWords = (params.synonyms && !params.showOnlyQuery) ? params.synonyms.map(s => normalizeText(s)).filter(w => w.length > 0) : [];
 
+  const normalizedQuery = normalizeText(params.query);
+  const queryWords = normalizedQuery.split(/\s+/).filter(w => w.length > 0);
+  const normalizedSelectedSynonym = params.selectedSynonym ? normalizeText(params.selectedSynonym) : '';
+
   const targetBooks = BIBLE_BOOKS_META.filter(b => {
     if (params.testamentFilter && params.testamentFilter !== 'ALL' && b.testament !== params.testamentFilter) {
       return false;
@@ -383,17 +387,16 @@ export const searchBibleVersesAdvanced = async (params: {
         const normalizedContent = normalizeText(content);
         let matchFound = false;
 
-        if (params.selectedSynonym) {
-          matchFound = normalizedContent.includes(normalizeText(params.selectedSynonym));
+        if (normalizedSelectedSynonym) {
+          matchFound = normalizedContent.includes(normalizedSelectedSynonym);
         } else if (synonymWords.length > 0 && !params.showOnlyQuery) {
-          const queryMatch = normalizedContent.includes(normalizeText(params.query));
+          const queryMatch = normalizedContent.includes(normalizedQuery);
           const synMatch = synonymWords.some(w => normalizedContent.includes(w));
           if (params.showOnlySynonyms) matchFound = synMatch;
           else matchFound = queryMatch || synMatch;
         } else {
-          const queryWords = normalizeText(params.query).split(/\s+/).filter(w => w.length > 0);
           if (params.mode === SearchMode.EXACT_PHRASE) {
-            matchFound = normalizedContent.includes(normalizeText(params.query));
+            matchFound = normalizedContent.includes(normalizedQuery);
           } else if (params.mode === SearchMode.DIVERSE) {
             matchFound = queryWords.some(w => normalizedContent.includes(w));
           } else {

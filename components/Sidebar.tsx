@@ -26,8 +26,20 @@ import {
   Type, 
   BookOpen,
   Library,
-  BookMarked
+  BookMarked,
+  BookText,
+  Music,
+  Plus,
+  Edit3,
+  Trash2,
+  SlidersHorizontal
 } from 'lucide-react';
+
+import { Song } from '../types';
+import { loadAllSongs, deleteSong } from '../services/songService';
+import SongModal from './SongModal';
+import { getExposeTree, getExposePagesMeta, ExposeMetadataTree, ExposePage } from '../services/exposeService';
+import { APP_VERSION } from '../utils/version';
 
 const ITEM_HEIGHT = 80; 
 const SEARCH_ITEM_HEIGHT = 125; 
@@ -80,25 +92,29 @@ const ModernDropdown: React.FC<DropdownProps> = ({ value, onChange, options, pla
       </button>
 
       {isOpen && (
-        <div className="absolute top-full mt-1.5 left-0 w-48 max-h-60 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border border-slate-200 dark:border-zinc-700/80 rounded-xl shadow-2xl z-[1000] overflow-hidden flex flex-col p-1.5 animate-in fade-in zoom-in-95 duration-200">
-          <div className="overflow-y-auto custom-scrollbar flex-1 space-y-0.5">
+        <div className="absolute top-full mt-1.5 left-0 right-0 sm:right-auto sm:w-80 max-h-72 bg-white/98 dark:bg-zinc-900/98 backdrop-blur-xl border border-slate-200 dark:border-zinc-700/80 rounded-xl shadow-2xl z-[1000] overflow-hidden flex flex-col p-1.5 animate-in fade-in zoom-in-95 duration-200">
+          <div className="overflow-y-auto custom-scrollbar flex-1 space-y-0.5 max-h-64">
             <button
               onClick={() => { onChange(null); setIsOpen(false); }}
-              className="w-full text-left px-3 py-1.5 text-[9px] font-black uppercase tracking-wider text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+              className="w-full text-left px-3 py-2 text-[9.5px] font-black uppercase tracking-wider text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center justify-between"
             >
-              Tous
+              <span>Tous</span>
+              {!value && <span className="w-1.5 h-1.5 bg-teal-600 rounded-full" />}
             </button>
             {options.map((opt) => (
               <button
                 key={opt}
                 onClick={() => { onChange(opt); setIsOpen(false); }}
-                className={`w-full text-left px-3 py-1.5 text-[9px] font-black uppercase tracking-wider transition-all rounded-lg border ${
+                className={`w-full text-left px-3 py-2 text-[9.5px] transition-all rounded-lg border flex items-center justify-between gap-2 ${
                   value === opt 
-                    ? 'text-teal-700 dark:text-teal-400 bg-teal-600/15 dark:bg-teal-600/25 border-teal-600/30' 
-                    : 'text-zinc-800 dark:text-zinc-200 hover:bg-teal-600/[0.08] dark:hover:bg-teal-400/[0.06] border-transparent hover:border-teal-600/10 dark:hover:border-teal-400/10'
+                    ? 'text-teal-700 dark:text-teal-400 bg-teal-600/15 dark:bg-teal-600/25 border-teal-600/30 font-black' 
+                    : 'text-zinc-800 dark:text-zinc-200 hover:bg-teal-600/[0.08] dark:hover:bg-teal-400/[0.06] border-transparent hover:border-teal-600/10 dark:hover:border-teal-400/10 font-bold'
                 }`}
               >
-                {displayValue ? displayValue(opt) : opt}
+                <span className="truncate">
+                  {displayValue ? displayValue(opt) : opt}
+                </span>
+                {value === opt && <span className="w-1.5 h-1.5 bg-teal-600 rounded-full shrink-0" />}
               </button>
             ))}
           </div>
@@ -279,7 +295,7 @@ const BibleBookItem = memo(({
                       ? 'bg-teal-600 text-white shadow-md shadow-teal-600/30 ring-2 ring-teal-500/40'
                       : 'bg-white dark:bg-zinc-800/90 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-700/60 hover:border-teal-500 hover:text-teal-600 dark:hover:text-teal-400 shadow-2xs'
                   }`}
-                  title={`${book.name} ${ch}`}
+                  data-tooltip={`${book.name} ${ch}`}
                 >
                   {ch}
                 </button>
@@ -350,6 +366,98 @@ const SearchResultItem = memo(({
   );
 });
 
+interface SongItemProps {
+  song: Song;
+  isSelected: boolean;
+  isContextSelected: boolean;
+  onSelect: () => void;
+  onToggleContext: (e: React.MouseEvent) => void;
+  onEdit: (e: React.MouseEvent) => void;
+  onDelete: (e: React.MouseEvent) => void;
+}
+
+const SongItem = memo(({
+  song,
+  isSelected,
+  isContextSelected,
+  onSelect,
+  onToggleContext,
+  onEdit,
+  onDelete
+}: SongItemProps) => {
+  return (
+    <div
+      onClick={onSelect}
+      className={`group relative p-3 border-b border-slate-100 dark:border-zinc-800/60 transition-colors cursor-pointer select-none flex items-center justify-between gap-3 ${
+        isSelected
+          ? 'bg-teal-500/15 dark:bg-teal-500/20 border-l-4 border-l-teal-600'
+          : 'hover:bg-slate-50/80 dark:hover:bg-zinc-800/40'
+      }`}
+    >
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-[11px] shrink-0 transition-all ${
+          isSelected 
+            ? 'bg-teal-600 text-white shadow-md shadow-teal-600/30' 
+            : 'bg-slate-100 dark:bg-zinc-800 text-teal-700 dark:text-teal-400 group-hover:bg-teal-50 dark:group-hover:bg-teal-950/40 border border-slate-200/60 dark:border-zinc-700/60'
+        }`}>
+          {song.id}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <h4 className={`text-xs font-bold leading-snug truncate ${
+              isSelected ? 'text-teal-950 dark:text-teal-100' : 'text-zinc-800 dark:text-zinc-200'
+            }`}>
+              {song.title}
+            </h4>
+          </div>
+          <div className="flex items-center gap-2 text-[9px] font-bold text-zinc-400 uppercase tracking-wider">
+            <span className="text-teal-600 dark:text-teal-400 flex items-center gap-1">
+              <Music className="w-2.5 h-2.5" />
+              Cantique
+            </span>
+            {song.language && (
+              <>
+                <span className="w-1 h-1 rounded-full bg-zinc-300 dark:bg-zinc-700" />
+                <span>{song.language.toUpperCase()}</span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+        <button
+          onClick={onEdit}
+          data-tooltip="Modifier ce cantique"
+          className="p-1.5 text-zinc-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-white dark:hover:bg-zinc-800 rounded-lg transition-all border border-transparent hover:border-slate-200 dark:hover:border-zinc-700 shadow-2xs"
+        >
+          <Edit3 className="w-3.5 h-3.5" />
+        </button>
+        <button
+          onClick={onDelete}
+          data-tooltip="Supprimer ce cantique"
+          data-tooltip-icon="trash"
+          className="p-1.5 text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-white dark:hover:bg-zinc-800 rounded-lg transition-all border border-transparent hover:border-slate-200 dark:hover:border-zinc-700 shadow-2xs"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+        <button
+          onClick={onToggleContext}
+          data-tooltip={isContextSelected ? "Retirer du contexte IA" : "Ajouter au contexte IA"}
+          data-tooltip-icon="sparkles"
+          className={`p-1.5 rounded-lg transition-all border border-transparent shadow-2xs ${
+            isContextSelected 
+              ? 'text-teal-600 bg-teal-50 dark:bg-teal-950/50 border-teal-200/50 dark:border-teal-800/50' 
+              : 'text-zinc-400 hover:text-teal-600 hover:bg-white dark:hover:bg-zinc-800 hover:border-slate-200 dark:hover:border-zinc-700'
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+});
+
 const SearchModeButton = memo(({ mode, label, tooltip, currentMode, setMode }: { 
   mode: SearchMode; 
   label: string; 
@@ -389,6 +497,57 @@ const Sidebar: React.FC = () => {
   const setBibleVersion = useAppStore(s => s.setBibleVersion);
   const selectedBibleBookId = useAppStore(s => s.selectedBibleBookId);
   const selectedBibleChapter = useAppStore(s => s.selectedBibleChapter);
+  
+  const selectedExposeChapter = useAppStore(s => s.selectedExposeChapter);
+  const setSelectedExposeChapter = useAppStore(s => s.setSelectedExposeChapter);
+  const selectedExposeSection = useAppStore(s => s.selectedExposeSection);
+  const setSelectedExposeSection = useAppStore(s => s.setSelectedExposeSection);
+  
+  const songsSortOrder = useAppStore(s => s.songsSortOrder);
+  const setSongsSortOrder = useAppStore(s => s.setSongsSortOrder);
+  const setSidebarOpen = useAppStore(s => s.setSidebarOpen);
+
+  const [songs, setSongs] = useState<Song[]>([]);
+  const [isSongModalOpen, setIsSongModalOpen] = useState(false);
+  const [songToEdit, setSongToEdit] = useState<Song | null>(null);
+  const [songLanguageFilter, setSongLanguageFilter] = useState<string | null>(null);
+
+  const refreshSongs = useCallback(async () => {
+    const list = await loadAllSongs();
+    setSongs(list);
+  }, []);
+
+  useEffect(() => {
+    refreshSongs();
+    const handleSongsUpdated = () => {
+      refreshSongs();
+    };
+    window.addEventListener('kings_sword_songs_updated', handleSongsUpdated);
+    return () => {
+      window.removeEventListener('kings_sword_songs_updated', handleSongsUpdated);
+    };
+  }, [refreshSongs]);
+
+  useEffect(() => {
+    if (libraryMode === 'songs') {
+      refreshSongs();
+    }
+  }, [libraryMode, refreshSongs]);
+
+  const handleDeleteSong = async (song: Song) => {
+    if (window.confirm(`Voulez-vous vraiment supprimer le cantique "${song.id}. ${song.title}" ?`)) {
+      const ok = await deleteSong(song.id);
+      if (ok) {
+        addNotification(`Cantique #${song.id} supprimé avec succès`, 'success');
+        await refreshSongs();
+        if (selectedSermonId === `song-${song.id}`) {
+          setSelectedSermonId(null);
+        }
+      } else {
+        addNotification("Erreur lors de la suppression du cantique", 'error');
+      }
+    }
+  };
   
   const searchQuery = useAppStore(s => s.searchQuery);
   const searchMode = useAppStore(s => s.searchMode);
@@ -441,9 +600,25 @@ const Sidebar: React.FC = () => {
   const [expandedBibleBookId, setExpandedBibleBookId] = useState<string | null>(selectedBibleBookId || 'GEN');
   const [bibleCategoryFilter, setBibleCategoryFilter] = useState<string | null>(null);
 
+  const [exposeTree, setExposeTree] = useState<ExposeMetadataTree | null>(null);
+  const [exposePages, setExposePages] = useState<ExposePage[]>([]);
+
+  useEffect(() => {
+    if (libraryMode === 'expose' && !exposeTree) {
+      getExposeTree().then(setExposeTree);
+    }
+  }, [libraryMode, exposeTree]);
+
+  useEffect(() => {
+    if (libraryMode === 'expose') {
+      getExposePagesMeta(selectedExposeChapter, selectedExposeSection).then(setExposePages);
+    }
+  }, [libraryMode, selectedExposeChapter, selectedExposeSection]);
+
   const [scrollTop, setScrollTop] = useState(0);
   const [containerHeight, setContainerHeight] = useState(800);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const scrollRafId = useRef<number | null>(null);
 
   const lang = languageFilter === 'Anglais' ? 'en' : 'fr';
   const t = translations[lang];
@@ -567,19 +742,77 @@ const Sidebar: React.FC = () => {
     });
   }, [deferredSearchQuery, bibleTestamentFilter, bibleCategoryFilter]);
 
+  const filteredSongs = useMemo(() => {
+    const q = normalizeText(deferredSearchQuery.trim());
+    let list = songs.filter(s => {
+      if (songLanguageFilter && (s.language || '').toLowerCase() !== songLanguageFilter.toLowerCase()) return false;
+      if (!q) return true;
+      const titleNorm = normalizeText(s.title || '');
+      const idNorm = String(s.id);
+      const contentNorm = normalizeText(s.content || '');
+      return titleNorm.includes(q) || idNorm.includes(q) || contentNorm.includes(q);
+    });
+
+    const getSortableTitle = (title: string) => {
+      if (!title) return '';
+      // Strip leading numbers, numbering prefixes and symbols like "1. ", "02 - ", "12) ", "«"
+      const cleaned = title.replace(/^[\d\s\.\-\)\(\:\/\"\'«»]+/, '').trim();
+      return cleaned || title.trim();
+    };
+
+    return [...list].sort((a, b) => {
+      const numA = typeof a.id === 'number' ? a.id : parseInt(String(a.id), 10);
+      const numB = typeof b.id === 'number' ? b.id : parseInt(String(b.id), 10);
+
+      if (songsSortOrder === 'number-asc') {
+        if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+        return String(a.id).localeCompare(String(b.id), undefined, { numeric: true });
+      } else if (songsSortOrder === 'number-desc') {
+        if (!isNaN(numA) && !isNaN(numB)) return numB - numA;
+        return String(b.id).localeCompare(String(a.id), undefined, { numeric: true });
+      } else if (songsSortOrder === 'title-asc') {
+        const titleA = getSortableTitle(a.title || '');
+        const titleB = getSortableTitle(b.title || '');
+        const cmp = titleA.localeCompare(titleB, 'fr', { numeric: true });
+        if (cmp !== 0) return cmp;
+        return (numA || 0) - (numB || 0);
+      } else if (songsSortOrder === 'title-desc') {
+        const titleA = getSortableTitle(a.title || '');
+        const titleB = getSortableTitle(b.title || '');
+        const cmp = titleB.localeCompare(titleA, 'fr', { numeric: true });
+        if (cmp !== 0) return cmp;
+        return (numB || 0) - (numA || 0);
+      }
+      return 0;
+    });
+  }, [songs, deferredSearchQuery, songLanguageFilter, songsSortOrder]);
+
   const displayList = useMemo(() => {
     if (isFullTextSearch && searchResults.length > 0) return searchResults;
     if (libraryMode === 'bible') return filteredBibleBooks;
+    if (libraryMode === 'expose') {
+        const q = normalizeText(deferredSearchQuery.trim());
+        return exposePages.filter(p => {
+            if (!q) return true;
+            const pageNumStr = String(p.page_number);
+            const cleanQ = q.replace(/^p(age)?\s*/i, '');
+            return (p.chapter_title && normalizeText(p.chapter_title).includes(q)) || 
+                   normalizeText(`page ${p.page_number}`).includes(q) ||
+                   pageNumStr === cleanQ ||
+                   (p.paragraphs && p.paragraphs.some(para => para.section_title && normalizeText(para.section_title).includes(q)));
+        });
+    }
+    if (libraryMode === 'songs') return filteredSongs;
     return filteredSermons;
-  }, [isFullTextSearch, searchResults, libraryMode, filteredBibleBooks, filteredSermons]);
+  }, [isFullTextSearch, searchResults, libraryMode, filteredBibleBooks, filteredSermons, exposePages, deferredSearchQuery, filteredSongs]);
 
   const totalListHeight = (isFullTextSearch && searchResults.length > 0)
     ? searchResults.length * SEARCH_ITEM_HEIGHT
     : libraryMode === 'bible'
       ? filteredBibleBooks.length * 75 // dynamic estimate
-      : filteredSermons.length * ITEM_HEIGHT;
+      : displayList.length * ITEM_HEIGHT;
 
-  const isVirtualized = (isFullTextSearch && searchResults.length > 0) || libraryMode === 'sermons';
+  const isVirtualized = (isFullTextSearch && searchResults.length > 0) || libraryMode === 'sermons' || libraryMode === 'songs' || libraryMode === 'expose';
 
   const visibleRange = useMemo(() => {
     if (!isVirtualized) {
@@ -597,13 +830,16 @@ const Sidebar: React.FC = () => {
 
   const offsetY = isVirtualized ? visibleRange.startIndex * currentItemHeight : 0;
 
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const top = e.currentTarget.scrollTop;
-    setScrollTop(top);
     if (isFullTextSearch) {
       savedSearchScrollTop = top;
     }
-  };
+    if (scrollRafId.current) cancelAnimationFrame(scrollRafId.current);
+    scrollRafId.current = requestAnimationFrame(() => {
+      setScrollTop(top);
+    });
+  }, [isFullTextSearch]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -676,8 +912,11 @@ const Sidebar: React.FC = () => {
     if (libraryMode === 'bible') {
       return filteredBibleBooks.map(b => `bible-${b.id}-all`);
     }
+    if (libraryMode === 'expose') {
+      return (displayList as ExposePage[]).map(p => `expose-pg-${p.page_number}`);
+    }
     return filteredSermons.map(s => s.id);
-  }, [isFullTextSearch, searchResults, libraryMode, filteredBibleBooks, filteredSermons]);
+  }, [isFullTextSearch, searchResults, libraryMode, filteredBibleBooks, filteredSermons, displayList]);
 
   const areAllItemsInDock = useMemo(() => {
     if (currentItemsForDock.length === 0) return false;
@@ -715,34 +954,38 @@ const Sidebar: React.FC = () => {
         <div 
           onClick={toggleSidebar} 
           className="flex items-center gap-2.5 min-w-0 cursor-pointer group hover:opacity-90 active:scale-95 transition-all"
-          title={sidebarOpen ? "Fermer la bibliothèque" : "Ouvrir la bibliothèque"}
+          data-tooltip={sidebarOpen ? "Fermer le panneau" : "Ouvrir le panneau"}
         >
-          <div className="w-8 h-8 flex items-center justify-center bg-teal-600/10 rounded-xl border border-teal-600/20 shadow-sm shrink-0 transition-transform group-hover:bg-teal-600/20 group-hover:border-teal-600/40">
-            <img src="https://branham.fr/source/favicon/favicon-32x32.png" onError={(e) => { (e.target as HTMLImageElement).src = "/logo.png"; }} alt="Logo" className="w-4 h-4 object-contain" />
+          <div className="w-8 h-8 flex items-center justify-center bg-teal-600/10 rounded-xl border border-teal-600/20 shadow-sm shrink-0 transition-transform group-hover:bg-teal-600/20 group-hover:border-teal-600/40 overflow-hidden">
+            <img src="/apple-touch-icon.png" onError={(e) => { (e.target as HTMLImageElement).src = "/logo.png"; }} alt="Logo" className="w-6 h-6 object-cover rounded-full" />
           </div>
           <div className="text-left truncate">
             <h2 className="text-[9.5px] font-black uppercase tracking-[0.2em] text-slate-900 dark:text-zinc-50 leading-tight truncate">
-              {libraryMode === 'bible' ? "Sainte Bible" : t.sidebar_subtitle}
+              {t.sidebar_subtitle}
             </h2>
             <p className="text-[7.5px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-widest mt-0.5">
               {isFullTextSearch && searchResults.length > 0 
                 ? `${searchResults.length} résultats` 
                 : libraryMode === 'bible' 
                   ? `${filteredBibleBooks.length} livres (${BIBLE_VERSIONS_META[bibleVersion]?.shortName || 'LSG 1910'})` 
-                  : `${filteredSermons.length} sermons`}
+                  : libraryMode === 'expose'
+                    ? `${exposePages.length} pages`
+                    : libraryMode === 'songs'
+                      ? `${filteredSongs.length} cantiques`
+                      : `${filteredSermons.length} sermons`}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
-          <button onClick={(e) => { e.stopPropagation(); if (confirm("Actualiser la bibliothèque ?")) resetLibrary(); }} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-teal-600 transition-all active:scale-95" title="Actualiser"><RefreshCw className={`w-3 h-3 ${isPending ? 'animate-spin' : ''}`} /></button>
-          <button onClick={toggleSidebar} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-red-500 transition-all active:scale-95" title="Fermer"><X className="w-3.5 h-3.5" /></button>
+          <button onClick={(e) => { e.stopPropagation(); if (confirm("Actualiser l'application ?")) resetLibrary(); }} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-teal-600 transition-all active:scale-95" data-tooltip="Actualiser"><RefreshCw className={`w-3 h-3 ${isPending ? 'animate-spin' : ''}`} /></button>
+          <button onClick={toggleSidebar} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-red-500 transition-all active:scale-95" data-tooltip="Fermer le panneau"><X className="w-3.5 h-3.5" /></button>
         </div>
       </div>
 
-      {/* Library Mode Switcher (Sermons vs Bible) & Bible Version Selector */}
+      {/* Library Mode Switcher */}
       <div className="px-3 pt-2 pb-2 bg-slate-50/80 dark:bg-zinc-950/80 border-b border-slate-200/50 dark:border-slate-800/40 space-y-2">
-        <div className="grid grid-cols-2 p-1 bg-slate-200/60 dark:bg-zinc-900 rounded-xl border border-slate-300/40 dark:border-zinc-800">
+        <div className="grid grid-cols-4 p-1 bg-slate-200/60 dark:bg-zinc-900 rounded-xl border border-slate-300/40 dark:border-zinc-800">
           <button
             onClick={() => {
               setLibraryMode('sermons');
@@ -750,13 +993,14 @@ const Sidebar: React.FC = () => {
                 useAppStore.getState().setSearchResults([]);
               }
             }}
-            className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200 ${
+            data-tooltip="Bibliothèque des Sermons"
+            className={`flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200 ${
               libraryMode === 'sermons'
                 ? 'bg-teal-600 text-white shadow-md shadow-teal-600/20'
                 : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
             }`}
           >
-            <Library className="w-3 h-3" />
+            <Library className="w-3 h-3 hidden sm:block" />
             <span>Sermons</span>
           </button>
 
@@ -767,14 +1011,51 @@ const Sidebar: React.FC = () => {
                 useAppStore.getState().setSearchResults([]);
               }
             }}
-            className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200 ${
+            data-tooltip="Sainte Bible (66 Livres)"
+            className={`flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200 ${
               libraryMode === 'bible'
                 ? 'bg-teal-600 text-white shadow-md shadow-teal-600/20'
                 : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
             }`}
           >
-            <BookOpen className="w-3 h-3" />
-            <span>Sainte Bible</span>
+            <BookOpen className="w-3 h-3 hidden sm:block" />
+            <span>Bible</span>
+          </button>
+          
+          <button
+            onClick={() => {
+              setLibraryMode('expose');
+              if (isFullTextSearch && searchResults.length > 0) {
+                useAppStore.getState().setSearchResults([]);
+              }
+            }}
+            data-tooltip="Exposé des 7 Âges de l'Église"
+            className={`flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200 ${
+              libraryMode === 'expose'
+                ? 'bg-teal-600 text-white shadow-md shadow-teal-600/20'
+                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+            }`}
+          >
+            <BookText className="w-3 h-3 hidden sm:block" />
+            <span>Exposé</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setLibraryMode('songs');
+              if (isFullTextSearch && searchResults.length > 0) {
+                useAppStore.getState().setSearchResults([]);
+              }
+            }}
+            data-tooltip="Recueil de Cantiques et Chants"
+            className={`flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200 ${
+              libraryMode === 'songs'
+                ? 'bg-teal-600 text-white shadow-md shadow-teal-600/20'
+                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+            }`}
+          >
+            <Music className="w-3 h-3 hidden sm:block" />
+            <span>Chants</span>
           </button>
         </div>
 
@@ -798,13 +1079,116 @@ const Sidebar: React.FC = () => {
                         ? 'bg-teal-600 text-white shadow-sm shadow-teal-600/20'
                         : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-slate-300/50 dark:hover:bg-zinc-800'
                     }`}
-                    title={`${meta.label} (${meta.subtext})`}
+                    data-tooltip={`${meta.label} (${meta.subtext})`}
                   >
                     {meta.shortName}
                   </button>
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {/* Songs Controls & Sorting */}
+        {libraryMode === 'songs' && (
+          <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-slate-200/60 dark:border-zinc-800/80">
+            <span className="text-[8.5px] font-black uppercase tracking-wider text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 px-2 py-0.5 rounded-md border border-teal-200/50 dark:border-teal-800/40 shrink-0">
+              {filteredSongs.length} {filteredSongs.length === 1 ? 'cantique' : 'cantiques'}
+            </span>
+
+            <div className="flex items-center gap-1.5">
+              {/* Sort Order Toggles */}
+              <div className="flex items-center bg-slate-200/60 dark:bg-zinc-900 p-0.5 rounded-lg border border-slate-300/40 dark:border-zinc-800">
+                <button
+                  onClick={() => {
+                    if (songsSortOrder === 'number-asc') {
+                      setSongsSortOrder('number-desc');
+                    } else {
+                      setSongsSortOrder('number-asc');
+                    }
+                  }}
+                  data-tooltip={songsSortOrder === 'number-asc' ? "Trier par N° décroissant (321→1)" : "Trier par N° croissant (1→321)"}
+                  className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider transition-all flex items-center gap-0.5 cursor-pointer ${
+                    songsSortOrder.startsWith('number') ? 'bg-teal-600 text-white shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                  }`}
+                >
+                  <span>N°</span>
+                  <span>{songsSortOrder === 'number-desc' ? '▼' : '▲'}</span>
+                </button>
+                <button
+                  onClick={() => {
+                    if (songsSortOrder === 'title-asc' || songsSortOrder === 'number-asc') {
+                      setSongsSortOrder('title-desc');
+                    } else {
+                      setSongsSortOrder('title-asc');
+                    }
+                  }}
+                  data-tooltip={songsSortOrder === 'title-asc' ? "Trier par Titre Z→A" : "Trier par Titre A→Z"}
+                  className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider transition-all flex items-center gap-0.5 cursor-pointer ${
+                    songsSortOrder.startsWith('title') ? 'bg-teal-600 text-white shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                  }`}
+                >
+                  <span>A-Z</span>
+                  <span>{songsSortOrder === 'title-desc' ? '▼' : '▲'}</span>
+                </button>
+              </div>
+
+              {/* Add Song Button */}
+              <button
+                onClick={() => {
+                  setSongToEdit(null);
+                  setIsSongModalOpen(true);
+                  setSidebarOpen(false);
+                }}
+                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-[8.5px] font-black uppercase tracking-wider shadow-sm transition-all active:scale-95 cursor-pointer"
+                data-tooltip="Ajouter un cantique"
+              >
+                <Plus className="w-3 h-3" />
+                <span>Ajouter</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Filters for Expose Mode */}
+        {libraryMode === 'expose' && exposeTree && (
+          <div className="flex flex-col gap-2 pt-1 border-t border-slate-200/60 dark:border-zinc-800/80">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[8.5px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center gap-1 pl-1 whitespace-nowrap shrink-0">
+                <BookText className="w-3 h-3 text-teal-600 dark:text-teal-400" />
+                Chapitre :
+              </span>
+              <ModernDropdown 
+                  value={selectedExposeChapter}
+                  onChange={(val) => {
+                      setSelectedExposeChapter(val);
+                      setSelectedExposeSection(null);
+                  }}
+                  options={exposeTree.chapters.map(c => c.chapter_number)}
+                  displayValue={(v) => {
+                      const c = exposeTree.chapters.find(chap => String(chap.chapter_number) === String(v));
+                      if (!c) return `Chapitre ${v}`;
+                      return v === '0' ? c.title : `${v}. ${c.title}`;
+                  }}
+                  placeholder="Tous les chapitres"
+                  className="flex-1 min-w-0"
+              />
+            </div>
+            {selectedExposeChapter && (
+                <div className="flex items-center justify-between gap-1.5">
+                  <span className="text-[8.5px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center gap-1 pl-1 whitespace-nowrap shrink-0">
+                    <BookText className="w-3 h-3 text-teal-600 dark:text-teal-400 opacity-50" />
+                    Section :
+                  </span>
+                  <ModernDropdown 
+                      value={selectedExposeSection}
+                      onChange={setSelectedExposeSection}
+                      options={exposeTree.chapters.find(c => String(c.chapter_number) === String(selectedExposeChapter))?.sections || []}
+                      placeholder="Toutes les sections"
+                      className="flex-1 min-w-0"
+                  />
+                </div>
+            )}
           </div>
         )}
       </div>
@@ -817,8 +1201,8 @@ const Sidebar: React.FC = () => {
               type="text"
               placeholder={
                 isFullTextSearch 
-                  ? (libraryMode === 'bible' ? "Recherche de versets bibliques..." : "Recherche intégrale...") 
-                  : (libraryMode === 'bible' ? "Filtrer livres bibliques..." : t.search_placeholder)
+                  ? (libraryMode === 'bible' ? "Recherche de versets bibliques..." : libraryMode === 'expose' ? "Recherche dans l'Exposé..." : libraryMode === 'songs' ? "Recherche dans les cantiques..." : "Recherche intégrale...") 
+                  : (libraryMode === 'bible' ? "Filtrer livres bibliques..." : libraryMode === 'expose' ? "Filtrer par page ou chapitre..." : libraryMode === 'songs' ? "Filtrer cantiques par titre ou n°..." : t.search_placeholder)
               }
               className={`w-full pl-9 pr-12 py-2.5 bg-white dark:bg-zinc-900 border rounded-xl text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:ring-4 transition-all shadow-sm ${isFullTextSearch ? 'border-teal-600 dark:border-teal-500 focus:ring-teal-600/10' : 'border-slate-200 dark:border-zinc-700/60 focus:border-teal-500 focus:ring-teal-500/10'}`}
               value={internalQuery}
@@ -827,14 +1211,14 @@ const Sidebar: React.FC = () => {
             />
             <Search className={`absolute left-3 w-3.5 h-3.5 ${isFullTextSearch ? 'text-teal-600' : 'text-slate-400'}`} />
             <div className="absolute right-1.5 flex items-center gap-1">
-              {internalQuery && <button onClick={() => { setInternalQuery(''); updateSearchQuery(''); useAppStore.getState().setSearchResults([]); }} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-red-500"><X className="w-4 h-4" /></button>}
-              {isFullTextSearch && <button onClick={triggerSearch} disabled={isSearching} className="w-8 h-8 flex items-center justify-center bg-teal-600 text-white rounded-lg hover:bg-teal-700 shadow-lg shadow-teal-600/20 active:scale-90">{isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}</button>}
+              {internalQuery && <button onClick={() => { setInternalQuery(''); updateSearchQuery(''); useAppStore.getState().setSearchResults([]); }} data-tooltip="Effacer la recherche" className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-red-500"><X className="w-4 h-4" /></button>}
+              {isFullTextSearch && <button onClick={triggerSearch} disabled={isSearching} data-tooltip="Lancer la recherche" className="w-8 h-8 flex items-center justify-center bg-teal-600 text-white rounded-lg hover:bg-teal-700 shadow-lg shadow-teal-600/20 active:scale-90">{isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}</button>}
             </div>
           </div>
 
           {/* Quick Toolbar */}
           <div className="flex items-center justify-between gap-2 px-0.5">
-            <div onClick={() => setIsFullTextSearch(!isFullTextSearch)} className="flex items-center gap-2 cursor-pointer group select-none">
+            <div onClick={() => setIsFullTextSearch(!isFullTextSearch)} data-tooltip={isFullTextSearch ? "Désactiver la recherche texte intégral" : "Activer la recherche texte intégral"} className="flex items-center gap-2 cursor-pointer group select-none">
               <div className={`relative w-8 h-4.5 rounded-full transition-all flex items-center px-0.5 ${isFullTextSearch ? 'bg-teal-600 shadow-lg shadow-teal-600/20' : 'bg-slate-200 dark:bg-zinc-700 shadow-inner'}`}>
                 <div className={`w-3.5 h-3.5 bg-white rounded-full shadow-md transition-all transform ${isFullTextSearch ? 'translate-x-3.5 scale-100' : 'translate-x-0 scale-90'}`} />
               </div>
@@ -847,6 +1231,7 @@ const Sidebar: React.FC = () => {
                 <button 
                   onClick={handleToggleAllToContext}
                   data-tooltip={areAllItemsInDock ? "Tout retirer du dock IA" : "Tout ajouter au dock IA"}
+                  data-tooltip-icon="sparkles"
                   className={`w-7.5 h-7.5 flex items-center justify-center rounded-lg border transition-all active:scale-95 shadow-sm tooltip-bottom ${
                     areAllItemsInDock 
                       ? 'bg-amber-500 border-amber-600 text-white shadow-amber-500/20' 
@@ -871,6 +1256,7 @@ const Sidebar: React.FC = () => {
               {isFullTextSearch && (
                   <button 
                     onClick={() => setIncludeSynonyms(!includeSynonyms)}
+                    data-tooltip={includeSynonyms ? "Désactiver l'expansion des synonymes" : "Activer la recherche avec synonymes"}
                     className={`flex items-center gap-1.5 px-2.5 h-7.5 rounded-lg border transition-all active:scale-95 shadow-sm ${includeSynonyms ? 'bg-amber-600 border-amber-600 text-white' : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-400'}`}
                   >
                     <Layers className="w-3 h-3" />
@@ -878,10 +1264,12 @@ const Sidebar: React.FC = () => {
                   </button>
               )}
 
-              <button onClick={() => setShowFilters(!showFilters)} className={`flex items-center justify-center gap-1 px-2.5 h-7.5 rounded-lg border text-[7.5px] font-black uppercase tracking-widest transition-all ${showFilters || activeFiltersCount > 0 ? 'bg-teal-600 text-white border-teal-600 shadow-xl shadow-teal-600/20' : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-500'}`}>
-                <Filter className="w-2.5 h-2.5" />
-                <span>Filtres</span>
-              </button>
+              {(libraryMode === 'sermons' || libraryMode === 'bible') && (
+                <button onClick={() => setShowFilters(!showFilters)} data-tooltip={showFilters ? "Masquer les filtres avancés" : "Afficher les filtres avancés"} className={`flex items-center justify-center gap-1 px-2.5 h-7.5 rounded-lg border text-[7.5px] font-black uppercase tracking-widest transition-all cursor-pointer ${showFilters || activeFiltersCount > 0 ? 'bg-teal-600 text-white border-teal-600 shadow-xl shadow-teal-600/20' : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-500'}`}>
+                  <Filter className="w-2.5 h-2.5" />
+                  <span>Filtres</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -961,7 +1349,7 @@ const Sidebar: React.FC = () => {
           )}
 
           {/* Conditional Filters Bar */}
-          {showFilters && (
+          {showFilters && (libraryMode === 'sermons' || libraryMode === 'bible') && (
             <div className="pt-2.5 border-t border-slate-200 dark:border-zinc-700/50 space-y-2">
               {libraryMode === 'bible' ? (
                 <div className="space-y-2">
@@ -1024,7 +1412,7 @@ const Sidebar: React.FC = () => {
                     ))}
                   </div>
                 </div>
-              ) : (
+              ) : libraryMode === 'sermons' ? (
                 <div className="flex flex-wrap gap-1.5">
                   <ModernDropdown value={yearFilter} onChange={setYearFilter} options={dynamicYears} placeholder={t.filter_year} />
                   <ModernDropdown value={monthFilter} onChange={setMonthFilter} options={dynamicMonths} placeholder={t.filter_month} displayValue={getMonthName} />
@@ -1032,7 +1420,7 @@ const Sidebar: React.FC = () => {
                   <ModernDropdown value={cityFilter} onChange={setCityFilter} options={dynamicCities} placeholder={t.filter_city} />
                   <ModernDropdown value={versionFilter} onChange={setVersionFilter} options={dynamicVersions} placeholder={t.filter_version} />
                 </div>
-              )}
+              ) : null}
             </div>
           )}
         </div>
@@ -1105,6 +1493,91 @@ const Sidebar: React.FC = () => {
                 );
               })}
             </div>
+          ) : libraryMode === 'expose' ? (
+            /* Expose Pages Grid View (Numbered Buttons) */
+            <div className="p-3">
+              {exposeTree && selectedExposeChapter && (
+                <div className="mb-2.5 px-1 flex items-center justify-between">
+                  <span className="text-[8.5px] font-black text-zinc-400 uppercase tracking-widest truncate">
+                    Pages ({displayList.length}) :
+                  </span>
+                  {selectedExposeSection && (
+                    <span className="text-[8px] font-bold text-teal-600 dark:text-teal-400 truncate max-w-[180px] bg-teal-50 dark:bg-teal-950/40 px-2 py-0.5 rounded border border-teal-200/50 dark:border-teal-800/40">
+                      {selectedExposeSection}
+                    </span>
+                  )}
+                </div>
+              )}
+              <div className="grid grid-cols-6 sm:grid-cols-7 gap-1.5 p-0.5">
+                {(displayList as ExposePage[]).map((p) => {
+                  const isSelected = selectedSermonId === `expose-pg-${p.page_number}`;
+                  const isContextSelected = manualContextIds.includes(`expose-pg-${p.page_number}`);
+
+                  return (
+                    <button
+                      key={`expose-pg-${p.page_number}`}
+                      onClick={(e) => {
+                        if (e.ctrlKey || e.metaKey) {
+                          toggleContextSermon(`expose-pg-${p.page_number}`, true);
+                        } else {
+                          setSelectedSermonId(`expose-pg-${p.page_number}`);
+                        }
+                      }}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        toggleContextSermon(`expose-pg-${p.page_number}`, false);
+                      }}
+                      data-tooltip={`Page ${p.page_number}${p.chapter_title ? ` • ${p.chapter_title}` : ''}`}
+                      className={`h-7 rounded-lg text-[10px] font-black flex items-center justify-center transition-all active:scale-90 relative ${
+                        isSelected
+                          ? 'bg-teal-600 text-white shadow-md shadow-teal-600/30 ring-2 ring-teal-500/50'
+                          : 'bg-white dark:bg-zinc-800/90 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-700/60 hover:border-teal-500 hover:text-teal-600 dark:hover:text-teal-400 shadow-2xs'
+                      }`}
+                    >
+                      {p.page_number}
+                      {isContextSelected && (
+                        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-teal-500 rounded-full ring-1 ring-white dark:ring-zinc-900" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : libraryMode === 'songs' ? (
+            /* Songs List View */
+            <div className="divide-y divide-slate-100 dark:divide-zinc-800/60">
+              {(displayList as Song[]).map((song) => {
+                const songDocId = `song-${song.id}`;
+                const isSelected = selectedSermonId === songDocId;
+                const isContextSelected = manualContextIds.includes(songDocId);
+
+                return (
+                  <SongItem
+                    key={`song-${song.id}`}
+                    song={song}
+                    isSelected={isSelected}
+                    isContextSelected={isContextSelected}
+                    onSelect={() => {
+                      setSelectedSermonId(songDocId);
+                    }}
+                    onToggleContext={(e) => {
+                      e.stopPropagation();
+                      toggleContextSermon(songDocId, true);
+                    }}
+                    onEdit={(e) => {
+                      e.stopPropagation();
+                      setSongToEdit(song);
+                      setIsSongModalOpen(true);
+                      setSidebarOpen(false);
+                    }}
+                    onDelete={(e) => {
+                      e.stopPropagation();
+                      handleDeleteSong(song);
+                    }}
+                  />
+                );
+              })}
+            </div>
           ) : (
             /* Sermons List View (Virtualized) */
             <div style={{ height: totalListHeight, position: 'relative' }}>
@@ -1149,7 +1622,7 @@ const Sidebar: React.FC = () => {
 
             <div className={`space-y-2 transition-all duration-500 origin-top flex flex-col items-center ${isFooterExpanded ? 'opacity-100 scale-y-100 mt-2 pb-2' : 'opacity-0 scale-y-0 h-0 overflow-hidden'}`}>
               <div className="flex flex-col items-center mb-1">
-                <img src="https://branham.fr/source/favicon/favicon-32x32.png" onError={(e) => { (e.target as HTMLImageElement).src = "/logo.png"; }} alt="Logo" className="w-4 h-4 mb-0.5 object-contain" />
+                <img src="/apple-touch-icon.png" onError={(e) => { (e.target as HTMLImageElement).src = "/logo.png"; }} alt="Logo" className="w-6 h-6 mb-0.5 object-cover rounded-full" />
                 <h3 className="text-[8px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-[0.3em] leading-none">King's Sword</h3>
               </div>
               
@@ -1167,6 +1640,25 @@ const Sidebar: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Song Creation & Edit Modal */}
+      <SongModal
+        isOpen={isSongModalOpen}
+        song={songToEdit}
+        songToEdit={songToEdit}
+        onClose={() => {
+          setIsSongModalOpen(false);
+          setSongToEdit(null);
+        }}
+        onSaved={async (savedSong) => {
+          await refreshSongs();
+          setSelectedSermonId(`song-${savedSong.id}`, false, true);
+        }}
+        onSongSaved={async (savedSong) => {
+          await refreshSongs();
+          setSelectedSermonId(`song-${savedSong.id}`, false, true);
+        }}
+      />
     </div>
   );
 };

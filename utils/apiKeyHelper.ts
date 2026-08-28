@@ -13,7 +13,9 @@ export const getGeminiApiKey = (): string | undefined => {
     // localStorage non disponible ou restreint
   }
 
-  return process.env.API_KEY;
+  const envKey = (typeof process !== 'undefined' && (process.env.GEMINI_API_KEY || process.env.API_KEY)) ||
+                 (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_GEMINI_API_KEY);
+  return envKey || undefined;
 };
 
 export const setGeminiApiKey = (key: string): void => {

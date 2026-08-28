@@ -79,7 +79,7 @@ const NoteCard = memo(({
            ) : (
              <div
                onClick={(e) => { e.stopPropagation(); setEditingNoteId(n.id); }}
-               title="Cliquer pour modifier"
+               data-tooltip="Cliquer pour modifier"
                className="flex items-center gap-1.5 flex-1 min-w-0 cursor-text"
              >
                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate tracking-tight group-hover:text-teal-600 transition-colors">
@@ -90,7 +90,7 @@ const NoteCard = memo(({
            )}
         </div>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-          <button data-tooltip="Supprimer" onClick={e => { e.stopPropagation(); onDelete(n.id); }} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg text-zinc-400 hover:text-red-500 active:scale-95 transition-all tooltip-left"><Trash2 className="w-3.5 h-3.5" /></button>
+          <button data-tooltip="Supprimer" data-tooltip-icon="trash" onClick={e => { e.stopPropagation(); onDelete(n.id); }} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg text-zinc-400 hover:text-red-500 active:scale-95 transition-all tooltip-left"><Trash2 className="w-3.5 h-3.5" /></button>
         </div>
       </div>
       

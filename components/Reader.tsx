@@ -6,6 +6,7 @@ import { getDefinition, WordDefinition } from '../services/dictionaryService';
 import { getAccentInsensitiveRegex } from '../utils/textUtils';
 import { Sermon, Highlight, SearchMode } from '../types';
 import { PALETTE_HIGHLIGHT_COLORS } from '../constants';
+import { formatSongContent } from '../services/songService';
 import NoteSelectorModal from './NoteSelectorModal';
 import { 
   Printer, 
@@ -51,8 +52,13 @@ import {
   Languages,
   Plus,
   ChevronRight,
-  PanelLeftOpen
+  PanelLeftOpen,
+  Music,
+  Edit3,
+  Library,
+  BookText
 } from 'lucide-react';
+import SongModal from './SongModal';
 
 interface SimpleWord {
   text: string;
@@ -148,6 +154,82 @@ const WordComponent = memo(({
   return content;
 });
 
+const getWordIndexFromDomPoint = (
+  node: Node, 
+  offset: number, 
+  isEnd: boolean, 
+  structuredSegments: { words: SimpleWord[]; isNumbered: boolean; text: string }[]
+): number | null => {
+  // 1. Check if node is inside a [data-para-content] container
+  const paraEl = (node.nodeType === 1 ? (node as HTMLElement) : node.parentElement)?.closest('[data-para-content]');
+  const effectiveParaEl = paraEl || (node.nodeType === 1 ? (node as HTMLElement) : node.parentElement)?.closest('[data-seg-idx]')?.querySelector('[data-para-content]');
+  
+  if (!effectiveParaEl) {
+    const wordEl = (node.nodeType === 1 ? (node as HTMLElement) : node.parentElement)?.closest('[data-global-index]');
+    if (wordEl) {
+      return parseInt(wordEl.getAttribute('data-global-index') || '0', 10);
+    }
+    return null;
+  }
+
+  const segIdxStr = effectiveParaEl.getAttribute('data-para-content');
+  if (segIdxStr === null) return null;
+  const segIdx = parseInt(segIdxStr, 10);
+  const segment = structuredSegments[segIdx];
+  if (!segment || segment.words.length === 0) return null;
+
+  // 2. Compute exact character offset inside effectiveParaEl
+  let charOffset = 0;
+  let reachedNode = false;
+
+  const walker = document.createTreeWalker(effectiveParaEl, NodeFilter.SHOW_TEXT, null);
+  let currentTextNode: Node | null = walker.nextNode();
+
+  while (currentTextNode) {
+    if (currentTextNode === node) {
+      charOffset += Math.min(offset, currentTextNode.textContent?.length || 0);
+      reachedNode = true;
+      break;
+    }
+    charOffset += currentTextNode.textContent?.length || 0;
+    currentTextNode = walker.nextNode();
+  }
+
+  if (!reachedNode) {
+    if (node === effectiveParaEl) {
+      charOffset = 0;
+      for (let i = 0; i < Math.min(offset, effectiveParaEl.childNodes.length); i++) {
+        charOffset += effectiveParaEl.childNodes[i].textContent?.length || 0;
+      }
+    } else if (effectiveParaEl.contains(node)) {
+      charOffset = 0;
+      const elWalker = document.createTreeWalker(effectiveParaEl, NodeFilter.SHOW_TEXT, null);
+      let tn: Node | null = elWalker.nextNode();
+      while (tn) {
+        if (node.contains(tn)) {
+          break;
+        }
+        charOffset += tn.textContent?.length || 0;
+        tn = elWalker.nextNode();
+      }
+    }
+  }
+
+  // 3. Map character offset to exact global word index
+  const targetChar = isEnd && charOffset > 0 ? charOffset - 1 : charOffset;
+
+  let currentPos = 0;
+  for (let i = 0; i < segment.words.length; i++) {
+    const w = segment.words[i];
+    if (currentPos + w.text.length > targetChar) {
+      return w.globalIndex;
+    }
+    currentPos += w.text.length;
+  }
+
+  return segment.words[segment.words.length - 1].globalIndex;
+};
+
 let externalMaskWindow: Window | null = null;
 let projectionWindow: Window | null = null;
 
@@ -157,6 +239,9 @@ const Reader: React.FC = () => {
   const toggleSidebar = useAppStore(s => s.toggleSidebar);
   const setSidebarOpen = useAppStore(s => s.setSidebarOpen);
   const libraryMode = useAppStore(s => s.libraryMode);
+  const setLibraryMode = useAppStore(s => s.setLibraryMode);
+  const manualContextIds = useAppStore(s => s.manualContextIds);
+  const toggleContextSermon = useAppStore(s => s.toggleContextSermon);
   
   const activeSermon = useAppStore(s => s.activeSermon);
   const selectedSermonId = useAppStore(s => s.selectedSermonId);
@@ -196,11 +281,55 @@ const Reader: React.FC = () => {
   const notesWidth = useAppStore(s => s.notesWidth);
   const aiOpen = useAppStore(s => s.aiOpen);
   const notesOpen = useAppStore(s => s.notesOpen);
+  const toggleNotes = useAppStore(s => s.toggleNotes);
+  const toggleAI = useAppStore(s => s.toggleAI);
   
   const lang = languageFilter === 'Anglais' ? 'en' : 'fr';
   const t = translations[lang];
 
   const sermon = activeSermon;
+
+  const isSong = Boolean(sermon?.date === 'Cantique' || sermon?.time === 'Chant' || sermon?.id?.startsWith('song-'));
+
+  const processedText = useMemo(() => {
+    if (!sermon || !sermon.text) return '';
+    if (isSong) {
+      const pureTitle = sermon.title ? sermon.title.replace(/^\d+\.\s*/, '') : '';
+      return formatSongContent(sermon.text, pureTitle);
+    }
+    return sermon.text;
+  }, [sermon?.id, sermon?.text, isSong, sermon?.title]);
+
+  const segments = useMemo(() => {
+    if (!processedText) return [];
+    return processedText.split(/\n\s*\n+/); 
+  }, [processedText]);
+
+  const structuredSegments = useMemo(() => {
+    const result: { words: SimpleWord[]; isNumbered: boolean; text: string }[] = [];
+    let globalIdx = 0;
+    segments.forEach((seg, segIdx) => {
+        const segWords: SimpleWord[] = [];
+        const tokens = seg.split(/(\s+)/);
+        tokens.forEach(token => {
+            if (token !== "") segWords.push({ text: token, segmentIndex: segIdx, globalIndex: globalIdx++ });
+        });
+        const isNumbered = /^\d+/.test(seg.trim());
+        result.push({ words: segWords, isNumbered, text: seg });
+    });
+    return result;
+  }, [segments]);
+
+  const words = useMemo(() => structuredSegments.flatMap(s => s.words), [structuredSegments]);
+
+  const highlightMap = useMemo(() => {
+    const map = new Map<number, Highlight>();
+    if (!sermon?.highlights) return map;
+    for (const h of sermon.highlights) {
+        for (let i = h.start; i <= h.end; i++) map.set(i, h);
+    }
+    return map;
+  }, [sermon?.highlights]);
   
   const [selection, setSelection] = useState<{ text: string; x: number; y: number } | null>(null);
   const [selectionIndices, setSelectionIndices] = useState<number[]>([]);
@@ -212,12 +341,26 @@ const Reader: React.FC = () => {
   const [noteSelectorPayload, setNoteSelectorPayload] = useState<{ text: string; sermon: Sermon; paragraphIndex?: number } | null>(null);
   const [isOSFullscreen, setIsOSFullscreen] = useState(false);
   const [projectedSegmentIndex, setProjectedSegmentIndex] = useState<number | null>(null);
+  const projectedSegmentIndexRef = useRef<number | null>(null);
+
+  const updateProjectedSegmentIndex = useCallback((idx: number | null) => {
+    projectedSegmentIndexRef.current = idx;
+    setProjectedSegmentIndex(idx);
+  }, []);
+
+  const sendProjectionPayloadRef = useRef<((targetSegmentIdx?: number | null) => void) | null>(null);
   const [isProjectionOpen, setIsProjectionOpen] = useState(false);
   
   const [activeDefinition, setActiveDefinition] = useState<WordDefinition | null>(null);
   const [isDefining, setIsDefining] = useState(false);
   const [jumpHighlightIndices, setJumpHighlightIndices] = useState<number[]>([]);
   const [syncToggle, setSyncToggle] = useState(0);
+  const [isSongModalOpen, setIsSongModalOpen] = useState(false);
+
+  const isCurrentInDock = useMemo(() => {
+    if (!activeSermon?.id) return false;
+    return manualContextIds.includes(activeSermon.id);
+  }, [activeSermon, manualContextIds]);
 
   const [localFontSize, setLocalFontSize] = useState<string | number>(fontSize);
   useEffect(() => {
@@ -246,6 +389,7 @@ const Reader: React.FC = () => {
     }
 
     try {
+      if (sel.rangeCount === 0) return;
       const range = sel.getRangeAt(0);
       const container = range.commonAncestorContainer.nodeType === 1 
         ? (range.commonAncestorContainer as HTMLElement) 
@@ -253,27 +397,23 @@ const Reader: React.FC = () => {
 
       if (!container || !readerAreaRef.current.contains(container)) return;
 
-      const indices: number[] = [];
-      const wordElements = container.querySelectorAll('[data-global-index]');
-      
-      const selfIdx = container.getAttribute('data-global-index');
-      if (selfIdx && sel.containsNode(container, true)) {
-          indices.push(parseInt(selfIdx));
-      }
+      const start = getWordIndexFromDomPoint(range.startContainer, range.startOffset, false, structuredSegments);
+      const end = getWordIndexFromDomPoint(range.endContainer, range.endOffset, true, structuredSegments);
 
-      wordElements.forEach(el => {
-        if (sel.containsNode(el, true)) {
-          const idx = el.getAttribute('data-global-index');
-          if (idx) indices.push(parseInt(idx));
+      if (start !== null && end !== null) {
+        const s = Math.min(start, end);
+        const e = Math.max(start, end);
+        const indices: number[] = [];
+        for (let i = s; i <= e; i++) {
+          indices.push(i);
         }
-      });
-      
-      setSelectionIndices(prev => {
-          if (prev.length === indices.length && prev.every((v, i) => v === indices[i])) return prev;
+        setSelectionIndices(prev => {
+          if (prev.length === indices.length && prev[0] === indices[0] && prev[prev.length - 1] === indices[indices.length - 1]) return prev;
           return indices;
-      });
+        });
+      }
     } catch (e) {}
-  }, []);
+  }, [structuredSegments]);
 
   const handleTextSelection = useCallback((e?: React.MouseEvent) => {
     if (e && (e.target as HTMLElement).closest('.selection-menu-container')) {
@@ -281,23 +421,29 @@ const Reader: React.FC = () => {
     }
 
     const sel = window.getSelection();
-    if (sel && sel.toString().trim().length > 1 && scrollContainerRef.current) {
+    if (sel && sel.toString().trim().length > 0 && scrollContainerRef.current) {
+      if (sel.rangeCount === 0) return;
       const range = sel.getRangeAt(0);
       const rect = range.getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) return;
+
       const scrollContainer = scrollContainerRef.current;
       const scrollRect = scrollContainer.getBoundingClientRect();
       
-      const menuHeight = 65; 
+      const menuHeight = 55; 
       const spaceAbove = rect.top - scrollRect.top;
       
       let x = (rect.left + rect.width / 2) - scrollRect.left;
       let y;
 
-      if (spaceAbove > menuHeight + 20) {
+      if (spaceAbove > menuHeight + 16) {
         y = (rect.top - scrollRect.top) + scrollContainer.scrollTop - menuHeight - 12;
       } else {
         y = (rect.bottom - scrollRect.top) + scrollContainer.scrollTop + 12;
       }
+
+      // Keep menu inside container horizontally
+      x = Math.max(160, Math.min(scrollContainer.clientWidth - 160, x));
 
       setSelection({ 
         text: sel.toString().trim(), 
@@ -325,17 +471,44 @@ const Reader: React.FC = () => {
 
   useEffect(() => {
     broadcastChannel.current = new BroadcastChannel('kings_sword_projection');
-    const handleReadyMessage = (e: any) => {
+    const handleBroadcastMessage = (e: any) => {
       const data = e.data || e;
-      if (data && data.type === 'ready') {
-        setSyncToggle(prev => prev + 1);
+      if (data) {
+        if (data.type === 'ready') {
+          if (sendProjectionPayloadRef.current) {
+            sendProjectionPayloadRef.current(projectedSegmentIndexRef.current);
+          }
+          setSyncToggle(prev => prev + 1);
+        } else if (data.type === 'next_segment') {
+          handleProjectNextSegment();
+        } else if (data.type === 'prev_segment') {
+          handleProjectPrevSegment();
+        } else if (data.type === 'toggle_blackout') {
+          setProjectionBlackout(!useAppStore.getState().projectionBlackout);
+        } else if (data.type === 'close') {
+          stopProjection();
+        }
       }
     };
-    broadcastChannel.current.onmessage = handleReadyMessage;
+    broadcastChannel.current.onmessage = handleBroadcastMessage;
 
     const handleWindowMessage = (e: MessageEvent) => {
-      if (e.data && e.data.type === 'ready') {
-        setSyncToggle(prev => prev + 1);
+      const data = e.data;
+      if (data) {
+        if (data.type === 'ready') {
+          if (sendProjectionPayloadRef.current) {
+            sendProjectionPayloadRef.current(projectedSegmentIndexRef.current);
+          }
+          setSyncToggle(prev => prev + 1);
+        } else if (data.type === 'next_segment') {
+          handleProjectNextSegment();
+        } else if (data.type === 'prev_segment') {
+          handleProjectPrevSegment();
+        } else if (data.type === 'toggle_blackout') {
+          setProjectionBlackout(!useAppStore.getState().projectionBlackout);
+        } else if (data.type === 'close') {
+          stopProjection();
+        }
       }
     };
     window.addEventListener('message', handleWindowMessage);
@@ -348,7 +521,7 @@ const Reader: React.FC = () => {
       if (projectionWindow && projectionWindow.closed) {
         projectionWindow = null;
         setIsProjectionOpen(false);
-        setProjectedSegmentIndex(null);
+        updateProjectedSegmentIndex(null);
       }
     }, 1000);
     
@@ -394,43 +567,12 @@ const Reader: React.FC = () => {
     };
   }, [setExternalMaskOpen, handleSelectionChange]);
 
-  const highlightMap = useMemo(() => {
-    const map = new Map<number, Highlight>();
-    if (!sermon?.highlights) return map;
-    for (const h of sermon.highlights) {
-        for (let i = h.start; i <= h.end; i++) map.set(i, h);
-    }
-    return map;
-  }, [sermon?.highlights]);
-
-  const segments = useMemo(() => {
-    if (!sermon || !sermon.text) return [];
-    return sermon.text.split(/\n\s*\n/); 
-  }, [sermon?.id]);
-
-  const structuredSegments = useMemo(() => {
-    const result: { words: SimpleWord[]; isNumbered: boolean; text: string }[] = [];
-    let globalIdx = 0;
-    segments.forEach((seg, segIdx) => {
-        const segWords: SimpleWord[] = [];
-        const tokens = seg.split(/(\s+)/);
-        tokens.forEach(token => {
-            if (token !== "") segWords.push({ text: token, segmentIndex: segIdx, globalIndex: globalIdx++ });
-        });
-        const isNumbered = /^\d+/.test(seg.trim());
-        result.push({ words: segWords, isNumbered, text: seg });
-    });
-    return result;
-  }, [segments]);
-
-  const words = useMemo(() => structuredSegments.flatMap(s => s.words), [structuredSegments]);
-
   const getProjectionPayload = useCallback((targetSegmentIdx?: number | null) => {
     if (!sermon) return null;
     
     const activeIdx = targetSegmentIdx !== undefined 
       ? targetSegmentIdx 
-      : projectedSegmentIndex;
+      : projectedSegmentIndexRef.current;
     
     if (activeIdx === null || activeIdx < 0 || !structuredSegments[activeIdx]) {
       return {
@@ -490,32 +632,42 @@ const Reader: React.FC = () => {
       currentResultIndex,
       activeDefinition
     };
-  }, [sermon, projectedSegmentIndex, structuredSegments, segments, selectionIndices, highlightMap, jumpHighlightIndices, searchResults, currentResultIndex, activeDefinition, fontSize, theme, projectionBlackout]);
+  }, [sermon, structuredSegments, segments, selectionIndices, highlightMap, jumpHighlightIndices, searchResults, currentResultIndex, activeDefinition, fontSize, theme, projectionBlackout]);
 
   const prevSermonIdRef = useRef(sermon?.id);
   useEffect(() => {
     if (sermon?.id !== prevSermonIdRef.current) {
       prevSermonIdRef.current = sermon?.id;
-      setProjectedSegmentIndex(null);
+      updateProjectedSegmentIndex(null);
     }
-  }, [sermon?.id]);
+  }, [sermon?.id, updateProjectedSegmentIndex]);
+
+  const sendProjectionPayload = useCallback((targetSegmentIdx?: number | null) => {
+    const payload = getProjectionPayload(targetSegmentIdx);
+    if (!payload) return;
+
+    try {
+      localStorage.setItem('kings_sword_last_projection_sync', JSON.stringify(payload));
+      sessionStorage.setItem('kings_sword_last_projection_sync', JSON.stringify(payload));
+    } catch (e) {}
+
+    if (broadcastChannel.current) {
+      try { broadcastChannel.current.postMessage(payload); } catch (e) {}
+    }
+    if (projectionWindow && !projectionWindow.closed) {
+      try { projectionWindow.postMessage(payload, '*'); } catch (e) {}
+    }
+  }, [getProjectionPayload]);
 
   useEffect(() => {
-    if (sermon && projectedSegmentIndex !== null) {
-      const payload = getProjectionPayload(projectedSegmentIndex);
-      if (payload) {
-        if (broadcastChannel.current) {
-          try { broadcastChannel.current.postMessage(payload); } catch (e) {}
-        }
-        try {
-          localStorage.setItem('kings_sword_last_projection_sync', JSON.stringify(payload));
-        } catch (e) {}
-        if (projectionWindow && !projectionWindow.closed) {
-          try { projectionWindow.postMessage(payload, '*'); } catch (e) {}
-        }
-      }
+    sendProjectionPayloadRef.current = sendProjectionPayload;
+  }, [sendProjectionPayload]);
+
+  useEffect(() => {
+    if (sermon && isProjectionOpen) {
+      sendProjectionPayload(projectedSegmentIndexRef.current);
     }
-  }, [projectedSegmentIndex, getProjectionPayload, syncToggle]);
+  }, [sermon, projectedSegmentIndex, isProjectionOpen, sendProjectionPayload, syncToggle]);
 
   const stopProjection = useCallback(() => {
     if (projectionWindow) {
@@ -527,7 +679,7 @@ const Reader: React.FC = () => {
     }
     projectionWindow = null;
     setIsProjectionOpen(false);
-    setProjectedSegmentIndex(null);
+    updateProjectedSegmentIndex(null);
     if (broadcastChannel.current) {
       try {
         broadcastChannel.current.postMessage({ type: 'close' });
@@ -538,21 +690,43 @@ const Reader: React.FC = () => {
     } catch (e) {}
   }, []);
 
+  const reopenProjectionWindow = useCallback(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('projection', 'true');
+
+    const dualScreenLeft = window.screenLeft !== undefined ? window.screenLeft : (window.screenX || 0);
+    const dualScreenTop = window.screenTop !== undefined ? window.screenTop : (window.screenY || 0);
+    const currentWidth = window.outerWidth || window.innerWidth || (window.screen?.availWidth || 1920);
+
+    const left = dualScreenLeft + currentWidth;
+    const top = dualScreenTop;
+    const targetWidth = window.screen?.availWidth || 1920;
+    const targetHeight = window.screen?.availHeight || 1080;
+
+    const windowFeatures = `width=${targetWidth},height=${targetHeight},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=no`;
+
+    try {
+      if (projectionWindow && !projectionWindow.closed) {
+        projectionWindow.focus();
+      } else {
+        projectionWindow = window.open(url.toString(), 'KingsSwordProjection', windowFeatures);
+      }
+    } catch (err) {
+      projectionWindow = null;
+    }
+
+    setIsProjectionOpen(true);
+    sendProjectionPayload(projectedSegmentIndexRef.current);
+  }, [sendProjectionPayload]);
+
   const toggleProjection = useCallback((initialSegmentIdx?: number) => {
     const targetIdx = typeof initialSegmentIdx === 'number' ? initialSegmentIdx : undefined;
     const isWindowActive = Boolean(projectionWindow && !projectionWindow.closed);
 
-    if (isWindowActive) {
+    if (isWindowActive || isProjectionOpen) {
       if (targetIdx !== undefined) {
-        setProjectedSegmentIndex(targetIdx);
-        const payload = getProjectionPayload(targetIdx);
-        if (payload) {
-          if (broadcastChannel.current) {
-            try { broadcastChannel.current.postMessage(payload); } catch (e) {}
-          }
-          try { localStorage.setItem('kings_sword_last_projection_sync', JSON.stringify(payload)); } catch (e) {}
-          try { projectionWindow?.postMessage(payload, '*'); } catch (e) {}
-        }
+        updateProjectedSegmentIndex(targetIdx);
+        sendProjectionPayload(targetIdx);
       } else {
         stopProjection();
       }
@@ -568,18 +742,13 @@ const Reader: React.FC = () => {
 
     const effectiveIdx = targetIdx !== undefined 
       ? targetIdx 
-      : (projectedSegmentIndex !== null ? projectedSegmentIndex : defaultIdx);
+      : (projectedSegmentIndexRef.current !== null ? projectedSegmentIndexRef.current : defaultIdx);
     
     if (effectiveIdx !== null) {
-      setProjectedSegmentIndex(effectiveIdx);
+      updateProjectedSegmentIndex(effectiveIdx);
     }
 
-    const payload = getProjectionPayload(effectiveIdx);
-    if (payload) {
-      try {
-        localStorage.setItem('kings_sword_last_projection_sync', JSON.stringify(payload));
-      } catch (e) {}
-    }
+    sendProjectionPayload(effectiveIdx);
 
     // Build URL for projection window
     const url = new URL(window.location.href);
@@ -594,7 +763,7 @@ const Reader: React.FC = () => {
     let targetWidth = window.screen?.availWidth || 1920;
     let targetHeight = window.screen?.availHeight || 1080;
 
-    const windowFeatures = `popup=yes,fullscreen=yes,frame=no,titlebar=no,scrollbars=no,menubar=no,toolbar=no,location=no,status=no,resizable=no,top=${top},left=${left},width=${targetWidth},height=${targetHeight}`;
+    const windowFeatures = `width=${targetWidth},height=${targetHeight},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=no`;
 
     try {
       projectionWindow = window.open(url.toString(), 'KingsSwordProjection', windowFeatures);
@@ -609,12 +778,7 @@ const Reader: React.FC = () => {
         projectionWindow.resizeTo(targetWidth, targetHeight);
       } catch (e) {}
 
-      if (payload) {
-        if (broadcastChannel.current) {
-          try { broadcastChannel.current.postMessage(payload); } catch (e) {}
-        }
-        try { projectionWindow.postMessage(payload, '*'); } catch (e) {}
-      }
+      sendProjectionPayload(effectiveIdx);
       try { projectionWindow.focus(); } catch (e) {}
 
       // Asynchronously query multi-screen details if browser supports Window Management API
@@ -638,9 +802,11 @@ const Reader: React.FC = () => {
         }).catch(() => {});
       }
     } else {
-      setIsProjectionOpen(false);
+      // Even if popup was blocked by browser, state is projection-ready for BroadcastChannel/second-tab projection
+      setIsProjectionOpen(true);
+      sendProjectionPayload(effectiveIdx);
     }
-  }, [projectedSegmentIndex, structuredSegments, getProjectionPayload, stopProjection]);
+  }, [projectedSegmentIndex, structuredSegments, sendProjectionPayload, stopProjection, isProjectionOpen]);
 
   const handleFullscreenToggle = useCallback(() => {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen();
@@ -650,10 +816,10 @@ const Reader: React.FC = () => {
   useEffect(() => {
     if (sermon?.id && !jumpToText && !jumpToParagraph && scrollContainerRef.current) {
         scrollContainerRef.current.scrollTop = 0;
-        setProjectedSegmentIndex(null);
+        updateProjectedSegmentIndex(null);
         setJumpHighlightIndices([]);
     }
-  }, [sermon?.id]);
+  }, [sermon?.id, updateProjectedSegmentIndex]);
 
   useEffect(() => {
     if (jumpToParagraph !== null && sermon && structuredSegments.length > 0) {
@@ -814,37 +980,26 @@ const Reader: React.FC = () => {
     }
   };
 
-  const handleHighlight = useCallback(() => {
+  const handleHighlight = useCallback((color: string = 'amber') => {
     const sel = window.getSelection();
     if (!sel || !sermon || sel.rangeCount === 0) return;
     const range = sel.getRangeAt(0);
-    const getIndexFromNode = (node: Node, offset: number): number | null => {
-      const wordEl = node.parentElement?.closest('[data-global-index]');
-      if (wordEl) return parseInt(wordEl.getAttribute('data-global-index') || '0');
-      const segEl = node.parentElement?.closest('[data-seg-idx]');
-      if (!segEl) return null;
-      const segIdx = parseInt(segEl.getAttribute('data-seg-idx') || '0');
-      const segment = structuredSegments[segIdx];
-      if (!segment) return null;
-      let charOffsetInSegment = 0;
-      const children = segEl.childNodes;
-      for (let i = 0; i < children.length; i++) {
-        if (children[i] === node) { charOffsetInSegment += offset; break; }
-        charOffsetInSegment += children[i].textContent?.length || 0;
-      }
-      let currentPos = 0;
-      for (const w of segment.words) {
-        if (currentPos + w.text.length > charOffsetInSegment) return w.globalIndex;
-        currentPos += w.text.length;
-      }
-      return segment.words[segment.words.length - 1].globalIndex;
-    };
-    const start = getIndexFromNode(range.startContainer, range.startOffset);
-    const end = getIndexFromNode(range.endContainer, range.endOffset);
+
+    const start = getWordIndexFromDomPoint(range.startContainer, range.startOffset, false, structuredSegments);
+    const end = getWordIndexFromDomPoint(range.endContainer, range.endOffset, true, structuredSegments);
+
     if (start !== null && end !== null) {
-      const newHighlight: Highlight = { id: crypto.randomUUID(), start: Math.min(start, end), end: Math.max(start, end), color: 'amber' };
+      const startIdx = Math.min(start, end);
+      const endIdx = Math.max(start, end);
+      const newHighlight: Highlight = { 
+        id: crypto.randomUUID(), 
+        start: startIdx, 
+        end: endIdx, 
+        color: color 
+      };
       updateSermonHighlights(sermon.id, [...(sermon.highlights || []), newHighlight]);
-      setSelection(null); sel.removeAllRanges();
+      setSelection(null); 
+      sel.removeAllRanges();
     }
   }, [sermon, structuredSegments, updateSermonHighlights]);
 
@@ -907,7 +1062,7 @@ const Reader: React.FC = () => {
   }, [highlightMap, citationHighlightMap, searchResults, jumpHighlightIndices, selectionIndices]);
 
   const handleProjectSegment = useCallback((idx: number, isExplicitToggle = false) => {
-    // ONLY explicit projection buttons (verse projection icon, toolbar button, prev/next controls) trigger projection!
+    // ONLY explicit projection buttons (verse projection icon, toolbar button, prev/next controls, or paragraph click in projection mode) trigger projection!
     if (!isExplicitToggle) return;
 
     const sel = window.getSelection();
@@ -918,33 +1073,26 @@ const Reader: React.FC = () => {
     const isWindowActive = Boolean(projectionWindow && !projectionWindow.closed);
 
     if (projectedSegmentIndex === idx) {
-      setProjectedSegmentIndex(null);
-      const payload = getProjectionPayload(null);
-      if (payload) {
-        if (broadcastChannel.current) {
-          try { broadcastChannel.current.postMessage(payload); } catch (e) {}
-        }
-        try { localStorage.setItem('kings_sword_last_projection_sync', JSON.stringify(payload)); } catch (e) {}
-        if (projectionWindow && !projectionWindow.closed) {
-          try { projectionWindow.postMessage(payload, '*'); } catch (e) {}
-        }
-      }
+      // Toggle off this segment
+      updateProjectedSegmentIndex(null);
+      sendProjectionPayload(null);
     } else {
-      setProjectedSegmentIndex(idx);
-      if (!isWindowActive) {
+      updateProjectedSegmentIndex(idx);
+      if (!isWindowActive && !isProjectionOpen) {
         toggleProjection(idx);
       } else {
-        const payload = getProjectionPayload(idx);
-        if (payload) {
-          if (broadcastChannel.current) {
-            try { broadcastChannel.current.postMessage(payload); } catch (e) {}
-          }
-          try { localStorage.setItem('kings_sword_last_projection_sync', JSON.stringify(payload)); } catch (e) {}
-          try { projectionWindow?.postMessage(payload, '*'); } catch (e) {}
-        }
+        sendProjectionPayload(idx);
       }
+
+      // Automatically keep the projected paragraph centered and visible in reader view
+      setTimeout(() => {
+        const el = segmentRefs.current.get(idx);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 50);
     }
-  }, [projectedSegmentIndex, toggleProjection, getProjectionPayload]);
+  }, [projectedSegmentIndex, toggleProjection, sendProjectionPayload, isProjectionOpen]);
 
   const handleProjectNextSegment = useCallback(() => {
     if (!structuredSegments || structuredSegments.length === 0) return;
@@ -973,44 +1121,82 @@ const Reader: React.FC = () => {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const isInput = ['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName);
+      const isInput = ['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName) || (e.target as HTMLElement)?.isContentEditable;
+
+      const isProjectionActive = isProjectionOpen || projectedSegmentIndex !== null || isOSFullscreen;
+
+      // F5 or Ctrl+Shift+P to launch / toggle projection from anywhere (when not in input)
+      if (!isInput && (e.key === 'F5' || ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'p' || e.key === 'P')))) {
+        e.preventDefault();
+        toggleProjection();
+        return;
+      }
 
       if (e.key === 'Escape') {
+        if (isProjectionActive) {
+          stopProjection();
+        }
         setSelection(null);
         setActiveDefinition(null);
         setIsSearchVisible(false);
         window.getSelection()?.removeAllRanges();
+        return;
       }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
         e.preventDefault();
         setIsSearchVisible(true);
       }
 
-      // Remote controls and scroll for projection window from reader
-      if (!isInput && isProjectionOpen) {
-        if (e.altKey && (e.key === 'b' || e.key === 'B')) {
+      // Remote controls and keyboard navigation for projection mode
+      if (!isInput && isProjectionActive && !e.ctrlKey && !e.metaKey) {
+        // Stop projection with 'q' or 'Q'
+        if (e.key === 'q' || e.key === 'Q') {
+          e.preventDefault();
+          stopProjection();
+          return;
+        }
+
+        // Toggle blackout: B or . (presentation remote standard)
+        if (e.key === 'b' || e.key === 'B' || e.key === '.') {
           e.preventDefault();
           setProjectionBlackout(!useAppStore.getState().projectionBlackout);
-        } else if (e.altKey && (e.key === 'ArrowRight' || e.key === 'ArrowDown')) {
-          e.preventDefault();
-          handleProjectNextSegment();
-        } else if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowUp')) {
-          e.preventDefault();
-          handleProjectPrevSegment();
-        } else if (broadcastChannel.current) {
-          if (e.shiftKey && e.key === 'PageDown') {
+          return;
+        }
+
+        // Shift + PageDown / Shift + PageUp for fine remote vertical scrolling
+        if (e.shiftKey && (e.key === 'PageDown' || e.key === 'ArrowDown')) {
+          if (broadcastChannel.current) {
             e.preventDefault();
             broadcastChannel.current.postMessage({ type: 'scroll', direction: 'down', amount: 0.45 });
-          } else if (e.shiftKey && e.key === 'PageUp') {
+          }
+          return;
+        }
+        if (e.shiftKey && (e.key === 'PageUp' || e.key === 'ArrowUp')) {
+          if (broadcastChannel.current) {
             e.preventDefault();
             broadcastChannel.current.postMessage({ type: 'scroll', direction: 'up', amount: 0.45 });
           }
+          return;
+        }
+
+        // Paragraphe suivant: ↓ (Flèche Bas), → (Flèche Droite), PageDown ou Espace
+        if (e.key === 'PageDown' || e.key === 'ArrowDown' || e.key === 'ArrowRight' || (e.key === ' ' && !e.shiftKey)) {
+          e.preventDefault();
+          handleProjectNextSegment();
+          return;
+        }
+
+        // Paragraphe précédent: ↑ (Flèche Haut), ← (Flèche Gauche), PageUp ou Maj + Espace
+        if (e.key === 'PageUp' || e.key === 'ArrowUp' || e.key === 'ArrowLeft' || (e.key === ' ' && e.shiftKey)) {
+          e.preventDefault();
+          handleProjectPrevSegment();
+          return;
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isProjectionOpen, handleProjectNextSegment, handleProjectPrevSegment, setProjectionBlackout]);
+  }, [isProjectionOpen, projectedSegmentIndex, isOSFullscreen, handleProjectNextSegment, handleProjectPrevSegment, setProjectionBlackout, toggleProjection, stopProjection]);
 
   const renderSegmentContent = useCallback((segWords: SimpleWord[]) => {
     const elements: React.ReactNode[] = [];
@@ -1067,7 +1253,6 @@ const Reader: React.FC = () => {
             <button 
               onClick={toggleSidebar} 
               data-tooltip="Ouvrir la bibliothèque"
-              title="Ouvrir la bibliothèque"
               className="flex items-center gap-2.5 text-zinc-600 dark:text-zinc-400 hover:text-teal-600 dark:hover:text-teal-400 transition-all p-1.5 rounded-xl hover:bg-slate-200/50 dark:hover:bg-zinc-900"
             >
               <PanelLeftOpen className="w-5 h-5 text-teal-600" />
@@ -1195,7 +1380,6 @@ const Reader: React.FC = () => {
             <button 
               onClick={toggleSidebar} 
               data-tooltip="Ouvrir la bibliothèque"
-              title="Ouvrir la bibliothèque"
               className="p-2 text-zinc-500 hover:text-teal-600 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:border-teal-500/30 shadow-sm transition-all shrink-0 active:scale-95 cursor-pointer mr-1"
             >
               <PanelLeftOpen className="w-4 h-4 text-teal-600" />
@@ -1212,15 +1396,24 @@ const Reader: React.FC = () => {
               className="flex items-center gap-x-2 gap-y-1 font-bold text-zinc-400 uppercase tracking-wider leading-none mt-1 transition-all flex-wrap"
               style={{ fontSize: isOSFullscreen ? `${Math.max(10, fontSize * 0.3)}px` : '9px' }}
             >
-              <div className="flex items-center gap-1"><Calendar style={{ width: '1em', height: '1em' }} className="text-teal-600" /><span>{sermon.date}</span></div>
-              {sermon.time && <div className="flex items-center gap-1"><span className="w-1 h-1 bg-zinc-300 rounded-full mx-1" /><Clock style={{ width: '1em', height: '1em' }} className="text-teal-600" /><span>{sermon.time}</span></div>}
-              <div className="flex items-center gap-1"><span className="w-1 h-1 bg-zinc-300 rounded-full mx-1" /><MapPin style={{ width: '1em', height: '1em' }} className="text-teal-600" /><span>{sermon.city}</span></div>
+              {sermon.id.startsWith('song-') ? (
+                <>
+                  <div className="flex items-center gap-1"><Music style={{ width: '1em', height: '1em' }} className="text-teal-600" /><span>{sermon.date || 'Cantique'}</span></div>
+                  {sermon.city && <div className="flex items-center gap-1"><span className="w-1 h-1 bg-zinc-300 rounded-full mx-1" /><span>{sermon.city}</span></div>}
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-1"><Calendar style={{ width: '1em', height: '1em' }} className="text-teal-600" /><span>{sermon.date}</span></div>
+                  {sermon.time && <div className="flex items-center gap-1"><span className="w-1 h-1 bg-zinc-300 rounded-full mx-1" /><Clock style={{ width: '1em', height: '1em' }} className="text-teal-600" /><span>{sermon.time}</span></div>}
+                  {sermon.city && <div className="flex items-center gap-1"><span className="w-1 h-1 bg-zinc-300 rounded-full mx-1" /><MapPin style={{ width: '1em', height: '1em' }} className="text-teal-600" /><span>{sermon.city}</span></div>}
+                </>
+              )}
             </div>
           </div>
         </div>
         <div 
-          className="flex items-center shrink-0 ml-4 overflow-visible-important flex-wrap justify-end"
-          style={isOSFullscreen ? { gap: '0.25em' } : { gap: '0.5rem' }}
+          className="flex items-center shrink-0 ml-4 overflow-visible-important flex-wrap justify-end gap-1.5"
+          style={isOSFullscreen ? { gap: '0.25em' } : {}}
         >
             {navigatedFromSearch && (
               <button 
@@ -1232,27 +1425,70 @@ const Reader: React.FC = () => {
                 {t.reader_exit_search}
               </button>
             )}
+
+            {/* Document Content Tools */}
             <ActionButton 
-              onClick={() => {
-                const s = useAppStore.getState();
-                if (s.sidebarOpen && s.libraryMode === 'bible') {
-                  s.toggleSidebar();
-                } else {
-                  s.setLibraryMode('bible');
-                  if (!s.sidebarOpen) s.setSidebarOpen(true);
-                }
-              }} 
-              icon={BookOpen} 
-              tooltip={sidebarOpen && libraryMode === 'bible' ? "Fermer la bibliothèque (Bible)" : "Sainte Bible (Louis Segond 1910)"} 
-              active={sidebarOpen && libraryMode === 'bible'}
+              onClick={() => setIsSearchVisible(!isSearchVisible)} 
+              icon={Search} 
+              tooltip={t.reader_search_tooltip} 
+              active={isSearchVisible} 
               isFullscreen={isOSFullscreen} 
               baseFontSize={fontSize} 
             />
-            <ActionButton onClick={() => setIsSearchVisible(!isSearchVisible)} icon={Search} tooltip={t.reader_search_tooltip} active={isSearchVisible} isFullscreen={isOSFullscreen} baseFontSize={fontSize} />
-            <ActionButton onClick={togglePlay} icon={isPlaying ? Pause : Play} tooltip={isPlaying ? t.tooltip_pause : t.tooltip_play} active={isPlaying} isFullscreen={isOSFullscreen} baseFontSize={fontSize} />
-            <ActionButton onClick={() => toggleProjection()} icon={MonitorPlay} tooltip="Projeter" active={isProjectionOpen} special={isProjectionOpen} isFullscreen={isOSFullscreen} baseFontSize={fontSize} />
-            <ActionButton onClick={handleFullscreenToggle} icon={isOSFullscreen ? Minimize : Maximize} tooltip="Plein écran" special={isOSFullscreen} isFullscreen={isOSFullscreen} baseFontSize={fontSize} />
-            <ActionButton onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} icon={ThemeIcon} tooltip={theme === 'light' ? "Passer au thème sombre" : "Passer au thème clair"} active={theme === 'dark'} isFullscreen={isOSFullscreen} baseFontSize={fontSize} />
+            <ActionButton 
+              onClick={() => {
+                if (!activeSermon?.id) {
+                  addNotification("Aucun document ouvert à ajouter au dock IA", "info");
+                  return;
+                }
+                toggleContextSermon(activeSermon.id, true);
+                addNotification(
+                  isCurrentInDock 
+                    ? "Document retiré du dock IA" 
+                    : "Document ajouté au dock IA", 
+                  "success"
+                );
+              }} 
+              icon={Sparkles} 
+              tooltip={isCurrentInDock ? "Retirer ce document du dock IA" : "Ajouter ce document au dock IA"} 
+              active={isCurrentInDock}
+              special={isCurrentInDock}
+              isFullscreen={isOSFullscreen} 
+              baseFontSize={fontSize} 
+            />
+            {isSong && (
+              <ActionButton 
+                onClick={() => {
+                  setIsSongModalOpen(true);
+                  setSidebarOpen(false);
+                }} 
+                icon={Edit3} 
+                tooltip="Modifier les données de ce cantique" 
+                isFullscreen={isOSFullscreen} 
+                baseFontSize={fontSize} 
+              />
+            )}
+            {sermon.audio_url && (
+              <ActionButton 
+                onClick={togglePlay} 
+                icon={isPlaying ? Pause : Play} 
+                tooltip={isPlaying ? t.tooltip_pause : t.tooltip_play} 
+                active={isPlaying} 
+                isFullscreen={isOSFullscreen} 
+                baseFontSize={fontSize} 
+              />
+            )}
+            <ActionButton 
+              onClick={() => toggleProjection()} 
+              icon={MonitorPlay} 
+              tooltip="Projeter sur un deuxième écran" 
+              active={isProjectionOpen} 
+              special={isProjectionOpen} 
+              isFullscreen={isOSFullscreen} 
+              baseFontSize={fontSize} 
+            />
+
+            {/* Zoom / Font controls */}
             <div 
               className="flex items-center bg-white/50 dark:bg-zinc-800/50 border border-zinc-200/50 dark:border-zinc-800/50 no-print overflow-hidden transition-all"
               style={isOSFullscreen ? { fontSize: `${fontSize * 0.6}px`, borderRadius: '0.5em', height: '1.5em' } : { borderRadius: '0.75rem' }}
@@ -1260,11 +1496,52 @@ const Reader: React.FC = () => {
               <button onClick={() => setFontSize(s => s - 2)} className={`flex items-center justify-center text-zinc-400 hover:text-teal-600 ${isOSFullscreen ? '' : 'w-9 h-9'}`} style={isOSFullscreen ? { width: '1.5em', height: '100%' } : {}}>
                 <ZoomOut style={isOSFullscreen ? { width: '0.8em', height: '0.8em' } : { width: '1rem', height: '1rem' }} />
               </button>
-              <input type="text" value={localFontSize} onDoubleClick={() => setFontSize(20)} onChange={e => /^\d*$/.test(e.target.value) && setLocalFontSize(e.target.value)} onBlur={() => { const val = parseInt(String(localFontSize), 10); setFontSize(isNaN(val) ? fontSize : val); }} className={`bg-transparent text-center font-black outline-none ${isOSFullscreen ? 'text-white' : 'text-zinc-950 dark:text-white'}`} style={isOSFullscreen ? { width: '2.2em', height: '100%', fontSize: '0.8em' } : { width: '3rem', height: '100%', fontSize: '11px' }} />
+              <input type="text" value={localFontSize} onDoubleClick={() => setFontSize(20)} onChange={e => /^\d*$/.test(e.target.value) && setLocalFontSize(e.target.value)} onBlur={() => { const val = parseInt(String(localFontSize), 10); setFontSize(isNaN(val) ? fontSize : val); }} className="bg-transparent text-center font-black outline-none text-zinc-950 dark:text-white" style={isOSFullscreen ? { width: '2.2em', height: '100%', fontSize: '0.8em' } : { width: '3rem', height: '100%', fontSize: '11px' }} />
               <button onClick={() => setFontSize(s => s + 2)} className={`flex items-center justify-center text-zinc-400 hover:text-teal-600 ${isOSFullscreen ? '' : 'w-9 h-9'}`} style={isOSFullscreen ? { width: '1.5em', height: '100%' } : {}}>
                 <ZoomIn style={isOSFullscreen ? { width: '0.8em', height: '0.8em' } : { width: '1rem', height: '1rem' }} />
               </button>
             </div>
+
+            {/* View Settings */}
+            <ActionButton 
+              onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} 
+              icon={ThemeIcon} 
+              tooltip={theme === 'light' ? "Passer au thème sombre" : "Passer au thème clair"} 
+              active={theme === 'dark'} 
+              isFullscreen={isOSFullscreen} 
+              baseFontSize={fontSize} 
+            />
+            <ActionButton 
+              onClick={handleFullscreenToggle} 
+              icon={isOSFullscreen ? Minimize : Maximize} 
+              tooltip={isOSFullscreen ? "Quitter le plein écran" : "Plein écran"} 
+              special={isOSFullscreen} 
+              isFullscreen={isOSFullscreen} 
+              baseFontSize={fontSize} 
+            />
+
+            {/* Side Panels Toggles */}
+            {!isOSFullscreen && (
+              <>
+                <div className="w-px h-5 bg-zinc-200 dark:bg-zinc-800 mx-0.5 hidden sm:block" />
+                <ActionButton 
+                  onClick={toggleNotes} 
+                  icon={NotebookPen} 
+                  tooltip={notesOpen ? "Fermer le journal de notes" : "Ouvrir le journal de notes"} 
+                  active={notesOpen} 
+                  isFullscreen={isOSFullscreen} 
+                  baseFontSize={fontSize} 
+                />
+                <ActionButton 
+                  onClick={toggleAI} 
+                  icon={Sparkles} 
+                  tooltip={aiOpen ? "Fermer l'Assistant IA" : "Ouvrir l'Assistant IA"} 
+                  active={aiOpen} 
+                  isFullscreen={isOSFullscreen} 
+                  baseFontSize={fontSize} 
+                />
+              </>
+            )}
         </div>
       </div>
 
@@ -1287,12 +1564,35 @@ const Reader: React.FC = () => {
               </span>
             ) : (
               <span className="text-xs font-medium italic text-teal-300/80">
-                Aucun paragraphe sélectionné — cliquez sur l'icône de projection à côté d'un paragraphe/verset
+                Cliquez sur un paragraphe pour le projeter
               </span>
             )}
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={reopenProjectionWindow}
+              className="px-2.5 py-1 bg-teal-900/90 hover:bg-teal-800 text-teal-200 hover:text-white rounded-lg text-xs font-bold border border-teal-700/60 transition-all flex items-center gap-1.5 shadow-sm"
+              data-tooltip="Ouvrir ou focaliser la fenêtre de projection"
+            >
+              <MonitorPlay className="w-3.5 h-3.5 text-teal-300" />
+              <span className="hidden sm:inline">Fenêtre Écran 2</span>
+            </button>
+
+            <div className="h-4 w-px bg-teal-800/80 mx-0.5 hidden sm:block" />
+
+            <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 bg-teal-900/40 rounded-lg border border-teal-700/40 text-[11px] text-teal-200/90 font-mono">
+              <span>Raccourcis :</span>
+              <kbd className="bg-teal-950 px-1.5 py-0.5 rounded border border-teal-700/60 font-bold text-[10px]">↓</kbd>
+              <kbd className="bg-teal-950 px-1.5 py-0.5 rounded border border-teal-700/60 font-bold text-[10px]">↑</kbd>
+              <span className="text-teal-400">|</span>
+              <kbd className="bg-teal-950 px-1.5 py-0.5 rounded border border-teal-700/60 font-bold text-[10px]">B</kbd>
+              <span>Noir</span>
+              <span className="text-teal-400">|</span>
+              <kbd className="bg-teal-950 px-1.5 py-0.5 rounded border border-teal-700/60 font-bold text-[10px]">Échap</kbd>
+              <span>Quitter</span>
+            </div>
+
             <button
               onClick={() => setProjectionBlackout(!projectionBlackout)}
               className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all shadow-sm ${
@@ -1300,19 +1600,19 @@ const Reader: React.FC = () => {
                   ? 'bg-amber-500 text-black ring-2 ring-amber-400/50 shadow-amber-500/20' 
                   : 'bg-teal-900/90 hover:bg-teal-800 text-teal-100 border border-teal-700/60'
               }`}
-              title="Basculer l'écran noir (Raccourci : Alt + B)"
+              data-tooltip="Basculer l'écran noir (Raccourci : Touche B ou .)"
             >
               {projectionBlackout ? <EyeOff className="w-3.5 h-3.5 text-black" /> : <Eye className="w-3.5 h-3.5 text-teal-300" />}
-              <span>{projectionBlackout ? 'ÉCRAN NOIR ACTIF' : 'Masquer (Noir)'}</span>
+              <span>{projectionBlackout ? 'ÉCRAN NOIR' : 'Écran Noir (B)'}</span>
             </button>
 
-            <div className="h-4 w-px bg-teal-800/80 mx-1 hidden sm:block" />
+            <div className="h-4 w-px bg-teal-800/80 mx-0.5 hidden sm:block" />
 
             <button
               onClick={handleProjectPrevSegment}
               disabled={projectedSegmentIndex === null || projectedSegmentIndex === 0}
               className="px-2.5 py-1 bg-teal-900/90 hover:bg-teal-800 disabled:opacity-40 rounded-lg text-xs font-bold text-teal-200 border border-teal-700/60 transition-all flex items-center gap-1"
-              title="Projeter le paragraphe précédent (Raccourci : Alt + Flèche Gauche)"
+              data-tooltip="Projeter le paragraphe précédent (Raccourci : PageUp / Flèche Haut / Gauche)"
             >
               <ChevronUp className="w-3.5 h-3.5" /> Préc.
             </button>
@@ -1320,19 +1620,19 @@ const Reader: React.FC = () => {
             <button
               onClick={handleProjectNextSegment}
               className="px-2.5 py-1 bg-teal-900/90 hover:bg-teal-800 rounded-lg text-xs font-bold text-teal-200 border border-teal-700/60 transition-all flex items-center gap-1"
-              title="Projeter le paragraphe suivant (Raccourci : Alt + Flèche Droite)"
+              data-tooltip="Projeter le paragraphe suivant (Raccourci : PageDown / Flèche Bas / Droite / Espace)"
             >
               Suiv. <ChevronDown className="w-3.5 h-3.5" />
             </button>
 
-            <div className="h-4 w-px bg-teal-800/80 mx-1 hidden sm:block" />
+            <div className="h-4 w-px bg-teal-800/80 mx-0.5 hidden sm:block" />
 
             <button
               onClick={stopProjection}
               className="px-2.5 py-1 hover:bg-red-500/20 text-red-300 hover:text-red-200 border border-red-500/30 rounded-lg transition-all text-xs font-bold flex items-center gap-1 cursor-pointer"
-              title="Fermer la projection sur le deuxième écran"
+              data-tooltip="Arrêter et fermer la projection (Raccourci : Touche Échap / Escape ou Q)"
             >
-              <X className="w-3.5 h-3.5" /> Quitter
+              <X className="w-3.5 h-3.5" /> Quitter (Échap)
             </button>
           </div>
         </div>
@@ -1389,65 +1689,127 @@ const Reader: React.FC = () => {
       )}
 
       <div className="flex-1 relative overflow-hidden flex justify-center">
-        <div ref={scrollContainerRef} onMouseUp={handleTextSelection} className={`absolute inset-0 overflow-y-auto custom-scrollbar serif-text leading-relaxed text-zinc-800 dark:text-zinc-300 transition-all ${isOSFullscreen ? 'py-6 px-4 md:px-12' : 'py-12 px-4 md:px-12 lg:px-20'}`}>
-          <div className="w-full mx-auto printable-content whitespace-pre-wrap text-justify pb-20 max-w-full" style={{ fontSize: `${fontSize}px` }}>
+        <div ref={scrollContainerRef} onMouseUp={handleTextSelection} className={`absolute inset-0 overflow-y-auto custom-scrollbar serif-text leading-relaxed text-zinc-800 dark:text-zinc-300 transition-all ${isOSFullscreen ? 'py-6 pl-14 pr-4 sm:px-14 md:px-16' : 'py-12 pl-14 pr-4 sm:pl-16 sm:pr-8 md:pl-20 md:pr-12 lg:px-20'}`}>
+          <div className={`w-full mx-auto printable-content whitespace-pre-wrap ${isSong ? 'text-left max-w-4xl' : 'text-justify max-w-full'} pb-20`} style={{ fontSize: `${fontSize}px` }}>
             {structuredSegments.map((seg, segIdx) => {
               if (seg.text.trim() === '') return null;
               const content = renderSegmentContent(seg.words);
               const isProjected = projectedSegmentIndex === segIdx;
+              const isChorus = isSong && /^(ch[oœ]eur|refrain|chorus)\s*:/i.test(seg.text.trim());
 
               return (
                 <div 
                   key={segIdx} 
                   ref={(el: any) => { if (el) segmentRefs.current.set(segIdx, el); }} 
                   data-seg-idx={segIdx}
-                  className={`group/seg relative mb-2.5 py-3 px-6 rounded-[20px] transition-all ${
-                    seg.isNumbered ? 'border-l-[5px]' : 'border-l-[3px]'
+                  onClick={(e) => {
+                    // Only trigger projection on whole paragraph click if projection mode is currently active
+                    if (!isProjectionOpen && projectedSegmentIndex === null) {
+                      return;
+                    }
+                    // If user is selecting text, do not trigger projection
+                    const sel = window.getSelection();
+                    if (sel && sel.toString().trim().length > 0) {
+                      return;
+                    }
+                    handleProjectSegment(segIdx, true);
+                  }}
+                  className={`group/seg relative mb-3 py-3.5 px-6 rounded-[20px] transition-all select-text ${
+                    isProjectionOpen ? 'cursor-pointer' : 'cursor-text'
                   } ${
                     isProjected 
-                      ? 'bg-amber-500/10 border-amber-500 ring-2 ring-amber-500/30 shadow-sm' 
-                      : seg.isNumbered
-                        ? 'bg-slate-50 dark:bg-zinc-900/50 border-teal-600/20 dark:border-zinc-800 hover:border-teal-600/50 hover:bg-teal-500/5'
-                        : 'bg-slate-50/60 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 hover:border-teal-600/40 hover:bg-teal-500/5'
+                      ? 'bg-amber-500/10 border-l-[5px] border-amber-500 ring-2 ring-amber-500/40 shadow-md' 
+                      : isChorus
+                        ? 'bg-teal-500/5 dark:bg-teal-500/10 border-l-[5px] border-teal-600 dark:border-teal-500 hover:bg-teal-500/10 shadow-xs'
+                        : seg.isNumbered
+                          ? 'bg-slate-50 dark:bg-zinc-900/50 border-l-[5px] border-teal-600/20 dark:border-zinc-800 hover:border-teal-600/50 hover:bg-teal-500/5'
+                          : 'bg-slate-50/60 dark:bg-zinc-900/30 border-l-[3px] border-zinc-200 dark:border-zinc-800 hover:border-teal-600/40 hover:bg-teal-500/5'
+                  } ${
+                    isProjectionOpen && !isProjected ? 'hover:ring-1 hover:ring-teal-500/30' : ''
                   }`}
                 >
-                  <div className="absolute -left-[54px] top-1/2 -translate-y-1/2 opacity-0 group-hover/seg:opacity-100 transition-all no-print flex flex-col gap-2 z-30">
-                      <div 
-                        onClick={(e) => { e.stopPropagation(); handleProjectSegment(segIdx, true); }} 
-                        className={`w-9 h-9 flex items-center justify-center rounded-xl shadow-lg transition-transform active:scale-90 cursor-pointer ${
-                          isProjected ? 'bg-amber-500 text-black font-bold' : 'bg-teal-600 hover:bg-teal-500 text-white'
-                        }`}
-                        title={isProjected ? "Arrêter la projection de ce paragraphe" : "Projeter ce paragraphe"}
-                      >
-                        <MonitorPlay className="w-4 h-4" />
-                      </div>
-                      <div 
-                        onClick={(e) => { e.stopPropagation(); setNoteSelectorPayload({ text: seg.text.trim(), sermon, paragraphIndex: segIdx + 1 }); }} 
-                        className="w-9 h-9 flex items-center justify-center bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-lg transition-transform active:scale-90 cursor-pointer"
-                        title="Ajouter au journal de notes"
-                      >
-                        <NotebookPen className="w-4 h-4" />
-                      </div>
-                  </div>
-                  {isProjected && (
-                    <div className="flex items-center gap-2 mb-2.5 no-print">
+                  {/* Top quick badges for projection state and hover actions */}
+                  <div className="flex items-center justify-between gap-2 mb-2 no-print">
+                    {isProjected ? (
                       <button
                         onClick={(e) => { e.stopPropagation(); handleProjectSegment(segIdx, true); }}
-                        className="inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-black text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md shadow-sm transition-all cursor-pointer"
-                        title="Cliquer pour désactiver la projection"
+                        className="inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-black text-[10.5px] font-black uppercase tracking-wider px-3 py-1 rounded-full shadow-sm transition-all active:scale-95 cursor-pointer"
+                        data-tooltip="Cliquer pour désactiver la projection"
                       >
                         <MonitorPlay className="w-3.5 h-3.5" />
-                        <span>EN PROJECTION SUR ÉCRAN 2</span>
+                        <span>EN PROJECTION SUR ÉCRAN 2 • CLIQUER POUR ARRÊTER</span>
+                      </button>
+                    ) : isProjectionOpen ? (
+                      <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-teal-600 dark:text-teal-400 opacity-60 group-hover/seg:opacity-100 transition-opacity">
+                        <MonitorPlay className="w-3 h-3" />
+                        <span>Cliquer sur ce paragraphe pour le projeter</span>
+                      </div>
+                    ) : null}
+
+                    {/* Inline Quick Action Buttons (visible on hover) */}
+                    <div className="ml-auto opacity-0 group-hover/seg:opacity-100 transition-opacity duration-150 flex items-center gap-1.5">
+                      {!isProjected && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleProjectSegment(segIdx, true); }}
+                          className="inline-flex items-center gap-1 bg-teal-600/10 hover:bg-teal-600 text-teal-700 dark:text-teal-300 hover:text-white border border-teal-600/30 text-[11px] font-bold px-2.5 py-0.5 rounded-lg shadow-2xs transition-all active:scale-95 cursor-pointer"
+                          data-tooltip="Projeter ce paragraphe sur grand écran"
+                        >
+                          <MonitorPlay className="w-3 h-3" />
+                          <span>Projeter</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          setNoteSelectorPayload({ text: seg.text.trim(), sermon, paragraphIndex: segIdx + 1 }); 
+                        }}
+                        className="inline-flex items-center gap-1 bg-emerald-600/10 hover:bg-emerald-600 text-emerald-700 dark:text-emerald-300 hover:text-white border border-emerald-600/30 text-[11px] font-bold px-2.5 py-0.5 rounded-lg shadow-2xs transition-all active:scale-95 cursor-pointer"
+                        data-tooltip="Ajouter ce paragraphe au journal d'étude"
+                        data-tooltip-icon="notes"
+                      >
+                        <NotebookPen className="w-3 h-3" />
+                        <span>Note</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          if (activeSermon?.id) {
+                            const inDock = manualContextIds.includes(activeSermon.id);
+                            toggleContextSermon(activeSermon.id, true);
+                            addNotification(
+                              inDock 
+                                ? `Retiré du dock IA` 
+                                : `Ajouté au dock IA`, 
+                              "success"
+                            );
+                          }
+                        }}
+                        className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-lg shadow-2xs transition-all active:scale-95 cursor-pointer border ${
+                          isCurrentInDock
+                            ? 'bg-teal-600 text-white border-teal-600'
+                            : 'bg-teal-600/10 hover:bg-teal-600 text-teal-700 dark:text-teal-300 hover:text-white border-teal-600/30'
+                        }`}
+                        data-tooltip={isCurrentInDock ? "Retirer ce sermon du dock IA" : "Ajouter ce sermon au dock IA"}
+                        data-tooltip-icon="sparkles"
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        <span>{isCurrentInDock ? "Dans le Dock IA" : "+ Dock IA"}</span>
                       </button>
                     </div>
-                  )}
-                  {content}
+                  </div>
+
+                  <div data-para-content={segIdx} className="para-text-content select-text leading-relaxed">
+                    {content}
+                  </div>
                 </div>
               );
             })}
           </div>
 
-          {selection && !isOSFullscreen && (
+          {selection && (
             <div 
               className="absolute z-[200000] no-print selection-menu-container animate-in fade-in zoom-in-95 duration-200 ease-out antialiased" 
               style={{ 
@@ -1456,17 +1818,41 @@ const Reader: React.FC = () => {
                 transform: 'translateX(-50%) translateZ(0)' 
               }}
             >
-              <div className="flex items-stretch bg-white/95 dark:bg-zinc-900/95 backdrop-blur-3xl p-1 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.1)] pointer-events-auto border border-white/30 dark:border-white/10 overflow-hidden transform-gpu">
-                <button onClick={handleHighlight} className="flex flex-col items-center justify-center gap-0.5 px-3 py-2 hover:bg-amber-500/15 text-zinc-800 dark:text-zinc-200 hover:text-amber-700 dark:hover:text-amber-400 rounded-lg active:scale-95 group transition-colors">
-                  <Highlighter className="w-4 h-4 text-amber-500" /><span className="text-[8.5px] font-bold uppercase tracking-tight">Surligner</span>
-                </button>
-                <div className="w-px bg-zinc-200/60 dark:bg-zinc-700/60 my-2 mx-0.5" />
-                <button onClick={() => { handleCopy(); setSelection(null); }} className="flex flex-col items-center justify-center gap-0.5 px-3 py-2 hover:bg-zinc-500/10 text-zinc-800 dark:text-zinc-200 rounded-lg active:scale-95 transition-colors"><Copy className="w-4 h-4 text-zinc-500" /><span className="text-[8.5px] font-bold uppercase tracking-tight">Copier</span></button>
-                <div className="w-px bg-zinc-200/60 dark:bg-zinc-700/60 my-2 mx-0.5" />
-                <button onClick={() => { handleDefine(); setSelection(null); }} className="flex flex-col items-center justify-center gap-0.5 px-3 py-2 hover:bg-sky-500/15 text-zinc-800 dark:text-zinc-200 rounded-lg active:scale-95 transition-colors"><BookOpen className="w-4 h-4 text-sky-500" /><span className="text-[8.5px] font-bold uppercase tracking-tight">Définir</span></button>
-                <button onClick={() => { triggerStudyRequest(selection.text); setSelection(null); }} className="flex flex-col items-center justify-center gap-0.5 px-3 py-2 hover:bg-teal-600/15 text-zinc-800 dark:text-zinc-200 rounded-lg active:scale-95 transition-colors"><Sparkles className="w-4 h-4 text-teal-600 animate-pulse" /><span className="text-[8.5px] font-bold uppercase tracking-tight">Étudier</span></button>
-                <div className="w-px bg-zinc-200/60 dark:bg-zinc-700/60 my-2 mx-0.5" />
-                <button onClick={() => { setNoteSelectorPayload({ text: selection.text, sermon }); setSelection(null); }} className="flex flex-col items-center justify-center gap-0.5 px-3 py-2 hover:bg-emerald-500/15 text-zinc-800 dark:text-zinc-200 rounded-lg active:scale-95 transition-colors"><NotebookPen className="w-4 h-4 text-emerald-500" /><span className="text-[8.5px] font-bold uppercase tracking-tight">Note</span></button>
+              <div className="flex items-center bg-white/95 dark:bg-zinc-900/95 backdrop-blur-3xl p-1.5 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.35),0_0_0_1px_rgba(255,255,255,0.1)] pointer-events-auto border border-white/40 dark:border-zinc-800 overflow-hidden transform-gpu">
+                <div className="flex items-center">
+                  <button 
+                    onClick={() => handleHighlight('amber')} 
+                    className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-amber-500/15 text-zinc-800 dark:text-zinc-200 hover:text-amber-700 dark:hover:text-amber-400 rounded-xl active:scale-95 group transition-colors cursor-pointer"
+                    data-tooltip="Surligner en jaune"
+                  >
+                    <Highlighter className="w-4 h-4 text-amber-500" />
+                    <span className="text-[8px] font-bold uppercase tracking-tight">Surligner</span>
+                  </button>
+                  <div className="flex items-center gap-1.5 px-2 py-1">
+                    {[
+                      { key: 'amber', bg: 'bg-amber-400 dark:bg-amber-500', label: 'Jaune' },
+                      { key: 'teal', bg: 'bg-teal-400 dark:bg-teal-500', label: 'Turquoise' },
+                      { key: 'sky', bg: 'bg-sky-400 dark:bg-sky-500', label: 'Bleu ciel' },
+                      { key: 'rose', bg: 'bg-rose-400 dark:bg-rose-500', label: 'Rose' },
+                      { key: 'violet', bg: 'bg-violet-400 dark:bg-violet-500', label: 'Violet' }
+                    ].map(c => (
+                      <button
+                        key={c.key}
+                        onClick={(e) => { e.stopPropagation(); handleHighlight(c.key); }}
+                        className={`w-4 h-4 rounded-full ${c.bg} hover:scale-130 active:scale-90 transition-transform shadow-xs border border-black/15 dark:border-white/20 cursor-pointer`}
+                        data-tooltip={`Surligner en ${c.label}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="w-px h-6 bg-zinc-200/80 dark:bg-zinc-700/80 my-auto mx-1" />
+                <button onClick={() => { handleCopy(); setSelection(null); }} data-tooltip="Copier le texte sélectionné" className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-zinc-500/10 text-zinc-800 dark:text-zinc-200 rounded-xl active:scale-95 transition-colors cursor-pointer"><Copy className="w-4 h-4 text-zinc-500" /><span className="text-[8px] font-bold uppercase tracking-tight">Copier</span></button>
+                <div className="w-px h-6 bg-zinc-200/80 dark:bg-zinc-700/80 my-auto mx-1" />
+                <button onClick={() => { handleDefine(); setSelection(null); }} data-tooltip="Définir ce mot dans le dictionnaire" data-tooltip-icon="book" className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-sky-500/15 text-zinc-800 dark:text-zinc-200 rounded-xl active:scale-95 transition-colors cursor-pointer"><BookOpen className="w-4 h-4 text-sky-500" /><span className="text-[8px] font-bold uppercase tracking-tight">Définir</span></button>
+                <button onClick={() => { triggerStudyRequest(selection.text); setSelection(null); }} data-tooltip="Étudier avec l'assistant IA" data-tooltip-icon="sparkles" className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-teal-600/15 text-zinc-800 dark:text-zinc-200 rounded-xl active:scale-95 transition-colors cursor-pointer"><Sparkles className="w-4 h-4 text-teal-600 animate-pulse" /><span className="text-[8px] font-bold uppercase tracking-tight">Étudier</span></button>
+                <div className="w-px h-6 bg-zinc-200/80 dark:bg-zinc-700/80 my-auto mx-1" />
+                <button onClick={() => { setNoteSelectorPayload({ text: selection.text, sermon }); setSelection(null); }} data-tooltip="Ajouter cet extrait au journal de notes" data-tooltip-icon="notes" className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-emerald-500/15 text-zinc-800 dark:text-zinc-200 rounded-xl active:scale-95 transition-colors cursor-pointer"><NotebookPen className="w-4 h-4 text-emerald-500" /><span className="text-[8px] font-bold uppercase tracking-tight">Note</span></button>
               </div>
             </div>
           )}
@@ -1497,6 +1883,34 @@ const Reader: React.FC = () => {
           </div>
         )}
       </div>
+
+      {isSong && sermon && (
+        <SongModal
+          isOpen={isSongModalOpen}
+          songId={sermon.id ? String(sermon.id).replace('song-', '') : null}
+          onClose={() => setIsSongModalOpen(false)}
+          onSaved={async (savedSong) => {
+            const { getSongAsSermon } = await import('../services/songService');
+            const updatedSermon = await getSongAsSermon(savedSong.id);
+            if (updatedSermon) {
+              useAppStore.setState({ 
+                activeSermon: updatedSermon, 
+                selectedSermonId: updatedSermon.id 
+              });
+            }
+          }}
+          onSongSaved={async (savedSong) => {
+            const { getSongAsSermon } = await import('../services/songService');
+            const updatedSermon = await getSongAsSermon(savedSong.id);
+            if (updatedSermon) {
+              useAppStore.setState({ 
+                activeSermon: updatedSermon, 
+                selectedSermonId: updatedSermon.id 
+              });
+            }
+          }}
+        />
+      )}
     </div>
   );
 };
