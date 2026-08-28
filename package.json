@@ -4,7 +4,6 @@
   "description": "Logiciel d'étude des sermons de W.M. Branham",
   "main": "main.js",
   "author": "Bienvenu Sédin Massamba",
-
   "scripts": {
     "start": "vite",
     "build": "vite build",
@@ -15,7 +14,6 @@
     "rebuild": "electron-rebuild -f -w better-sqlite3",
     "postinstall": "electron-builder install-app-deps"
   },
-
   "dependencies": {
     "@google/genai": "^1.34.0",
     "better-sqlite3": "^11.3.0",
@@ -29,10 +27,10 @@
     "react-dom": "^19.2.3",
     "zustand": "^5.0.9"
   },
-
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
     "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.5.4",
     "concurrently": "^8.2.2",
     "electron": "^29.1.0",
     "electron-builder": "^24.13.3",
@@ -43,22 +41,18 @@
     "vite": "^5.1.4",
     "wait-on": "^7.2.0"
   },
-
   "build": {
     "appId": "com.kingssword.app",
     "productName": "King's Sword",
     "copyright": "Copyright © 2026 Bienvenu Sédin Massamba. Tous droits réservés.",
-
     "directories": {
       "output": "release"
     },
-
     "files": [
       "dist/**/*",
       "main.js",
       "preload.js"
     ],
-
     "extraResources": [
       {
         "from": "public",
@@ -68,7 +62,6 @@
         ]
       }
     ],
-
     "publish": [
       {
         "provider": "github",
@@ -76,7 +69,6 @@
         "repo": "kings-sword"
       }
     ],
-
     "win": {
       "target": [
         {
@@ -88,7 +80,6 @@
       ],
       "icon": "public/icon.ico"
     },
-
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
