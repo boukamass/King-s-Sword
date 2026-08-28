@@ -384,37 +384,11 @@ const Reader: React.FC = () => {
 
   const handleSelectionChange = useCallback(() => {
     const sel = window.getSelection();
-    if (!sel || sel.isCollapsed || !readerAreaRef.current) {
-      setSelectionIndices(prev => prev.length > 0 ? [] : prev);
-      return;
+    if (!sel || sel.isCollapsed) {
+      setSelection(prev => (prev !== null ? null : prev));
+      setSelectionIndices(prev => (prev.length > 0 ? [] : prev));
     }
-
-    try {
-      if (sel.rangeCount === 0) return;
-      const range = sel.getRangeAt(0);
-      const container = range.commonAncestorContainer.nodeType === 1 
-        ? (range.commonAncestorContainer as HTMLElement) 
-        : range.commonAncestorContainer.parentElement;
-
-      if (!container || !readerAreaRef.current.contains(container)) return;
-
-      const start = getWordIndexFromDomPoint(range.startContainer, range.startOffset, false, structuredSegments);
-      const end = getWordIndexFromDomPoint(range.endContainer, range.endOffset, true, structuredSegments);
-
-      if (start !== null && end !== null) {
-        const s = Math.min(start, end);
-        const e = Math.max(start, end);
-        const indices: number[] = [];
-        for (let i = s; i <= e; i++) {
-          indices.push(i);
-        }
-        setSelectionIndices(prev => {
-          if (prev.length === indices.length && prev[0] === indices[0] && prev[prev.length - 1] === indices[indices.length - 1]) return prev;
-          return indices;
-        });
-      }
-    } catch (e) {}
-  }, [structuredSegments]);
+  }, []);
 
   const handleTextSelection = useCallback((e?: React.MouseEvent) => {
     if (e && (e.target as HTMLElement).closest('.selection-menu-container')) {
@@ -422,7 +396,7 @@ const Reader: React.FC = () => {
     }
 
     const sel = window.getSelection();
-    if (sel && sel.toString().trim().length > 0 && scrollContainerRef.current) {
+    if (sel && !sel.isCollapsed && sel.toString().trim().length > 0 && scrollContainerRef.current) {
       if (sel.rangeCount === 0) return;
       const range = sel.getRangeAt(0);
       const rect = range.getBoundingClientRect();
@@ -451,12 +425,27 @@ const Reader: React.FC = () => {
         x: x, 
         y: y
       });
+
+      try {
+        const start = getWordIndexFromDomPoint(range.startContainer, range.startOffset, false, structuredSegments);
+        const end = getWordIndexFromDomPoint(range.endContainer, range.endOffset, true, structuredSegments);
+        if (start !== null && end !== null) {
+          const s = Math.min(start, end);
+          const e = Math.max(start, end);
+          const indices: number[] = [];
+          for (let i = s; i <= e; i++) {
+            indices.push(i);
+          }
+          setSelectionIndices(indices);
+        }
+      } catch (err) {}
     } else {
       if (!e || !(e.target as HTMLElement).closest('.selection-menu-container')) {
         setSelection(null);
+        setSelectionIndices([]);
       }
     }
-  }, []);
+  }, [structuredSegments]);
 
   useEffect(() => {
     if (selection) {
@@ -1058,9 +1047,8 @@ const Reader: React.FC = () => {
     citationHighlightMap.forEach((_, k) => set.add(k));
     searchResults.forEach(idx => set.add(idx));
     jumpHighlightIndices.forEach(idx => set.add(idx));
-    selectionIndices.forEach(idx => set.add(idx));
     return set;
-  }, [highlightMap, citationHighlightMap, searchResults, jumpHighlightIndices, selectionIndices]);
+  }, [highlightMap, citationHighlightMap, searchResults, jumpHighlightIndices]);
 
   const handleProjectSegment = useCallback((idx: number, isExplicitToggle = false) => {
     // ONLY explicit projection buttons (verse projection icon, toolbar button, prev/next controls, or paragraph click in projection mode) trigger projection!
@@ -1526,30 +1514,8 @@ const Reader: React.FC = () => {
       </div>
 
       {isProjectionOpen && (
-        <div className="shrink-0 min-h-11 py-1.5 bg-teal-950/95 text-white border-b border-teal-800/80 flex items-center justify-between px-4 md:px-8 z-[100000] animate-in slide-in-from-top-2 duration-200 shadow-lg flex-wrap gap-2">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 bg-teal-900/90 px-2.5 py-1 rounded-lg border border-teal-700/60 shadow-inner">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-              </span>
-              <span className="text-[10px] font-black uppercase tracking-widest text-teal-200">Projection Écran 2 Active</span>
-            </div>
-            {projectedSegmentIndex !== null ? (
-              <span className="text-xs font-bold text-teal-100 flex items-center gap-1.5">
-                <span>Contenu projeté :</span>
-                <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded font-mono text-[11px]">
-                  Paragraphe #{projectedSegmentIndex + 1}
-                </span>
-              </span>
-            ) : (
-              <span className="text-xs font-medium italic text-teal-300/80">
-                Cliquez sur un paragraphe pour le projeter
-              </span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
+        <div className="shrink-0 min-h-11 py-1.5 bg-teal-950/95 text-white border-b border-teal-800/80 flex items-center justify-center sm:justify-end px-4 md:px-8 z-[100000] animate-in slide-in-from-top-2 duration-200 shadow-lg flex-wrap gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={reopenProjectionWindow}
               className="px-2.5 py-1 bg-teal-900/90 hover:bg-teal-800 text-teal-200 hover:text-white rounded-lg text-xs font-bold border border-teal-700/60 transition-all flex items-center gap-1.5 shadow-sm"

@@ -549,10 +549,14 @@ export const ProjectionView: React.FC = memo(() => {
         <div
           ref={scrollContainerRef}
           onScroll={updateScrollState}
-          className="flex-1 overflow-y-auto custom-scrollbar scroll-smooth px-3 sm:px-4 md:px-6 py-6 flex flex-col justify-start items-stretch w-full"
+          className={`flex-1 overflow-y-auto custom-scrollbar scroll-smooth py-6 flex flex-col justify-start items-stretch w-full ${
+            isSong ? 'px-3 sm:px-4 md:px-6' : 'pl-5 sm:pl-7 md:pl-10 pr-3 sm:pr-4 md:pr-6'
+          }`}
         >
           <div
-            className="text-white font-bold my-auto w-full text-left max-w-none whitespace-pre-wrap"
+            className={`text-white font-bold my-auto w-full max-w-none whitespace-pre-wrap ${
+              isSong ? 'text-center' : 'text-left'
+            }`}
             style={{
               fontSize: calculatedFontSize,
               lineHeight: calculatedLineHeight,
