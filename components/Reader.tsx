@@ -39,6 +39,7 @@ import {
   BookOpen, 
   Loader2, 
   BookOpenCheck, 
+  Sword,
   Quote, 
   MapPin, 
   Calendar, 
@@ -1263,7 +1264,7 @@ const Reader: React.FC = () => {
         <div className="flex-1 flex flex-col items-center justify-center p-12 text-center group cursor-default">
           <div className="relative mb-8 transition-transform duration-700 group-hover:scale-110">
             <div className="absolute inset-0 bg-teal-600/20 blur-[60px] rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-            <BookOpenCheck className="w-20 h-20 text-zinc-300 dark:text-zinc-800 transition-colors duration-700 group-hover:text-teal-600/50 relative z-10" />
+            <Sword className="w-20 h-20 text-zinc-300 dark:text-zinc-800 transition-colors duration-700 group-hover:text-teal-600/50 relative z-10" />
           </div>
           <p className="text-[11px] font-black uppercase tracking-[0.5em] text-zinc-400 dark:text-zinc-600 transition-all duration-700 group-hover:text-teal-600/60 group-hover:tracking-[0.6em]">
             {t.reader_select_prompt}
@@ -1520,28 +1521,7 @@ const Reader: React.FC = () => {
               baseFontSize={fontSize} 
             />
 
-            {/* Side Panels Toggles */}
-            {!isOSFullscreen && (
-              <>
-                <div className="w-px h-5 bg-zinc-200 dark:bg-zinc-800 mx-0.5 hidden sm:block" />
-                <ActionButton 
-                  onClick={toggleNotes} 
-                  icon={NotebookPen} 
-                  tooltip={notesOpen ? "Fermer le journal de notes" : "Ouvrir le journal de notes"} 
-                  active={notesOpen} 
-                  isFullscreen={isOSFullscreen} 
-                  baseFontSize={fontSize} 
-                />
-                <ActionButton 
-                  onClick={toggleAI} 
-                  icon={Sparkles} 
-                  tooltip={aiOpen ? "Fermer l'Assistant IA" : "Ouvrir l'Assistant IA"} 
-                  active={aiOpen} 
-                  isFullscreen={isOSFullscreen} 
-                  baseFontSize={fontSize} 
-                />
-              </>
-            )}
+
         </div>
       </div>
 

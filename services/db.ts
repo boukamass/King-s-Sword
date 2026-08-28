@@ -3,6 +3,7 @@ import { Sermon, Note, SearchMode } from '../types';
 import { normalizeText, getAccentInsensitiveRegex, getMultiWordHighlightRegex } from '../utils/textUtils';
 import { useAppStore } from '../store';
 import { getDefinition } from './dictionaryService';
+import { get as idbGet, set as idbSet } from 'idb-keyval';
 
 const isElectron = !!window.electronAPI;
 
@@ -247,8 +248,12 @@ export const searchSermons = async (params: { query: string; mode: SearchMode; l
 
 export const getAllNotes = async (): Promise<Note[]> => {
   if (!isElectron) {
-    const saved = localStorage.getItem('kings_sword_web_notes');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = await idbGet<Note[]>('kings_sword_web_notes');
+      if (saved && Array.isArray(saved)) return saved;
+    } catch (e) {}
+    const savedLocal = localStorage.getItem('kings_sword_web_notes');
+    return savedLocal ? JSON.parse(savedLocal) : [];
   }
   try {
     return await window.electronAPI.db.getNotes();
@@ -263,7 +268,8 @@ export const saveNoteToDB = async (note: Note): Promise<void> => {
     const index = saved.findIndex(n => n.id === note.id);
     if (index >= 0) saved[index] = note;
     else saved.push(note);
-    localStorage.setItem('kings_sword_web_notes', JSON.stringify(saved));
+    try { await idbSet('kings_sword_web_notes', saved); } catch (e) {}
+    try { localStorage.setItem('kings_sword_web_notes', JSON.stringify(saved)); } catch (e) {}
     return;
   }
   try {
@@ -277,7 +283,8 @@ export const deleteNoteFromDB = async (id: string): Promise<void> => {
   if (!isElectron) {
     const saved = await getAllNotes();
     const filtered = saved.filter(n => n.id !== id);
-    localStorage.setItem('kings_sword_web_notes', JSON.stringify(filtered));
+    try { await idbSet('kings_sword_web_notes', filtered); } catch (e) {}
+    try { localStorage.setItem('kings_sword_web_notes', JSON.stringify(filtered)); } catch (e) {}
     return;
   }
   try {
@@ -289,7 +296,8 @@ export const deleteNoteFromDB = async (id: string): Promise<void> => {
 
 export const syncNotesOrder = async (notes: Note[]): Promise<void> => {
   if (!isElectron) {
-    localStorage.setItem('kings_sword_web_notes', JSON.stringify(notes));
+    try { await idbSet('kings_sword_web_notes', notes); } catch (e) {}
+    try { localStorage.setItem('kings_sword_web_notes', JSON.stringify(notes)); } catch (e) {}
     return;
   }
   try {

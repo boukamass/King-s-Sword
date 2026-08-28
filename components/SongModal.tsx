@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Song } from '../types';
 import { saveSong, getSongById } from '../services/songService';
 import { useAppStore } from '../store';
@@ -35,89 +36,89 @@ function parseSongContentToFields(rawContent: string, songTitle?: string): { cho
     return { chorus: '', couplets: [''] };
   }
 
-  const text = rawContent.replace(/\r\n/g, '\n').trim();
+  let text = rawContent.replace(/\r\n/g, '\n').trim();
+  const normalizedTitle = songTitle ? songTitle.trim().toLowerCase() : '';
+
+  // 1. Unify chorus headers that have blank lines after them (e.g. "Chœur:\n\nParoles...")
+  text = text.replace(/(?:^|\n)[ \t]*(?:(?:couplet|strophe|verse)\s*\d*[ \t]*\n)?[ \t]*(ch[oœ\u0152\u0153]ur|refrain|chorus)\s*:?[ \t]*\n+/gim, '\nChœur:\n');
+
+  // 2. Strip standalone stanza headers at the start of blocks
+  text = text.replace(/^[ \t]*(?:couplet|strophe|verse)\s*\d*[ \t]*\n/gim, '');
+
   const rawBlocks = text.split(/\n\s*\n+/);
 
   let detectedChorus = '';
   const detectedCouplets: string[] = [];
-  const normalizedTitle = songTitle ? songTitle.trim().toLowerCase() : '';
 
   const chorusHeaderRegex = /^(?:ch[oœ\u0152\u0153]ur|refrain|chorus)\s*:?/i;
-  const coupletHeaderRegex = /^(?:couplet|strophe|verse)\s*\d*\s*/i;
 
-  for (const block of rawBlocks) {
-    const trimmedBlock = block.trim();
-    if (!trimmedBlock) continue;
+  for (let blockIdx = 0; blockIdx < rawBlocks.length; blockIdx++) {
+    const rawBlock = rawBlocks[blockIdx].trim();
+    if (!rawBlock) continue;
 
-    const rawLines = trimmedBlock.split('\n').map(l => l.trim()).filter(Boolean);
+    const rawLines = rawBlock.split('\n').map(l => l.trim()).filter(Boolean);
     if (rawLines.length === 0) continue;
 
-    // Filter out duplicate title lines or title headers
-    const filteredLines = rawLines.filter(line => {
-      if (normalizedTitle && line.toLowerCase() === normalizedTitle) return false;
-      return true;
-    });
-
-    if (filteredLines.length === 0) continue;
-
-    // Check if block represents a Chorus / Refrain
-    let isChorusBlock = false;
-    let chorusStartLineIdx = -1;
-
-    for (let i = 0; i < Math.min(2, filteredLines.length); i++) {
-      const line = filteredLines[i];
-
-      // If line 0 is a stanza label like "Couplet 2" followed by "Chœur:" on line 1
-      if (i === 0 && coupletHeaderRegex.test(line) && filteredLines.length > 1) {
-        if (chorusHeaderRegex.test(filteredLines[1])) {
-          isChorusBlock = true;
-          chorusStartLineIdx = 1;
-          break;
+    // Filter out title headers or duplicate title lines in the very first block
+    let startIdx = 0;
+    if (detectedCouplets.length === 0 && !detectedChorus) {
+      if (normalizedTitle && rawLines[0].toLowerCase() === normalizedTitle) {
+        startIdx++;
+      }
+      if (startIdx < rawLines.length) {
+        const line = rawLines[startIdx];
+        if (line === line.toUpperCase() && line.length >= 3 && !/^\d/.test(line)) {
+          if (normalizedTitle && (line.toLowerCase() === normalizedTitle || normalizedTitle.includes(line.toLowerCase()))) {
+            startIdx++;
+          }
         }
-      } else if (chorusHeaderRegex.test(line)) {
-        isChorusBlock = true;
-        chorusStartLineIdx = i;
-        break;
       }
     }
 
-    if (isChorusBlock) {
-      const chorusLines: string[] = [];
-      for (let i = chorusStartLineIdx; i < filteredLines.length; i++) {
-        const line = filteredLines[i];
-        const cleanLine = line.replace(/^(?:ch[oœ\u0152\u0153]ur|refrain|chorus)\s*:?\s*/i, '').trim();
-        if (cleanLine) {
-          chorusLines.push(cleanLine);
+    const lines = rawLines.slice(startIdx);
+    if (lines.length === 0) continue;
+
+    // Check if chorus block
+    let isChorus = false;
+    const chorusBodyLines: string[] = [];
+
+    if (chorusHeaderRegex.test(lines[0])) {
+      isChorus = true;
+      const cleanFirstLine = lines[0].replace(/^(?:ch[oœ\u0152\u0153]ur|refrain|chorus)\s*:?\s*/i, '').trim();
+      if (cleanFirstLine) chorusBodyLines.push(cleanFirstLine);
+      for (let i = 1; i < lines.length; i++) {
+        chorusBodyLines.push(lines[i]);
+      }
+    } else {
+      const match = lines[0].match(/^(?:ch[oœ\u0152\u0153]ur|refrain|chorus)\s*:\s*(.*)$/i);
+      if (match) {
+        isChorus = true;
+        if (match[1].trim()) chorusBodyLines.push(match[1].trim());
+        for (let i = 1; i < lines.length; i++) {
+          chorusBodyLines.push(lines[i]);
         }
       }
+    }
 
-      const chorusBody = chorusLines.join('\n').trim();
-      if (chorusBody && !detectedChorus) {
-        detectedChorus = chorusBody;
+    if (isChorus) {
+      const chorusText = chorusBodyLines.join('\n').trim();
+      if (chorusText && !detectedChorus) {
+        detectedChorus = chorusText;
       }
-      // Skip adding this chorus block to couplets array
       continue;
     }
 
-    // Otherwise, process as a Couplet block
+    // Process couplet lines
     const coupletLines: string[] = [];
-    for (const line of filteredLines) {
-      if (/^(?:couplet|strophe|verse)\s*\d*$/i.test(line)) {
-        continue;
-      }
-      if (/^(?:ch[oœ\u0152\u0153]ur|refrain|chorus)\s*:?$/i.test(line)) {
-        continue;
-      }
-
+    for (const line of lines) {
+      if (/^(?:couplet|strophe|verse)\s*\d*$/i.test(line)) continue;
+      if (/^(?:ch[oœ\u0152\u0153]ur|refrain|chorus)\s*:?$/i.test(line)) continue;
       const cleanLine = line.replace(/^\d+[\s\.\-\)]+\s*/, '').trim();
-      if (cleanLine) {
-        coupletLines.push(cleanLine);
-      }
+      if (cleanLine) coupletLines.push(cleanLine);
     }
 
     const coupletBody = coupletLines.join('\n').trim();
     if (coupletBody) {
-      // Avoid adding duplicate chorus text as a couplet
       if (detectedChorus && coupletBody.toLowerCase() === detectedChorus.toLowerCase()) {
         continue;
       }
@@ -125,9 +126,26 @@ function parseSongContentToFields(rawContent: string, songTitle?: string): { cho
     }
   }
 
+  // Second pass: filter out any couplet matching detectedChorus
+  let finalCouplets = detectedChorus 
+    ? detectedCouplets.filter(c => c.toLowerCase() !== detectedChorus.toLowerCase())
+    : detectedCouplets;
+
+  // Clean title banner from first couplet if still present
+  if (finalCouplets.length > 0 && normalizedTitle) {
+    const firstLines = finalCouplets[0].split('\n');
+    if (firstLines.length > 1) {
+      const firstLineTrim = firstLines[0].trim();
+      const firstLineLower = firstLineTrim.toLowerCase();
+      if (firstLineLower === normalizedTitle || (firstLineTrim === firstLineTrim.toUpperCase() && firstLineTrim.length >= 3 && (normalizedTitle.includes(firstLineLower) || firstLineLower.includes(normalizedTitle)))) {
+        finalCouplets[0] = firstLines.slice(1).join('\n').trim();
+      }
+    }
+  }
+
   return {
     chorus: detectedChorus,
-    couplets: detectedCouplets.length > 0 ? detectedCouplets : ['']
+    couplets: finalCouplets.length > 0 ? finalCouplets : ['']
   };
 }
 
@@ -411,7 +429,7 @@ export const SongModal: React.FC<SongModalProps> = ({
     }
   }
 
-  return (
+  return createPortal(
     <div 
       className="fixed inset-0 z-[200000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200"
       onMouseDown={handleBackdropMouseDown}
@@ -526,14 +544,13 @@ export const SongModal: React.FC<SongModalProps> = ({
                       { code: 'fr', label: 'Français' },
                       { code: 'en', label: 'English' },
                       { code: 'ln', label: 'Lingala' },
-                      { code: 'sw', label: 'Swahili' },
                       { code: 'other', label: 'Autre' }
                     ].map(l => (
                       <button
                         key={l.code}
                         type="button"
                         onClick={() => setLanguage(l.code)}
-                        className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${
+                        className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border whitespace-nowrap shrink-0 ${
                           language === l.code
                             ? 'bg-teal-600 text-white border-teal-600 shadow-2xs'
                             : 'bg-slate-50 dark:bg-zinc-950 text-zinc-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-800 hover:border-teal-500/50'
@@ -546,31 +563,31 @@ export const SongModal: React.FC<SongModalProps> = ({
                 </div>
 
                 {/* Switcher Formulaire / Texte brut */}
-                <div className="sm:self-end">
-                  <div className="inline-flex items-center p-1 bg-slate-100 dark:bg-zinc-950 rounded-xl border border-slate-200 dark:border-zinc-800">
+                <div className="sm:self-end shrink-0">
+                  <div className="inline-flex items-center p-1 bg-slate-100 dark:bg-zinc-950 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0 whitespace-nowrap">
                     <button
                       type="button"
                       onClick={() => handleToggleEditMode('structured')}
-                      className={`px-2.5 py-1 rounded-lg text-[9.5px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all ${
+                      className={`px-2.5 py-1 rounded-lg text-[9.5px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all whitespace-nowrap shrink-0 ${
                         editMode === 'structured'
                           ? 'bg-white dark:bg-zinc-800 text-teal-600 dark:text-teal-400 shadow-2xs'
                           : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
                       }`}
                     >
-                      <Layers className="w-3 h-3" />
-                      Champs Couplets / Refrain
+                      <Layers className="w-3 h-3 shrink-0" />
+                      <span className="whitespace-nowrap">Champs Couplets / Refrain</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => handleToggleEditMode('raw')}
-                      className={`px-2.5 py-1 rounded-lg text-[9.5px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all ${
+                      className={`px-2.5 py-1 rounded-lg text-[9.5px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all whitespace-nowrap shrink-0 ${
                         editMode === 'raw'
                           ? 'bg-white dark:bg-zinc-800 text-teal-600 dark:text-teal-400 shadow-2xs'
                           : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
                       }`}
                     >
-                      <FileText className="w-3 h-3" />
-                      Texte brut
+                      <FileText className="w-3 h-3 shrink-0" />
+                      <span className="whitespace-nowrap">Texte brut</span>
                     </button>
                   </div>
                 </div>
@@ -807,7 +824,8 @@ export const SongModal: React.FC<SongModalProps> = ({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

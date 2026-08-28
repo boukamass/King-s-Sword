@@ -38,6 +38,7 @@ import {
 import { Song } from '../types';
 import { loadAllSongs, deleteSong } from '../services/songService';
 import SongModal from './SongModal';
+import { TermsModal } from './TermsModal';
 import { getExposeTree, getExposePagesMeta, ExposeMetadataTree, ExposePage } from '../services/exposeService';
 import { APP_VERSION } from '../utils/version';
 
@@ -509,6 +510,7 @@ const Sidebar: React.FC = () => {
 
   const [songs, setSongs] = useState<Song[]>([]);
   const [isSongModalOpen, setIsSongModalOpen] = useState(false);
+  const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
   const [songToEdit, setSongToEdit] = useState<Song | null>(null);
   const [songLanguageFilter, setSongLanguageFilter] = useState<string | null>(null);
 
@@ -1138,7 +1140,6 @@ const Sidebar: React.FC = () => {
                 onClick={() => {
                   setSongToEdit(null);
                   setIsSongModalOpen(true);
-                  setSidebarOpen(false);
                 }}
                 className="flex items-center gap-1 px-2 py-1 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-[8.5px] font-black uppercase tracking-wider shadow-sm transition-all active:scale-95 cursor-pointer"
                 data-tooltip="Ajouter un cantique"
@@ -1568,7 +1569,6 @@ const Sidebar: React.FC = () => {
                       e.stopPropagation();
                       setSongToEdit(song);
                       setIsSongModalOpen(true);
-                      setSidebarOpen(false);
                     }}
                     onDelete={(e) => {
                       e.stopPropagation();
@@ -1614,7 +1614,7 @@ const Sidebar: React.FC = () => {
           <div className="flex flex-col items-center text-center">
             {!isFooterExpanded && (
               <div className="flex items-center justify-center gap-3 animate-in fade-in duration-500 mt-1">
-                <span className="text-[6px] font-black text-zinc-400/80 uppercase tracking-[0.2em]">KSW 1.0.3</span>
+                <span className="text-[6px] font-black text-zinc-400/80 uppercase tracking-[0.2em]">KSW v{APP_VERSION}</span>
                 <span className="w-0.5 h-0.5 bg-zinc-300 dark:bg-zinc-700 rounded-full" />
                 <span className="text-[6px] font-bold text-zinc-400/80 uppercase tracking-tight">Vision de l'Aigle Tabernacle, Koufoli, PNR, Congo</span>
               </div>
@@ -1631,11 +1631,22 @@ const Sidebar: React.FC = () => {
               <div className="flex flex-col items-center gap-1 mt-1">
                 <p className="text-[6.5px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest leading-none">Développé par Bienvenu Sédin Massamba</p>
                 <p className="text-[6.5px] font-bold text-zinc-400 uppercase tracking-tight leading-none opacity-80">Vision de l'Aigle Tabernacle, Koufoli, PNR, Congo</p>
+                <div className="flex flex-col items-center gap-0.5 mt-1 text-[6.5px] font-semibold text-teal-600 dark:text-teal-400">
+                  <p>Tel : +242068189594</p>
+                  <p>Email : boukamass@gmail.com</p>
+                </div>
               </div>
 
-              <p className="text-[6.5px] font-black text-zinc-400/60 uppercase tracking-[0.25em] flex items-center justify-center gap-2 mt-2">
-                KSW 1.0.3 <span className="w-0.5 h-0.5 bg-teal-600/20 rounded-full" /> © 2026 Tous droits réservés
+              <p className="text-[6.5px] font-black text-zinc-400/60 uppercase tracking-[0.25em] flex items-center justify-center gap-2 mt-1.5">
+                KSW v{APP_VERSION} <span className="w-0.5 h-0.5 bg-teal-600/20 rounded-full" /> © 2026 Tous droits réservés
               </p>
+
+              <button
+                onClick={() => setIsTermsModalOpen(true)}
+                className="text-[7.5px] font-extrabold text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 underline decoration-teal-600/30 dark:decoration-teal-400/30 uppercase tracking-wider mt-1 transition-colors cursor-pointer"
+              >
+                Termes & Conditions d'utilisation
+              </button>
             </div>
           </div>
         </div>
@@ -1658,6 +1669,12 @@ const Sidebar: React.FC = () => {
           await refreshSongs();
           setSelectedSermonId(`song-${savedSong.id}`, false, true);
         }}
+      />
+
+      {/* Terms of Use Modal */}
+      <TermsModal
+        isOpen={isTermsModalOpen}
+        onClose={() => setIsTermsModalOpen(false)}
       />
     </div>
   );

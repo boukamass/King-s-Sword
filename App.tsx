@@ -254,6 +254,32 @@ const App: React.FC = () => {
         </div>
         <div className={`flex-1 flex flex-col min-w-[300px] relative z-10 border-x border-zinc-100 dark:border-zinc-900 shadow-sm ${transitionClass}`}>
           <MainContent activeNoteId={activeNoteId} />
+
+          {/* Floating Side Buttons for Notes & AI */}
+          {!isFullscreen && (!notesOpen || !aiOpen) && (
+            <div className="absolute right-3 top-14 z-40 flex flex-col gap-2 pointer-events-auto no-print">
+              {!notesOpen && (
+                <button
+                  onClick={toggleNotes}
+                  data-tooltip="Ouvrir le journal de notes"
+                  data-tooltip-icon="notes"
+                  className="flex items-center justify-center w-9 h-9 bg-white/90 dark:bg-zinc-800/90 backdrop-blur-md text-zinc-600 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl shadow-md hover:bg-teal-600/10 hover:text-teal-600 hover:border-teal-600/30 transition-all duration-200 active:scale-95 cursor-pointer"
+                >
+                  <NotebookPen className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                </button>
+              )}
+              {!aiOpen && (
+                <button
+                  onClick={toggleAI}
+                  data-tooltip="Ouvrir l'Assistant IA"
+                  data-tooltip-icon="sparkles"
+                  className="flex items-center justify-center w-9 h-9 bg-white/90 dark:bg-zinc-800/90 backdrop-blur-md text-zinc-600 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl shadow-md hover:bg-teal-600/10 hover:text-teal-600 hover:border-teal-600/30 transition-all duration-200 active:scale-95 cursor-pointer"
+                >
+                  <Sparkles className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                </button>
+              )}
+            </div>
+          )}
         </div>
         <div style={{ width: effectiveNotesWidth }} className={`flex-shrink-0 overflow-hidden h-full flex relative z-30 ${transitionClass} no-print`}>
           {notesOpen && !isFullscreen && <div onMouseDown={startResizing('notes')} className="absolute left-0 top-0 w-1.5 h-full hover:bg-teal-600/40 cursor-col-resize z-50 transition-colors" />}
