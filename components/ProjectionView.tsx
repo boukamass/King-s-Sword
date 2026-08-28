@@ -537,7 +537,7 @@ export const ProjectionView: React.FC = memo(() => {
       }`}
     >
       {/* Main Text Presentation Area with Vertical Scroll */}
-      <div className="h-[88%] w-full relative overflow-hidden flex flex-col">
+      <div className="h-[94%] w-full relative overflow-hidden flex flex-col">
         {/* Top Gradient Overflow Mask */}
         <div
           className={`absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-black via-black/70 to-transparent z-20 pointer-events-none transition-opacity duration-300 ${
@@ -549,18 +549,16 @@ export const ProjectionView: React.FC = memo(() => {
         <div
           ref={scrollContainerRef}
           onScroll={updateScrollState}
-          className="flex-1 overflow-y-auto custom-scrollbar scroll-smooth px-8 md:px-14 lg:px-20 py-8 flex flex-col justify-start items-center"
+          className="flex-1 overflow-y-auto custom-scrollbar scroll-smooth px-3 sm:px-4 md:px-6 py-6 flex flex-col justify-start items-stretch w-full"
         >
           <div
-            className={`text-white font-bold my-auto text-left ${
-              isSong ? 'w-full max-w-full' : 'w-full max-w-7xl whitespace-pre-wrap'
-            }`}
+            className="text-white font-bold my-auto w-full text-left max-w-none whitespace-pre-wrap"
             style={{
               fontSize: calculatedFontSize,
               lineHeight: calculatedLineHeight,
               textShadow: '0 4px 30px rgba(0,0,0,0.6)',
-              wordBreak: isSong ? 'normal' : 'break-word',
-              overflowWrap: isSong ? 'normal' : 'break-word'
+              wordBreak: 'break-word',
+              overflowWrap: 'break-word'
             }}
           >
             {isSong ? (
@@ -660,34 +658,34 @@ export const ProjectionView: React.FC = memo(() => {
         )}
       </div>
 
-      {/* Footer Bar with Metadata */}
-      <div className="h-[12%] w-full bg-gradient-to-b from-zinc-950 to-black border-t border-white/10 backdrop-blur-2xl flex items-center justify-between px-8 md:px-12 shrink-0 z-30">
-        <div className="flex items-center gap-5 min-w-0">
-          <div className="w-[5.5vmin] h-[5.5vmin] rounded-full bg-teal-600/20 border border-teal-600/30 flex items-center justify-center shadow-lg overflow-hidden shrink-0">
+      {/* Footer Bar with Metadata (Compact Height to maximize vertical space) */}
+      <div className="h-[6%] w-full bg-gradient-to-b from-zinc-950 to-black border-t border-white/10 backdrop-blur-2xl flex items-center justify-between px-6 md:px-10 shrink-0 z-30">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-[3.2vmin] h-[3.2vmin] rounded-full bg-teal-600/20 border border-teal-600/30 flex items-center justify-center shadow-lg overflow-hidden shrink-0">
             <img
               src="/apple-touch-icon.png"
               onError={(e) => { (e.target as HTMLImageElement).src = "/logo.png"; }}
               alt="Logo"
-              className="w-[4vmin] h-[4vmin] object-cover rounded-full"
+              className="w-[2.4vmin] h-[2.4vmin] object-cover rounded-full"
             />
           </div>
-          <h1 className="text-[2.4vmin] font-black text-teal-500 tracking-tighter drop-shadow-md truncate">
+          <h1 className="text-[1.8vmin] font-black text-teal-500 tracking-tighter drop-shadow-md truncate">
             {syncData.title}
           </h1>
         </div>
-        <div className="flex items-center gap-6 text-[1.4vmin] font-bold text-zinc-400 uppercase tracking-[0.25em] shrink-0">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-[1.8vmin] h-[1.8vmin] text-teal-500/60" />
+        <div className="flex items-center gap-5 text-[1.2vmin] font-bold text-zinc-400 uppercase tracking-[0.2em] shrink-0">
+          <div className="flex items-center gap-1.5">
+            <Calendar className="w-[1.4vmin] h-[1.4vmin] text-teal-500/60" />
             <span className="font-mono">{syncData.date}</span>
           </div>
           {syncData.time && (
-            <div className="flex items-center gap-2">
-              <Clock className="w-[1.8vmin] h-[1.8vmin] text-teal-500/60" />
+            <div className="flex items-center gap-1.5">
+              <Clock className="w-[1.4vmin] h-[1.4vmin] text-teal-500/60" />
               <span>{syncData.time}</span>
             </div>
           )}
-          <div className="flex items-center gap-2">
-            <MapPin className="w-[1.8vmin] h-[1.8vmin] text-teal-500/60" />
+          <div className="flex items-center gap-1.5">
+            <MapPin className="w-[1.4vmin] h-[1.4vmin] text-teal-500/60" />
             <span>{syncData.city}</span>
           </div>
         </div>
