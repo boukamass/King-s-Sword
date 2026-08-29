@@ -8,6 +8,7 @@
     "dev": "vite",
     "start": "vite",
     "build": "vite build",
+    "lint": "tsc --noEmit",
     "preview": "vite preview",
     "electron:dev": "concurrently \"npm start\" \"wait-on http://localhost:3000 && electron .\"",
     "electron:build": "npm run build && electron-builder",

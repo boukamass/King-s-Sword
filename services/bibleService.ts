@@ -2,7 +2,8 @@ import { BibleVerse, BibleBook, BibleVersion, BIBLE_VERSIONS_META } from '../typ
 import { Sermon, SearchMode } from '../types';
 import { BIBLE_BOOKS_META, BibleBookMeta } from './bibleMetadata';
 import { BIBLE_LOUIS_SEGOND_CORE } from './bibleLouisSegondData';
-import { normalizeText, getMultiWordHighlightRegex } from '../utils/textUtils';
+import { normalizeText, getMultiWordHighlightRegex, getSearchHighlightRegex, mergeAdjacentMarks } from '../utils/textUtils';
+import { fetchJsonSafe } from '../utils/fetchHelper';
 
 const BIBLE_CACHE_KEY_PREFIX = 'kings_sword_bible_book_';
 
@@ -24,13 +25,12 @@ export const ensureFullBibleLoaded = async (version: BibleVersion = 'lsg1910'): 
     const promise = (async () => {
       try {
         const verMeta = BIBLE_VERSIONS_META[version] || BIBLE_VERSIONS_META.lsg1910;
-        const res = await fetch(verMeta.file);
-        if (res.ok) {
-          const data = await res.json();
-          if (data && typeof data === 'object') {
-            fullBibleDataMap.set(version, data);
-            return data;
-          }
+        const filePath = verMeta.file.startsWith('/') ? verMeta.file : `/${verMeta.file}`;
+        const relativePath = verMeta.file.replace(/^\//, '');
+        const data = await fetchJsonSafe<Record<string, Record<number, BibleVerse[]>>>(filePath, [relativePath]);
+        if (data && typeof data === 'object') {
+          fullBibleDataMap.set(version, data);
+          return data;
         }
       } catch (err) {
         console.warn(`Chargement Bible locale intégrale (${version}) indisponible, bascule en mode dynamique:`, err);
@@ -57,9 +57,7 @@ export const fetchChapterFromApi = async (bookId: string, chapter: number, versi
   const bookNr = getBookNumber(bookId);
   const verMeta = BIBLE_VERSIONS_META[version] || BIBLE_VERSIONS_META.lsg1910;
   try {
-    const response = await fetch(`https://api.getbible.net/v2/${verMeta.apiCode}/${bookNr}/${chapter}.json`);
-    if (!response.ok) return null;
-    const data = await response.json();
+    const data = await fetchJsonSafe<any>(`https://api.getbible.net/v2/${verMeta.apiCode}/${bookNr}/${chapter}.json`);
     if (data && Array.isArray(data.verses) && data.verses.length > 0) {
       const verses: BibleVerse[] = data.verses.map((v: any) => ({
         verse: v.verse,
@@ -112,14 +110,16 @@ export const getBibleBook = async (bookId: string, version: BibleVersion = 'lsg1
   }
 
   // 4. Vérifier dans le stockage local persistant
-  try {
-    const cached = localStorage.getItem(`${BIBLE_CACHE_KEY_PREFIX}${version}_${meta.id}`);
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      Object.assign(chapters, parsed);
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const cached = localStorage.getItem(`${BIBLE_CACHE_KEY_PREFIX}${version}_${meta.id}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        Object.assign(chapters, parsed);
+      }
+    } catch (e) {
+      console.warn("Erreur lecture cache bible:", e);
     }
-  } catch (e) {
-    console.warn("Erreur lecture cache bible:", e);
   }
 
   // Compléter tout chapitre manquant par appel réseau ou fallback
@@ -353,14 +353,8 @@ export const searchBibleVersesAdvanced = async (params: {
     termsForHighlight = [params.query];
   }
 
-  const finalRegexSource = termsForHighlight
-    .map(t => t.trim())
-    .filter(t => t.length > 1)
-    .join('|');
-
-  if (!finalRegexSource) return [];
-
-  const highlightRegex = getMultiWordHighlightRegex(finalRegexSource);
+  const isExactPhrase = params.mode === SearchMode.EXACT_PHRASE && (!params.synonyms || params.synonyms.length === 0 || params.showOnlyQuery);
+  const highlightRegex = getSearchHighlightRegex(termsForHighlight, isExactPhrase);
   const synonymWords = (params.synonyms && !params.showOnlyQuery) ? params.synonyms.map(s => normalizeText(s)).filter(w => w.length > 0) : [];
 
   const normalizedQuery = normalizeText(params.query);
@@ -406,16 +400,18 @@ export const searchBibleVersesAdvanced = async (params: {
 
         if (matchFound) {
           highlightRegex.lastIndex = 0;
-          const snippetHighlighted = content.replace(highlightRegex, (m) => {
-            const normalizedMatch = normalizeText(m);
-            const isSpecificSynonymMatch = params.selectedSynonym && normalizedMatch.includes(normalizeText(params.selectedSynonym));
-            const isGeneralSynonymMatch = synonymWords.some(sw => normalizedMatch.includes(sw));
-            
-            if (isSpecificSynonymMatch || (isGeneralSynonymMatch && !params.showOnlyQuery)) {
-              return `<mark class="${synonymMarkClass}">${m}</mark>`;
-            }
-            return `<mark class="${markClass}">${m}</mark>`;
-          });
+          const snippetHighlighted = mergeAdjacentMarks(
+            content.replace(highlightRegex, (m) => {
+              const normalizedMatch = normalizeText(m);
+              const isSpecificSynonymMatch = params.selectedSynonym && normalizedMatch.includes(normalizeText(params.selectedSynonym));
+              const isGeneralSynonymMatch = synonymWords.some(sw => normalizedMatch.includes(sw));
+              
+              if (isSpecificSynonymMatch || (isGeneralSynonymMatch && !params.showOnlyQuery)) {
+                return `<mark class="${synonymMarkClass}">${m}</mark>`;
+              }
+              return `<mark class="${markClass}">${m}</mark>`;
+            })
+          );
 
           results.push({
             paragraphId: `bible-${meta.id}-${chNum}-${v.verse}`,

@@ -1,11 +1,11 @@
 
-import { Sermon, Note, SearchMode } from '../types';
-import { normalizeText, getAccentInsensitiveRegex, getMultiWordHighlightRegex } from '../utils/textUtils';
+import { Sermon, Note, Song, SearchMode } from '../types';
+import { normalizeText, getAccentInsensitiveRegex, getMultiWordHighlightRegex, getSearchHighlightRegex, mergeAdjacentMarks } from '../utils/textUtils';
 import { useAppStore } from '../store';
 import { getDefinition } from './dictionaryService';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
 
-const isElectron = !!window.electronAPI;
+const isElectron = !!(typeof window !== 'undefined' && window.electronAPI && window.electronAPI.db);
 
 export const isDatabaseReady = async (): Promise<boolean> => {
   if (!isElectron) return false;
@@ -96,15 +96,8 @@ const webSearchFallback = async (params: {
     termsForHighlight = [params.query];
   }
 
-  // Nettoyage des termes pour le regex
-  const finalRegexSource = termsForHighlight
-    .map(t => t.trim())
-    .filter(t => t.length > 1)
-    .join('|');
-
-  if (!finalRegexSource) return [];
-
-  const highlightRegex = getMultiWordHighlightRegex(finalRegexSource);
+  const isExactPhrase = params.mode === SearchMode.EXACT_PHRASE && (!params.synonyms || params.synonyms.length === 0 || params.showOnlyQuery);
+  const highlightRegex = getSearchHighlightRegex(termsForHighlight, isExactPhrase);
   const synonymWords = (params.synonyms && !params.showOnlyQuery) ? params.synonyms.map(s => normalizeText(s)).filter(w => w.length > 0) : [];
 
   const normalizedQuery = normalizeText(params.query);
@@ -169,7 +162,8 @@ const webSearchFallback = async (params: {
 
         // Application du surlignage
         highlightRegex.lastIndex = 0;
-        const snippetHighlighted = snippetContent.replace(highlightRegex, (m) => {
+        const snippetHighlighted = mergeAdjacentMarks(
+          snippetContent.replace(highlightRegex, (m) => {
             const normalizedMatch = normalizeText(m);
             const isSpecificSynonymMatch = params.selectedSynonym && normalizedMatch.includes(normalizeText(params.selectedSynonym));
             const isGeneralSynonymMatch = synonymWords.some(sw => normalizedMatch.includes(sw));
@@ -179,7 +173,8 @@ const webSearchFallback = async (params: {
                 return `<mark class="${synonymMarkClass}">${m}</mark>`;
             }
             return `<mark class="${markClass}">${m}</mark>`;
-        });
+          })
+        );
         
         results.push({
           paragraphId: `${s.id}-${i}`,
@@ -237,7 +232,12 @@ export const searchSermons = async (params: { query: string; mode: SearchMode; l
   if (isElectron && isSqliteAvailable) {
     try {
       const results = await window.electronAPI.db.search(searchParams);
-      if (results) return results;
+      if (results) {
+        return results.map((r: any) => ({
+          ...r,
+          snippet: mergeAdjacentMarks(r.snippet || '')
+        }));
+      }
     } catch (error) {
       console.error("IPC Search Error:", error);
     }
@@ -304,5 +304,81 @@ export const syncNotesOrder = async (notes: Note[]): Promise<void> => {
     await window.electronAPI.db.reorderNotes(notes);
   } catch (e) {
     console.error("Sync Notes Order Error", e);
+  }
+};
+
+// ==========================================
+// SQLite Songs Operations
+// ==========================================
+
+export const getAllSongsFromDB = async (): Promise<Song[]> => {
+  if (!isElectron || !window.electronAPI.db.getSongs) return [];
+  try {
+    return await window.electronAPI.db.getSongs();
+  } catch (e) {
+    console.error("[DB] Get songs error:", e);
+    return [];
+  }
+};
+
+export const getSongByIdFromDB = async (id: string | number): Promise<Song | null> => {
+  if (!isElectron || !window.electronAPI.db.getSong) return null;
+  try {
+    return await window.electronAPI.db.getSong(id);
+  } catch (e) {
+    console.error("[DB] Get song error:", e);
+    return null;
+  }
+};
+
+export const saveSongToDB = async (song: Song): Promise<{ success: boolean; song?: Song; error?: string }> => {
+  if (!isElectron || !window.electronAPI.db.saveSong) return { success: false, error: "Electron DB not available" };
+  try {
+    return await window.electronAPI.db.saveSong(song);
+  } catch (e: any) {
+    console.error("[DB] Save song error:", e);
+    return { success: false, error: e?.message || "Unknown error" };
+  }
+};
+
+export const deleteSongFromDB = async (id: string | number): Promise<{ success: boolean; error?: string }> => {
+  if (!isElectron || !window.electronAPI.db.deleteSong) return { success: false, error: "Electron DB not available" };
+  try {
+    return await window.electronAPI.db.deleteSong(id);
+  } catch (e: any) {
+    console.error("[DB] Delete song error:", e);
+    return { success: false, error: e?.message || "Unknown error" };
+  }
+};
+
+export const bulkAddSongsToDB = async (songs: Song[]): Promise<{ success: boolean; count?: number; error?: string }> => {
+  if (!isElectron || !window.electronAPI.db.bulkImportSongs) return { success: false, error: "Electron DB not available" };
+  try {
+    return await window.electronAPI.db.bulkImportSongs(songs);
+  } catch (e: any) {
+    console.error("[DB] Bulk add songs error:", e);
+    return { success: false, error: e?.message || "Unknown error" };
+  }
+};
+
+// ==========================================
+// Key-Value Store Operations
+// ==========================================
+
+export const getKVFromDB = async (key: string): Promise<string | null> => {
+  if (!isElectron || !window.electronAPI.db.getKV) return null;
+  try {
+    return await window.electronAPI.db.getKV(key);
+  } catch (e) {
+    return null;
+  }
+};
+
+export const setKVToDB = async (key: string, value: any): Promise<{ success: boolean; error?: string }> => {
+  if (!isElectron || !window.electronAPI.db.setKV) return { success: false };
+  try {
+    return await window.electronAPI.db.setKV(key, value);
+  } catch (e: any) {
+    return { success: false, error: e?.message };
   }
 };

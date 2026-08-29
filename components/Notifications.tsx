@@ -13,7 +13,7 @@ const Notifications: React.FC = () => {
     return () => timers.forEach(timer => clearTimeout(timer));
   }, [notifications, removeNotification]);
 
-  const getIcon = (type: 'success' | 'error') => {
+  const getIcon = (type: 'success' | 'error' | 'info') => {
     switch (type) {
       case 'success': 
         return <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />;
@@ -24,12 +24,19 @@ const Notifications: React.FC = () => {
     }
   };
 
-  const getStyles = (type: 'success' | 'error') => {
+  const getStyles = (type: 'success' | 'error' | 'info') => {
     if (type === 'success') {
       return {
         container: 'bg-white border-emerald-100 ring-1 ring-emerald-500/10 border-l-emerald-500',
         text: 'text-zinc-900',
         status: 'text-emerald-600',
+      };
+    }
+    if (type === 'info') {
+      return {
+        container: 'bg-white border-blue-100 ring-1 ring-blue-500/10 border-l-blue-500',
+        text: 'text-zinc-900',
+        status: 'text-blue-600',
       };
     }
     return {
@@ -54,7 +61,7 @@ const Notifications: React.FC = () => {
             
             <div className="flex-1 min-w-0 flex items-center gap-1.5">
               <span className={`text-[8px] font-black uppercase tracking-tighter shrink-0 opacity-80 ${styles.status}`}>
-                {n.type === 'success' ? 'OK' : 'ERR'}
+                {n.type === 'success' ? 'OK' : n.type === 'info' ? 'INFO' : 'ERR'}
               </span>
               <p className={`text-[10px] font-bold truncate leading-none ${styles.text}`}>
                 {n.message}

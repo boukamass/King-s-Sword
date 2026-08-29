@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback, memo, useTran
 import { useAppStore } from '../store';
 import { translations } from '../translations';
 import { getDefinition, WordDefinition } from '../services/dictionaryService';
-import { getAccentInsensitiveRegex } from '../utils/textUtils';
+import { getAccentInsensitiveRegex, getSearchHighlightRegex } from '../utils/textUtils';
 import { Sermon, Highlight, SearchMode } from '../types';
 import { PALETTE_HIGHLIGHT_COLORS } from '../constants';
 import { formatSongContent } from '../services/songService';
@@ -829,28 +829,40 @@ const Reader: React.FC = () => {
             setTimeout(() => {
                 const segEl = segmentRefs.current.get(segmentIdx);
                 if (segEl) {
-                    let targetGlobalIndex = segment.words[0].globalIndex;
+                    let targetGlobalIndex = segment.words[0]?.globalIndex ?? 0;
                     let targetHighlightIndices: number[] = [];
                     
                     if (lastSearchQuery) {
-                        const regex = getAccentInsensitiveRegex(lastSearchQuery, lastSearchMode === SearchMode.EXACT_WORDS);
+                        const isExact = lastSearchMode === SearchMode.EXACT_PHRASE || lastSearchMode === SearchMode.EXACT_WORDS;
+                        const regex = getSearchHighlightRegex(lastSearchQuery, isExact);
                         const paraText = segment.words.map(w => w.text).join('');
-                        const match = regex.exec(paraText);
-                        if (match) {
+                        let match: RegExpExecArray | null;
+                        let foundFirst = false;
+
+                        while ((match = regex.exec(paraText)) !== null) {
+                            const matchStart = match.index;
+                            const matchEnd = match.index + match[0].length;
                             let currentChar = 0;
-                            let foundFirst = false;
+
                             for (const w of segment.words) {
-                                if (currentChar + w.text.length > match.index && currentChar < match.index + match[0].length) {
-                                    targetHighlightIndices.push(w.globalIndex);
-                                    if (!foundFirst) { targetGlobalIndex = w.globalIndex; foundFirst = true; }
+                                const wordStart = currentChar;
+                                const wordEnd = currentChar + w.text.length;
+                                if (wordEnd > matchStart && wordStart < matchEnd) {
+                                    if (!targetHighlightIndices.includes(w.globalIndex)) {
+                                        targetHighlightIndices.push(w.globalIndex);
+                                    }
+                                    if (!foundFirst) {
+                                        targetGlobalIndex = w.globalIndex;
+                                        foundFirst = true;
+                                    }
                                 }
                                 currentChar += w.text.length;
                             }
+                            if (regex.lastIndex === match.index) regex.lastIndex++;
                         }
                     }
                     
-                    if (targetHighlightIndices.length > 0) setJumpHighlightIndices(targetHighlightIndices);
-                    else setJumpHighlightIndices(segment.words.map(w => w.globalIndex));
+                    setJumpHighlightIndices(targetHighlightIndices);
 
                     const targetEl = wordRefs.current.get(targetGlobalIndex);
                     if (targetEl) targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });

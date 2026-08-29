@@ -38,7 +38,11 @@ export const getOllamaModels = async (baseUrl: string = DEFAULT_OLLAMA_URL): Pro
   try {
     const res = await fetch(`${baseUrl}/api/tags`);
     if (!res.ok) return [];
-    const data = await res.json();
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType.includes('text/html')) return [];
+    const text = await res.text();
+    if (!text || !text.trim().startsWith('{')) return [];
+    const data = JSON.parse(text);
     return (data.models || []).map((m: any) => m.name);
   } catch {
     return [];

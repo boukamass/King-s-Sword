@@ -2,6 +2,8 @@
 const { app, BrowserWindow, shell, ipcMain, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
+const os = require('os');
 const { autoUpdater } = require('electron-updater');
 
 // Delay loading better-sqlite3 to handle missing bindings gracefully
@@ -15,6 +17,183 @@ try {
 const isDev = !app.isPackaged;
 let mainWindow;
 let db = null;
+
+// ==========================================
+// PROTECTION ANTI-COPIE & EMPREINTE MACHINE
+// ==========================================
+const SECURITY_SECRET = 'KS_SWORD_MASTER_SECURITY_KEY_2026';
+
+function getMachineHardwareInfo() {
+  try {
+    const cpus = os.cpus() || [];
+    const cpuModel = cpus.length > 0 ? cpus[0].model.trim() : 'CPU_GENERIC';
+    const cpuCount = cpus.length || 1;
+    const totalMem = Math.round(os.totalmem() / (1024 * 1024 * 1024));
+    const platform = os.platform();
+    const hostname = os.hostname() || 'HOSTNAME';
+    const homedir = os.homedir() || 'HOME';
+    const networkInterfaces = os.networkInterfaces() || {};
+    
+    // Filtre des interfaces pour exclure adaptateurs virtuels (VPN, WSL, Docker, VMware, etc.)
+    const virtualRegex = /vEthernet|virtual|vmware|vbox|docker|wsl|nordlynx|wg|tun|tap|hyper-v|loopback/i;
+    let mac = '';
+
+    // Passage 1 : interface physique valide
+    for (const key of Object.keys(networkInterfaces)) {
+      if (virtualRegex.test(key)) continue;
+      for (const net of networkInterfaces[key] || []) {
+        if (net.mac && net.mac !== '00:00:00:00:00:00' && !net.internal) {
+          mac = net.mac;
+          break;
+        }
+      }
+      if (mac) break;
+    }
+
+    // Passage 2 de secours
+    if (!mac) {
+      for (const key of Object.keys(networkInterfaces)) {
+        for (const net of networkInterfaces[key] || []) {
+          if (net.mac && net.mac !== '00:00:00:00:00:00' && !net.internal) {
+            mac = net.mac;
+            break;
+          }
+        }
+        if (mac) break;
+      }
+    }
+
+    const raw = `${platform}::${cpuModel}::${cpuCount}::${totalMem}GB::${hostname}::${homedir}::${mac}`;
+    const hash = crypto.createHash('sha256').update(raw).digest('hex');
+    const part1 = hash.substring(0, 4).toUpperCase();
+    const part2 = hash.substring(4, 8).toUpperCase();
+    const machineId = `KS-${part1}-${part2}`;
+
+    return { machineId, fullHash: hash };
+  } catch (e) {
+    return { machineId: 'KS-GEN-0001', fullHash: 'fallback_hash' };
+  }
+}
+
+function encryptSecret(plainText) {
+  if (!plainText) return '';
+  try {
+    const { safeStorage } = require('electron');
+    if (safeStorage && safeStorage.isEncryptionAvailable()) {
+      const buffer = safeStorage.encryptString(plainText);
+      return 'DPAPI:' + buffer.toString('base64');
+    }
+  } catch (e) {
+    // safeStorage non supporté dans cet environnement
+  }
+  try {
+    const key = crypto.scryptSync(SECURITY_SECRET, 'ks_salt_2026', 32);
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+    let encrypted = cipher.update(plainText, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    return 'AES:' + iv.toString('hex') + ':' + encrypted;
+  } catch (e) {
+    return 'RAW:' + Buffer.from(plainText).toString('base64');
+  }
+}
+
+function decryptSecret(cipherText) {
+  if (!cipherText) return '';
+  try {
+    if (cipherText.startsWith('DPAPI:')) {
+      const { safeStorage } = require('electron');
+      const raw = Buffer.from(cipherText.replace('DPAPI:', ''), 'base64');
+      return safeStorage.decryptString(raw);
+    } else if (cipherText.startsWith('AES:')) {
+      const parts = cipherText.split(':');
+      const iv = Buffer.from(parts[1], 'hex');
+      const data = parts[2];
+      const key = crypto.scryptSync(SECURITY_SECRET, 'ks_salt_2026', 32);
+      const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+      let decrypted = decipher.update(data, 'hex', 'utf8');
+      decrypted += decipher.final('utf8');
+      return decrypted;
+    } else if (cipherText.startsWith('RAW:')) {
+      return Buffer.from(cipherText.replace('RAW:', ''), 'base64').toString('utf8');
+    }
+  } catch (e) {
+    console.warn('[SECURITY] Erreur déchiffrement secret:', e.message);
+  }
+  return cipherText;
+}
+
+function computeActivationKey(machineId) {
+  const hash = crypto.createHmac('sha256', SECURITY_SECRET).update(machineId).digest('hex');
+  return `ACT-${hash.substring(0, 4).toUpperCase()}-${hash.substring(4, 8).toUpperCase()}`;
+}
+
+function checkDeviceLock() {
+  if (isDev) {
+    return { locked: false, machineId: getMachineHardwareInfo().machineId };
+  }
+
+  const { machineId, fullHash } = getMachineHardwareInfo();
+  const userDataPath = app.getPath('userData');
+  const lockFilePath = path.join(userDataPath, 'device_identity.lock');
+
+  try {
+    if (!fs.existsSync(lockFilePath)) {
+      // Première installation normale sur cette machine : liaison automatique
+      const token = computeActivationKey(machineId);
+      const data = JSON.stringify({
+        machineId,
+        hash: fullHash,
+        token,
+        boundAt: new Date().toISOString()
+      });
+      fs.writeFileSync(lockFilePath, data, 'utf-8');
+      return { locked: false, machineId };
+    }
+
+    const fileContent = fs.readFileSync(lockFilePath, 'utf-8');
+    const record = JSON.parse(fileContent);
+
+    // Détection de copie sur un autre ordinateur
+    if (record.machineId !== machineId || record.hash !== fullHash) {
+      return {
+        locked: true,
+        machineId,
+        registeredMachineId: record.machineId,
+        reason: 'UNAUTHORIZED_COPY_DETECTED'
+      };
+    }
+
+    return { locked: false, machineId };
+  } catch (e) {
+    console.error('[SECURITY] Erreur vérification verrou machine:', e.message);
+    return { locked: false, machineId };
+  }
+}
+
+function activateDeviceOnMachine(activationCode) {
+  const { machineId, fullHash } = getMachineHardwareInfo();
+  const expectedCode = computeActivationKey(machineId);
+
+  if (!activationCode || activationCode.trim().toUpperCase() !== expectedCode) {
+    return { success: false, error: 'Code d\'activation incorrect pour cette machine.' };
+  }
+
+  try {
+    const userDataPath = app.getPath('userData');
+    const lockFilePath = path.join(userDataPath, 'device_identity.lock');
+    const data = JSON.stringify({
+      machineId,
+      hash: fullHash,
+      token: expectedCode,
+      activatedAt: new Date().toISOString()
+    });
+    fs.writeFileSync(lockFilePath, data, 'utf-8');
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
 
 function initDatabase() {
   if (!Database) {
@@ -33,6 +212,8 @@ function initDatabase() {
     db.pragma('journal_mode = WAL');
     db.pragma('synchronous = NORMAL');
     db.pragma('temp_store = MEMORY');
+    db.pragma('cache_size = -64000'); // 64MB memory page cache
+    db.pragma('mmap_size = 30000000000'); // Memory-mapped I/O for instantaneous reads
     db.pragma('foreign_keys = ON');
     
     db.exec(`
@@ -82,6 +263,34 @@ function initDatabase() {
         paragraph_index INTEGER,
         FOREIGN KEY(note_id) REFERENCES notes(id) ON DELETE CASCADE
       );
+
+      CREATE TABLE IF NOT EXISTS songs (
+        id TEXT PRIMARY KEY,
+        title TEXT,
+        content TEXT,
+        language TEXT,
+        filename TEXT,
+        custom INTEGER DEFAULT 0,
+        updated_at TEXT
+      );
+
+      CREATE VIRTUAL TABLE IF NOT EXISTS songs_fts USING fts5(
+        title,
+        content,
+        song_id UNINDEXED,
+        tokenize = 'unicode61 remove_diacritics 1'
+      );
+
+      CREATE TABLE IF NOT EXISTS key_value_store (
+        key TEXT PRIMARY KEY,
+        value TEXT,
+        updated_at TEXT
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_paragraphs_sermon_id ON paragraphs(sermon_id);
+      CREATE INDEX IF NOT EXISTS idx_citations_note_id ON citations(note_id);
+      CREATE INDEX IF NOT EXISTS idx_notes_order ON notes("order");
+      CREATE INDEX IF NOT EXISTS idx_sermons_date ON sermons(date DESC);
     `);
 
     try {
@@ -212,7 +421,16 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0, synon
       LIMIT ? OFFSET ?
     `;
     
-    return db.prepare(sql).all(...queryParams);
+    const rows = db.prepare(sql).all(...queryParams);
+    return rows.map(r => {
+      let snippet = r.snippet || '';
+      let prev = '';
+      while (snippet !== prev) {
+        prev = snippet;
+        snippet = snippet.replace(/<\/mark>([\s.,;:!–?\"“”'()\n\r]*?)<mark[^>]*>/gi, '$1');
+      }
+      return { ...r, snippet };
+    });
   } catch (e) {
     console.error("[DB] Erreur SQL lors de la recherche intégrale:", e.message);
     return [];
@@ -310,6 +528,289 @@ ipcMain.handle('db:reorderNotes', (event, notes) => {
   try {
     db.transaction(items => items.forEach((it, i) => db.prepare('UPDATE notes SET "order" = ? WHERE id = ?').run(i, it.id)))(notes);
     return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('db:getSongs', () => {
+  if (!db) return [];
+  try {
+    const songs = db.prepare('SELECT id, title, content, language, filename, custom, updated_at as updatedAt FROM songs ORDER BY CAST(id AS INTEGER) ASC, title ASC').all();
+    return songs.map(s => ({
+      ...s,
+      custom: Boolean(s.custom)
+    }));
+  } catch (e) {
+    console.error("[DB] Get Songs error:", e.message);
+    return [];
+  }
+});
+
+ipcMain.handle('db:getSong', (event, id) => {
+  if (!db) return null;
+  try {
+    const song = db.prepare('SELECT id, title, content, language, filename, custom, updated_at as updatedAt FROM songs WHERE id = ?').get(String(id));
+    if (!song) return null;
+    return {
+      ...song,
+      custom: Boolean(song.custom)
+    };
+  } catch (e) {
+    console.error("[DB] Get Song error:", e.message);
+    return null;
+  }
+});
+
+ipcMain.handle('db:saveSong', (event, song) => {
+  if (!db) return { success: false, error: "DB Unavailable" };
+  try {
+    const strId = String(song.id);
+    const now = song.updatedAt || new Date().toISOString();
+    
+    const ins = db.prepare(`
+      INSERT INTO songs (id, title, content, language, filename, custom, updated_at) 
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET 
+        title = excluded.title, 
+        content = excluded.content, 
+        language = excluded.language, 
+        filename = excluded.filename, 
+        custom = excluded.custom, 
+        updated_at = excluded.updated_at
+    `);
+    
+    ins.run(
+      strId,
+      song.title || '',
+      song.content || '',
+      song.language || 'fr',
+      song.filename || `${song.title}.txt`,
+      song.custom ? 1 : 0,
+      now
+    );
+
+    try {
+      db.prepare('DELETE FROM songs_fts WHERE song_id = ?').run(strId);
+      db.prepare('INSERT INTO songs_fts (title, content, song_id) VALUES (?, ?, ?)').run(
+        song.title || '',
+        song.content || '',
+        strId
+      );
+    } catch (ftsErr) {
+      console.warn("[DB] Song FTS update warning:", ftsErr.message);
+    }
+
+    return { success: true, song: { ...song, id: strId, updatedAt: now } };
+  } catch (e) {
+    console.error("[DB] Save Song error:", e.message);
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('db:deleteSong', (event, id) => {
+  if (!db) return { success: false, error: "DB Unavailable" };
+  try {
+    const strId = String(id);
+    db.prepare('DELETE FROM songs WHERE id = ?').run(strId);
+    try {
+      db.prepare('DELETE FROM songs_fts WHERE song_id = ?').run(strId);
+    } catch (ftsErr) {}
+    return { success: true };
+  } catch (e) {
+    console.error("[DB] Delete Song error:", e.message);
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('db:bulkImportSongs', (event, songsList) => {
+  if (!db) return { success: false, error: "DB Unavailable" };
+  try {
+    const transaction = db.transaction((songs) => {
+      const ins = db.prepare(`
+        INSERT OR REPLACE INTO songs (id, title, content, language, filename, custom, updated_at) 
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+      const insFts = db.prepare(`
+        INSERT INTO songs_fts (title, content, song_id) VALUES (?, ?, ?)
+      `);
+
+      try {
+        db.prepare('DELETE FROM songs_fts').run();
+        db.prepare('DELETE FROM songs').run();
+      } catch (e) {}
+
+      for (const s of songs) {
+        const strId = String(s.id);
+        ins.run(
+          strId,
+          s.title || '',
+          s.content || '',
+          s.language || 'fr',
+          s.filename || `${s.title}.txt`,
+          s.custom ? 1 : 0,
+          s.updatedAt || new Date().toISOString()
+        );
+        try {
+          insFts.run(s.title || '', s.content || '', strId);
+        } catch (e) {}
+      }
+    });
+
+    transaction(songsList);
+    return { success: true, count: songsList.length };
+  } catch (e) {
+    console.error("[DB] Bulk Import Songs error:", e.message);
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('db:getKV', (event, key) => {
+  if (!db) return null;
+  try {
+    const row = db.prepare('SELECT value FROM key_value_store WHERE key = ?').get(key);
+    return row ? row.value : null;
+  } catch (e) {
+    return null;
+  }
+});
+
+ipcMain.handle('db:setKV', (event, key, value) => {
+  if (!db) return { success: false };
+  try {
+    db.prepare('INSERT INTO key_value_store (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at')
+      .run(key, typeof value === 'string' ? value : JSON.stringify(value), new Date().toISOString());
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('security:getLockStatus', () => {
+  return checkDeviceLock();
+});
+
+ipcMain.handle('security:activateDevice', (event, code) => {
+  return activateDeviceOnMachine(code);
+});
+
+ipcMain.handle('security:encryptSecureData', (event, plainText) => {
+  return encryptSecret(plainText);
+});
+
+ipcMain.handle('security:decryptSecureData', (event, cipherText) => {
+  return decryptSecret(cipherText);
+});
+
+ipcMain.handle('backup:exportUserData', async () => {
+  if (!db) return { success: false, error: 'Base de données non disponible' };
+  try {
+    const notes = db.prepare('SELECT * FROM notes').all();
+    const songs = db.prepare('SELECT * FROM songs').all();
+    const kv = db.prepare('SELECT * FROM key_value_store').all();
+    
+    return {
+      success: true,
+      backup: {
+        version: '1.0',
+        exportedAt: new Date().toISOString(),
+        appName: "L'Épée du Roi",
+        data: {
+          notes,
+          songs,
+          kv
+        }
+      }
+    };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('backup:importUserData', async (event, backupData) => {
+  if (!db) return { success: false, error: 'Base de données non disponible' };
+  if (!backupData || !backupData.data) {
+    return { success: false, error: 'Format de sauvegarde invalide.' };
+  }
+  try {
+    const { notes, songs, kv } = backupData.data;
+    const transaction = db.transaction(() => {
+      if (Array.isArray(notes)) {
+        const stmtNote = db.prepare(`
+          INSERT INTO notes (id, title, content, citations, color, position, created_at, updated_at)
+          VALUES (@id, @title, @content, @citations, @color, @position, @created_at, @updated_at)
+          ON CONFLICT(id) DO UPDATE SET
+            title = excluded.title,
+            content = excluded.content,
+            citations = excluded.citations,
+            color = excluded.color,
+            position = excluded.position,
+            updated_at = excluded.updated_at
+        `);
+        for (const n of notes) {
+          stmtNote.run({
+            id: n.id,
+            title: n.title,
+            content: n.content,
+            citations: typeof n.citations === 'string' ? n.citations : JSON.stringify(n.citations || []),
+            color: n.color || null,
+            position: n.position || 0,
+            created_at: n.created_at || new Date().toISOString(),
+            updated_at: n.updated_at || new Date().toISOString()
+          });
+        }
+      }
+      
+      if (Array.isArray(songs)) {
+        const stmtSong = db.prepare(`
+          INSERT INTO songs (id, number, title, key_signature, category, lyrics, created_at, updated_at)
+          VALUES (@id, @number, @title, @key_signature, @category, @lyrics, @created_at, @updated_at)
+          ON CONFLICT(id) DO UPDATE SET
+            number = excluded.number,
+            title = excluded.title,
+            key_signature = excluded.key_signature,
+            category = excluded.category,
+            lyrics = excluded.lyrics,
+            updated_at = excluded.updated_at
+        `);
+        for (const s of songs) {
+          stmtSong.run({
+            id: s.id,
+            number: s.number,
+            title: s.title,
+            key_signature: s.key_signature || null,
+            category: s.category || null,
+            lyrics: typeof s.lyrics === 'string' ? s.lyrics : JSON.stringify(s.lyrics || []),
+            created_at: s.created_at || new Date().toISOString(),
+            updated_at: s.updated_at || new Date().toISOString()
+          });
+        }
+      }
+
+      if (Array.isArray(kv)) {
+        const stmtKV = db.prepare(`
+          INSERT INTO key_value_store (key, value, updated_at)
+          VALUES (@key, @value, @updated_at)
+          ON CONFLICT(key) DO UPDATE SET
+            value = excluded.value,
+            updated_at = excluded.updated_at
+        `);
+        for (const item of kv) {
+          stmtKV.run({
+            key: item.key,
+            value: typeof item.value === 'string' ? item.value : JSON.stringify(item.value),
+            updated_at: item.updated_at || new Date().toISOString()
+          });
+        }
+      }
+    });
+
+    transaction();
+    return { 
+      success: true, 
+      importedNotes: Array.isArray(notes) ? notes.length : 0, 
+      importedSongs: Array.isArray(songs) ? songs.length : 0 
+    };
   } catch (e) {
     return { success: false, error: e.message };
   }

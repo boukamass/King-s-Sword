@@ -1,6 +1,14 @@
 import { Song, Sermon, SearchMode } from '../types';
 import { SearchResult } from '../store';
-import { getAccentInsensitiveRegex, normalizeText } from '../utils/textUtils';
+import { getAccentInsensitiveRegex, getMultiWordHighlightRegex, getSearchHighlightRegex, mergeAdjacentMarks, normalizeText } from '../utils/textUtils';
+import { fetchJsonSafe } from '../utils/fetchHelper';
+import { 
+  getAllSongsFromDB, 
+  getSongByIdFromDB, 
+  saveSongToDB, 
+  deleteSongFromDB, 
+  bulkAddSongsToDB 
+} from './db';
 
 const STORAGE_KEY = 'kings_sword_songs_store_v2';
 const CUSTOM_SONGS_KEY = 'kings_sword_custom_songs_v2';
@@ -9,6 +17,8 @@ const DB_NAME = 'kings_sword_app_db';
 const DB_VERSION = 2;
 const STORE_SONGS = 'songs';
 const STORE_CUSTOM = 'custom_songs';
+
+const isElectron = () => typeof window !== 'undefined' && !!window.electronAPI && !!window.electronAPI.db;
 
 let inMemorySongs: Song[] | null = null;
 let idbPromise: Promise<IDBDatabase> | null = null;
@@ -286,6 +296,22 @@ export const loadAllSongs = async (): Promise<Song[]> => {
     return inMemorySongs;
   }
 
+  // 1. Electron SQLite primary database
+  if (isElectron()) {
+    try {
+      const sqliteSongs = await getAllSongsFromDB();
+      if (sqliteSongs && sqliteSongs.length > 0) {
+        inMemorySongs = sqliteSongs.map(s => ({
+          ...s,
+          title: formatSongTitle(s.title)
+        }));
+        return inMemorySongs;
+      }
+    } catch (err) {
+      console.warn('Error reading songs from SQLite DB:', err);
+    }
+  }
+
   const customMap = getCustomSongsFromLS();
   const deletedList = getDeletedSongIdsFromLS();
 
@@ -325,9 +351,8 @@ export const loadAllSongs = async (): Promise<Song[]> => {
 
   // Try fetching fresh songs.json first
   try {
-    const res = await fetch('songs.json');
-    if (res.ok) {
-      const data = await res.json();
+    const data = await fetchJsonSafe<any>('/songs.json', ['songs.json']);
+    if (data) {
       const rawList: Song[] = Array.isArray(data) ? data : data.songs || [];
       let idbSongs: Song[] = [];
       try {
@@ -336,6 +361,15 @@ export const loadAllSongs = async (): Promise<Song[]> => {
 
       const merged = mergeSongs(rawList, idbSongs);
       inMemorySongs = merged;
+
+      // Seed into SQLite if running under Electron
+      if (isElectron()) {
+        try {
+          await bulkAddSongsToDB(merged);
+        } catch (sqliteErr) {
+          console.warn('Error seeding SQLite with songs:', sqliteErr);
+        }
+      }
 
       // Update IndexedDB & LocalStorage
       idbPutAll(STORE_SONGS, merged);
@@ -355,6 +389,9 @@ export const loadAllSongs = async (): Promise<Song[]> => {
     if (idbSongs && idbSongs.length > 0) {
       const merged = mergeSongs(idbSongs);
       inMemorySongs = merged;
+      if (isElectron()) {
+        try { await bulkAddSongsToDB(merged); } catch {}
+      }
       return inMemorySongs;
     }
   } catch (e) {
@@ -370,6 +407,9 @@ export const loadAllSongs = async (): Promise<Song[]> => {
         const merged = mergeSongs(parsed);
         inMemorySongs = merged;
         idbPutAll(STORE_SONGS, merged);
+        if (isElectron()) {
+          try { await bulkAddSongsToDB(merged); } catch {}
+        }
         return inMemorySongs;
       }
     }
@@ -383,6 +423,14 @@ export const loadAllSongs = async (): Promise<Song[]> => {
 
 export const persistSongs = async (songs: Song[]) => {
   inMemorySongs = songs;
+  // Write to SQLite if available
+  if (isElectron()) {
+    try {
+      await bulkAddSongsToDB(songs);
+    } catch (e) {
+      console.warn('Error persisting to SQLite:', e);
+    }
+  }
   // Write to IndexedDB
   await idbPutAll(STORE_SONGS, songs);
   // Mirror to LocalStorage
@@ -394,8 +442,16 @@ export const persistSongs = async (songs: Song[]) => {
 };
 
 export const getSongById = async (id: string | number): Promise<Song | null> => {
-  const songs = await loadAllSongs();
   const rawId = typeof id === 'string' && id.startsWith('song-') ? id.replace('song-', '') : String(id);
+  
+  if (isElectron()) {
+    try {
+      const s = await getSongByIdFromDB(rawId);
+      if (s) return { ...s, title: formatSongTitle(s.title) };
+    } catch (e) {}
+  }
+
+  const songs = await loadAllSongs();
   const found = songs.find(s => String(s.id) === rawId);
   return found || null;
 };
@@ -450,6 +506,7 @@ export const saveSong = async (songData: {
       title: formattedTitle,
       content: songData.content.trim(),
       language: songData.language || songs[existingIndex].language || 'fr',
+      custom: true,
       updatedAt: now
     };
     songs[existingIndex] = updatedSong;
@@ -460,6 +517,7 @@ export const saveSong = async (songData: {
       filename: `${formattedTitle}.txt`,
       content: songData.content.trim(),
       language: songData.language || 'fr',
+      custom: true,
       updatedAt: now
     };
     songs.push(updatedSong);
@@ -475,11 +533,24 @@ export const saveSong = async (songData: {
     return String(a.title).localeCompare(String(b.title));
   });
 
-  // Save to persistent storage
+  // 1. Direct SQLite save if Electron
+  if (isElectron()) {
+    try {
+      await saveSongToDB(updatedSong);
+    } catch (e) {
+      console.warn('Error saving song to SQLite:', e);
+    }
+  }
+
+  // 2. Save to persistent storage (IndexedDB & LocalStorage)
+  inMemorySongs = songs;
   await idbPut(STORE_SONGS, updatedSong);
   await idbPut(STORE_CUSTOM, updatedSong);
   saveCustomSongToLS(updatedSong);
-  await persistSongs(songs);
+
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(songs));
+  } catch (e) {}
 
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('kings_sword_songs_updated'));
@@ -497,14 +568,26 @@ export const deleteSong = async (id: number | string): Promise<boolean> => {
     return false; // not found
   }
 
-  // Persist deletion
+  // 1. Direct SQLite deletion if Electron
+  if (isElectron()) {
+    try {
+      await deleteSongFromDB(rawId);
+    } catch (e) {
+      console.warn('Error deleting song from SQLite:', e);
+    }
+  }
+
+  // 2. Persist deletion in fallback stores
+  inMemorySongs = filtered;
   await idbDelete(STORE_SONGS, rawId);
   await idbDelete(STORE_SONGS, Number(rawId));
   await idbDelete(STORE_CUSTOM, rawId);
   await idbDelete(STORE_CUSTOM, Number(rawId));
   addDeletedSongIdToLS(rawId);
 
-  await persistSongs(filtered);
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+  } catch (e) {}
 
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('kings_sword_songs_updated'));
@@ -541,25 +624,83 @@ export const searchSongs = async (
   if (!trimmed) return [];
 
   const results: SearchResult[] = [];
-  const queryRegex = getAccentInsensitiveRegex(trimmed);
   const normalizedQuery = normalizeText(trimmed);
+  const queryWords = normalizedQuery.split(/\s+/).filter(w => w.length > 0);
+
+  // Styles de surlignage harmonisés
+  const markBase = "font-black px-1 rounded-sm underline decoration-[3.5px] underline-offset-4 shadow-sm";
+  const markClass = `${markBase} bg-amber-500 text-white dark:bg-amber-600 decoration-amber-200`;
+
+  // Construction du regex de surlignage
+  const termsForHighlight = mode === SearchMode.EXACT_PHRASE 
+    ? [trimmed] 
+    : (queryWords.length > 0 ? queryWords : [trimmed]);
+  
+  const finalRegexSource = termsForHighlight
+    .map(t => t.trim())
+    .filter(t => t.length > 1)
+    .join('|');
+
+  const highlightRegex = finalRegexSource ? getMultiWordHighlightRegex(finalRegexSource) : null;
 
   for (const song of songs) {
     if (!song.content) continue;
 
     const cleanTitle = formatSongTitle(song.title);
+    const normalizedTitle = normalizeText(song.title);
+    const songIdStr = String(song.id);
     const stanzas = song.content.split(/\n\s*\n/);
+
+    // Vérifier si le numéro de chant ou le titre correspond directement
+    const isSongNumberMatch = songIdStr === trimmed || songIdStr === normalizedQuery;
+    const isTitleMatch = mode === SearchMode.EXACT_PHRASE 
+      ? normalizedTitle.includes(normalizedQuery)
+      : (mode === SearchMode.DIVERSE 
+          ? queryWords.some(w => normalizedTitle.includes(w))
+          : queryWords.every(w => normalizedTitle.includes(w)));
+
     stanzas.forEach((stanza, stanzaIdx) => {
       const trimmedStanza = stanza.trim();
       if (!trimmedStanza) return;
 
-      const isMatch = queryRegex.test(trimmedStanza) || 
-                      normalizeText(trimmedStanza).includes(normalizedQuery);
+      const normalizedStanza = normalizeText(trimmedStanza);
+      let isMatch = false;
+
+      if (isSongNumberMatch || (isTitleMatch && stanzaIdx === 0)) {
+        isMatch = true;
+      } else if (mode === SearchMode.EXACT_PHRASE) {
+        isMatch = normalizedStanza.includes(normalizedQuery);
+      } else if (mode === SearchMode.DIVERSE) {
+        isMatch = queryWords.some(w => normalizedStanza.includes(w));
+      } else {
+        // ALL_WORDS
+        isMatch = queryWords.every(w => normalizedStanza.includes(w));
+      }
 
       if (isMatch) {
         // Build clean snippet around match
-        const snippetLines = trimmedStanza.split('\n').filter(l => l.trim().length > 0);
-        const snippet = snippetLines.slice(0, 3).join(' • ');
+        let snippetContent = trimmedStanza;
+        if (highlightRegex) {
+          highlightRegex.lastIndex = 0;
+          const matchExec = highlightRegex.exec(trimmedStanza);
+          if (matchExec) {
+            const matchPos = matchExec.index;
+            const windowStart = Math.max(0, matchPos - 40);
+            const windowEnd = Math.min(trimmedStanza.length, matchPos + 220);
+            snippetContent = trimmedStanza.substring(windowStart, windowEnd);
+            if (windowStart > 0) snippetContent = '...' + snippetContent;
+            if (windowEnd < trimmedStanza.length) snippetContent = snippetContent + '...';
+          }
+        }
+
+        // Clean up newlines into bullets
+        let snippetFormatted = snippetContent.replace(/\n+/g, ' • ');
+
+        // Apply HTML highlight tags
+        if (highlightRegex) {
+          highlightRegex.lastIndex = 0;
+          snippetFormatted = snippetFormatted.replace(highlightRegex, (m) => `<mark class="${markClass}">${m}</mark>`);
+        }
 
         results.push({
           paragraphId: `song-${song.id}-p${stanzaIdx}`,
@@ -568,7 +709,7 @@ export const searchSongs = async (
           date: 'Cantique',
           city: song.language ? song.language.toUpperCase() : 'FR',
           paragraphIndex: stanzaIdx,
-          snippet: snippet.length > 180 ? snippet.slice(0, 180) + '...' : snippet
+          snippet: snippetFormatted
         });
       }
     });

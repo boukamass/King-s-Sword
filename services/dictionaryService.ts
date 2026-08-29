@@ -198,7 +198,11 @@ export const getDefinition = async (word: string): Promise<WordDefinition> => {
         },
       });
 
-      const result = JSON.parse(response.text || '{}') as WordDefinition;
+      let cleanText = (response.text || '').trim();
+      if (cleanText.startsWith('```')) {
+        cleanText = cleanText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+      }
+      const result = JSON.parse(cleanText || '{}') as WordDefinition;
       if (result.word) {
         setCache(cleanedWord, result);
         return result;

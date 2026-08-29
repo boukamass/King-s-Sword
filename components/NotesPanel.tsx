@@ -1,4 +1,4 @@
-import React, { useState, useMemo, memo } from 'react';
+import React, { useState, useMemo, memo, useRef } from 'react';
 import { useAppStore } from '../store';
 import { translations } from '../translations';
 import { Note, Citation } from '../types';
@@ -16,7 +16,10 @@ import {
   Pencil,
   Hash,
   ExternalLink,
-  Quote
+  Quote,
+  Download,
+  Upload,
+  CheckCircle2
 } from 'lucide-react';
 
 const PALETTE_COLORS: { name: string; key: string; bg: string; border: string; ring: string; }[] = [
@@ -237,13 +240,91 @@ const NotesPanel: React.FC = () => {
         setJumpToText(citation.quoted_text);
     }
     
-    // Fermer l'éditeur de notes éventuel pour voir le lecteur
     setActiveNoteId(null);
     toggleNotes(); 
   };
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [backupSuccess, setBackupSuccess] = useState<string | null>(null);
+
+  const handleExportBackup = async () => {
+    try {
+      let backupPayload: any = null;
+      if (window.electronAPI?.db?.exportBackup) {
+        const res = await window.electronAPI.db.exportBackup();
+        if (res.success && res.backup) {
+          backupPayload = res.backup;
+        }
+      }
+
+      if (!backupPayload) {
+        backupPayload = {
+          version: '1.0',
+          exportedAt: new Date().toISOString(),
+          appName: "L'Épée du Roi",
+          data: {
+            notes: notes,
+            songs: [],
+            kv: []
+          }
+        };
+      }
+
+      const blob = new Blob([JSON.stringify(backupPayload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const dateStr = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `epee-du-roi-sauvegarde-${dateStr}.ksbackup`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      setBackupSuccess("Sauvegarde exportée avec succès !");
+      setTimeout(() => setBackupSuccess(null), 3000);
+    } catch (e: any) {
+      console.error("Erreur export sauvegarde:", e);
+    }
+  };
+
+  const handleImportFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      if (window.electronAPI?.db?.importBackup) {
+        const res = await window.electronAPI.db.importBackup(parsed);
+        if (res.success) {
+          useAppStore.getState().initializeDB();
+          setBackupSuccess(`${res.importedNotes || 0} notes restaurées avec succès !`);
+          setTimeout(() => setBackupSuccess(null), 3000);
+        }
+      } else if (parsed?.data?.notes && Array.isArray(parsed.data.notes)) {
+        for (const n of parsed.data.notes) {
+          addNote(n);
+        }
+        setBackupSuccess("Notes importées avec succès !");
+        setTimeout(() => setBackupSuccess(null), 3000);
+      }
+    } catch (err: any) {
+      console.error("Erreur import sauvegarde:", err);
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   return (
     <div className="w-full border-l border-zinc-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 h-full flex flex-col overflow-hidden">
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        onChange={handleImportFileSelected} 
+        accept=".json,.ksbackup" 
+        className="hidden" 
+      />
       <div className="px-4 h-14 border-b border-zinc-100 dark:border-zinc-800/50 flex items-center justify-between shrink-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl z-50">
         <button 
           onClick={toggleNotes}
@@ -258,6 +339,20 @@ const NotesPanel: React.FC = () => {
           </h2>
         </button>
         <div className="flex items-center gap-1">
+          <button 
+            data-tooltip="Sauvegarder / Exporter les notes" 
+            onClick={handleExportBackup} 
+            className="w-8 h-8 flex items-center justify-center text-zinc-500 hover:text-teal-600 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-950/30 transition-all active:scale-90 tooltip-bottom"
+          >
+            <Download className="w-4 h-4" />
+          </button>
+          <button 
+            data-tooltip="Restaurer une sauvegarde" 
+            onClick={() => fileInputRef.current?.click()} 
+            className="w-8 h-8 flex items-center justify-center text-zinc-500 hover:text-teal-600 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-950/30 transition-all active:scale-90 tooltip-bottom"
+          >
+            <Upload className="w-4 h-4" />
+          </button>
           <button 
             data-tooltip="Nouvelle note" 
             onClick={() => addNote({ title: "Nouvelle Note", content: "", citations: [] })} 
@@ -274,6 +369,13 @@ const NotesPanel: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {backupSuccess && (
+        <div className="mx-4 mt-3 px-3 py-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs rounded-xl flex items-center gap-2 animate-in fade-in slide-in-from-top-1">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <span className="font-medium">{backupSuccess}</span>
+        </div>
+      )}
 
       <div className="p-3 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/30 dark:bg-zinc-900/40 z-10">
         <div className="relative group/notes-filter">
