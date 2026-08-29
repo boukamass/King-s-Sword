@@ -275,6 +275,16 @@ export const ProjectionView: React.FC = memo(() => {
         if (window.opener) try { window.opener.postMessage({ type: 'prev_segment' }, '*'); } catch (err) {}
       };
 
+      const sendNextSource = () => {
+        if (channel) try { channel.postMessage({ type: 'next_source' }); } catch (err) {}
+        if (window.opener) try { window.opener.postMessage({ type: 'next_source' }, '*'); } catch (err) {}
+      };
+
+      const sendPrevSource = () => {
+        if (channel) try { channel.postMessage({ type: 'prev_source' }); } catch (err) {}
+        if (window.opener) try { window.opener.postMessage({ type: 'prev_source' }, '*'); } catch (err) {}
+      };
+
       const sendBlackout = () => {
         if (channel) try { channel.postMessage({ type: 'toggle_blackout' }); } catch (err) {}
         if (window.opener) try { window.opener.postMessage({ type: 'toggle_blackout' }, '*'); } catch (err) {}
@@ -308,53 +318,52 @@ export const ProjectionView: React.FC = memo(() => {
         return;
       }
 
-      // Next Paragraph navigation: PageDown, ArrowRight (→)
-      if (e.key === 'PageDown' || e.key === 'ArrowRight') {
+      // Next Paragraph in same source: ArrowRight (→)
+      if (e.key === 'ArrowRight') {
         e.preventDefault();
         sendNext();
         return;
       }
 
-      // Prev Paragraph navigation: PageUp, ArrowLeft (←)
-      if (e.key === 'PageUp' || e.key === 'ArrowLeft') {
+      // Prev Paragraph in same source: ArrowLeft (←)
+      if (e.key === 'ArrowLeft') {
         e.preventDefault();
         sendPrev();
         return;
       }
 
-      // Explicit scroll down inside paragraph (Shift+ArrowDown, Shift+PageDown, 'd', 'D')
-      if ((e.shiftKey && (e.key === 'ArrowDown' || e.key === 'PageDown')) || e.key === 'd' || e.key === 'D') {
+      // Next / Prev Source: PageDown (Source Suivante) / PageUp (Source Précédente)
+      if (e.key === 'PageDown') {
+        e.preventDefault();
+        sendNextSource();
+        return;
+      }
+
+      if (e.key === 'PageUp') {
+        e.preventDefault();
+        sendPrevSource();
+        return;
+      }
+
+      // Scroll Down inside content: ArrowDown (↓)
+      if (e.key === 'ArrowDown') {
         e.preventDefault();
         handleScrollDown(0.45);
         return;
       }
 
-      // Explicit scroll up inside paragraph (Shift+ArrowUp, Shift+PageUp, 'u', 'U')
-      if ((e.shiftKey && (e.key === 'ArrowUp' || e.key === 'PageUp')) || e.key === 'u' || e.key === 'U') {
+      // Scroll Up inside content: ArrowUp (↑)
+      if (e.key === 'ArrowUp') {
         e.preventDefault();
         handleScrollUp(0.45);
         return;
       }
 
-      // ArrowDown / Space: if scrollable and not at bottom, scroll down; else go to next paragraph
-      if (e.key === 'ArrowDown' || (e.key === ' ' && !e.shiftKey)) {
+      // Space: Next segment / Shift+Space: Prev segment
+      if (e.key === ' ') {
         e.preventDefault();
-        if (canScrollDown) {
-          handleScrollDown(0.45);
-        } else {
-          sendNext();
-        }
-        return;
-      }
-
-      // ArrowUp / Shift+Space: if scrollable and not at top, scroll up; else go to prev paragraph
-      if (e.key === 'ArrowUp' || (e.key === ' ' && e.shiftKey)) {
-        e.preventDefault();
-        if (canScrollUp) {
-          handleScrollUp(0.45);
-        } else {
-          sendPrev();
-        }
+        if (e.shiftKey) sendPrev();
+        else sendNext();
         return;
       }
 

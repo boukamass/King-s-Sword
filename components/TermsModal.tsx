@@ -10,6 +10,13 @@ interface TermsModalProps {
 export const TermsModal: React.FC<TermsModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
+  const handleAccept = () => {
+    try {
+      localStorage.setItem('kings_sword_terms_accepted', 'true');
+    } catch (e) {}
+    onClose();
+  };
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
       <div 
@@ -148,7 +155,7 @@ export const TermsModal: React.FC<TermsModalProps> = ({ isOpen, onClose }) => {
         {/* Footer */}
         <div className="px-6 py-3.5 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/80 flex justify-end">
           <button
-            onClick={onClose}
+            onClick={handleAccept}
             className="px-5 py-2 bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs rounded-xl shadow-md hover:shadow-lg transition-all active:scale-95 uppercase tracking-wider cursor-pointer"
           >
             J'accepte & J'ai compris
