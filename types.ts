@@ -58,7 +58,7 @@ export enum SearchMode {
 export interface Notification {
   id: string;
   message: string;
-  type: 'success' | 'error';
+  type: 'success' | 'error' | 'info';
 }
 
 export interface ChatMessage {
@@ -92,9 +92,24 @@ export interface ElectronAPI {
     importSermons: (sermons: Sermon[]) => Promise<{ success: boolean; count?: number; error?: string }>;
     getParagraphContent: (id: string) => Promise<any>;
     getNotes: () => Promise<Note[]>;
-    saveNote: (note: Note) => Promise<{ success: boolean }>;
-    deleteNote: (id: string) => Promise<{ success: boolean }>;
-    reorderNotes: (notes: Note[]) => Promise<{ success: boolean }>;
+    saveNote: (note: Note) => Promise<{ success: boolean; error?: string }>;
+    deleteNote: (id: string) => Promise<{ success: boolean; error?: string }>;
+    reorderNotes: (notes: Note[]) => Promise<{ success: boolean; error?: string }>;
+    getSongs: () => Promise<Song[]>;
+    getSong: (id: string | number) => Promise<Song | null>;
+    saveSong: (song: Song) => Promise<{ success: boolean; song?: Song; error?: string }>;
+    deleteSong: (id: string | number) => Promise<{ success: boolean; error?: string }>;
+    bulkImportSongs: (songs: Song[]) => Promise<{ success: boolean; count?: number; error?: string }>;
+    getKV: (key: string) => Promise<string | null>;
+    setKV: (key: string, value: any) => Promise<{ success: boolean; error?: string }>;
+    exportBackup?: () => Promise<{ success: boolean; backup?: any; error?: string }>;
+    importBackup?: (backupData: any) => Promise<{ success: boolean; importedNotes?: number; importedSongs?: number; error?: string }>;
+  };
+  security?: {
+    getLockStatus: () => Promise<{ locked: boolean; machineId: string; reason?: string }>;
+    activateDevice: (activationCode: string) => Promise<{ success: boolean; error?: string }>;
+    encryptSecureData?: (plainText: string) => Promise<string>;
+    decryptSecureData?: (cipherText: string) => Promise<string>;
   };
 }
 

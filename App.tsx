@@ -9,6 +9,7 @@ import Notifications from './components/Notifications';
 import NoteEditor from './components/NoteEditor';
 import { Sparkles, NotebookPen, Info, Trash2, HelpCircle, BookOpen } from 'lucide-react';
 import { ProjectionView, MaskView } from './components/ProjectionView';
+import DeviceLockModal from './components/DeviceLockModal';
 
 const GlobalTooltip = memo(() => {
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -137,12 +138,25 @@ const App: React.FC = () => {
 
   const [isResizing, setIsResizing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isDeviceLocked, setIsDeviceLocked] = useState(false);
+  const [deviceMachineId, setDeviceMachineId] = useState('');
   const activeHandle = useRef<string | null>(null);
   const resizeRafId = useRef<number | null>(null);
 
   const searchParams = new URLSearchParams(window.location.search);
   const isProjectionWindow = searchParams.get('projection') === 'true';
   const isMaskWindow = searchParams.get('mask') === 'true';
+
+  useEffect(() => {
+    if (window.electronAPI?.security?.getLockStatus) {
+      window.electronAPI.security.getLockStatus().then((status) => {
+        if (status && status.locked) {
+          setIsDeviceLocked(true);
+          setDeviceMachineId(status.machineId || '');
+        }
+      }).catch(() => {});
+    }
+  }, []);
 
   useEffect(() => { initializeDB(); }, [initializeDB]);
 
@@ -292,6 +306,15 @@ const App: React.FC = () => {
       </div>
       <Notifications />
       <GlobalTooltip />
+      {isDeviceLocked && (
+        <DeviceLockModal
+          machineId={deviceMachineId}
+          onUnlocked={() => {
+            setIsDeviceLocked(false);
+            initializeDB();
+          }}
+        />
+      )}
     </div>
   );
 };

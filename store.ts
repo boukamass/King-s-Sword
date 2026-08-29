@@ -15,6 +15,7 @@ import {
   searchSermons
 } from './services/db';
 import { getBibleChapterSermon, getBibleBookSermon, searchBibleVersesAdvanced } from './services/bibleService';
+import { fetchJsonSafe } from './utils/fetchHelper';
 
 const generateUUID = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 9));
 
@@ -111,7 +112,7 @@ interface AppState {
   setShowOnlyQuery: (active: boolean) => void;
   setActiveSynonyms: (syns: string[]) => void;
   setSelectedSynonym: (syn: string | null) => void;
-  addNotification: (message: string, type: 'success' | 'error') => void;
+  addNotification: (message: string, type: 'success' | 'error' | 'info') => void;
   removeNotification: (id: string) => void;
   setActiveNoteId: (id: string | null) => void;
   toggleSidebar: () => void;
@@ -222,9 +223,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       if (!hasSqlite) {
         set({ loadingMessage: "Chargement des sermons...", loadingProgress: 35 });
-        const response = await fetch('library.json');
-        set({ loadingProgress: 60 });
-        const data: Sermon[] = await response.json();
+        const data = await fetchJsonSafe<Sermon[]>('/library.json', ['library.json']) || [];
         set({ loadingProgress: 80 });
         
         const uniqueMetadata: Omit<Sermon, 'text'>[] = [];
@@ -274,22 +273,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   resetLibrary: async () => {
     set({ isLoading: true, loadingMessage: "Récupération des données...", loadingProgress: 15 });
     try {
-      const response = await fetch('library.json');
-      set({ loadingProgress: 40 });
-      if (!response.ok) {
-        throw new Error(`Le fichier library.json est manquant ou inaccessible`);
-      }
+      const incoming = await fetchJsonSafe<Sermon[]>('/library.json', ['library.json']);
+      set({ loadingProgress: 55 });
       
-      let incoming: Sermon[];
-      try {
-        incoming = await response.json();
-        set({ loadingProgress: 55 });
-      } catch (parseError) {
-        throw new Error("Le format du fichier library.json est invalide.");
-      }
-      
-      if (!Array.isArray(incoming)) {
-        throw new Error("Les données importées doivent être une liste de sermons.");
+      if (!incoming || !Array.isArray(incoming)) {
+        throw new Error("Les données de library.json sont introuvables ou invalides.");
       }
 
       if (get().isSqliteAvailable) {
@@ -492,7 +480,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
       } else if (libraryMode === 'expose') {
           const { searchExpose } = await import('./services/exposeService');
-          const results = await searchExpose(searchQuery);
+          const results = await searchExpose(searchQuery, searchMode);
           set({ searchResults: results, isSearching: false });
           
           if (results.length > 0) {
