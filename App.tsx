@@ -221,7 +221,7 @@ const App: React.FC = () => {
              <div className="absolute inset-0 border-2 border-dashed border-teal-600/20 rounded-full animate-[spin_10s_linear_infinite]"></div>
              <div className="absolute inset-2 border border-teal-600/40 rounded-full animate-[spin_6s_linear_infinite_reverse]"></div>
              <div className="absolute inset-4 bg-zinc-900 rounded-full shadow-2xl border border-zinc-800 flex items-center justify-center overflow-hidden">
-               <img src="/apple-touch-icon.png" onError={(e) => { (e.target as HTMLImageElement).src = "/logo.png"; }} alt="King's Sword" className="w-12 h-12 animate-pulse object-cover rounded-full" />
+                <img src={`${import.meta.env.BASE_URL}apple-touch-icon.png`} onError={(e) => { (e.target as HTMLImageElement).src = `${import.meta.env.BASE_URL}logo.png`; }} alt="King's Sword" className="w-12 h-12 animate-pulse object-cover rounded-full" />
              </div>
            </div>
            <div className="w-full space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-1000">
