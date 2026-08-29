@@ -444,7 +444,7 @@ export const ProjectionView: React.FC = memo(() => {
         className="fixed inset-0 bg-black flex flex-col items-center justify-center p-20 text-center select-none font-sans cursor-pointer animate-in fade-in duration-300"
       >
         <img
-          src="/logo.png"
+          src={`${import.meta.env.BASE_URL}logo.png`}
           alt="Logo"
           className="w-20 h-20 opacity-80 mb-6 object-cover rounded-full shadow-lg"
         />
@@ -468,7 +468,7 @@ export const ProjectionView: React.FC = memo(() => {
         <div className="w-full flex items-center justify-between opacity-60">
           <div className="flex items-center gap-3">
             <img
-              src="/logo.png"
+              src={`${import.meta.env.BASE_URL}logo.png`}
               alt="Logo"
               className="w-8 h-8 object-cover rounded-full"
             />
@@ -482,7 +482,7 @@ export const ProjectionView: React.FC = memo(() => {
         <div className="max-w-5xl my-auto flex flex-col items-center gap-6">
           <div className="w-20 h-20 rounded-full bg-teal-600/10 border border-teal-500/30 flex items-center justify-center text-teal-400 mb-2 shadow-2xl overflow-hidden">
             <img
-              src="/logo.png"
+              src={`${import.meta.env.BASE_URL}logo.png`}
               alt="Logo"
               className="w-12 h-12 object-cover rounded-full"
             />
@@ -664,7 +664,7 @@ export const ProjectionView: React.FC = memo(() => {
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-[3.2vmin] h-[3.2vmin] rounded-full bg-teal-600/20 border border-teal-600/30 flex items-center justify-center shadow-lg overflow-hidden shrink-0">
             <img
-              src="/logo.png"
+              src={`${import.meta.env.BASE_URL}logo.png`}
               alt="Logo"
               className="w-[2.4vmin] h-[2.4vmin] object-cover rounded-full"
             />
