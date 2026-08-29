@@ -514,6 +514,15 @@ const Sidebar: React.FC = () => {
   const [songToEdit, setSongToEdit] = useState<Song | null>(null);
   const [songLanguageFilter, setSongLanguageFilter] = useState<string | null>(null);
 
+  useEffect(() => {
+    try {
+      const accepted = localStorage.getItem('kings_sword_terms_accepted');
+      if (accepted !== 'true') {
+        setIsTermsModalOpen(true);
+      }
+    } catch (e) {}
+  }, []);
+
   const refreshSongs = useCallback(async () => {
     const list = await loadAllSongs();
     setSongs(list);

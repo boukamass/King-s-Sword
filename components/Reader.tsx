@@ -350,6 +350,8 @@ const Reader: React.FC = () => {
   }, []);
 
   const sendProjectionPayloadRef = useRef<((targetSegmentIdx?: number | null) => void) | null>(null);
+  const handleNextSourceRef = useRef<(() => void) | null>(null);
+  const handlePrevSourceRef = useRef<(() => void) | null>(null);
   const [isProjectionOpen, setIsProjectionOpen] = useState(false);
   
   const [activeDefinition, setActiveDefinition] = useState<WordDefinition | null>(null);
@@ -473,6 +475,10 @@ const Reader: React.FC = () => {
           handleProjectNextSegment();
         } else if (data.type === 'prev_segment') {
           handleProjectPrevSegment();
+        } else if (data.type === 'next_source') {
+          if (handleNextSourceRef.current) handleNextSourceRef.current();
+        } else if (data.type === 'prev_source') {
+          if (handlePrevSourceRef.current) handlePrevSourceRef.current();
         } else if (data.type === 'toggle_blackout') {
           setProjectionBlackout(!useAppStore.getState().projectionBlackout);
         } else if (data.type === 'close') {
@@ -494,6 +500,10 @@ const Reader: React.FC = () => {
           handleProjectNextSegment();
         } else if (data.type === 'prev_segment') {
           handleProjectPrevSegment();
+        } else if (data.type === 'next_source') {
+          if (handleNextSourceRef.current) handleNextSourceRef.current();
+        } else if (data.type === 'prev_source') {
+          if (handlePrevSourceRef.current) handlePrevSourceRef.current();
         } else if (data.type === 'toggle_blackout') {
           setProjectionBlackout(!useAppStore.getState().projectionBlackout);
         } else if (data.type === 'close') {
@@ -1108,6 +1118,170 @@ const Reader: React.FC = () => {
     }
   }, [projectedSegmentIndex, structuredSegments, handleProjectSegment]);
 
+  const handleNextSource = useCallback(async () => {
+    const currentId = useAppStore.getState().selectedSermonId;
+    if (!currentId) return;
+
+    // 1. Cantique / Chant (song-*)
+    if (currentId.startsWith('song-')) {
+      try {
+        const { loadAllSongs } = await import('../services/songService');
+        const songs = await loadAllSongs();
+        if (songs.length === 0) return;
+        const rawId = currentId.replace('song-', '');
+        const idx = songs.findIndex(s => String(s.id) === rawId);
+        if (idx !== -1 && idx < songs.length - 1) {
+          const nextSong = songs[idx + 1];
+          await setSelectedSermonId(`song-${nextSong.id}`);
+          addNotification(`Cantique suivant : ${nextSong.id}. ${nextSong.title}`, 'success');
+        }
+      } catch (e) {}
+      return;
+    }
+
+    // 2. Exposé des Sept Âges (expose-pg-* ou expose-ch-*)
+    if (currentId.startsWith('expose-')) {
+      try {
+        const { loadExposeData } = await import('../services/exposeService');
+        const data = await loadExposeData();
+        if (currentId.startsWith('expose-pg-')) {
+          const pageNum = parseInt(currentId.replace('expose-pg-', ''), 10);
+          const maxPage = data?.book?.total_pages || 374;
+          if (pageNum < maxPage) {
+            await setSelectedSermonId(`expose-pg-${pageNum + 1}`);
+            addNotification(`Exposé : Page ${pageNum + 1}`, 'success');
+          }
+        } else if (currentId.startsWith('expose-ch-')) {
+          const chNum = parseInt(currentId.replace('expose-ch-', ''), 10);
+          const chapters = data?.chapters || [];
+          const currentChapIdx = chapters.findIndex(c => String(c.chapter_number) === String(chNum));
+          if (currentChapIdx !== -1 && currentChapIdx < chapters.length - 1) {
+            const nextCh = chapters[currentChapIdx + 1];
+            await setSelectedSermonId(`expose-ch-${nextCh.chapter_number}`);
+            addNotification(`Exposé : ${nextCh.title}`, 'success');
+          }
+        }
+      } catch (e) {}
+      return;
+    }
+
+    // 3. Bible (bible-BOOK-CHAPTER)
+    if (currentId.startsWith('bible-')) {
+      try {
+        const parts = currentId.split('-');
+        const bookId = parts[1];
+        const chapter = parseInt(parts[2], 10) || 1;
+        const { BIBLE_BOOKS_META } = await import('../services/bibleMetadata');
+        const bookIdx = BIBLE_BOOKS_META.findIndex(b => b.id.toUpperCase() === bookId.toUpperCase());
+        if (bookIdx !== -1) {
+          const currentBook = BIBLE_BOOKS_META[bookIdx];
+          if (chapter < currentBook.chaptersCount) {
+            await setSelectedSermonId(`bible-${bookId}-${chapter + 1}`);
+            addNotification(`Bible : ${currentBook.name} ${chapter + 1}`, 'success');
+          } else if (bookIdx < BIBLE_BOOKS_META.length - 1) {
+            const nextBook = BIBLE_BOOKS_META[bookIdx + 1];
+            await setSelectedSermonId(`bible-${nextBook.id}-1`);
+            addNotification(`Bible : ${nextBook.name} 1`, 'success');
+          }
+        }
+      } catch (e) {}
+      return;
+    }
+
+    // 4. Prédications ordinaires (sermons)
+    const sermonsList = useAppStore.getState().sermons;
+    const currentIdx = sermonsList.findIndex(s => s.id === currentId);
+    if (currentIdx !== -1 && currentIdx < sermonsList.length - 1) {
+      const nextSermon = sermonsList[currentIdx + 1];
+      await setSelectedSermonId(nextSermon.id);
+      addNotification(`Prédication suivante : ${nextSermon.title}`, 'success');
+    }
+  }, [setSelectedSermonId, addNotification]);
+
+  const handlePrevSource = useCallback(async () => {
+    const currentId = useAppStore.getState().selectedSermonId;
+    if (!currentId) return;
+
+    // 1. Cantique / Chant (song-*)
+    if (currentId.startsWith('song-')) {
+      try {
+        const { loadAllSongs } = await import('../services/songService');
+        const songs = await loadAllSongs();
+        if (songs.length === 0) return;
+        const rawId = currentId.replace('song-', '');
+        const idx = songs.findIndex(s => String(s.id) === rawId);
+        if (idx > 0) {
+          const prevSong = songs[idx - 1];
+          await setSelectedSermonId(`song-${prevSong.id}`);
+          addNotification(`Cantique précédent : ${prevSong.id}. ${prevSong.title}`, 'success');
+        }
+      } catch (e) {}
+      return;
+    }
+
+    // 2. Exposé des Sept Âges (expose-pg-* ou expose-ch-*)
+    if (currentId.startsWith('expose-')) {
+      try {
+        const { loadExposeData } = await import('../services/exposeService');
+        const data = await loadExposeData();
+        if (currentId.startsWith('expose-pg-')) {
+          const pageNum = parseInt(currentId.replace('expose-pg-', ''), 10);
+          if (pageNum > 1) {
+            await setSelectedSermonId(`expose-pg-${pageNum - 1}`);
+            addNotification(`Exposé : Page ${pageNum - 1}`, 'success');
+          }
+        } else if (currentId.startsWith('expose-ch-')) {
+          const chNum = parseInt(currentId.replace('expose-ch-', ''), 10);
+          const chapters = data?.chapters || [];
+          const currentChapIdx = chapters.findIndex(c => String(c.chapter_number) === String(chNum));
+          if (currentChapIdx > 0) {
+            const prevCh = chapters[currentChapIdx - 1];
+            await setSelectedSermonId(`expose-ch-${prevCh.chapter_number}`);
+            addNotification(`Exposé : ${prevCh.title}`, 'success');
+          }
+        }
+      } catch (e) {}
+      return;
+    }
+
+    // 3. Bible (bible-BOOK-CHAPTER)
+    if (currentId.startsWith('bible-')) {
+      try {
+        const parts = currentId.split('-');
+        const bookId = parts[1];
+        const chapter = parseInt(parts[2], 10) || 1;
+        const { BIBLE_BOOKS_META } = await import('../services/bibleMetadata');
+        const bookIdx = BIBLE_BOOKS_META.findIndex(b => b.id.toUpperCase() === bookId.toUpperCase());
+        if (bookIdx !== -1) {
+          const currentBook = BIBLE_BOOKS_META[bookIdx];
+          if (chapter > 1) {
+            await setSelectedSermonId(`bible-${bookId}-${chapter - 1}`);
+            addNotification(`Bible : ${currentBook.name} ${chapter - 1}`, 'success');
+          } else if (bookIdx > 0) {
+            const prevBook = BIBLE_BOOKS_META[bookIdx - 1];
+            await setSelectedSermonId(`bible-${prevBook.id}-${prevBook.chaptersCount}`);
+            addNotification(`Bible : ${prevBook.name} ${prevBook.chaptersCount}`, 'success');
+          }
+        }
+      } catch (e) {}
+      return;
+    }
+
+    // 4. Prédications ordinaires (sermons)
+    const sermonsList = useAppStore.getState().sermons;
+    const currentIdx = sermonsList.findIndex(s => s.id === currentId);
+    if (currentIdx > 0) {
+      const prevSermon = sermonsList[currentIdx - 1];
+      await setSelectedSermonId(prevSermon.id);
+      addNotification(`Prédication précédente : ${prevSermon.title}`, 'success');
+    }
+  }, [setSelectedSermonId, addNotification]);
+
+  useEffect(() => {
+    handleNextSourceRef.current = handleNextSource;
+    handlePrevSourceRef.current = handlePrevSource;
+  }, [handleNextSource, handlePrevSource]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isInput = ['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName) || (e.target as HTMLElement)?.isContentEditable;
@@ -1136,56 +1310,68 @@ const Reader: React.FC = () => {
         setIsSearchVisible(true);
       }
 
-      // Remote controls and keyboard navigation for projection mode
-      if (!isInput && isProjectionActive && !e.ctrlKey && !e.metaKey) {
+      // Keyboard navigation when not in an input field
+      if (!isInput && !e.ctrlKey && !e.metaKey) {
         // Stop projection with 'q' or 'Q'
-        if (e.key === 'q' || e.key === 'Q') {
+        if ((e.key === 'q' || e.key === 'Q') && isProjectionActive) {
           e.preventDefault();
           stopProjection();
           return;
         }
 
         // Toggle blackout: B or . (presentation remote standard)
-        if (e.key === 'b' || e.key === 'B' || e.key === '.') {
+        if ((e.key === 'b' || e.key === 'B' || e.key === '.') && isProjectionActive) {
           e.preventDefault();
           setProjectionBlackout(!useAppStore.getState().projectionBlackout);
           return;
         }
 
-        // Shift + PageDown / Shift + PageUp for fine remote vertical scrolling
-        if (e.shiftKey && (e.key === 'PageDown' || e.key === 'ArrowDown')) {
-          if (broadcastChannel.current) {
-            e.preventDefault();
-            broadcastChannel.current.postMessage({ type: 'scroll', direction: 'down', amount: 0.45 });
-          }
+        // 1. Next / Previous Source (Chants, Sermons, Exposé, Bible): PageDown / PageUp
+        if (e.key === 'PageDown') {
+          e.preventDefault();
+          handleNextSource();
           return;
         }
-        if (e.shiftKey && (e.key === 'PageUp' || e.key === 'ArrowUp')) {
-          if (broadcastChannel.current) {
-            e.preventDefault();
-            broadcastChannel.current.postMessage({ type: 'scroll', direction: 'up', amount: 0.45 });
-          }
+        if (e.key === 'PageUp') {
+          e.preventDefault();
+          handlePrevSource();
           return;
         }
 
-        // Paragraphe suivant: ↓ (Flèche Bas), → (Flèche Droite), PageDown ou Espace
-        if (e.key === 'PageDown' || e.key === 'ArrowDown' || e.key === 'ArrowRight' || (e.key === ' ' && !e.shiftKey)) {
+        // 2. Next / Previous Paragraph in current source: ArrowRight (→) / ArrowLeft (←)
+        if (e.key === 'ArrowRight' || (e.key === ' ' && !e.shiftKey && isProjectionActive)) {
           e.preventDefault();
           handleProjectNextSegment();
           return;
         }
-
-        // Paragraphe précédent: ↑ (Flèche Haut), ← (Flèche Gauche), PageUp ou Maj + Espace
-        if (e.key === 'PageUp' || e.key === 'ArrowUp' || e.key === 'ArrowLeft' || (e.key === ' ' && e.shiftKey)) {
+        if (e.key === 'ArrowLeft' || (e.key === ' ' && e.shiftKey && isProjectionActive)) {
           e.preventDefault();
           handleProjectPrevSegment();
+          return;
+        }
+
+        // 3. Scroll view Up / Down: ArrowDown (↓) / ArrowUp (↑)
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          scrollContainerRef.current?.scrollBy({ top: 140, behavior: 'smooth' });
+          if (broadcastChannel.current && isProjectionActive) {
+            broadcastChannel.current.postMessage({ type: 'scroll', direction: 'down', amount: 0.45 });
+          }
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          scrollContainerRef.current?.scrollBy({ top: -140, behavior: 'smooth' });
+          if (broadcastChannel.current && isProjectionActive) {
+            broadcastChannel.current.postMessage({ type: 'scroll', direction: 'up', amount: 0.45 });
+          }
           return;
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isProjectionOpen, projectedSegmentIndex, isOSFullscreen, handleProjectNextSegment, handleProjectPrevSegment, setProjectionBlackout, toggleProjection, stopProjection]);
+  }, [isProjectionOpen, projectedSegmentIndex, isOSFullscreen, handleProjectNextSegment, handleProjectPrevSegment, handleNextSource, handlePrevSource, setProjectionBlackout, toggleProjection, stopProjection]);
 
   const renderSegmentContent = useCallback((segWords: SimpleWord[]) => {
     const elements: React.ReactNode[] = [];
@@ -1529,8 +1715,17 @@ const Reader: React.FC = () => {
 
             <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 bg-teal-900/40 rounded-lg border border-teal-700/40 text-[11px] text-teal-200/90 font-mono">
               <span>Raccourcis :</span>
+              <kbd className="bg-teal-950 px-1.5 py-0.5 rounded border border-teal-700/60 font-bold text-[10px]">←</kbd>
+              <kbd className="bg-teal-950 px-1.5 py-0.5 rounded border border-teal-700/60 font-bold text-[10px]">→</kbd>
+              <span>Paragraphe</span>
+              <span className="text-teal-400">|</span>
               <kbd className="bg-teal-950 px-1.5 py-0.5 rounded border border-teal-700/60 font-bold text-[10px]">↓</kbd>
               <kbd className="bg-teal-950 px-1.5 py-0.5 rounded border border-teal-700/60 font-bold text-[10px]">↑</kbd>
+              <span>Scroll</span>
+              <span className="text-teal-400">|</span>
+              <kbd className="bg-teal-950 px-1.5 py-0.5 rounded border border-teal-700/60 font-bold text-[10px]">PgUp</kbd>
+              <kbd className="bg-teal-950 px-1.5 py-0.5 rounded border border-teal-700/60 font-bold text-[10px]">PgDn</kbd>
+              <span>Source</span>
               <span className="text-teal-400">|</span>
               <kbd className="bg-teal-950 px-1.5 py-0.5 rounded border border-teal-700/60 font-bold text-[10px]">B</kbd>
               <span>Noir</span>
@@ -1558,7 +1753,7 @@ const Reader: React.FC = () => {
               onClick={handleProjectPrevSegment}
               disabled={projectedSegmentIndex === null || projectedSegmentIndex === 0}
               className="px-2.5 py-1 bg-teal-900/90 hover:bg-teal-800 disabled:opacity-40 rounded-lg text-xs font-bold text-teal-200 border border-teal-700/60 transition-all flex items-center gap-1"
-              data-tooltip="Projeter le paragraphe précédent (Raccourci : PageUp / Flèche Haut / Gauche)"
+              data-tooltip="Projeter le paragraphe précédent (Raccourci : Flèche Gauche ← / Maj+Espace)"
             >
               <ChevronUp className="w-3.5 h-3.5" /> Préc.
             </button>
@@ -1566,7 +1761,7 @@ const Reader: React.FC = () => {
             <button
               onClick={handleProjectNextSegment}
               className="px-2.5 py-1 bg-teal-900/90 hover:bg-teal-800 rounded-lg text-xs font-bold text-teal-200 border border-teal-700/60 transition-all flex items-center gap-1"
-              data-tooltip="Projeter le paragraphe suivant (Raccourci : PageDown / Flèche Bas / Droite / Espace)"
+              data-tooltip="Projeter le paragraphe suivant (Raccourci : Flèche Droite → / Espace)"
             >
               Suiv. <ChevronDown className="w-3.5 h-3.5" />
             </button>
