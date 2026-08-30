@@ -154,6 +154,9 @@ const SearchResults: React.FC = () => {
     libraryMode,
     bibleTestamentFilter,
     bibleVersion,
+    selectedExposeChapter,
+    selectedExposeSection,
+    songLanguageFilter,
     sidebarOpen,
     toggleSidebar
   } = useAppStore();
@@ -169,7 +172,7 @@ const SearchResults: React.FC = () => {
   const performSearch = useCallback(async (q: string, m: SearchMode, off: number) => {
     if (!q || q.length < 2) return;
     
-    const searchId = `${libraryMode}-${bibleVersion}-${bibleTestamentFilter}-${q}-${m}-${off}-${showOnlySynonyms}-${showOnlyQuery}-${includeSynonyms}-${selectedSynonym}-${yearFilter}-${monthFilter}-${dayFilter}-${cityFilter}-${versionFilter}-${audioFilter}`;
+    const searchId = `${libraryMode}-${bibleVersion}-${bibleTestamentFilter}-${selectedExposeChapter}-${selectedExposeSection}-${songLanguageFilter}-${q}-${m}-${off}-${showOnlySynonyms}-${showOnlyQuery}-${includeSynonyms}-${selectedSynonym}-${yearFilter}-${monthFilter}-${dayFilter}-${cityFilter}-${versionFilter}-${audioFilter}`;
     if (off === 0 && searchId === lastPerformedSearchRef.current && searchResults.length > 0) return;
     
     setIsSearching(true);
@@ -187,6 +190,12 @@ const SearchResults: React.FC = () => {
           testamentFilter: bibleTestamentFilter,
           version: bibleVersion
         });
+      } else if (libraryMode === 'expose') {
+        const { searchExpose } = await import('../services/exposeService');
+        results = await searchExpose(q, m, selectedExposeChapter, selectedExposeSection);
+      } else if (libraryMode === 'songs') {
+        const { searchSongs } = await import('../services/songService');
+        results = await searchSongs(q, m, songLanguageFilter);
       } else {
         results = await searchSermons({ 
           query: q, 
@@ -203,16 +212,16 @@ const SearchResults: React.FC = () => {
         setSearchResults(prev => [...prev, ...results]);
       }
       
-      setHasMore(libraryMode === 'bible' ? false : results.length === RESULTS_PER_PAGE);
+      setHasMore((libraryMode === 'bible' || libraryMode === 'expose' || libraryMode === 'songs') ? false : results.length === RESULTS_PER_PAGE);
     } catch (e) {
       console.error("Search error:", e);
     } finally {
       setIsSearching(false);
     }
-  }, [setSearchResults, setIsSearching, showOnlySynonyms, showOnlyQuery, includeSynonyms, selectedSynonym, activeSynonyms, yearFilter, monthFilter, dayFilter, cityFilter, versionFilter, audioFilter, libraryMode, bibleVersion, bibleTestamentFilter, searchResults.length]);
+  }, [setSearchResults, setIsSearching, showOnlySynonyms, showOnlyQuery, includeSynonyms, selectedSynonym, activeSynonyms, yearFilter, monthFilter, dayFilter, cityFilter, versionFilter, audioFilter, libraryMode, bibleVersion, bibleTestamentFilter, selectedExposeChapter, selectedExposeSection, songLanguageFilter, searchResults.length]);
 
   useEffect(() => {
-    const currentSearchId = `${libraryMode}-${bibleVersion}-${bibleTestamentFilter}-${searchQuery}-${searchMode}-${showOnlySynonyms}-${showOnlyQuery}-${includeSynonyms}-${selectedSynonym}-${yearFilter}-${monthFilter}-${dayFilter}-${cityFilter}-${versionFilter}-${audioFilter}`;
+    const currentSearchId = `${libraryMode}-${bibleVersion}-${bibleTestamentFilter}-${selectedExposeChapter}-${selectedExposeSection}-${songLanguageFilter}-${searchQuery}-${searchMode}-${showOnlySynonyms}-${showOnlyQuery}-${includeSynonyms}-${selectedSynonym}-${yearFilter}-${monthFilter}-${dayFilter}-${cityFilter}-${versionFilter}-${audioFilter}`;
     if (currentSearchId !== lastSearchContext) {
       savedSearchScrollTopFull = 0;
       lastSearchContext = currentSearchId;
@@ -221,7 +230,7 @@ const SearchResults: React.FC = () => {
     setOffset(0);
     setHasMore(true);
     performSearch(searchQuery, searchMode, 0);
-  }, [searchQuery, searchMode, performSearch, showOnlySynonyms, showOnlyQuery, includeSynonyms, selectedSynonym, yearFilter, monthFilter, dayFilter, cityFilter, versionFilter, audioFilter, libraryMode, bibleVersion, bibleTestamentFilter]);
+  }, [searchQuery, searchMode, performSearch, showOnlySynonyms, showOnlyQuery, includeSynonyms, selectedSynonym, yearFilter, monthFilter, dayFilter, cityFilter, versionFilter, audioFilter, libraryMode, bibleVersion, bibleTestamentFilter, selectedExposeChapter, selectedExposeSection, songLanguageFilter]);
 
   useEffect(() => {
     if (scrollContainerRef.current && savedSearchScrollTopFull > 0 && searchResults.length > 0) {
@@ -319,7 +328,17 @@ const SearchResults: React.FC = () => {
             <div>
               <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-900 dark:text-zinc-50 leading-none">Résultats de recherche</h2>
               <p className="text-[7px] font-black text-teal-600 uppercase tracking-widest mt-0.5">
-                {isSearching ? "Scan de la bibliothèque..." : `${searchResults.length} ${libraryMode === 'bible' ? 'versets trouvés' : 'segments trouvés'}`}
+                {isSearching 
+                  ? "Scan de la bibliothèque..." 
+                  : `${searchResults.length} ${
+                      libraryMode === 'bible' 
+                        ? 'versets trouvés' 
+                        : libraryMode === 'songs' 
+                          ? 'cantiques trouvés' 
+                          : libraryMode === 'expose' 
+                            ? 'paragraphes trouvés' 
+                            : 'segments trouvés'
+                    }`}
               </p>
             </div>
           </div>

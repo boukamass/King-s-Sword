@@ -617,7 +617,8 @@ export const resetSongsToDefault = async (): Promise<Song[]> => {
 
 export const searchSongs = async (
   query: string,
-  mode: SearchMode = SearchMode.DIVERSE
+  mode: SearchMode = SearchMode.DIVERSE,
+  languageFilter?: string | null
 ): Promise<SearchResult[]> => {
   const songs = await loadAllSongs();
   const trimmed = query.trim();
@@ -636,20 +637,18 @@ export const searchSongs = async (
     ? [trimmed] 
     : (queryWords.length > 0 ? queryWords : [trimmed]);
   
-  const finalRegexSource = termsForHighlight
-    .map(t => t.trim())
-    .filter(t => t.length > 1)
-    .join('|');
-
-  const highlightRegex = finalRegexSource ? getMultiWordHighlightRegex(finalRegexSource) : null;
+  const isExactPhrase = mode === SearchMode.EXACT_PHRASE;
+  const highlightRegex = getSearchHighlightRegex(termsForHighlight, isExactPhrase);
 
   for (const song of songs) {
     if (!song.content) continue;
+    if (languageFilter && (song.language || 'fr').toLowerCase() !== languageFilter.toLowerCase()) continue;
 
     const cleanTitle = formatSongTitle(song.title);
     const normalizedTitle = normalizeText(song.title);
     const songIdStr = String(song.id);
-    const stanzas = song.content.split(/\n\s*\n/);
+    const formattedContent = formatSongContent(song.content || '', cleanTitle);
+    const stanzas = formattedContent.split(/\n\s*\n/);
 
     // Vérifier si le numéro de chant ou le titre correspond directement
     const isSongNumberMatch = songIdStr === trimmed || songIdStr === normalizedQuery;
@@ -680,35 +679,33 @@ export const searchSongs = async (
       if (isMatch) {
         // Build clean snippet around match
         let snippetContent = trimmedStanza;
-        if (highlightRegex) {
-          highlightRegex.lastIndex = 0;
-          const matchExec = highlightRegex.exec(trimmedStanza);
-          if (matchExec) {
-            const matchPos = matchExec.index;
-            const windowStart = Math.max(0, matchPos - 40);
-            const windowEnd = Math.min(trimmedStanza.length, matchPos + 220);
-            snippetContent = trimmedStanza.substring(windowStart, windowEnd);
-            if (windowStart > 0) snippetContent = '...' + snippetContent;
-            if (windowEnd < trimmedStanza.length) snippetContent = snippetContent + '...';
-          }
+        highlightRegex.lastIndex = 0;
+        const matchExec = highlightRegex.exec(trimmedStanza);
+        if (matchExec) {
+          const matchPos = matchExec.index;
+          const windowStart = Math.max(0, matchPos - 40);
+          const windowEnd = Math.min(trimmedStanza.length, matchPos + 220);
+          snippetContent = trimmedStanza.substring(windowStart, windowEnd);
+          if (windowStart > 0) snippetContent = '...' + snippetContent;
+          if (windowEnd < trimmedStanza.length) snippetContent = snippetContent + '...';
         }
 
         // Clean up newlines into bullets
         let snippetFormatted = snippetContent.replace(/\n+/g, ' • ');
 
         // Apply HTML highlight tags
-        if (highlightRegex) {
-          highlightRegex.lastIndex = 0;
-          snippetFormatted = snippetFormatted.replace(highlightRegex, (m) => `<mark class="${markClass}">${m}</mark>`);
-        }
+        highlightRegex.lastIndex = 0;
+        snippetFormatted = mergeAdjacentMarks(
+          snippetFormatted.replace(highlightRegex, (m) => `<mark class="${markClass}">${m}</mark>`)
+        );
 
         results.push({
-          paragraphId: `song-${song.id}-p${stanzaIdx}`,
+          paragraphId: `song-${song.id}-p${stanzaIdx + 1}`,
           sermonId: `song-${song.id}`,
           title: `${song.id}. ${cleanTitle}`,
           date: 'Cantique',
           city: song.language ? song.language.toUpperCase() : 'FR',
-          paragraphIndex: stanzaIdx,
+          paragraphIndex: stanzaIdx + 1, // 1-based index to match reader paragraphs
           snippet: snippetFormatted
         });
       }

@@ -196,7 +196,12 @@ const NotesPanel: React.FC = () => {
   const filteredNotes = useMemo(() => {
     if (!searchQuery.trim()) return notes;
     const q = normalizeText(searchQuery);
-    return notes.filter(n => normalizeText(n.title).includes(q));
+    return notes.filter(n => {
+      const titleNorm = normalizeText(n.title || '');
+      const contentNorm = normalizeText(n.content || '');
+      const citationsNorm = n.citations ? normalizeText(n.citations.map(c => c.quoted_text || '').join(' ')) : '';
+      return titleNorm.includes(q) || contentNorm.includes(q) || citationsNorm.includes(q);
+    });
   }, [notes, searchQuery]);
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
