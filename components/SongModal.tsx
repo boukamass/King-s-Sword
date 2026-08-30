@@ -542,8 +542,9 @@ export const SongModal: React.FC<SongModalProps> = ({
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {[
                       { code: 'fr', label: 'Français' },
-                      { code: 'en', label: 'English' },
+                      { code: 'en', label: 'Anglais' },
                       { code: 'ln', label: 'Lingala' },
+                      { code: 'kg', label: 'Kikongo' },
                       { code: 'other', label: 'Autre' }
                     ].map(l => (
                       <button
