@@ -1735,50 +1735,67 @@ const Sidebar: React.FC = () => {
           )}
         </div>
         
-        {/* Footer Ultra Compact & Élégant */}
-        <div className={`border-t border-zinc-200/40 dark:border-zinc-800/60 bg-white/60 dark:bg-zinc-950/80 backdrop-blur-2xl transition-all duration-500 overflow-hidden flex flex-col shrink-0 relative ${isFooterExpanded ? 'py-4 px-4 h-auto' : 'py-1 px-4 h-[26px]'}`}>
+        {/* Footer Compact, Lisible & Vivant */}
+        <div className={`border-t border-zinc-200/60 dark:border-zinc-800/80 bg-zinc-50/90 dark:bg-zinc-950/90 backdrop-blur-2xl transition-all duration-500 overflow-hidden flex flex-col shrink-0 relative ${isFooterExpanded ? 'py-4 px-4 h-auto' : 'py-1.5 px-3 h-[32px]'}`}>
           
           {/* Poignée Chevron Centrée */}
           <button 
             onClick={() => setIsFooterExpanded(!isFooterExpanded)}
-            className={`absolute left-1/2 -translate-x-1/2 w-10 h-4 flex items-center justify-center text-zinc-300 dark:text-zinc-600 hover:text-teal-600 transition-all z-20 ${isFooterExpanded ? 'top-0' : 'top-[-2px]'}`}
+            title={isFooterExpanded ? 'Réduire les informations' : 'Afficher les informations détaillées'}
+            className={`absolute left-1/2 -translate-x-1/2 w-12 h-3.5 flex items-center justify-center text-zinc-400 dark:text-zinc-500 hover:text-teal-600 dark:hover:text-teal-400 transition-all z-20 cursor-pointer ${isFooterExpanded ? 'top-0.5' : '-top-0.5'}`}
           >
-            {isFooterExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-2.5 h-2.5" />}
+            {isFooterExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3 h-3" />}
           </button>
 
           <div className="flex flex-col items-center text-center">
             {!isFooterExpanded && (
-              <div className="flex items-center justify-center gap-3 animate-in fade-in duration-500 mt-1">
-                <span className="text-[6px] font-black text-zinc-400/80 uppercase tracking-[0.2em]">KSW v{APP_VERSION}</span>
-                <span className="w-0.5 h-0.5 bg-zinc-300 dark:bg-zinc-700 rounded-full" />
-                <span className="text-[6px] font-bold text-zinc-400/80 uppercase tracking-tight">Vision de l'Aigle Tabernacle, Koufoli, PNR, Congo</span>
+              <div className="flex items-center justify-center gap-2 animate-in fade-in duration-300 mt-1 flex-wrap">
+                <span className="px-1.5 py-0.2 rounded bg-teal-500/10 dark:bg-teal-400/15 border border-teal-500/25 text-[8.5px] font-extrabold text-teal-700 dark:text-teal-300 tracking-wider uppercase">
+                  KSW v{APP_VERSION}
+                </span>
+                <span className="w-1 h-1 bg-teal-500/50 dark:bg-teal-400/50 rounded-full" />
+                <span className="text-[9.5px] font-semibold text-zinc-700 dark:text-zinc-200 tracking-tight">
+                  Vision de l'Aigle Tabernacle, Koufoli, PNR, Congo
+                </span>
               </div>
             )}
 
-            <div className={`space-y-2 transition-all duration-500 origin-top flex flex-col items-center ${isFooterExpanded ? 'opacity-100 scale-y-100 mt-2 pb-2' : 'opacity-0 scale-y-0 h-0 overflow-hidden'}`}>
-              <div className="flex flex-col items-center mb-1">
-                <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Logo" className="w-6 h-6 mb-0.5 object-cover rounded-full" />
-                <h3 className="text-[8px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-[0.3em] leading-none">King's Sword</h3>
+            <div className={`space-y-2.5 transition-all duration-500 origin-top flex flex-col items-center ${isFooterExpanded ? 'opacity-100 scale-y-100 mt-2 pb-2' : 'opacity-0 scale-y-0 h-0 overflow-hidden'}`}>
+              <div className="flex flex-col items-center mb-0.5">
+                <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Logo" className="w-7 h-7 mb-1 object-cover rounded-full shadow-sm" />
+                <h3 className="text-[10px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-[0.25em] leading-none">King's Sword</h3>
               </div>
               
-              <p className="text-[6.5px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-[0.2em] pour-message-par-W.M.BRANHAM">Logiciel d'étude du message par W.M.BRANHAM & Sainte Bible</p>
+              <p className="text-[8.5px] font-bold text-teal-600 dark:text-teal-400 uppercase tracking-wider">
+                Logiciel d'étude du message par W.M.BRANHAM & Sainte Bible
+              </p>
               
-              <div className="flex flex-col items-center gap-1 mt-1">
-                <p className="text-[6.5px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest leading-none">Développé par Bienvenu Sédin Massamba</p>
-                <p className="text-[6.5px] font-bold text-zinc-400 uppercase tracking-tight leading-none opacity-80">Vision de l'Aigle Tabernacle, Koufoli, PNR, Congo</p>
-                <div className="flex flex-col items-center gap-0.5 mt-1 text-[6.5px] font-semibold text-teal-600 dark:text-teal-400">
+              <div className="flex flex-col items-center gap-1 mt-0.5">
+                <p className="text-[9px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wide leading-tight">
+                  Développé par Bienvenu Sédin Massamba
+                </p>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-teal-500/10 dark:bg-teal-400/10 border border-teal-500/20">
+                  <p className="text-[9.5px] font-semibold text-teal-800 dark:text-teal-200 tracking-tight leading-tight">
+                    Vision de l'Aigle Tabernacle, Koufoli, PNR, Congo
+                  </p>
+                </div>
+                <div className="flex flex-col items-center gap-0.5 mt-1 text-[8.5px] font-semibold text-teal-600 dark:text-teal-400">
                   <p>Tel : +242068189594</p>
                   <p>Email : boukamass@gmail.com</p>
                 </div>
               </div>
 
-              <p className="text-[6.5px] font-black text-zinc-400/60 uppercase tracking-[0.25em] flex items-center justify-center gap-2 mt-1.5">
-                KSW v{APP_VERSION} <span className="w-0.5 h-0.5 bg-teal-600/20 rounded-full" /> © 2026 Tous droits réservés
-              </p>
+              <div className="flex items-center justify-center gap-2 text-[8.5px] font-semibold text-zinc-500 dark:text-zinc-400 mt-1">
+                <span className="px-1.5 py-0.5 rounded bg-zinc-200/60 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 font-bold text-[8px]">
+                  KSW v{APP_VERSION}
+                </span>
+                <span className="w-1 h-1 bg-teal-500/40 rounded-full" />
+                <span>© 2026 Tous droits réservés</span>
+              </div>
 
               <button
                 onClick={() => setIsTermsModalOpen(true)}
-                className="text-[7.5px] font-extrabold text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 underline decoration-teal-600/30 dark:decoration-teal-400/30 uppercase tracking-wider mt-1 transition-colors cursor-pointer"
+                className="text-[9px] font-bold text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 underline decoration-teal-600/30 dark:decoration-teal-400/30 uppercase tracking-wider mt-1 transition-colors cursor-pointer"
               >
                 Termes & Conditions d'utilisation
               </button>

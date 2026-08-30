@@ -440,6 +440,78 @@ const Reader: React.FC = () => {
 
   const broadcastChannel = useRef<BroadcastChannel | null>(null);
 
+  // --- Silky Smooth Keyboard Arrow Scroll Engine ---
+  const readerTargetScrollTopRef = useRef<number>(0);
+  const readerIsAnimatingScrollRef = useRef<boolean>(false);
+  const readerSmoothAnimFrameRef = useRef<number | null>(null);
+
+  const stepReaderSmoothScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) {
+      readerIsAnimatingScrollRef.current = false;
+      return;
+    }
+    const current = el.scrollTop;
+    const target = readerTargetScrollTopRef.current;
+    const diff = target - current;
+
+    if (Math.abs(diff) < 0.5) {
+      el.scrollTop = target;
+      readerIsAnimatingScrollRef.current = false;
+      return;
+    }
+
+    // Perfectly calibrated easing (0.22): instant responsiveness, fluid 60/120fps glide, zero abrupt notches
+    el.scrollTop = current + diff * 0.22;
+    readerSmoothAnimFrameRef.current = requestAnimationFrame(stepReaderSmoothScroll);
+  }, []);
+
+  const smoothScrollReaderBy = useCallback((amount: number) => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollHeight - el.clientHeight;
+    if (maxScroll <= 0) return;
+
+    if (!readerIsAnimatingScrollRef.current) {
+      readerTargetScrollTopRef.current = el.scrollTop;
+    }
+
+    readerTargetScrollTopRef.current = Math.max(0, Math.min(maxScroll, readerTargetScrollTopRef.current + amount));
+
+    if (!readerIsAnimatingScrollRef.current) {
+      readerIsAnimatingScrollRef.current = true;
+      if (readerSmoothAnimFrameRef.current) cancelAnimationFrame(readerSmoothAnimFrameRef.current);
+      readerSmoothAnimFrameRef.current = requestAnimationFrame(stepReaderSmoothScroll);
+    }
+  }, [stepReaderSmoothScroll]);
+
+  const handleScrollContainerScroll = useCallback(() => {
+    if (!readerIsAnimatingScrollRef.current && scrollContainerRef.current) {
+      readerTargetScrollTopRef.current = scrollContainerRef.current.scrollTop;
+    }
+  }, []);
+
+  const handleScrollContainerWheel = useCallback(() => {
+    if (readerIsAnimatingScrollRef.current) {
+      readerIsAnimatingScrollRef.current = false;
+      if (readerSmoothAnimFrameRef.current) {
+        cancelAnimationFrame(readerSmoothAnimFrameRef.current);
+        readerSmoothAnimFrameRef.current = null;
+      }
+    }
+    if (scrollContainerRef.current) {
+      readerTargetScrollTopRef.current = scrollContainerRef.current.scrollTop;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (readerSmoothAnimFrameRef.current) {
+        cancelAnimationFrame(readerSmoothAnimFrameRef.current);
+      }
+    };
+  }, []);
+
   const handleSelectionChange = useCallback(() => {
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed) {
@@ -519,53 +591,50 @@ const Reader: React.FC = () => {
 
   useEffect(() => {
     broadcastChannel.current = new BroadcastChannel('kings_sword_projection');
-    const handleBroadcastMessage = (e: any) => {
-      const data = e.data || e;
-      if (data) {
-        if (data.type === 'ready') {
-          if (sendProjectionPayloadRef.current) {
-            sendProjectionPayloadRef.current(projectedSegmentIndexRef.current);
-          }
-          setSyncToggle(prev => prev + 1);
-        } else if (data.type === 'next_segment') {
-          handleProjectNextSegment();
-        } else if (data.type === 'prev_segment') {
-          handleProjectPrevSegment();
-        } else if (data.type === 'next_source') {
-          if (handleNextSourceRef.current) handleNextSourceRef.current();
-        } else if (data.type === 'prev_source') {
-          if (handlePrevSourceRef.current) handlePrevSourceRef.current();
-        } else if (data.type === 'toggle_blackout') {
-          setProjectionBlackout(!useAppStore.getState().projectionBlackout);
-        } else if (data.type === 'close') {
-          stopProjection();
+    let lastCmdTime = 0;
+    let lastCmdType = '';
+
+    const processIncomingCommand = (data: any) => {
+      if (!data) return;
+      const now = Date.now();
+
+      if (data.type === 'ready') {
+        if (sendProjectionPayloadRef.current) {
+          sendProjectionPayloadRef.current(projectedSegmentIndexRef.current);
         }
+        setSyncToggle(prev => prev + 1);
+        return;
       }
+
+      // Deduplicate commands arriving across multiple channels within 150ms
+      if (data.type === lastCmdType && now - lastCmdTime < 150) {
+        return;
+      }
+      lastCmdTime = now;
+      lastCmdType = data.type;
+
+      if (data.type === 'next_segment') {
+        handleProjectNextSegment();
+      } else if (data.type === 'prev_segment') {
+        handleProjectPrevSegment();
+      } else if (data.type === 'next_source') {
+        if (handleNextSourceRef.current) handleNextSourceRef.current();
+      } else if (data.type === 'prev_source') {
+        if (handlePrevSourceRef.current) handlePrevSourceRef.current();
+      } else if (data.type === 'toggle_blackout') {
+        setProjectionBlackout(!useAppStore.getState().projectionBlackout);
+      } else if (data.type === 'close') {
+        stopProjection();
+      }
+    };
+
+    const handleBroadcastMessage = (e: any) => {
+      processIncomingCommand(e.data || e);
     };
     broadcastChannel.current.onmessage = handleBroadcastMessage;
 
     const handleWindowMessage = (e: MessageEvent) => {
-      const data = e.data;
-      if (data) {
-        if (data.type === 'ready') {
-          if (sendProjectionPayloadRef.current) {
-            sendProjectionPayloadRef.current(projectedSegmentIndexRef.current);
-          }
-          setSyncToggle(prev => prev + 1);
-        } else if (data.type === 'next_segment') {
-          handleProjectNextSegment();
-        } else if (data.type === 'prev_segment') {
-          handleProjectPrevSegment();
-        } else if (data.type === 'next_source') {
-          if (handleNextSourceRef.current) handleNextSourceRef.current();
-        } else if (data.type === 'prev_source') {
-          if (handlePrevSourceRef.current) handlePrevSourceRef.current();
-        } else if (data.type === 'toggle_blackout') {
-          setProjectionBlackout(!useAppStore.getState().projectionBlackout);
-        } else if (data.type === 'close') {
-          stopProjection();
-        }
-      }
+      processIncomingCommand(e.data);
     };
     window.addEventListener('message', handleWindowMessage);
 
@@ -1357,17 +1426,17 @@ const Reader: React.FC = () => {
         // 3. Scroll view Up / Down: ArrowDown (↓) / ArrowUp (↑)
         if (e.key === 'ArrowDown') {
           e.preventDefault();
-          scrollContainerRef.current?.scrollBy({ top: 140, behavior: 'smooth' });
+          smoothScrollReaderBy(85);
           if (broadcastChannel.current && isProjectionActive) {
-            broadcastChannel.current.postMessage({ type: 'scroll', direction: 'down', amount: 0.45 });
+            broadcastChannel.current.postMessage({ type: 'scroll', direction: 'down', amount: 0.15 });
           }
           return;
         }
         if (e.key === 'ArrowUp') {
           e.preventDefault();
-          scrollContainerRef.current?.scrollBy({ top: -140, behavior: 'smooth' });
+          smoothScrollReaderBy(-85);
           if (broadcastChannel.current && isProjectionActive) {
-            broadcastChannel.current.postMessage({ type: 'scroll', direction: 'up', amount: 0.45 });
+            broadcastChannel.current.postMessage({ type: 'scroll', direction: 'up', amount: 0.15 });
           }
           return;
         }
@@ -2017,6 +2086,8 @@ const Reader: React.FC = () => {
 
         <div 
           ref={scrollContainerRef} 
+          onScroll={handleScrollContainerScroll}
+          onWheel={handleScrollContainerWheel}
           onMouseUp={handleTextSelection} 
           className={`flex-1 h-full overflow-y-auto custom-scrollbar serif-text leading-relaxed text-zinc-800 dark:text-zinc-300 transition-all ${
             isOSFullscreen 
