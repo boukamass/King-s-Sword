@@ -5,13 +5,17 @@
 
 export async function fetchJsonSafe<T = any>(
   primaryUrl: string,
-  fallbackUrls: string[] = []
+  fallbackUrls: string[] = [],
+  options?: RequestInit
 ): Promise<T | null> {
   const allUrls = [primaryUrl, ...fallbackUrls];
 
   for (const url of allUrls) {
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        cache: 'no-cache',
+        ...options
+      });
       if (!res.ok) continue;
 
       const contentType = res.headers.get('content-type') || '';

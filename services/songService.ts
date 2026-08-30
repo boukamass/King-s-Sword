@@ -104,6 +104,22 @@ const idbPutAll = async (storeName: string, items: any[]): Promise<void> => {
   }
 };
 
+const idbReplaceAll = async (storeName: string, items: any[]): Promise<void> => {
+  try {
+    const db = await getIDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(storeName, 'readwrite');
+      const store = tx.objectStore(storeName);
+      store.clear();
+      items.forEach(item => store.put(item));
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    });
+  } catch {
+    // Fallback silently
+  }
+};
+
 const idbDelete = async (storeName: string, key: any): Promise<void> => {
   try {
     const db = await getIDB();
@@ -158,6 +174,114 @@ const addDeletedSongIdToLS = (id: string | number) => {
     }
   } catch (e) {
     console.warn('LocalStorage error marking song deleted:', e);
+  }
+};
+
+export const getSongLanguageLabel = (lang?: string | null): string => {
+  if (!lang) return 'Français';
+  const clean = lang.trim().toLowerCase();
+  switch (clean) {
+    case 'fr':
+    case 'fra':
+    case 'french':
+    case 'francais':
+    case 'français':
+      return 'Français';
+    case 'en':
+    case 'eng':
+    case 'english':
+    case 'anglais':
+      return 'Anglais';
+    case 'ln':
+    case 'lin':
+    case 'lingala':
+      return 'Lingala';
+    case 'kg':
+    case 'kik':
+    case 'kikongo':
+      return 'Kikongo';
+    case 'sw':
+    case 'swa':
+    case 'swahili':
+      return 'Swahili';
+    case 'pt':
+    case 'por':
+    case 'portugais':
+    case 'portuguese':
+      return 'Portugais';
+    case 'es':
+    case 'esp':
+    case 'espagnol':
+    case 'spanish':
+      return 'Espagnol';
+    case 'de':
+    case 'deu':
+    case 'allemand':
+    case 'german':
+      return 'Allemand';
+    case 'other':
+    case 'autre':
+    case 'unknown':
+    case 'unknown3':
+    case 'inconnu':
+    case 'divers':
+      return 'Autre';
+    default:
+      return clean.length <= 4 ? clean.toUpperCase() : 'Autre';
+  }
+};
+
+export const getSongLanguageBadge = (lang?: string | null): string => {
+  if (!lang) return 'FR';
+  const clean = lang.trim().toLowerCase();
+  switch (clean) {
+    case 'fr':
+    case 'fra':
+    case 'french':
+    case 'francais':
+    case 'français':
+      return 'FR';
+    case 'en':
+    case 'eng':
+    case 'english':
+    case 'anglais':
+      return 'EN';
+    case 'ln':
+    case 'lin':
+    case 'lingala':
+      return 'LN';
+    case 'kg':
+    case 'kik':
+    case 'kikongo':
+      return 'KG';
+    case 'sw':
+    case 'swa':
+    case 'swahili':
+      return 'SW';
+    case 'pt':
+    case 'por':
+    case 'portugais':
+    case 'portuguese':
+      return 'PT';
+    case 'es':
+    case 'esp':
+    case 'espagnol':
+    case 'spanish':
+      return 'ES';
+    case 'de':
+    case 'deu':
+    case 'allemand':
+    case 'german':
+      return 'DE';
+    case 'other':
+    case 'autre':
+    case 'unknown':
+    case 'unknown3':
+    case 'inconnu':
+    case 'divers':
+      return 'AUTRE';
+    default:
+      return clean.length <= 4 ? clean.toUpperCase() : 'AUTRE';
   }
 };
 
@@ -291,49 +415,35 @@ export const formatSongContent = (rawContent: string, songTitle?: string): strin
   return cleanedBlocks.join('\n\n');
 };
 
-export const loadAllSongs = async (): Promise<Song[]> => {
-  if (inMemorySongs && inMemorySongs.length > 0) {
+export const loadAllSongs = async (forceReload = false): Promise<Song[]> => {
+  if (!forceReload && inMemorySongs && inMemorySongs.length > 0) {
     return inMemorySongs;
-  }
-
-  // 1. Electron SQLite primary database
-  if (isElectron()) {
-    try {
-      const sqliteSongs = await getAllSongsFromDB();
-      if (sqliteSongs && sqliteSongs.length > 0) {
-        inMemorySongs = sqliteSongs.map(s => ({
-          ...s,
-          title: formatSongTitle(s.title)
-        }));
-        return inMemorySongs;
-      }
-    } catch (err) {
-      console.warn('Error reading songs from SQLite DB:', err);
-    }
   }
 
   const customMap = getCustomSongsFromLS();
   const deletedList = getDeletedSongIdsFromLS();
 
-  // Helper to merge raw songs with custom and deleted lists
-  const mergeSongs = (baseList: Song[], existingIdbSongs?: Song[]) => {
+  // Helper to merge raw songs with user-created custom songs and deleted lists
+  // NOTE: baseList (songs.json) is the definitive source of base/official songs.
+  // We overlay custom user songs (from STORE_CUSTOM and customMap), NOT previous cached base songs!
+  const mergeSongs = (baseList: Song[], customSongs: Song[] = []) => {
     const songMap = new Map<string, Song>();
 
-    // 1. Add base songs from songs.json
+    // 1. Add base songs from the current songs.json
     baseList.forEach(s => {
-      songMap.set(String(s.id), { ...s, title: formatSongTitle(s.title) });
+      songMap.set(String(s.id), { ...s, title: formatSongTitle(s.title), custom: false });
     });
 
-    // 2. Overlay any IndexedDB records if provided
-    if (existingIdbSongs) {
-      existingIdbSongs.forEach(s => {
-        songMap.set(String(s.id), { ...s, title: formatSongTitle(s.title) });
-      });
-    }
+    // 2. Overlay custom user-saved songs from IndexedDB STORE_CUSTOM
+    customSongs.forEach(s => {
+      if (s.custom) {
+        songMap.set(String(s.id), { ...s, title: formatSongTitle(s.title), custom: true });
+      }
+    });
 
-    // 3. Overlay custom user-saved songs
+    // 3. Overlay custom user-saved songs from LocalStorage
     Object.values(customMap).forEach(customSong => {
-      songMap.set(String(customSong.id), { ...customSong, title: formatSongTitle(customSong.title) });
+      songMap.set(String(customSong.id), { ...customSong, title: formatSongTitle(customSong.title), custom: true });
     });
 
     // 4. Filter out deleted songs
@@ -349,20 +459,20 @@ export const loadAllSongs = async (): Promise<Song[]> => {
     return merged;
   };
 
-  // Try fetching fresh songs.json first
+  // Try fetching fresh songs.json first (always fetch with timestamp to bypass HTTP and build caches)
   try {
-    const data = await fetchJsonSafe<any>('/songs.json', ['songs.json']);
+    const data = await fetchJsonSafe<any>(`/songs.json?t=${Date.now()}`, ['/songs.json', 'songs.json']);
     if (data) {
       const rawList: Song[] = Array.isArray(data) ? data : data.songs || [];
-      let idbSongs: Song[] = [];
+      let customIdbSongs: Song[] = [];
       try {
-        idbSongs = (await idbGetAll<Song>(STORE_SONGS)) || [];
+        customIdbSongs = (await idbGetAll<Song>(STORE_CUSTOM)) || [];
       } catch (e) {}
 
-      const merged = mergeSongs(rawList, idbSongs);
+      const merged = mergeSongs(rawList, customIdbSongs);
       inMemorySongs = merged;
 
-      // Seed into SQLite if running under Electron
+      // Seed / Synchronize into SQLite if running under Electron
       if (isElectron()) {
         try {
           await bulkAddSongsToDB(merged);
@@ -371,8 +481,8 @@ export const loadAllSongs = async (): Promise<Song[]> => {
         }
       }
 
-      // Update IndexedDB & LocalStorage
-      idbPutAll(STORE_SONGS, merged);
+      // Update IndexedDB (replace old cached base songs completely) & LocalStorage
+      await idbReplaceAll(STORE_SONGS, merged);
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
       } catch (e) {}
@@ -380,25 +490,38 @@ export const loadAllSongs = async (): Promise<Song[]> => {
       return inMemorySongs;
     }
   } catch (err) {
-    console.warn('Could not fetch songs.json, falling back to cached storage:', err);
+    console.warn('Could not fetch fresh songs.json, falling back to cached storage:', err);
   }
 
-  // Fallback 1: Try loading from IndexedDB
+  // Fallback 1 (Desktop Electron offline): SQLite
+  if (isElectron()) {
+    try {
+      const sqliteSongs = await getAllSongsFromDB();
+      if (sqliteSongs && sqliteSongs.length > 0) {
+        inMemorySongs = sqliteSongs.map(s => ({
+          ...s,
+          title: formatSongTitle(s.title)
+        }));
+        return inMemorySongs;
+      }
+    } catch (err) {
+      console.warn('Error reading songs from SQLite DB:', err);
+    }
+  }
+
+  // Fallback 2 (Offline Web): Try loading from IndexedDB
   try {
     const idbSongs = await idbGetAll<Song>(STORE_SONGS);
     if (idbSongs && idbSongs.length > 0) {
       const merged = mergeSongs(idbSongs);
       inMemorySongs = merged;
-      if (isElectron()) {
-        try { await bulkAddSongsToDB(merged); } catch {}
-      }
       return inMemorySongs;
     }
   } catch (e) {
     console.warn('Error reading from IndexedDB:', e);
   }
 
-  // Fallback 2: Try loading from LocalStorage
+  // Fallback 3 (Offline Web): Try loading from LocalStorage
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
@@ -406,10 +529,6 @@ export const loadAllSongs = async (): Promise<Song[]> => {
       if (Array.isArray(parsed) && parsed.length > 0) {
         const merged = mergeSongs(parsed);
         inMemorySongs = merged;
-        idbPutAll(STORE_SONGS, merged);
-        if (isElectron()) {
-          try { await bulkAddSongsToDB(merged); } catch {}
-        }
         return inMemorySongs;
       }
     }
@@ -467,7 +586,7 @@ export const getSongAsSermon = async (id: string | number): Promise<Sermon | nul
     id: `song-${song.id}`,
     title: `${song.id}. ${cleanTitle}`,
     date: 'Cantique',
-    city: song.language ? song.language.toUpperCase() : 'FR',
+    city: getSongLanguageBadge(song.language),
     time: 'Chant',
     version: 'Recueil',
     text: formattedText,
@@ -608,7 +727,7 @@ export const resetSongsToDefault = async (): Promise<Song[]> => {
       tx.objectStore(STORE_CUSTOM).clear();
     } catch {}
     inMemorySongs = null;
-    return await loadAllSongs();
+    return await loadAllSongs(true);
   } catch (error) {
     console.error('Error resetting songs:', error);
     return [];
@@ -642,7 +761,12 @@ export const searchSongs = async (
 
   for (const song of songs) {
     if (!song.content) continue;
-    if (languageFilter && (song.language || 'fr').toLowerCase() !== languageFilter.toLowerCase()) continue;
+    if (languageFilter) {
+      const songLang = (song.language || 'fr').toLowerCase();
+      const normSongLang = (songLang === 'unknown' || songLang === 'unknown3') ? 'other' : songLang;
+      const normFilter = languageFilter.toLowerCase();
+      if (normSongLang !== normFilter && songLang !== normFilter) continue;
+    }
 
     const cleanTitle = formatSongTitle(song.title);
     const normalizedTitle = normalizeText(song.title);
@@ -704,7 +828,7 @@ export const searchSongs = async (
           sermonId: `song-${song.id}`,
           title: `${song.id}. ${cleanTitle}`,
           date: 'Cantique',
-          city: song.language ? song.language.toUpperCase() : 'FR',
+          city: getSongLanguageBadge(song.language),
           paragraphIndex: stanzaIdx + 1, // 1-based index to match reader paragraphs
           snippet: snippetFormatted
         });

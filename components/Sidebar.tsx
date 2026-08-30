@@ -37,7 +37,7 @@ import {
 } from 'lucide-react';
 
 import { Song } from '../types';
-import { loadAllSongs, deleteSong } from '../services/songService';
+import { loadAllSongs, deleteSong, getSongLanguageLabel, getSongLanguageBadge } from '../services/songService';
 import SongModal from './SongModal';
 import { TermsModal } from './TermsModal';
 import { getExposeTree, getExposePagesMeta, ExposeMetadataTree, ExposePage } from '../services/exposeService';
@@ -182,18 +182,24 @@ const SermonItem = memo(({
             </div>
           </div>
           <div className="flex items-center gap-2 text-[8px] text-zinc-400 font-bold uppercase tracking-widest group-hover:text-zinc-500 transition-colors">
-            <Calendar className="w-2 h-2 text-teal-600/50 group-hover:text-teal-600/70" />
-            <span className="font-mono">{sermon.date}</span>
+            <span className="inline-flex items-center gap-1">
+              <Calendar className="w-2.5 h-2.5 text-teal-600/60 group-hover:text-teal-600 shrink-0" />
+              <span className="font-mono">{sermon.date}</span>
+            </span>
             {sermon.time && (
               <React.Fragment>
                 <span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-0.5" />
-                <Clock className="w-2 h-2 text-teal-600/50 group-hover:text-teal-600/70" />
-                <span>{sermon.time}</span>
+                <span className="inline-flex items-center gap-1">
+                  <Clock className="w-2.5 h-2.5 text-teal-600/60 group-hover:text-teal-600 shrink-0" />
+                  <span>{sermon.time}</span>
+                </span>
               </React.Fragment>
             )}
             <span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-0.5" />
-            <MapPin className="w-2 h-2 text-teal-600/50 group-hover:text-teal-600/70" />
-            <span className="truncate">{sermon.city}</span>
+            <span className="inline-flex items-center gap-1 min-w-0 truncate">
+              <MapPin className="w-2.5 h-2.5 text-teal-600/60 group-hover:text-teal-600 shrink-0" />
+              <span className="truncate">{sermon.city}</span>
+            </span>
           </div>
         </div>
       </div>
@@ -413,14 +419,14 @@ const SongItem = memo(({
             </h4>
           </div>
           <div className="flex items-center gap-2 text-[9px] font-bold text-zinc-400 uppercase tracking-wider">
-            <span className="text-teal-600 dark:text-teal-400 flex items-center gap-1">
-              <Music className="w-2.5 h-2.5" />
-              Cantique
+            <span className="text-teal-600 dark:text-teal-400 inline-flex items-center gap-1">
+              <Music className="w-2.5 h-2.5 shrink-0" />
+              <span>Cantique</span>
             </span>
             {song.language && (
               <>
                 <span className="w-1 h-1 rounded-full bg-zinc-300 dark:bg-zinc-700" />
-                <span>{song.language.toUpperCase()}</span>
+                <span>{getSongLanguageBadge(song.language)}</span>
               </>
             )}
           </div>
@@ -510,9 +516,11 @@ const Sidebar: React.FC = () => {
   const songsSortOrder = useAppStore(s => s.songsSortOrder);
   const setSongsSortOrder = useAppStore(s => s.setSongsSortOrder);
   const setSidebarOpen = useAppStore(s => s.setSidebarOpen);
+  const addNotification = useAppStore(s => s.addNotification);
 
   const [songs, setSongs] = useState<Song[]>([]);
   const [isSongModalOpen, setIsSongModalOpen] = useState(false);
+  const [isSyncingSongs, setIsSyncingSongs] = useState(false);
   const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
   const [songToEdit, setSongToEdit] = useState<Song | null>(null);
 
@@ -525,10 +533,18 @@ const Sidebar: React.FC = () => {
     } catch (e) {}
   }, []);
 
-  const refreshSongs = useCallback(async () => {
-    const list = await loadAllSongs();
-    setSongs(list);
-  }, []);
+  const refreshSongs = useCallback(async (forceFresh = false) => {
+    if (forceFresh) setIsSyncingSongs(true);
+    try {
+      const list = await loadAllSongs(forceFresh);
+      setSongs(list);
+      if (forceFresh) {
+        addNotification(`Recueil synchronisé : ${list.length} cantiques chargés`, 'success');
+      }
+    } finally {
+      if (forceFresh) setIsSyncingSongs(false);
+    }
+  }, [addNotification]);
 
   useEffect(() => {
     refreshSongs();
@@ -611,7 +627,6 @@ const Sidebar: React.FC = () => {
   const audioFilter = useAppStore(s => s.audioFilter);
   const setAudioFilter = useAppStore(s => s.setAudioFilter);
   const resetFilters = useAppStore(s => s.resetFilters);
-  const addNotification = useAppStore(s => s.addNotification);
   
   const sidebarOpen = useAppStore(s => s.sidebarOpen);
   const toggleSidebar = useAppStore(s => s.toggleSidebar);
@@ -772,10 +787,11 @@ const Sidebar: React.FC = () => {
   const dynamicSongLanguages = useMemo(() => {
     const counts: Record<string, number> = {};
     for (let i = 0; i < songs.length; i++) {
-      const l = (songs[i].language || 'fr').toLowerCase();
+      const raw = (songs[i].language || 'fr').toLowerCase();
+      const l = (raw === 'unknown' || raw === 'unknown3') ? 'other' : raw;
       counts[l] = (counts[l] || 0) + 1;
     }
-    const order = ['fr', 'en', 'ln', 'kg'];
+    const order = ['fr', 'en', 'ln', 'kg', 'sw', 'other'];
     const langs = Object.keys(counts).sort((a, b) => {
       const idxA = order.indexOf(a);
       const idxB = order.indexOf(b);
@@ -785,20 +801,10 @@ const Sidebar: React.FC = () => {
       return a.localeCompare(b);
     });
 
-    const getLangLabel = (code: string) => {
-      switch (code) {
-        case 'fr': return 'Français';
-        case 'en': return 'English';
-        case 'ln': return 'Lingala';
-        case 'kg': return 'Kikongo';
-        default: return code.toUpperCase();
-      }
-    };
-
     return langs.map(code => ({
       code,
-      label: getLangLabel(code),
-      shortLabel: code.toUpperCase(),
+      label: getSongLanguageLabel(code),
+      shortLabel: getSongLanguageBadge(code),
       count: counts[code]
     }));
   }, [songs]);
@@ -806,7 +812,12 @@ const Sidebar: React.FC = () => {
   const filteredSongs = useMemo(() => {
     const q = normalizeText(deferredSearchQuery.trim());
     let list = songs.filter(s => {
-      if (songLanguageFilter && (s.language || '').toLowerCase() !== songLanguageFilter.toLowerCase()) return false;
+      if (songLanguageFilter) {
+        const songLang = (s.language || 'fr').toLowerCase();
+        const normSongLang = (songLang === 'unknown' || songLang === 'unknown3') ? 'other' : songLang;
+        const normFilter = songLanguageFilter.toLowerCase();
+        if (normSongLang !== normFilter && songLang !== normFilter) return false;
+      }
       if (!q) return true;
       const titleNorm = normalizeText(s.title || '');
       const idNorm = String(s.id);
@@ -1059,7 +1070,7 @@ const Sidebar: React.FC = () => {
 
       {/* Library Mode Switcher */}
       <div className="px-3 pt-2 pb-2 bg-slate-50/80 dark:bg-zinc-950/80 border-b border-slate-200/50 dark:border-slate-800/40 space-y-2">
-        <div className="grid grid-cols-4 p-1 bg-slate-200/60 dark:bg-zinc-900 rounded-xl border border-slate-300/40 dark:border-zinc-800">
+        <div className="grid grid-cols-4 p-1 bg-slate-200/60 dark:bg-zinc-900 rounded-xl border border-slate-300/40 dark:border-zinc-800 gap-0.5">
           <button
             onClick={() => {
               setLibraryMode('sermons');
@@ -1068,14 +1079,14 @@ const Sidebar: React.FC = () => {
               }
             }}
             data-tooltip="Bibliothèque des Sermons"
-            className={`flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200 ${
+            className={`inline-flex items-center justify-center gap-1.5 py-1.5 px-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200 min-w-0 ${
               libraryMode === 'sermons'
                 ? 'bg-teal-600 text-white shadow-md shadow-teal-600/20'
                 : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
             }`}
           >
-            <Library className="w-3 h-3 hidden sm:block" />
-            <span>Sermons</span>
+            <Library className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate leading-none">Sermons</span>
           </button>
 
           <button
@@ -1086,14 +1097,14 @@ const Sidebar: React.FC = () => {
               }
             }}
             data-tooltip="Sainte Bible (66 Livres)"
-            className={`flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200 ${
+            className={`inline-flex items-center justify-center gap-1.5 py-1.5 px-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200 min-w-0 ${
               libraryMode === 'bible'
                 ? 'bg-teal-600 text-white shadow-md shadow-teal-600/20'
                 : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
             }`}
           >
-            <BookOpen className="w-3 h-3 hidden sm:block" />
-            <span>Bible</span>
+            <BookOpen className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate leading-none">Bible</span>
           </button>
           
           <button
@@ -1104,14 +1115,14 @@ const Sidebar: React.FC = () => {
               }
             }}
             data-tooltip="Exposé des 7 Âges de l'Église"
-            className={`flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200 ${
+            className={`inline-flex items-center justify-center gap-1.5 py-1.5 px-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200 min-w-0 ${
               libraryMode === 'expose'
                 ? 'bg-teal-600 text-white shadow-md shadow-teal-600/20'
                 : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
             }`}
           >
-            <BookText className="w-3 h-3 hidden sm:block" />
-            <span>Exposé</span>
+            <BookText className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate leading-none">Exposé</span>
           </button>
 
           <button
@@ -1122,14 +1133,14 @@ const Sidebar: React.FC = () => {
               }
             }}
             data-tooltip="Recueil de Cantiques et Chants"
-            className={`flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200 ${
+            className={`inline-flex items-center justify-center gap-1.5 py-1.5 px-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200 min-w-0 ${
               libraryMode === 'songs'
                 ? 'bg-teal-600 text-white shadow-md shadow-teal-600/20'
                 : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
             }`}
           >
-            <Music className="w-3 h-3 hidden sm:block" />
-            <span>Chants</span>
+            <Music className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate leading-none">Chants</span>
           </button>
         </div>
 
@@ -1208,18 +1219,29 @@ const Sidebar: React.FC = () => {
                   </button>
                 </div>
 
-                {/* Add Song Button */}
-                <button
-                  onClick={() => {
-                    setSongToEdit(null);
-                    setIsSongModalOpen(true);
-                  }}
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-[8.5px] font-black uppercase tracking-wider shadow-sm transition-all active:scale-95 cursor-pointer"
-                  data-tooltip="Ajouter un cantique"
-                >
-                  <Plus className="w-3 h-3" />
-                  <span>Ajouter</span>
-                </button>
+                {/* Reload & Add Song Buttons */}
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => refreshSongs(true)}
+                    disabled={isSyncingSongs}
+                    className="flex items-center justify-center p-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 shadow-xs transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+                    data-tooltip="Recharger le fichier des cantiques (songs.json)"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${isSyncingSongs ? 'animate-spin text-teal-600' : ''}`} />
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setSongToEdit(null);
+                      setIsSongModalOpen(true);
+                    }}
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-[8.5px] font-black uppercase tracking-wider shadow-sm transition-all active:scale-95 cursor-pointer"
+                    data-tooltip="Ajouter un cantique"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Ajouter</span>
+                  </button>
+                </div>
               </div>
             </div>
 

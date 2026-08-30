@@ -1615,19 +1615,30 @@ const Reader: React.FC = () => {
               {sermon.title}
             </h1>
             <div 
-              className="flex items-center gap-x-2 gap-y-1 font-bold text-zinc-400 uppercase tracking-wider leading-none mt-1 transition-all flex-wrap"
+              className="flex items-center gap-x-2.5 gap-y-1 font-bold text-zinc-400 uppercase tracking-wider leading-none mt-1 transition-all flex-wrap"
               style={{ fontSize: isOSFullscreen ? `${Math.max(10, fontSize * 0.3)}px` : '9px' }}
             >
               {sermon.id.startsWith('song-') ? (
                 <>
-                  <div className="flex items-center gap-1"><Music style={{ width: '1em', height: '1em' }} className="text-teal-600" /><span>{sermon.date || 'Cantique'}</span></div>
-                  {sermon.city && <div className="flex items-center gap-1"><span className="w-1 h-1 bg-zinc-300 rounded-full mx-1" /><span>{sermon.city}</span></div>}
+                  <div className="inline-flex items-center gap-1.5"><Music className="w-3 h-3 text-teal-600 shrink-0" /><span>{sermon.date || 'Cantique'}</span></div>
+                  {sermon.city && <div className="inline-flex items-center gap-1.5"><span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-0.5" /><span>{sermon.city}</span></div>}
+                </>
+              ) : sermon.id.startsWith('bible-') ? (
+                <>
+                  <div className="inline-flex items-center gap-1.5"><BookOpen className="w-3 h-3 text-teal-600 shrink-0" /><span>Sainte Bible</span></div>
+                  {sermon.date && <div className="inline-flex items-center gap-1.5"><span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-0.5" /><span>{sermon.date}</span></div>}
+                  {sermon.city && <div className="inline-flex items-center gap-1.5"><span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-0.5" /><span>{sermon.city}</span></div>}
+                </>
+              ) : sermon.id.startsWith('expose-') ? (
+                <>
+                  <div className="inline-flex items-center gap-1.5"><BookText className="w-3 h-3 text-teal-600 shrink-0" /><span>Exposé des 7 Âges</span></div>
+                  {sermon.city && <div className="inline-flex items-center gap-1.5"><span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-0.5" /><span>{sermon.city}</span></div>}
                 </>
               ) : (
                 <>
-                  <div className="flex items-center gap-1"><Calendar style={{ width: '1em', height: '1em' }} className="text-teal-600" /><span>{sermon.date}</span></div>
-                  {sermon.time && <div className="flex items-center gap-1"><span className="w-1 h-1 bg-zinc-300 rounded-full mx-1" /><Clock style={{ width: '1em', height: '1em' }} className="text-teal-600" /><span>{sermon.time}</span></div>}
-                  {sermon.city && <div className="flex items-center gap-1"><span className="w-1 h-1 bg-zinc-300 rounded-full mx-1" /><MapPin style={{ width: '1em', height: '1em' }} className="text-teal-600" /><span>{sermon.city}</span></div>}
+                  <div className="inline-flex items-center gap-1.5"><Calendar className="w-3 h-3 text-teal-600 shrink-0" /><span>{sermon.date}</span></div>
+                  {sermon.time && <div className="inline-flex items-center gap-1.5"><span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-0.5" /><Clock className="w-3 h-3 text-teal-600 shrink-0" /><span>{sermon.time}</span></div>}
+                  {sermon.city && <div className="inline-flex items-center gap-1.5"><span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-0.5" /><MapPin className="w-3 h-3 text-teal-600 shrink-0" /><span>{sermon.city}</span></div>}
                 </>
               )}
             </div>

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
 import { useAppStore, SearchResult } from '../store';
 import { translations } from '../translations';
 import { SearchMode, Sermon } from '../types';
-import { FileText, Loader2, Calendar, Search, ChevronLeft, MapPin, Hash, NotebookPen, Sparkles, Layers, Type, BookOpenCheck, Headphones, PanelLeftOpen } from 'lucide-react';
+import { FileText, Loader2, Calendar, Search, ChevronLeft, MapPin, Hash, NotebookPen, Sparkles, Layers, Type, BookOpenCheck, Headphones, PanelLeftOpen, Music, BookOpen, BookText, Library } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { searchSermons } from '../services/db';
 import { searchBibleVersesAdvanced } from '../services/bibleService';
@@ -71,28 +71,40 @@ const SearchResultCard = memo(({
                             {result.title}
                         </h3>
                         {isOpen && (
-                          <span className="flex items-center gap-1 px-2.5 py-0.5 bg-teal-600/10 text-teal-600 rounded-full text-[8px] font-black uppercase tracking-wider border border-teal-600/20 whitespace-nowrap">
-                            <BookOpenCheck className="w-3 h-3" />
-                            Sermon ouvert
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-teal-600/10 text-teal-600 rounded-full text-[8px] font-black uppercase tracking-wider border border-teal-600/20 whitespace-nowrap">
+                            <BookOpenCheck className="w-3 h-3 shrink-0" />
+                            {result.sermonId?.startsWith('song-') ? 'Cantique ouvert' : result.sermonId?.startsWith('bible-') ? 'Passage ouvert' : result.sermonId?.startsWith('expose-') ? 'Page ouverte' : 'Sermon ouvert'}
                           </span>
                         )}
                         {result.audio_url && (
-                          <span className="flex items-center gap-1 px-2.5 py-0.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-full text-[8px] font-black uppercase tracking-wider border border-amber-500/20 whitespace-nowrap">
-                            <Headphones className="w-3 h-3" />
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-full text-[8px] font-black uppercase tracking-wider border border-amber-500/20 whitespace-nowrap">
+                            <Headphones className="w-3 h-3 shrink-0" />
                             Audio
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
-                          <div className="flex items-center gap-1.5">
-                              <Calendar className="w-3 h-3 text-teal-600/50" />
+                      <div className="flex items-center gap-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex-wrap">
+                          <div className="inline-flex items-center gap-1.5">
+                              {result.sermonId?.startsWith('song-') ? (
+                                <Music className="w-3.5 h-3.5 text-teal-600/60 shrink-0" />
+                              ) : result.sermonId?.startsWith('bible-') ? (
+                                <BookOpen className="w-3.5 h-3.5 text-teal-600/60 shrink-0" />
+                              ) : result.sermonId?.startsWith('expose-') ? (
+                                <BookText className="w-3.5 h-3.5 text-teal-600/60 shrink-0" />
+                              ) : (
+                                <Calendar className="w-3.5 h-3.5 text-teal-600/60 shrink-0" />
+                              )}
                               <span className="font-mono">{result.date}</span>
                           </div>
-                          <span className="w-1.5 h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full" />
-                          <div className="flex items-center gap-1.5">
-                              <MapPin className="w-3 h-3 text-teal-600/50" />
-                              <span className="truncate">{result.city}</span>
-                          </div>
+                          {result.city && (
+                            <>
+                              <span className="w-1.5 h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full shrink-0" />
+                              <div className="inline-flex items-center gap-1.5">
+                                  <MapPin className="w-3.5 h-3.5 text-teal-600/60 shrink-0" />
+                                  <span className="truncate">{result.city}</span>
+                              </div>
+                            </>
+                          )}
                       </div>
                     </div>
                 </div>

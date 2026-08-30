@@ -6,7 +6,7 @@ import { analyzeSelectionContext } from '../services/studyService';
 import { getSermonById } from '../services/db';
 import { getBibleChapterSermon, getBibleBookSermon } from '../services/bibleService';
 import { BIBLE_BOOKS_META } from '../services/bibleMetadata';
-import { getSongAsSermon, loadAllSongs } from '../services/songService';
+import { getSongAsSermon, loadAllSongs, getSongLanguageBadge } from '../services/songService';
 import { getExposePage, getExposeChapter } from '../services/exposeService';
 import { translations } from '../translations';
 import { marked } from 'marked';
@@ -25,6 +25,8 @@ import {
   MinusCircle,
   Hash,
   Library,
+  BookText,
+  Music,
   Zap,
   Globe,
   ExternalLink,
@@ -124,7 +126,7 @@ const AIAssistant: React.FC = () => {
           id,
           title: found ? `${found.id}. ${found.title}` : `Cantique #${rawId}`,
           date: 'Cantique',
-          city: found?.language ? found.language.toUpperCase() : 'Chant'
+          city: found?.language ? getSongLanguageBadge(found.language) : 'FR'
         });
       } else if (id.startsWith('expose-pg-')) {
         const pg = id.replace('expose-pg-', '');
@@ -360,27 +362,41 @@ const AIAssistant: React.FC = () => {
          </div>
 
          <div className="flex gap-2.5 overflow-x-auto pb-1.5 custom-scrollbar pr-2">
-            {selectedSermonsMetadata.map((s) => (
-              <div key={s.id} className="flex-shrink-0 w-[180px] bg-white/80 dark:bg-zinc-800/80 backdrop-blur-xl border border-zinc-200 dark:border-zinc-700 rounded-xl p-2.5 shadow-sm relative group">
-                 <div className="flex items-start gap-2.5">
-                    <div className="w-7 h-7 flex items-center justify-center bg-teal-600/10 rounded-lg border border-teal-600/10 shrink-0">
-                       <BookOpen className="w-3 h-3 text-teal-600" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                       <p className="text-[9px] font-black text-zinc-800 dark:text-zinc-100 truncate leading-tight tracking-tight">{s.title}</p>
-                       <p className="text-[7px] font-bold text-zinc-400 mt-0.5 uppercase tracking-tighter">{s.date}</p>
-                    </div>
-                 </div>
-                 <button
-                   onClick={(e) => { e.stopPropagation(); toggleContextSermon(s.id); }}
-                   data-tooltip={`Retirer "${s.title}"`}
-                   data-tooltip-icon="trash"
-                   className="absolute top-1.5 right-1.5 w-5 h-5 rounded-md bg-white dark:bg-zinc-800 text-zinc-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-xs"
-                 >
-                   <X className="w-3 h-3" />
-                 </button>
-              </div>
-            ))}
+            {selectedSermonsMetadata.map((s) => {
+              const isSong = s.id.startsWith('song-');
+              const isBible = s.id.startsWith('bible-');
+              const isExpose = s.id.startsWith('expose-');
+
+              return (
+                <div key={s.id} className="flex-shrink-0 w-[180px] bg-white/80 dark:bg-zinc-800/80 backdrop-blur-xl border border-zinc-200 dark:border-zinc-700 rounded-xl p-2.5 shadow-sm relative group">
+                   <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-lg border border-teal-600/10 shrink-0">
+                         {isSong ? (
+                           <Music className="w-3.5 h-3.5" />
+                         ) : isBible ? (
+                           <BookOpen className="w-3.5 h-3.5" />
+                         ) : isExpose ? (
+                           <BookText className="w-3.5 h-3.5" />
+                         ) : (
+                           <Library className="w-3.5 h-3.5" />
+                         )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                         <p className="text-[9px] font-black text-zinc-800 dark:text-zinc-100 truncate leading-tight tracking-tight">{s.title}</p>
+                         <p className="text-[7px] font-bold text-zinc-400 mt-0.5 uppercase tracking-tighter">{s.date}</p>
+                      </div>
+                   </div>
+                   <button
+                     onClick={(e) => { e.stopPropagation(); toggleContextSermon(s.id); }}
+                     data-tooltip={`Retirer "${s.title}"`}
+                     data-tooltip-icon="trash"
+                     className="absolute top-1.5 right-1.5 w-5 h-5 rounded-md bg-white dark:bg-zinc-800 text-zinc-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-xs"
+                   >
+                     <X className="w-3 h-3" />
+                   </button>
+                </div>
+              );
+            })}
          </div>
       </div>
 

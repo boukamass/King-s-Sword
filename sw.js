@@ -1,10 +1,9 @@
-const CACHE_NAME = 'kings-sword-v1';
+const CACHE_NAME = 'kings-sword-v2';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/favicon-32x32.png',
-  '/songs.json'
+  '/favicon-32x32.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -32,7 +31,25 @@ self.addEventListener('fetch', (event) => {
   // Skip non-http/https requests
   if (!url.protocol.startsWith('http')) return;
 
-  // Stale-While-Revalidate strategy for optimal offline experience and instant loading
+  // Network-First with Cache Fallback for JSON data files (like songs.json)
+  if (url.pathname.endsWith('.json')) {
+    event.respondWith(
+      fetch(event.request, { cache: 'no-cache' })
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Stale-While-Revalidate strategy for static assets
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       const fetchPromise = fetch(event.request).then((networkResponse) => {
