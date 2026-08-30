@@ -50,33 +50,6 @@
   "build": {
     "appId": "com.kingssword.app",
     "productName": "King's Sword",
-<<<<<<< HEAD
-    "copyright": "Copyright © 2026 Bienvenu Sédin Massamba. Tous droits réservés.",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "dist/**/*",
-      "main.js",
-      "preload.js"
-    ],
-    "extraResources": [
-      {
-        "from": "public",
-        "to": "public",
-        "filter": [
-          "**/*"
-        ]
-      }
-    ],
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "boukamass",
-        "repo": "kings-sword"
-      }
-    ],
-=======
     "copyright": "Copyright © 2026 Bienvenu Sédin Massamba",
     "asar": true,
     "asarUnpack": [
@@ -92,7 +65,6 @@
       "output": "release",
       "buildResources": "public"
     },
->>>>>>> 9c39c9f8b4e0975940bf320f157df66fb33d9e93
     "win": {
       "target": [
         {
@@ -102,25 +74,14 @@
           ]
         }
       ],
-<<<<<<< HEAD
-      "icon": "public/icon.ico"
-=======
       "icon": "public/favicon.ico"
->>>>>>> 9c39c9f8b4e0975940bf320f157df66fb33d9e93
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-<<<<<<< HEAD
-      "shortcutName": "King's Sword",
-      "installerIcon": "public/icon.ico",
-      "uninstallerIcon": "public/icon.ico",
-      "installerHeaderIcon": "public/icon.ico"
-=======
       "shortcutName": "King's Sword"
->>>>>>> 9c39c9f8b4e0975940bf320f157df66fb33d9e93
     }
   }
 }
