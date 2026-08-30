@@ -33,6 +33,8 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.5.4",
     "concurrently": "^8.2.2",
@@ -48,6 +50,7 @@
   "build": {
     "appId": "com.kingssword.app",
     "productName": "King's Sword",
+<<<<<<< HEAD
     "copyright": "Copyright © 2026 Bienvenu Sédin Massamba. Tous droits réservés.",
     "directories": {
       "output": "release"
@@ -73,6 +76,23 @@
         "repo": "kings-sword"
       }
     ],
+=======
+    "copyright": "Copyright © 2026 Bienvenu Sédin Massamba",
+    "asar": true,
+    "asarUnpack": [
+      "**/node_modules/better-sqlite3/**"
+    ],
+    "files": [
+      "dist/**/*",
+      "main.js",
+      "preload.js",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release",
+      "buildResources": "public"
+    },
+>>>>>>> 9c39c9f8b4e0975940bf320f157df66fb33d9e93
     "win": {
       "target": [
         {
@@ -82,17 +102,25 @@
           ]
         }
       ],
+<<<<<<< HEAD
       "icon": "public/icon.ico"
+=======
+      "icon": "public/favicon.ico"
+>>>>>>> 9c39c9f8b4e0975940bf320f157df66fb33d9e93
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
+<<<<<<< HEAD
       "shortcutName": "King's Sword",
       "installerIcon": "public/icon.ico",
       "uninstallerIcon": "public/icon.ico",
       "installerHeaderIcon": "public/icon.ico"
+=======
+      "shortcutName": "King's Sword"
+>>>>>>> 9c39c9f8b4e0975940bf320f157df66fb33d9e93
     }
   }
 }

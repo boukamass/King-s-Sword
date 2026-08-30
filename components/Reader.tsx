@@ -276,6 +276,8 @@ const Reader: React.FC = () => {
   const setJumpToText = useAppStore(s => s.setJumpToText);
   const jumpToParagraph = useAppStore(s => s.jumpToParagraph);
   const setJumpToParagraph = useAppStore(s => s.setJumpToParagraph);
+  const selectedBibleVerse = useAppStore(s => s.selectedBibleVerse);
+  const setSelectedBibleVerse = useAppStore(s => s.setSelectedBibleVerse);
 
   const sidebarWidth = useAppStore(s => s.sidebarWidth);
   const aiWidth = useAppStore(s => s.aiWidth);
@@ -291,6 +293,31 @@ const Reader: React.FC = () => {
   const sermon = activeSermon;
 
   const isSong = Boolean(sermon?.date === 'Cantique' || sermon?.time === 'Chant' || sermon?.id?.startsWith('song-'));
+  const isBible = Boolean(sermon?.id?.startsWith('bible-'));
+  const isBibleChapter = Boolean(sermon?.id?.startsWith('bible-') && !sermon?.id?.endsWith('-all'));
+  const isExpose = Boolean(sermon?.id?.startsWith('expose-'));
+  const isSermon = Boolean(sermon && !isSong && !isBible && !isExpose);
+
+  const [selectedSermonParagraph, setSelectedSermonParagraph] = useState<number | null>(null);
+
+  const safeScrollToElement = useCallback((el: HTMLElement | null | undefined) => {
+    if (!el) return;
+    try {
+      requestAnimationFrame(() => {
+        try {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } catch (e) {
+          try { el.scrollIntoView(); } catch (err) {}
+        }
+      });
+    } catch (e) {
+      try { el.scrollIntoView(); } catch (err) {}
+    }
+  }, []);
+
+  useEffect(() => {
+    setSelectedSermonParagraph(null);
+  }, [sermon?.id]);
 
   const processedText = useMemo(() => {
     if (!sermon || !sermon.text) return '';
@@ -322,6 +349,11 @@ const Reader: React.FC = () => {
   }, [segments]);
 
   const words = useMemo(() => structuredSegments.flatMap(s => s.words), [structuredSegments]);
+
+  const fullSermonText = useMemo(() => {
+    if (words.length === 0) return '';
+    return words.map(w => w.text).join('');
+  }, [words]);
 
   const highlightMap = useMemo(() => {
     const map = new Map<number, Highlight>();
@@ -642,14 +674,20 @@ const Reader: React.FC = () => {
     }
   }, [sermon?.id, updateProjectedSegmentIndex]);
 
+  const lastPayloadStrRef = useRef<string>('');
+
   const sendProjectionPayload = useCallback((targetSegmentIdx?: number | null) => {
     const payload = getProjectionPayload(targetSegmentIdx);
     if (!payload) return;
 
-    try {
-      localStorage.setItem('kings_sword_last_projection_sync', JSON.stringify(payload));
-      sessionStorage.setItem('kings_sword_last_projection_sync', JSON.stringify(payload));
-    } catch (e) {}
+    const payloadStr = JSON.stringify(payload);
+    if (payloadStr !== lastPayloadStrRef.current) {
+      lastPayloadStrRef.current = payloadStr;
+      try {
+        localStorage.setItem('kings_sword_last_projection_sync', payloadStr);
+        sessionStorage.setItem('kings_sword_last_projection_sync', payloadStr);
+      } catch (e) {}
+    }
 
     if (broadcastChannel.current) {
       try { broadcastChannel.current.postMessage(payload); } catch (e) {}
@@ -690,67 +728,33 @@ const Reader: React.FC = () => {
     } catch (e) {}
   }, []);
 
-  const reopenProjectionWindow = useCallback(() => {
-    const url = new URL(window.location.href);
-    url.searchParams.set('projection', 'true');
-
-    const dualScreenLeft = window.screenLeft !== undefined ? window.screenLeft : (window.screenX || 0);
-    const dualScreenTop = window.screenTop !== undefined ? window.screenTop : (window.screenY || 0);
-    const currentWidth = window.outerWidth || window.innerWidth || (window.screen?.availWidth || 1920);
-
-    const left = dualScreenLeft + currentWidth;
-    const top = dualScreenTop;
-    const targetWidth = window.screen?.availWidth || 1920;
-    const targetHeight = window.screen?.availHeight || 1080;
-
-    const windowFeatures = `width=${targetWidth},height=${targetHeight},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=no`;
-
-    try {
-      if (projectionWindow && !projectionWindow.closed) {
-        projectionWindow.focus();
-      } else {
-        projectionWindow = window.open(url.toString(), 'KingsSwordProjection', windowFeatures);
-      }
-    } catch (err) {
-      projectionWindow = null;
-    }
-
-    setIsProjectionOpen(true);
-    sendProjectionPayload(projectedSegmentIndexRef.current);
-  }, [sendProjectionPayload]);
-
-  const toggleProjection = useCallback((initialSegmentIdx?: number) => {
-    const targetIdx = typeof initialSegmentIdx === 'number' ? initialSegmentIdx : undefined;
+  const ensureProjectionWindow = useCallback((targetIdx?: number) => {
     const isWindowActive = Boolean(projectionWindow && !projectionWindow.closed);
-
-    if (isWindowActive || isProjectionOpen) {
-      if (targetIdx !== undefined) {
-        updateProjectedSegmentIndex(targetIdx);
-        sendProjectionPayload(targetIdx);
-      } else {
-        stopProjection();
-      }
-      return;
-    }
-
-    // Window is NOT active -> open new projection window synchronously
-    setIsProjectionOpen(false);
-    projectionWindow = null;
 
     const firstNonEmptyIdx = structuredSegments.findIndex(s => s.text.trim().length > 0);
     const defaultIdx = firstNonEmptyIdx !== -1 ? firstNonEmptyIdx : (structuredSegments.length > 0 ? 0 : null);
 
-    const effectiveIdx = targetIdx !== undefined 
+    const effectiveIdx = typeof targetIdx === 'number' 
       ? targetIdx 
       : (projectedSegmentIndexRef.current !== null ? projectedSegmentIndexRef.current : defaultIdx);
-    
+
     if (effectiveIdx !== null) {
       updateProjectedSegmentIndex(effectiveIdx);
     }
 
+    if (isWindowActive && projectionWindow) {
+      setIsProjectionOpen(true);
+      sendProjectionPayload(effectiveIdx);
+      try { projectionWindow.focus(); } catch (e) {}
+      return;
+    }
+
+    // Window is NOT active -> open new projection window on 2nd screen synchronously
+    setIsProjectionOpen(true);
+    projectionWindow = null;
+
     sendProjectionPayload(effectiveIdx);
 
-    // Build URL for projection window
     const url = new URL(window.location.href);
     url.searchParams.set('projection', 'true');
 
@@ -767,21 +771,26 @@ const Reader: React.FC = () => {
 
     try {
       projectionWindow = window.open(url.toString(), 'KingsSwordProjection', windowFeatures);
+      if (projectionWindow === window) {
+        projectionWindow = null;
+        try {
+          const cleanUrl = window.location.pathname + window.location.hash;
+          window.history.replaceState({}, '', cleanUrl);
+        } catch (e) {}
+      }
     } catch (err) {
       projectionWindow = null;
     }
 
     if (projectionWindow) {
-      setIsProjectionOpen(true);
       try {
         projectionWindow.moveTo(left, top);
         projectionWindow.resizeTo(targetWidth, targetHeight);
+        projectionWindow.focus();
       } catch (e) {}
 
       sendProjectionPayload(effectiveIdx);
-      try { projectionWindow.focus(); } catch (e) {}
 
-      // Asynchronously query multi-screen details if browser supports Window Management API
       if ('getScreenDetails' in window || 'queryLocalScreens' in window) {
         const getDetails = (window as any).getScreenDetails || (window as any).queryLocalScreens;
         getDetails().then((screenDetails: any) => {
@@ -801,12 +810,26 @@ const Reader: React.FC = () => {
           }
         }).catch(() => {});
       }
-    } else {
-      // Even if popup was blocked by browser, state is projection-ready for BroadcastChannel/second-tab projection
-      setIsProjectionOpen(true);
-      sendProjectionPayload(effectiveIdx);
     }
-  }, [projectedSegmentIndex, structuredSegments, sendProjectionPayload, stopProjection, isProjectionOpen]);
+  }, [structuredSegments, updateProjectedSegmentIndex, sendProjectionPayload]);
+
+  const reopenProjectionWindow = useCallback(() => {
+    ensureProjectionWindow();
+  }, [ensureProjectionWindow]);
+
+  const toggleProjection = useCallback((initialSegmentIdx?: number) => {
+    const isWindowActive = Boolean(projectionWindow && !projectionWindow.closed);
+
+    if (isWindowActive || isProjectionOpen) {
+      if (typeof initialSegmentIdx === 'number') {
+        ensureProjectionWindow(initialSegmentIdx);
+      } else {
+        stopProjection();
+      }
+    } else {
+      ensureProjectionWindow(initialSegmentIdx);
+    }
+  }, [isProjectionOpen, ensureProjectionWindow, stopProjection]);
 
   const handleFullscreenToggle = useCallback(() => {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen();
@@ -823,6 +846,9 @@ const Reader: React.FC = () => {
 
   useEffect(() => {
     if (jumpToParagraph !== null && sermon && structuredSegments.length > 0) {
+        if (isSermon) {
+            setSelectedSermonParagraph(jumpToParagraph);
+        }
         const segmentIdx = jumpToParagraph - 1;
         const segment = structuredSegments[segmentIdx];
         if (segment) {
@@ -865,8 +891,8 @@ const Reader: React.FC = () => {
                     setJumpHighlightIndices(targetHighlightIndices);
 
                     const targetEl = wordRefs.current.get(targetGlobalIndex);
-                    if (targetEl) targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    else if (segEl) segEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    if (targetEl) safeScrollToElement(targetEl);
+                    else if (segEl) safeScrollToElement(segEl);
                 }
             }, 150);
         }
@@ -877,7 +903,6 @@ const Reader: React.FC = () => {
   useEffect(() => {
     if (jumpToText && sermon && words.length > 0) {
         const regex = getAccentInsensitiveRegex(jumpToText, false);
-        const fullSermonText = words.map(w => w.text).join('');
         const matchIndices: number[] = [];
         const match = regex.exec(fullSermonText);
         if (match) {
@@ -902,7 +927,7 @@ const Reader: React.FC = () => {
         }
         setJumpToText(null);
     }
-  }, [jumpToText, sermon, words, setJumpToText]);
+  }, [jumpToText, sermon, words, fullSermonText, setJumpToText]);
   
   const citationHighlightMap = useMemo(() => {
     const map = new Map<number, { colorClass: string }>();
@@ -911,7 +936,6 @@ const Reader: React.FC = () => {
     if (!activeNote) return map;
     const relevantCitations = activeNote.citations.filter(c => c.sermon_id === sermon.id);
     if (relevantCitations.length === 0) return map;
-    const fullSermonText = words.map(w => w.text).join('');
     for (const citation of relevantCitations) {
         const regex = getAccentInsensitiveRegex(citation.quoted_text, false);
         let match;
@@ -926,13 +950,12 @@ const Reader: React.FC = () => {
         }
     }
     return map;
-  }, [activeNoteId, notes, sermon?.id, words]);
+  }, [activeNoteId, notes, sermon?.id, words, fullSermonText]);
 
   useEffect(() => {
     if (readerSearchQuery.length >= 1) {
       startTransition(() => {
         const regex = getAccentInsensitiveRegex(readerSearchQuery, false);
-        const fullSermonText = words.map(w => w.text).join('');
         const results = [];
         let match;
         while ((match = regex.exec(fullSermonText)) !== null) {
@@ -951,13 +974,14 @@ const Reader: React.FC = () => {
         setCurrentResultIndex(results.length > 0 ? 0 : -1);
       });
     } else { setSearchResults([]); setCurrentResultIndex(-1); }
-  }, [readerSearchQuery, words]);
+  }, [readerSearchQuery, words, fullSermonText]);
 
   useEffect(() => {
       if (currentResultIndex !== -1 && searchResults.length > 0) {
-          wordRefs.current.get(searchResults[currentResultIndex])?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          const el = wordRefs.current.get(searchResults[currentResultIndex]);
+          if (el) safeScrollToElement(el);
       }
-  }, [currentResultIndex, searchResults]);
+  }, [currentResultIndex, searchResults, safeScrollToElement]);
 
   const togglePlay = useCallback(async (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -1081,19 +1105,12 @@ const Reader: React.FC = () => {
       return;
     }
 
-    const isWindowActive = Boolean(projectionWindow && !projectionWindow.closed);
-
     if (projectedSegmentIndex === idx) {
       // Toggle off this segment
       updateProjectedSegmentIndex(null);
       sendProjectionPayload(null);
     } else {
-      updateProjectedSegmentIndex(idx);
-      if (!isWindowActive && !isProjectionOpen) {
-        toggleProjection(idx);
-      } else {
-        sendProjectionPayload(idx);
-      }
+      ensureProjectionWindow(idx);
 
       // Automatically keep the projected paragraph centered and visible in reader view
       setTimeout(() => {
@@ -1103,7 +1120,7 @@ const Reader: React.FC = () => {
         }
       }, 50);
     }
-  }, [projectedSegmentIndex, toggleProjection, sendProjectionPayload, isProjectionOpen]);
+  }, [projectedSegmentIndex, ensureProjectionWindow, updateProjectedSegmentIndex, sendProjectionPayload]);
 
   const handleProjectNextSegment = useCallback(() => {
     if (!structuredSegments || structuredSegments.length === 0) return;
@@ -1791,6 +1808,120 @@ const Reader: React.FC = () => {
         </div>
       )}
 
+      {/* Barre de sélection directe des versets (1 à N) - Fixe sous la barre d'outils */}
+      {isBibleChapter && structuredSegments.length > 0 && (
+        <div className="shrink-0 w-full px-4 md:px-8 py-2 bg-slate-100/90 dark:bg-zinc-950/90 backdrop-blur-xl border-b border-zinc-200 dark:border-zinc-800 flex flex-wrap sm:flex-nowrap items-center gap-2.5 z-[99999] no-print animate-in fade-in slide-in-from-top-1 duration-200">
+          <div className="flex items-center gap-1.5 shrink-0 select-none py-0.5">
+            <BookOpen className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-300 hidden sm:inline">
+              Versets ({structuredSegments.length}) :
+            </span>
+          </div>
+
+          <div className="flex-1 flex flex-wrap items-center gap-1 py-0.5">
+            {structuredSegments.map((_, idx) => {
+              const verseNum = idx + 1;
+              const isProjected = projectedSegmentIndex === idx;
+              const isSelected = selectedBibleVerse === verseNum;
+              return (
+                <button
+                  key={verseNum}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedBibleVerse(verseNum);
+                    const segEl = segmentRefs.current.get(idx);
+                    if (segEl) {
+                      safeScrollToElement(segEl);
+                    } else {
+                      setJumpToParagraph(verseNum);
+                    }
+                    handleProjectSegment(idx, true);
+                  }}
+                  className={`min-w-[28px] h-7 px-1.5 rounded-lg text-[10.5px] font-black flex items-center justify-center transition-all cursor-pointer select-none shrink-0 font-sans active:scale-95 ${
+                    isProjected
+                      ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-400 scale-105'
+                      : isSelected
+                        ? 'bg-teal-600 text-white shadow-sm ring-2 ring-teal-500/50 scale-105'
+                        : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200/90 dark:border-zinc-800 hover:border-teal-500 hover:text-teal-600 dark:hover:text-teal-400 shadow-2xs'
+                  }`}
+                  data-tooltip={isProjected ? `Verset ${verseNum} (actuellement projeté)` : `Aller et projeter le verset ${verseNum}`}
+                >
+                  {verseNum}
+                </button>
+              );
+            })}
+          </div>
+
+          {selectedBibleVerse && (
+            <button
+              onClick={() => setSelectedBibleVerse(null)}
+              className="text-[9px] font-bold text-zinc-400 hover:text-teal-600 dark:hover:text-teal-400 shrink-0 ml-1 px-1.5 py-0.5 rounded border border-transparent hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors"
+              data-tooltip="Réinitialiser la sélection de verset"
+            >
+              V. {selectedBibleVerse} ✕
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Barre de sélection directe des paragraphes (1 à N) - Fixe sous la barre d'outils pour les sermons */}
+      {isSermon && structuredSegments.length > 0 && (
+        <div className="shrink-0 w-full px-4 md:px-8 py-2 bg-slate-100/90 dark:bg-zinc-950/90 backdrop-blur-xl border-b border-zinc-200 dark:border-zinc-800 flex flex-wrap sm:flex-nowrap items-center gap-2.5 z-[99999] no-print animate-in fade-in slide-in-from-top-1 duration-200">
+          <div className="flex items-center gap-1.5 shrink-0 select-none py-0.5">
+            <Layers className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-300 hidden sm:inline">
+              Paragraphes ({structuredSegments.length}) :
+            </span>
+          </div>
+
+          <div className="flex-1 flex flex-wrap items-center gap-1 py-0.5">
+            {structuredSegments.map((_, idx) => {
+              const paraNum = idx + 1;
+              const isProjected = projectedSegmentIndex === idx;
+              const isSelected = selectedSermonParagraph === paraNum;
+              return (
+                <button
+                  key={paraNum}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedSermonParagraph(paraNum);
+                    const segEl = segmentRefs.current.get(idx);
+                    if (segEl) {
+                      safeScrollToElement(segEl);
+                    } else {
+                      setJumpToParagraph(paraNum);
+                    }
+                    handleProjectSegment(idx, true);
+                  }}
+                  className={`min-w-[28px] h-7 px-1.5 rounded-lg text-[10.5px] font-black flex items-center justify-center transition-all cursor-pointer select-none shrink-0 font-sans active:scale-95 ${
+                    isProjected
+                      ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-400 scale-105'
+                      : isSelected
+                        ? 'bg-teal-600 text-white shadow-sm ring-2 ring-teal-500/50 scale-105'
+                        : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200/90 dark:border-zinc-800 hover:border-teal-500 hover:text-teal-600 dark:hover:text-teal-400 shadow-2xs'
+                  }`}
+                  data-tooltip={isProjected ? `Paragraphe ${paraNum} (actuellement projeté)` : `Aller et projeter le paragraphe ${paraNum}`}
+                >
+                  {paraNum}
+                </button>
+              );
+            })}
+          </div>
+
+          {selectedSermonParagraph && (
+            <button
+              onClick={() => setSelectedSermonParagraph(null)}
+              className="text-[9px] font-bold text-zinc-400 hover:text-teal-600 dark:hover:text-teal-400 shrink-0 ml-1 px-1.5 py-0.5 rounded border border-transparent hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors"
+              data-tooltip="Réinitialiser la sélection de paragraphe"
+            >
+              § {selectedSermonParagraph} ✕
+            </button>
+          )}
+        </div>
+      )}
+
       {isSearchVisible && (
         <div className="shrink-0 h-14 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-xl border-b border-zinc-200 dark:border-zinc-800 flex items-center px-4 md:px-8 z-[100000] animate-in slide-in-from-top-4 duration-300">
           <div className="max-w-4xl mx-auto w-full flex items-center gap-4">
@@ -1849,6 +1980,7 @@ const Reader: React.FC = () => {
               const content = renderSegmentContent(seg.words);
               const isProjected = projectedSegmentIndex === segIdx;
               const isChorus = isSong && /^(ch[oœ]eur|refrain|chorus)\s*:/i.test(seg.text.trim());
+              const isSelectedParagraph = (isBibleChapter && selectedBibleVerse === (segIdx + 1)) || (isSermon && selectedSermonParagraph === (segIdx + 1));
 
               return (
                 <div 
@@ -1872,11 +2004,13 @@ const Reader: React.FC = () => {
                   } ${
                     isProjected 
                       ? 'bg-amber-500/10 border-l-[5px] border-amber-500 ring-2 ring-amber-500/40 shadow-md' 
-                      : isChorus
-                        ? 'bg-teal-500/5 dark:bg-teal-500/10 border-l-[5px] border-teal-600 dark:border-teal-500 hover:bg-teal-500/10 shadow-xs'
-                        : seg.isNumbered
-                          ? 'bg-slate-50 dark:bg-zinc-900/50 border-l-[5px] border-teal-600/20 dark:border-zinc-800 hover:border-teal-600/50 hover:bg-teal-500/5'
-                          : 'bg-slate-50/60 dark:bg-zinc-900/30 border-l-[3px] border-zinc-200 dark:border-zinc-800 hover:border-teal-600/40 hover:bg-teal-500/5'
+                      : isSelectedParagraph
+                        ? 'bg-teal-500/10 dark:bg-teal-500/15 border-l-[5px] border-teal-600 ring-2 ring-teal-500/30 shadow-md'
+                        : isChorus
+                          ? 'bg-teal-500/5 dark:bg-teal-500/10 border-l-[5px] border-teal-600 dark:border-teal-500 hover:bg-teal-500/10 shadow-xs'
+                          : seg.isNumbered
+                            ? 'bg-slate-50 dark:bg-zinc-900/50 border-l-[5px] border-teal-600/20 dark:border-zinc-800 hover:border-teal-600/50 hover:bg-teal-500/5'
+                            : 'bg-slate-50/60 dark:bg-zinc-900/30 border-l-[3px] border-zinc-200 dark:border-zinc-800 hover:border-teal-600/40 hover:bg-teal-500/5'
                   } ${
                     isProjectionOpen && !isProjected ? 'hover:ring-1 hover:ring-teal-500/30' : ''
                   }`}

@@ -309,6 +309,69 @@ function getStandardVerseCount(bookId: string, chapter: number): number {
 }
 
 /**
+ * Récupère le nombre exact de versets pour un livre et un chapitre donné
+ */
+export const getBibleChapterVersesCount = async (
+  bookId: string,
+  chapter: number,
+  version: BibleVersion = 'lsg1910'
+): Promise<number> => {
+  const meta = BIBLE_BOOKS_META.find(b => b.id.toUpperCase() === bookId.toUpperCase());
+  if (!meta) return 0;
+
+  // 1. En mémoire immédiate
+  if (loadedBooksMap.has(version) && loadedBooksMap.get(version)?.has(meta.id)) {
+    const chVerses = loadedBooksMap.get(version)?.get(meta.id)?.[chapter];
+    if (chVerses && chVerses.length > 0) return chVerses.length;
+  }
+
+  // 2. Dans la base intégrale locale
+  const fullData = await ensureFullBibleLoaded(version);
+  if (fullData && fullData[meta.id] && fullData[meta.id][chapter]) {
+    return fullData[meta.id][chapter].length;
+  }
+
+  // 3. Dans le Core LSG de secours
+  if (version === 'lsg1910' && BIBLE_LOUIS_SEGOND_CORE[meta.id] && BIBLE_LOUIS_SEGOND_CORE[meta.id][chapter]) {
+    return BIBLE_LOUIS_SEGOND_CORE[meta.id][chapter].length;
+  }
+
+  // 4. Estimation de secours
+  return getStandardVerseCount(meta.id, chapter);
+};
+
+/**
+ * Récupère les versets d'un chapitre pour une version donnée
+ */
+export const getBibleChapterVerses = async (
+  bookId: string,
+  chapter: number,
+  version: BibleVersion = 'lsg1910'
+): Promise<BibleVerse[]> => {
+  const meta = BIBLE_BOOKS_META.find(b => b.id.toUpperCase() === bookId.toUpperCase());
+  if (!meta) return [];
+
+  if (loadedBooksMap.has(version) && loadedBooksMap.get(version)?.has(meta.id)) {
+    const chVerses = loadedBooksMap.get(version)?.get(meta.id)?.[chapter];
+    if (chVerses && chVerses.length > 0) return chVerses;
+  }
+
+  const fullData = await ensureFullBibleLoaded(version);
+  if (fullData && fullData[meta.id] && fullData[meta.id][chapter]) {
+    return fullData[meta.id][chapter];
+  }
+
+  if (version === 'lsg1910' && BIBLE_LOUIS_SEGOND_CORE[meta.id] && BIBLE_LOUIS_SEGOND_CORE[meta.id][chapter]) {
+    return BIBLE_LOUIS_SEGOND_CORE[meta.id][chapter];
+  }
+
+  const fetched = await fetchChapterFromApi(meta.id, chapter, version);
+  if (fetched && fetched.length > 0) return fetched;
+
+  return generateFallbackChapter(meta, chapter);
+};
+
+/**
  * Recherche avancée dans les versets de la Bible avec surlignage et compatibilité SearchResult
  */
 export const searchBibleVersesAdvanced = async (params: { 

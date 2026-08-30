@@ -45,6 +45,7 @@ interface AppState {
   bibleVersion: BibleVersion;
   selectedBibleBookId: string | null;
   selectedBibleChapter: number | null;
+  selectedBibleVerse: number | null;
   selectedExposeChapter: string | null;
   selectedExposeSection: string | null;
   sidebarOpen: boolean;
@@ -99,6 +100,7 @@ interface AppState {
   setBibleVersion: (version: BibleVersion) => Promise<void>;
   setSelectedBibleBookId: (bookId: string | null) => void;
   setSelectedBibleChapter: (chapter: number | null) => void;
+  setSelectedBibleVerse: (verse: number | null) => void;
   setSelectedExposeChapter: (chapter: string | null) => void;
   setSelectedExposeSection: (section: string | null) => void;
   setSearchQuery: (query: string) => void;
@@ -170,6 +172,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   bibleVersion: 'lsg1910',
   selectedBibleBookId: null,
   selectedBibleChapter: null,
+  selectedBibleVerse: null,
   selectedExposeChapter: null,
   selectedExposeSection: null,
   sidebarOpen: true,
@@ -355,12 +358,12 @@ export const useAppStore = create<AppState>((set, get) => ({
         if (chapterStr === 'all') {
           bibleSermon = await getBibleBookSermon(bookId, get().bibleVersion);
           if (get().selectedSermonId !== id) return;
-          set({ activeSermon: bibleSermon, selectedBibleBookId: bookId, selectedBibleChapter: 1 });
+          set({ activeSermon: bibleSermon, selectedBibleBookId: bookId, selectedBibleChapter: 1, selectedBibleVerse: null });
         } else {
           const chapter = parseInt(chapterStr, 10) || 1;
           bibleSermon = await getBibleChapterSermon(bookId, chapter, get().bibleVersion);
           if (get().selectedSermonId !== id) return;
-          set({ activeSermon: bibleSermon, selectedBibleBookId: bookId, selectedBibleChapter: chapter });
+          set({ activeSermon: bibleSermon, selectedBibleBookId: bookId, selectedBibleChapter: chapter, selectedBibleVerse: null });
         }
       } else if (id.startsWith('expose-')) {
           const { getExposePage, getExposeChapter, loadExposeData } = await import('./services/exposeService');
@@ -434,7 +437,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
   setSelectedBibleBookId: (bookId) => set({ selectedBibleBookId: bookId }),
-  setSelectedBibleChapter: (chapter) => set({ selectedBibleChapter: chapter }),
+  setSelectedBibleChapter: (chapter) => set({ selectedBibleChapter: chapter, selectedBibleVerse: null }),
+  setSelectedBibleVerse: (verse) => set({ selectedBibleVerse: verse, jumpToParagraph: verse }),
   setSelectedExposeChapter: (chapter) => set({ selectedExposeChapter: chapter }),
   setSelectedExposeSection: (section) => set({ selectedExposeSection: section }),
 

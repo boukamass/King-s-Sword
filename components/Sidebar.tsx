@@ -6,6 +6,7 @@ import { normalizeText } from '../utils/textUtils';
 import NoteSelectorModal from './NoteSelectorModal';
 import { BIBLE_BOOKS_META, BibleBookMeta } from '../services/bibleMetadata';
 import { BibleVersion, BIBLE_VERSIONS_META } from '../types/bible';
+import { getBibleChapterVersesCount, ensureFullBibleLoaded } from '../services/bibleService';
 import { 
   Search, 
   Filter, 
@@ -498,6 +499,8 @@ const Sidebar: React.FC = () => {
   const setBibleVersion = useAppStore(s => s.setBibleVersion);
   const selectedBibleBookId = useAppStore(s => s.selectedBibleBookId);
   const selectedBibleChapter = useAppStore(s => s.selectedBibleChapter);
+  const selectedBibleVerse = useAppStore(s => s.selectedBibleVerse);
+  const setSelectedBibleVerse = useAppStore(s => s.setSelectedBibleVerse);
   
   const selectedExposeChapter = useAppStore(s => s.selectedExposeChapter);
   const setSelectedExposeChapter = useAppStore(s => s.setSelectedExposeChapter);
@@ -544,6 +547,18 @@ const Sidebar: React.FC = () => {
       refreshSongs();
     }
   }, [libraryMode, refreshSongs]);
+
+  useEffect(() => {
+    if (selectedBibleBookId && libraryMode === 'bible') {
+      setExpandedBibleBookId(selectedBibleBookId);
+    }
+  }, [selectedBibleBookId, libraryMode]);
+
+  useEffect(() => {
+    if (libraryMode === 'bible') {
+      ensureFullBibleLoaded(bibleVersion).catch(() => {});
+    }
+  }, [libraryMode, bibleVersion]);
 
   const handleDeleteSong = async (song: Song) => {
     if (window.confirm(`Voulez-vous vraiment supprimer le cantique "${song.id}. ${song.title}" ?`)) {
@@ -766,36 +781,39 @@ const Sidebar: React.FC = () => {
 
     const getSortableTitle = (title: string) => {
       if (!title) return '';
-      // Strip leading numbers, numbering prefixes and symbols like "1. ", "02 - ", "12) ", "«"
       const cleaned = title.replace(/^[\d\s\.\-\)\(\:\/\"\'«»]+/, '').trim();
       return cleaned || title.trim();
     };
 
-    return [...list].sort((a, b) => {
-      const numA = typeof a.id === 'number' ? a.id : parseInt(String(a.id), 10);
-      const numB = typeof b.id === 'number' ? b.id : parseInt(String(b.id), 10);
+    const mapped = list.map(s => ({
+      song: s,
+      numId: typeof s.id === 'number' ? s.id : parseInt(String(s.id), 10),
+      sortableTitle: (songsSortOrder === 'title-asc' || songsSortOrder === 'title-desc') ? getSortableTitle(s.title || '') : ''
+    }));
+
+    mapped.sort((a, b) => {
+      const numA = a.numId;
+      const numB = b.numId;
 
       if (songsSortOrder === 'number-asc') {
         if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
-        return String(a.id).localeCompare(String(b.id), undefined, { numeric: true });
+        return String(a.song.id).localeCompare(String(b.song.id), undefined, { numeric: true });
       } else if (songsSortOrder === 'number-desc') {
         if (!isNaN(numA) && !isNaN(numB)) return numB - numA;
-        return String(b.id).localeCompare(String(a.id), undefined, { numeric: true });
+        return String(b.song.id).localeCompare(String(a.song.id), undefined, { numeric: true });
       } else if (songsSortOrder === 'title-asc') {
-        const titleA = getSortableTitle(a.title || '');
-        const titleB = getSortableTitle(b.title || '');
-        const cmp = titleA.localeCompare(titleB, 'fr', { numeric: true });
+        const cmp = a.sortableTitle.localeCompare(b.sortableTitle, 'fr', { numeric: true });
         if (cmp !== 0) return cmp;
         return (numA || 0) - (numB || 0);
       } else if (songsSortOrder === 'title-desc') {
-        const titleA = getSortableTitle(a.title || '');
-        const titleB = getSortableTitle(b.title || '');
-        const cmp = titleB.localeCompare(titleA, 'fr', { numeric: true });
+        const cmp = b.sortableTitle.localeCompare(a.sortableTitle, 'fr', { numeric: true });
         if (cmp !== 0) return cmp;
         return (numB || 0) - (numA || 0);
       }
       return 0;
     });
+
+    return mapped.map(item => item.song);
   }, [songs, deferredSearchQuery, songLanguageFilter, songsSortOrder]);
 
   const displayList = useMemo(() => {
@@ -914,6 +932,16 @@ const Sidebar: React.FC = () => {
 
   const handleSelectBibleChapter = (bookId: string, chapter: number) => {
     setSelectedSermonId(`bible-${bookId}-${chapter}`);
+    setSelectedBibleVerse(null);
+  };
+
+  const handleSelectBibleVerse = (bookId: string, chapter: number, verse: number) => {
+    const sermonTargetId = `bible-${bookId}-${chapter}`;
+    if (selectedSermonId !== sermonTargetId) {
+      setSelectedSermonId(sermonTargetId);
+    }
+    setSelectedBibleVerse(verse);
+    setJumpToParagraph(verse);
   };
 
   const currentItemsForDock = useMemo(() => {

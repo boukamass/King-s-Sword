@@ -68,7 +68,13 @@ export const ProjectionView: React.FC = memo(() => {
   const [isScrollable, setIsScrollable] = useState(false);
 
   const [isCursorIdle, setIsCursorIdle] = useState(false);
+  const isCursorIdleRef = useRef(false);
   const idleTimerRef = useRef<any>(null);
+
+  const updateCursorIdle = useCallback((idle: boolean) => {
+    isCursorIdleRef.current = idle;
+    setIsCursorIdle(idle);
+  }, []);
 
   // Fullscreen helper triggered on user gesture or auto-attempt
   const triggerFullscreen = useCallback(() => {
@@ -107,10 +113,12 @@ export const ProjectionView: React.FC = memo(() => {
     const gestureEvents = ['mousemove', 'pointermove', 'pointerdown', 'mousedown', 'keydown', 'touchstart', 'focus', 'wheel'];
     const handleGesture = () => {
       tryFs();
-      // Manage cursor auto-hide for total immersion
-      setIsCursorIdle(false);
+      // Manage cursor auto-hide for total immersion without redundant re-renders
+      if (isCursorIdleRef.current) {
+        updateCursorIdle(false);
+      }
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      idleTimerRef.current = setTimeout(() => setIsCursorIdle(true), 2500);
+      idleTimerRef.current = setTimeout(() => updateCursorIdle(true), 2500);
     };
 
     gestureEvents.forEach(evt => window.addEventListener(evt, handleGesture, { passive: true }));
