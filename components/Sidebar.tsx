@@ -515,7 +515,6 @@ const Sidebar: React.FC = () => {
   const [isSongModalOpen, setIsSongModalOpen] = useState(false);
   const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
   const [songToEdit, setSongToEdit] = useState<Song | null>(null);
-  const [songLanguageFilter, setSongLanguageFilter] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -603,6 +602,8 @@ const Sidebar: React.FC = () => {
   const dayFilter = useAppStore(s => s.dayFilter);
   const setDayFilter = useAppStore(s => s.setDayFilter);
   const languageFilter = useAppStore(s => s.languageFilter);
+  const songLanguageFilter = useAppStore(s => s.songLanguageFilter);
+  const setSongLanguageFilter = useAppStore(s => s.setSongLanguageFilter);
   const versionFilter = useAppStore(s => s.versionFilter);
   const setVersionFilter = useAppStore(s => s.setVersionFilter);
   const timeFilter = useAppStore(s => s.timeFilter);
@@ -767,6 +768,40 @@ const Sidebar: React.FC = () => {
       return nameNorm.includes(q) || catNorm.includes(q) || idNorm.includes(q);
     });
   }, [deferredSearchQuery, bibleTestamentFilter, bibleCategoryFilter]);
+
+  const dynamicSongLanguages = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (let i = 0; i < songs.length; i++) {
+      const l = (songs[i].language || 'fr').toLowerCase();
+      counts[l] = (counts[l] || 0) + 1;
+    }
+    const order = ['fr', 'en', 'ln', 'kg'];
+    const langs = Object.keys(counts).sort((a, b) => {
+      const idxA = order.indexOf(a);
+      const idxB = order.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.localeCompare(b);
+    });
+
+    const getLangLabel = (code: string) => {
+      switch (code) {
+        case 'fr': return 'Français';
+        case 'en': return 'English';
+        case 'ln': return 'Lingala';
+        case 'kg': return 'Kikongo';
+        default: return code.toUpperCase();
+      }
+    };
+
+    return langs.map(code => ({
+      code,
+      label: getLangLabel(code),
+      shortLabel: code.toUpperCase(),
+      count: counts[code]
+    }));
+  }, [songs]);
 
   const filteredSongs = useMemo(() => {
     const q = normalizeText(deferredSearchQuery.trim());
@@ -1130,61 +1165,94 @@ const Sidebar: React.FC = () => {
 
         {/* Songs Controls & Sorting */}
         {libraryMode === 'songs' && (
-          <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-slate-200/60 dark:border-zinc-800/80">
-            <span className="text-[8.5px] font-black uppercase tracking-wider text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 px-2 py-0.5 rounded-md border border-teal-200/50 dark:border-teal-800/40 shrink-0">
-              {filteredSongs.length} {filteredSongs.length === 1 ? 'cantique' : 'cantiques'}
-            </span>
+          <div className="flex flex-col gap-1.5 pt-1 border-t border-slate-200/60 dark:border-zinc-800/80">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[8.5px] font-black uppercase tracking-wider text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 px-2 py-0.5 rounded-md border border-teal-200/50 dark:border-teal-800/40 shrink-0">
+                {filteredSongs.length} {filteredSongs.length === 1 ? 'cantique' : 'cantiques'}
+              </span>
 
-            <div className="flex items-center gap-1.5">
-              {/* Sort Order Toggles */}
-              <div className="flex items-center bg-slate-200/60 dark:bg-zinc-900 p-0.5 rounded-lg border border-slate-300/40 dark:border-zinc-800">
+              <div className="flex items-center gap-1.5">
+                {/* Sort Order Toggles */}
+                <div className="flex items-center bg-slate-200/60 dark:bg-zinc-900 p-0.5 rounded-lg border border-slate-300/40 dark:border-zinc-800">
+                  <button
+                    onClick={() => {
+                      if (songsSortOrder === 'number-asc') {
+                        setSongsSortOrder('number-desc');
+                      } else {
+                        setSongsSortOrder('number-asc');
+                      }
+                    }}
+                    data-tooltip={songsSortOrder === 'number-asc' ? "Trier par N° décroissant (321→1)" : "Trier par N° croissant (1→321)"}
+                    className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider transition-all flex items-center gap-0.5 cursor-pointer ${
+                      songsSortOrder.startsWith('number') ? 'bg-teal-600 text-white shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <span>N°</span>
+                    <span>{songsSortOrder === 'number-desc' ? '▼' : '▲'}</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (songsSortOrder === 'title-asc' || songsSortOrder === 'number-asc') {
+                        setSongsSortOrder('title-desc');
+                      } else {
+                        setSongsSortOrder('title-asc');
+                      }
+                    }}
+                    data-tooltip={songsSortOrder === 'title-asc' ? "Trier par Titre Z→A" : "Trier par Titre A→Z"}
+                    className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider transition-all flex items-center gap-0.5 cursor-pointer ${
+                      songsSortOrder.startsWith('title') ? 'bg-teal-600 text-white shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <span>A-Z</span>
+                    <span>{songsSortOrder === 'title-desc' ? '▼' : '▲'}</span>
+                  </button>
+                </div>
+
+                {/* Add Song Button */}
                 <button
                   onClick={() => {
-                    if (songsSortOrder === 'number-asc') {
-                      setSongsSortOrder('number-desc');
-                    } else {
-                      setSongsSortOrder('number-asc');
-                    }
+                    setSongToEdit(null);
+                    setIsSongModalOpen(true);
                   }}
-                  data-tooltip={songsSortOrder === 'number-asc' ? "Trier par N° décroissant (321→1)" : "Trier par N° croissant (1→321)"}
-                  className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider transition-all flex items-center gap-0.5 cursor-pointer ${
-                    songsSortOrder.startsWith('number') ? 'bg-teal-600 text-white shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-                  }`}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-[8.5px] font-black uppercase tracking-wider shadow-sm transition-all active:scale-95 cursor-pointer"
+                  data-tooltip="Ajouter un cantique"
                 >
-                  <span>N°</span>
-                  <span>{songsSortOrder === 'number-desc' ? '▼' : '▲'}</span>
-                </button>
-                <button
-                  onClick={() => {
-                    if (songsSortOrder === 'title-asc' || songsSortOrder === 'number-asc') {
-                      setSongsSortOrder('title-desc');
-                    } else {
-                      setSongsSortOrder('title-asc');
-                    }
-                  }}
-                  data-tooltip={songsSortOrder === 'title-asc' ? "Trier par Titre Z→A" : "Trier par Titre A→Z"}
-                  className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider transition-all flex items-center gap-0.5 cursor-pointer ${
-                    songsSortOrder.startsWith('title') ? 'bg-teal-600 text-white shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-                  }`}
-                >
-                  <span>A-Z</span>
-                  <span>{songsSortOrder === 'title-desc' ? '▼' : '▲'}</span>
+                  <Plus className="w-3 h-3" />
+                  <span>Ajouter</span>
                 </button>
               </div>
-
-              {/* Add Song Button */}
-              <button
-                onClick={() => {
-                  setSongToEdit(null);
-                  setIsSongModalOpen(true);
-                }}
-                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-[8.5px] font-black uppercase tracking-wider shadow-sm transition-all active:scale-95 cursor-pointer"
-                data-tooltip="Ajouter un cantique"
-              >
-                <Plus className="w-3 h-3" />
-                <span>Ajouter</span>
-              </button>
             </div>
+
+            {/* Language Selection Badges */}
+            {dynamicSongLanguages.length > 1 && (
+              <div className="flex items-center gap-1 bg-white dark:bg-zinc-900/40 p-0.5 rounded-xl border border-slate-200 dark:border-zinc-800">
+                <button
+                  onClick={() => setSongLanguageFilter(null)}
+                  data-tooltip={`Tous les cantiques (${songs.length})`}
+                  className={`flex-1 py-1 text-[8px] font-black uppercase rounded-lg transition-all cursor-pointer ${
+                    songLanguageFilter === null
+                      ? 'bg-teal-600 text-white shadow-xs'
+                      : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+                  }`}
+                >
+                  Tous ({songs.length})
+                </button>
+                {dynamicSongLanguages.map(l => (
+                  <button
+                    key={l.code}
+                    onClick={() => setSongLanguageFilter(songLanguageFilter === l.code ? null : l.code)}
+                    data-tooltip={`${l.label} (${l.count} cantiques)`}
+                    className={`flex-1 py-1 text-[8px] font-black uppercase rounded-lg transition-all cursor-pointer ${
+                      songLanguageFilter === l.code
+                        ? 'bg-teal-600 text-white shadow-xs'
+                        : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+                    }`}
+                  >
+                    {l.shortLabel} ({l.count})
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

@@ -369,6 +369,7 @@ const Reader: React.FC = () => {
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [readerSearchQuery, setReaderSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<number[]>([]);
+  const [searchMatchWordIndices, setSearchMatchWordIndices] = useState<Set<number>>(new Set());
   const [currentResultIndex, setCurrentResultIndex] = useState(-1);
   const [isPlayerExpanded, setIsPlayerExpanded] = useState(false);
   const [noteSelectorPayload, setNoteSelectorPayload] = useState<{ text: string; sermon: Sermon; paragraphIndex?: number } | null>(null);
@@ -956,24 +957,41 @@ const Reader: React.FC = () => {
     if (readerSearchQuery.length >= 1) {
       startTransition(() => {
         const regex = getAccentInsensitiveRegex(readerSearchQuery, false);
-        const results = [];
+        const matchStarts: number[] = [];
+        const matchWords = new Set<number>();
         let match;
         while ((match = regex.exec(fullSermonText)) !== null) {
+            const matchStartChar = match.index;
+            const matchEndChar = match.index + match[0].length;
             let currentChar = 0;
+            let isFirstWordInMatch = true;
+
             for (let i = 0; i < words.length; i++) {
                 const wordLen = words[i].text.length;
-                if (currentChar + wordLen > match.index) {
-                  results.push(words[i].globalIndex);
-                  break;
+                const wordStart = currentChar;
+                const wordEnd = currentChar + wordLen;
+
+                if (wordEnd > matchStartChar && wordStart < matchEndChar) {
+                  matchWords.add(words[i].globalIndex);
+                  if (isFirstWordInMatch) {
+                    matchStarts.push(words[i].globalIndex);
+                    isFirstWordInMatch = false;
+                  }
                 }
                 currentChar += wordLen;
+                if (wordStart >= matchEndChar) break;
             }
             if (regex.lastIndex === match.index) regex.lastIndex++;
         }
-        setSearchResults(results);
-        setCurrentResultIndex(results.length > 0 ? 0 : -1);
+        setSearchResults(matchStarts);
+        setSearchMatchWordIndices(matchWords);
+        setCurrentResultIndex(matchStarts.length > 0 ? 0 : -1);
       });
-    } else { setSearchResults([]); setCurrentResultIndex(-1); }
+    } else { 
+      setSearchResults([]); 
+      setSearchMatchWordIndices(new Set());
+      setCurrentResultIndex(-1); 
+    }
   }, [readerSearchQuery, words, fullSermonText]);
 
   useEffect(() => {
@@ -1091,10 +1109,10 @@ const Reader: React.FC = () => {
     const set = new Set<number>();
     highlightMap.forEach((_, k) => set.add(k));
     citationHighlightMap.forEach((_, k) => set.add(k));
-    searchResults.forEach(idx => set.add(idx));
+    searchMatchWordIndices.forEach(idx => set.add(idx));
     jumpHighlightIndices.forEach(idx => set.add(idx));
     return set;
-  }, [highlightMap, citationHighlightMap, searchResults, jumpHighlightIndices]);
+  }, [highlightMap, citationHighlightMap, searchMatchWordIndices, jumpHighlightIndices]);
 
   const handleProjectSegment = useCallback((idx: number, isExplicitToggle = false) => {
     // ONLY explicit projection buttons (verse projection icon, toolbar button, prev/next controls, or paragraph click in projection mode) trigger projection!
@@ -1413,7 +1431,7 @@ const Reader: React.FC = () => {
             key={word.globalIndex} 
             word={word} 
             wordRef={(el: any) => { if(el) wordRefs.current.set(word.globalIndex, el); }} 
-            isSearchResult={searchResults.includes(word.globalIndex)} 
+            isSearchResult={searchMatchWordIndices.has(word.globalIndex)} 
             isCurrentResult={searchResults[currentResultIndex] === word.globalIndex} 
             isJumpHighlight={jumpHighlightIndices.includes(word.globalIndex)} 
             citationColor={citationHighlightMap.get(word.globalIndex)?.colorClass} 
@@ -1427,7 +1445,7 @@ const Reader: React.FC = () => {
     });
     if (textBuffer) elements.push(textBuffer);
     return elements;
-  }, [interactiveIndices, searchResults, currentResultIndex, jumpHighlightIndices, citationHighlightMap, highlightMap, handleRemoveHighlight, handleRemoveJumpHighlight, handleTextSelection]);
+  }, [interactiveIndices, searchMatchWordIndices, searchResults, currentResultIndex, jumpHighlightIndices, citationHighlightMap, highlightMap, handleRemoveHighlight, handleRemoveJumpHighlight, handleTextSelection]);
 
   const handleSearchNext = () => {
     if (searchResults.length === 0) return;

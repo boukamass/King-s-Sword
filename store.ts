@@ -41,6 +41,7 @@ interface AppState {
   manualContextIds: string[];
   libraryMode: 'sermons' | 'bible' | 'expose' | 'songs';
   songsSortOrder: 'number-asc' | 'number-desc' | 'title-asc' | 'title-desc';
+  songLanguageFilter: string | null;
   bibleTestamentFilter: 'ALL' | 'OT' | 'NT';
   bibleVersion: BibleVersion;
   selectedBibleBookId: string | null;
@@ -96,6 +97,7 @@ interface AppState {
   setSelectedSermonId: (id: string | null, multiSelect?: boolean, forceReload?: boolean) => Promise<void>;
   setLibraryMode: (mode: 'sermons' | 'bible' | 'expose' | 'songs') => void;
   setSongsSortOrder: (order: 'number-asc' | 'number-desc' | 'title-asc' | 'title-desc') => void;
+  setSongLanguageFilter: (lang: string | null) => void;
   setBibleTestamentFilter: (filter: 'ALL' | 'OT' | 'NT') => void;
   setBibleVersion: (version: BibleVersion) => Promise<void>;
   setSelectedBibleBookId: (bookId: string | null) => void;
@@ -168,6 +170,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   manualContextIds: [],
   libraryMode: 'sermons',
   songsSortOrder: 'number-asc',
+  songLanguageFilter: null,
   bibleTestamentFilter: 'ALL',
   bibleVersion: 'lsg1910',
   selectedBibleBookId: null,
@@ -415,6 +418,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setLibraryMode: (mode) => set({ libraryMode: mode, searchResults: [], isSearching: false }),
   setSongsSortOrder: (order) => set({ songsSortOrder: order }),
+  setSongLanguageFilter: (lang) => set({ songLanguageFilter: lang }),
   setBibleTestamentFilter: (filter) => set({ bibleTestamentFilter: filter }),
   setBibleVersion: async (version: BibleVersion) => {
     set({ bibleVersion: version });
@@ -484,7 +488,12 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
       } else if (libraryMode === 'expose') {
           const { searchExpose } = await import('./services/exposeService');
-          const results = await searchExpose(searchQuery, searchMode);
+          const results = await searchExpose(
+            searchQuery, 
+            searchMode, 
+            get().selectedExposeChapter, 
+            get().selectedExposeSection
+          );
           set({ searchResults: results, isSearching: false });
           
           if (results.length > 0) {
@@ -496,7 +505,11 @@ export const useAppStore = create<AppState>((set, get) => ({
           }
       } else if (libraryMode === 'songs') {
           const { searchSongs } = await import('./services/songService');
-          const results = await searchSongs(searchQuery, searchMode);
+          const results = await searchSongs(
+            searchQuery, 
+            searchMode, 
+            get().songLanguageFilter
+          );
           set({ searchResults: results, isSearching: false });
           
           if (results.length > 0) {

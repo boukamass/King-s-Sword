@@ -1,4 +1,4 @@
-import { getAccentInsensitiveRegex, getMultiWordHighlightRegex, normalizeText } from '../utils/textUtils';
+import { getAccentInsensitiveRegex, getMultiWordHighlightRegex, getSearchHighlightRegex, mergeAdjacentMarks, normalizeText } from '../utils/textUtils';
 import { Sermon, SearchMode } from '../types';
 import { fetchJsonSafe } from '../utils/fetchHelper';
 
@@ -192,7 +192,12 @@ export const getExposePage = async (pageNumber: number): Promise<Sermon | null> 
   };
 };
 
-export const searchExpose = async (query: string, mode: SearchMode = SearchMode.EXACT_WORDS) => {
+export const searchExpose = async (
+  query: string, 
+  mode: SearchMode = SearchMode.EXACT_WORDS,
+  chapterFilter?: string | null,
+  sectionFilter?: string | null
+) => {
     const data = await loadExposeData();
     if (!data) return [];
     
@@ -210,19 +215,18 @@ export const searchExpose = async (query: string, mode: SearchMode = SearchMode.
     const termsForHighlight = mode === SearchMode.EXACT_PHRASE 
       ? [trimmed] 
       : (queryWords.length > 0 ? queryWords : [trimmed]);
-    
-    const finalRegexSource = termsForHighlight
-      .map(t => t.trim())
-      .filter(t => t.length > 1)
-      .join('|');
 
-    const highlightRegex = finalRegexSource ? getMultiWordHighlightRegex(finalRegexSource) : null;
+    const isExactPhrase = mode === SearchMode.EXACT_PHRASE;
+    const highlightRegex = getSearchHighlightRegex(termsForHighlight, isExactPhrase);
 
     for (const pageNumber in data.pages) {
         const page = data.pages[pageNumber];
+        if (chapterFilter && String(page.chapter_number) !== String(chapterFilter)) continue;
+
         for (let i = 0; i < page.paragraphs.length; i++) {
             const p = page.paragraphs[i];
             if (!p.text) continue;
+            if (sectionFilter && p.section_title !== sectionFilter) continue;
             
             const normalizedText = normalizeText(p.text);
             let matchFound = false;
@@ -238,35 +242,31 @@ export const searchExpose = async (query: string, mode: SearchMode = SearchMode.
             
             if (matchFound) {
                 let snippetContent = p.text;
-                if (highlightRegex) {
-                  highlightRegex.lastIndex = 0;
-                  const matchExec = highlightRegex.exec(p.text);
+                highlightRegex.lastIndex = 0;
+                const matchExec = highlightRegex.exec(p.text);
 
-                  if (matchExec) {
-                    const matchPos = matchExec.index;
-                    const windowStart = Math.max(0, matchPos - 60);
-                    const windowEnd = Math.min(p.text.length, matchPos + 380);
-                    snippetContent = p.text.substring(windowStart, windowEnd);
-                    if (windowStart > 0) snippetContent = '...' + snippetContent;
-                    if (windowEnd < p.text.length) snippetContent = snippetContent + '...';
-                  }
+                if (matchExec) {
+                  const matchPos = matchExec.index;
+                  const windowStart = Math.max(0, matchPos - 60);
+                  const windowEnd = Math.min(p.text.length, matchPos + 380);
+                  snippetContent = p.text.substring(windowStart, windowEnd);
+                  if (windowStart > 0) snippetContent = '...' + snippetContent;
+                  if (windowEnd < p.text.length) snippetContent = snippetContent + '...';
                 }
 
                 let snippetFormatted = snippetContent.replace(/\n+/g, ' • ');
-                if (highlightRegex) {
-                  highlightRegex.lastIndex = 0;
-                  snippetFormatted = snippetFormatted.replace(highlightRegex, (m) => {
-                      return `<mark class="${markClass}">${m}</mark>`;
-                  });
-                }
+                highlightRegex.lastIndex = 0;
+                snippetFormatted = mergeAdjacentMarks(
+                  snippetFormatted.replace(highlightRegex, (m) => `<mark class="${markClass}">${m}</mark>`)
+                );
 
                 results.push({
                     sermonId: `expose-pg-${page.page_number}`,
                     paragraphId: p.paragraph_id,
-                    title: `Exposé - Page ${page.page_number}`,
+                    title: page.chapter_title ? `${page.chapter_title} - Page ${page.page_number}` : `Exposé - Page ${page.page_number}`,
                     date: '1965',
                     city: 'W.M. Branham',
-                    paragraphIndex: i + 1, // Store expects 1-based index usually
+                    paragraphIndex: i + 1, // 1-based paragraph index
                     snippet: snippetFormatted
                 });
             }
