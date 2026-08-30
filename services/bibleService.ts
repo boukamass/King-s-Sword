@@ -392,7 +392,7 @@ export const searchBibleVersesAdvanced = async (params: {
   const verMeta = BIBLE_VERSIONS_META[version] || BIBLE_VERSIONS_META.lsg1910;
 
   // Précharger le jeu de données intégral pour des recherches ultra-rapides
-  await ensureFullBibleLoaded(version);
+  const fullData = await ensureFullBibleLoaded(version);
 
   const results: any[] = [];
   const limit = params.limit || 10000;
@@ -410,6 +410,7 @@ export const searchBibleVersesAdvanced = async (params: {
     } else if (params.showOnlyQuery) {
       termsForHighlight = [params.query];
     } else {
+      // Par défaut, on surligne le mot recherché ET ses synonymes
       termsForHighlight = [params.query, ...params.synonyms];
     }
   } else {
@@ -431,15 +432,37 @@ export const searchBibleVersesAdvanced = async (params: {
     return true;
   });
 
-  for (const meta of targetBooks) {
-    const book = await getBibleBook(meta.id, version);
-    if (!book) continue;
+  const versionLoadedMap = loadedBooksMap.get(version);
 
-    for (const [chNumStr, verses] of Object.entries(book.chapters)) {
+  let bookIdx = 0;
+  for (const meta of targetBooks) {
+    bookIdx++;
+    if (bookIdx % 15 === 0) {
+      await new Promise(r => setTimeout(r, 0));
+    }
+
+    // Récupération directe en mémoire (évite 66 appels asynchrones redondants)
+    let chapters: Record<number, BibleVerse[]> | null = null;
+    if (versionLoadedMap && versionLoadedMap.has(meta.id)) {
+      chapters = versionLoadedMap.get(meta.id)!;
+    } else if (fullData && fullData[meta.id]) {
+      chapters = fullData[meta.id];
+    } else if (version === 'lsg1910' && BIBLE_LOUIS_SEGOND_CORE[meta.id]) {
+      chapters = BIBLE_LOUIS_SEGOND_CORE[meta.id];
+    } else {
+      const b = await getBibleBook(meta.id, version);
+      if (b) chapters = b.chapters;
+    }
+
+    if (!chapters) continue;
+
+    for (const [chNumStr, verses] of Object.entries(chapters)) {
       const chNum = parseInt(chNumStr, 10);
+      if (!Array.isArray(verses)) continue;
       
       for (let i = 0; i < verses.length; i++) {
         const v = verses[i];
+        if (!v || !v.text) continue;
         const content = `${v.verse}. ${v.text}`;
         const normalizedContent = normalizeText(content);
         let matchFound = false;

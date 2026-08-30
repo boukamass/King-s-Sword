@@ -1,6 +1,6 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BookOpenCheck, Calendar, Clock, ChevronDown, ChevronUp, MapPin } from 'lucide-react';
-import { Highlight } from '../types';
+import { BookOpenCheck, Calendar, Clock, ChevronDown, ChevronUp, MapPin, Image as ImageIcon } from 'lucide-react';
+import { Highlight, ProjectedImageMedia } from '../types';
 import { WordDefinition } from '../services/dictionaryService';
 
 const PROJECTION_HIGHLIGHT_STYLING: Record<string, string> = {
@@ -30,6 +30,8 @@ export interface ProjectionSyncPayload {
   searchResults: number[];
   currentResultIndex: number;
   activeDefinition: WordDefinition | null;
+  isBible?: boolean;
+  projectedImage?: ProjectedImageMedia | null;
 }
 
 const DEFAULT_SYNC_DATA: ProjectionSyncPayload = {
@@ -45,7 +47,9 @@ const DEFAULT_SYNC_DATA: ProjectionSyncPayload = {
   selectionIndices: [],
   searchResults: [],
   currentResultIndex: -1,
-  activeDefinition: null
+  activeDefinition: null,
+  isBible: false,
+  projectedImage: null
 };
 
 export const ProjectionView: React.FC = memo(() => {
@@ -154,19 +158,193 @@ export const ProjectionView: React.FC = memo(() => {
     setScrollProgress(maxScroll > 0 ? Math.round((scrollTop / maxScroll) * 100) : 0);
   }, []);
 
-  const handleScrollDown = useCallback((amountMultiplier = 0.45) => {
-    if (scrollContainerRef.current) {
-      const scrollStep = window.innerHeight * amountMultiplier;
-      scrollContainerRef.current.scrollBy({ top: scrollStep, behavior: 'smooth' });
+  // --- Silky Smooth Physics-based Wheel & Key Scroll Engine ---
+  const targetScrollTopRef = useRef<number>(0);
+  const isAnimatingScrollRef = useRef<boolean>(false);
+  const smoothAnimFrameRef = useRef<number | null>(null);
+
+  const stepSmoothScroll = useCallback(() => {
+    if (!scrollContainerRef.current) {
+      isAnimatingScrollRef.current = false;
+      return;
     }
+    const current = scrollContainerRef.current.scrollTop;
+    const target = targetScrollTopRef.current;
+    const diff = target - current;
+
+    if (Math.abs(diff) < 0.6) {
+      scrollContainerRef.current.scrollTop = target;
+      isAnimatingScrollRef.current = false;
+      updateScrollState();
+      return;
+    }
+
+    // Perfectly balanced easing (0.16) for fluid, non-abrupt and responsive scrolling
+    scrollContainerRef.current.scrollTop = current + diff * 0.16;
+    updateScrollState();
+    smoothAnimFrameRef.current = requestAnimationFrame(stepSmoothScroll);
+  }, [updateScrollState]);
+
+  const smoothScrollBy = useCallback((amount: number) => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollHeight - el.clientHeight;
+    if (maxScroll <= 0) return;
+
+    if (!isAnimatingScrollRef.current) {
+      targetScrollTopRef.current = el.scrollTop;
+    }
+    targetScrollTopRef.current = Math.max(0, Math.min(maxScroll, targetScrollTopRef.current + amount));
+
+    if (!isAnimatingScrollRef.current) {
+      isAnimatingScrollRef.current = true;
+      if (smoothAnimFrameRef.current) cancelAnimationFrame(smoothAnimFrameRef.current);
+      smoothAnimFrameRef.current = requestAnimationFrame(stepSmoothScroll);
+    }
+  }, [stepSmoothScroll]);
+
+  const handleScrollDown = useCallback((amountMultiplier = 0.4) => {
+    smoothScrollBy(window.innerHeight * amountMultiplier);
+  }, [smoothScrollBy]);
+
+  const handleScrollUp = useCallback((amountMultiplier = 0.4) => {
+    smoothScrollBy(-window.innerHeight * amountMultiplier);
+  }, [smoothScrollBy]);
+
+  // --- Middle-Click (Molette / Bouton Central) Autoscroll Engine ---
+  const [autoScrollOrigin, setAutoScrollOrigin] = useState<{ x: number; y: number } | null>(null);
+  const [autoScrollDirection, setAutoScrollDirection] = useState<'up' | 'down' | 'idle'>('idle');
+  const autoScrollOriginRef = useRef<{ x: number; y: number } | null>(null);
+  const autoScrollVelocityRef = useRef<number>(0);
+  const autoScrollLoopRef = useRef<number | null>(null);
+
+  const stopAutoScroll = useCallback(() => {
+    if (autoScrollLoopRef.current) {
+      cancelAnimationFrame(autoScrollLoopRef.current);
+      autoScrollLoopRef.current = null;
+    }
+    autoScrollOriginRef.current = null;
+    autoScrollVelocityRef.current = 0;
+    setAutoScrollOrigin(null);
+    setAutoScrollDirection('idle');
   }, []);
 
-  const handleScrollUp = useCallback((amountMultiplier = 0.45) => {
-    if (scrollContainerRef.current) {
-      const scrollStep = window.innerHeight * amountMultiplier;
-      scrollContainerRef.current.scrollBy({ top: -scrollStep, behavior: 'smooth' });
+  const runAutoScrollLoop = useCallback(() => {
+    if (!autoScrollOriginRef.current || !scrollContainerRef.current) {
+      stopAutoScroll();
+      return;
     }
-  }, []);
+
+    if (Math.abs(autoScrollVelocityRef.current) > 0.02) {
+      scrollContainerRef.current.scrollTop += autoScrollVelocityRef.current;
+      targetScrollTopRef.current = scrollContainerRef.current.scrollTop;
+      updateScrollState();
+    }
+
+    autoScrollLoopRef.current = requestAnimationFrame(runAutoScrollLoop);
+  }, [stopAutoScroll, updateScrollState]);
+
+  const startAutoScroll = useCallback((x: number, y: number) => {
+    if (autoScrollOriginRef.current) {
+      stopAutoScroll();
+      return;
+    }
+
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollHeight - el.clientHeight;
+    if (maxScroll <= 0) return;
+
+    // Stop any ongoing wheel animation
+    if (isAnimatingScrollRef.current) {
+      isAnimatingScrollRef.current = false;
+      if (smoothAnimFrameRef.current) cancelAnimationFrame(smoothAnimFrameRef.current);
+    }
+
+    autoScrollOriginRef.current = { x, y };
+    autoScrollVelocityRef.current = 0;
+    setAutoScrollOrigin({ x, y });
+    setAutoScrollDirection('idle');
+
+    if (autoScrollLoopRef.current) cancelAnimationFrame(autoScrollLoopRef.current);
+    autoScrollLoopRef.current = requestAnimationFrame(runAutoScrollLoop);
+  }, [runAutoScrollLoop, stopAutoScroll]);
+
+  // Wheel listener for ultra-smooth fluid scrolling without abrupt browser notches
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      const el = scrollContainerRef.current;
+      if (!el) return;
+      const maxScroll = el.scrollHeight - el.clientHeight;
+      if (maxScroll <= 0) return;
+
+      if (autoScrollOriginRef.current) {
+        stopAutoScroll();
+      }
+
+      e.preventDefault();
+      // Calibrated smooth step (neither too fast nor sluggish)
+      const step = e.deltaY * 0.85;
+      smoothScrollBy(step);
+    };
+
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      window.removeEventListener('wheel', handleWheel);
+    };
+  }, [smoothScrollBy, stopAutoScroll]);
+
+  // Mouse listeners for middle button (button 1) autoscroll
+  useEffect(() => {
+    const handleMouseDown = (e: MouseEvent) => {
+      // Middle button click (button === 1)
+      if (e.button === 1) {
+        e.preventDefault();
+        e.stopPropagation();
+        startAutoScroll(e.clientX, e.clientY);
+        return;
+      }
+
+      // Any other click cancels autoscroll mode
+      if (autoScrollOriginRef.current) {
+        stopAutoScroll();
+      }
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!autoScrollOriginRef.current) return;
+      const dy = e.clientY - autoScrollOriginRef.current.y;
+      const deadzone = 10;
+
+      if (Math.abs(dy) <= deadzone) {
+        autoScrollVelocityRef.current = 0;
+        setAutoScrollDirection('idle');
+      } else {
+        const sign = Math.sign(dy);
+        const distance = Math.abs(dy) - deadzone;
+        // Natural speed curve: gentle start, maximum comfort speed for reading projection (~15px/frame)
+        const speed = Math.min(15, Math.pow(distance / 9, 1.25) * 0.7);
+        autoScrollVelocityRef.current = sign * speed;
+        setAutoScrollDirection(sign > 0 ? 'down' : 'up');
+      }
+    };
+
+    const handleAuxClick = (e: MouseEvent) => {
+      if (e.button === 1) {
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('auxclick', handleAuxClick);
+
+    return () => {
+      window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('auxclick', handleAuxClick);
+    };
+  }, [startAutoScroll, stopAutoScroll]);
 
   // Multi-channel Communication: BroadcastChannel, window.opener postMessage, localStorage
   useEffect(() => {
@@ -187,9 +365,14 @@ export const ProjectionView: React.FC = memo(() => {
           selectionIndices: data.selectionIndices || [],
           searchResults: data.searchResults || [],
           currentResultIndex: data.currentResultIndex ?? -1,
-          activeDefinition: data.activeDefinition || null
+          activeDefinition: data.activeDefinition || null,
+          isBible: data.isBible ?? false,
+          projectedImage: data.projectedImage || null
         };
         setSyncData(prev => {
+          if (payload.projectedImage) {
+            return payload;
+          }
           if (!payload.text && prev.text && payload.title === prev.title && !payload.blackout) {
             return { ...prev, ...payload, text: prev.text, projectedWords: prev.projectedWords };
           }
@@ -403,6 +586,12 @@ export const ProjectionView: React.FC = memo(() => {
     syncData.time === 'Chant' ||
     Boolean(syncData.title && /^\d+\.\s*/.test(syncData.title) && syncData.date === 'Cantique');
 
+  const isBible = Boolean(
+    syncData.isBible ||
+    (syncData.city && (syncData.city.includes('Testament') || syncData.city.includes('Bible'))) ||
+    (syncData.date && ['LSG 1910', 'KJV', 'DARBY', 'OSTERVALD', 'MARTIN', 'BIBLE'].includes(syncData.date.toUpperCase()))
+  );
+
   const songLines = useMemo(() => {
     if (!syncData.text) return [];
     return syncData.text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
@@ -417,12 +606,25 @@ export const ProjectionView: React.FC = memo(() => {
   const songFontSizeCSS = `min(${songFitWidthVw.toFixed(2)}vw, ${songFitHeightVh.toFixed(2)}vh, 8.5vmin)`;
   const songLineHeight = 1.32;
 
-  // For sermon paragraphs: readable sizing
-  const sermonCalculatedSize = Math.max(5.6, Math.min(13.5, (102 / Math.sqrt(Math.min(chars, 420))) * 1.5));
-  const sermonLineHeight = Math.max(1.25, Math.min(1.48, 1.62 - sermonCalculatedSize / 20));
+  // Fixed optimal font sizing calibrated for 1080p screen viewed at 15-18 meters (no auto font resizing, perfectly readable and proportioned)
+  const sermonFixedFontSize = '5.4vmin';
+  // Slightly increased line-height for sermons and exposé as requested (optimal breathability and clarity at 15-18m)
+  const sermonLineHeight = 1.48;
 
-  const calculatedFontSize = isSong ? songFontSizeCSS : `${sermonCalculatedSize}vmin`;
-  const calculatedLineHeight = isSong ? songLineHeight : sermonLineHeight;
+  // Fixed optimal font size for Bible verses (calibrated for 1080p screens viewed at 15-18m)
+  const bibleCalculatedSize = '5.2vmin';
+  const bibleLineHeight = 1.44;
+
+  const calculatedFontSize = isSong
+    ? songFontSizeCSS
+    : isBible
+    ? bibleCalculatedSize
+    : sermonFixedFontSize;
+  const calculatedLineHeight = isSong
+    ? songLineHeight
+    : isBible
+    ? bibleLineHeight
+    : sermonLineHeight;
 
   // Split projected words into lines so song lines never wrap (MUST be called on every render)
   const songLinesOfWords = useMemo(() => {
@@ -453,6 +655,71 @@ export const ProjectionView: React.FC = memo(() => {
   }, [isSong, syncData.projectedWords]);
 
   if (syncData.blackout) return <div className="fixed inset-0 bg-black z-[99999] cursor-none" />;
+
+  // Image Projection Module (VideoPsalm / Broadcast Quality Presentation)
+  if (syncData.projectedImage && syncData.projectedImage.url) {
+    const img = syncData.projectedImage;
+    const isPortrait = (img.orientation === 'portrait') || (img.aspectRatio && img.aspectRatio < 0.95);
+
+    return (
+      <div 
+        onClick={!isFullscreen ? triggerFullscreen : undefined}
+        className={`fixed inset-0 bg-black flex flex-col items-center justify-center select-none overflow-hidden h-screen w-screen font-sans animate-in fade-in duration-300 relative ${
+          isCursorIdle ? 'cursor-none' : 'cursor-default'
+        }`}
+      >
+        {isPortrait ? (
+          <>
+            {/* Ambient Blurred Background for Portrait Images (Fills 16:9 widescreen naturally) */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              <img
+                src={img.url}
+                alt=""
+                className="w-full h-full object-cover scale-125 blur-3xl opacity-40 brightness-60 select-none transform-gpu"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/60" />
+            </div>
+
+            {/* Foreground Sharp Centered Portrait Image */}
+            <div className="relative z-10 flex flex-col items-center justify-center h-full w-full p-4 sm:p-6 md:p-8">
+              <div className="relative max-h-[92vh] max-w-[92vw] flex items-center justify-center shadow-2xl rounded-2xl overflow-hidden ring-1 ring-white/20">
+                <img
+                  src={img.url}
+                  alt={img.name || 'Image projetée'}
+                  className="max-h-[90vh] max-w-[85vw] object-contain rounded-xl select-none animate-in zoom-in-95 fade-in duration-300 transform-gpu"
+                />
+              </div>
+            </div>
+          </>
+        ) : (
+          /* Landscape mode: Crisp widescreen presentation with preserved aspect ratio */
+          <div className="relative z-10 flex flex-col items-center justify-center h-full w-full p-2 sm:p-4 md:p-6">
+            <img
+              src={img.url}
+              alt={img.name || 'Image projetée'}
+              className="max-h-[94vh] max-w-[96vw] object-contain shadow-2xl rounded-lg select-none animate-in zoom-in-95 fade-in duration-300 transform-gpu"
+            />
+          </div>
+        )}
+
+        {/* Optional Caption Subtitle */}
+        {img.caption && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 max-w-4xl px-6 py-2.5 bg-black/80 backdrop-blur-md rounded-2xl border border-white/20 text-center text-white text-[2.2vmin] font-bold shadow-2xl animate-in slide-in-from-bottom-2 duration-200">
+            <p className="leading-snug drop-shadow">{img.caption}</p>
+          </div>
+        )}
+
+        {/* Format Badge Indicator (Landscape / Portrait) */}
+        {!isFullscreen && (
+          <div className="absolute top-4 right-4 z-30 flex items-center gap-2 opacity-70 hover:opacity-100 transition-opacity">
+            <span className="text-[10px] font-bold uppercase tracking-widest px-3 py-1 bg-black/70 backdrop-blur-md rounded-full text-teal-300 border border-teal-500/40 shadow-lg">
+              {isPortrait ? 'Format Portrait' : 'Format Paysage'}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (!hasText && !hasTitle) {
     return (
@@ -563,7 +830,7 @@ export const ProjectionView: React.FC = memo(() => {
         <div
           ref={scrollContainerRef}
           onScroll={updateScrollState}
-          className={`flex-1 overflow-y-auto custom-scrollbar scroll-smooth py-6 flex flex-col justify-start items-stretch w-full ${
+          className={`flex-1 overflow-y-auto custom-scrollbar py-6 flex flex-col justify-start items-stretch w-full ${
             isSong ? 'px-3 sm:px-4 md:px-6' : 'pl-5 sm:pl-7 md:pl-10 pr-3 sm:pr-4 md:pr-6'
           }`}
         >
@@ -707,6 +974,41 @@ export const ProjectionView: React.FC = memo(() => {
           </div>
         </div>
       </div>
+
+      {/* Middle Mouse Button (Molette) AutoScroll HUD Disc */}
+      {autoScrollOrigin && (
+        <div
+          className="fixed pointer-events-none z-[999999] flex items-center justify-center -translate-x-1/2 -translate-y-1/2"
+          style={{ left: `${autoScrollOrigin.x}px`, top: `${autoScrollOrigin.y}px` }}
+        >
+          <div className="relative w-12 h-12 rounded-full bg-zinc-950/90 border-2 border-teal-500/90 shadow-[0_0_30px_rgba(20,184,166,0.5)] backdrop-blur-md flex items-center justify-center animate-in zoom-in-75 duration-150">
+            {/* Top Directional Arrow */}
+            <ChevronUp
+              className={`w-4 h-4 absolute top-0.5 transition-all duration-150 ${
+                autoScrollDirection === 'up'
+                  ? 'text-teal-300 scale-125 -translate-y-0.5 drop-shadow-[0_0_8px_rgba(45,212,191,0.9)]'
+                  : 'text-zinc-600 opacity-60'
+              }`}
+            />
+            {/* Center Anchor Indicator */}
+            <div
+              className={`w-2.5 h-2.5 rounded-full transition-all duration-150 ${
+                autoScrollDirection !== 'idle'
+                  ? 'bg-teal-400 scale-110 shadow-[0_0_10px_rgba(45,212,191,0.9)]'
+                  : 'bg-zinc-400'
+              }`}
+            />
+            {/* Bottom Directional Arrow */}
+            <ChevronDown
+              className={`w-4 h-4 absolute bottom-0.5 transition-all duration-150 ${
+                autoScrollDirection === 'down'
+                  ? 'text-teal-300 scale-125 translate-y-0.5 drop-shadow-[0_0_8px_rgba(45,212,191,0.9)]'
+                  : 'text-zinc-600 opacity-60'
+              }`}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Definition Pop-up Modal on Grand Screen */}
       {syncData.activeDefinition && (

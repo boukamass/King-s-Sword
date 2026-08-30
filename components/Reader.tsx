@@ -9,6 +9,12 @@ import { PALETTE_HIGHLIGHT_COLORS } from '../constants';
 import { formatSongContent } from '../services/songService';
 import NoteSelectorModal from './NoteSelectorModal';
 import { 
+  openProjectionWindow, 
+  broadcastProjectionPayload, 
+  closeProjectionWindow, 
+  ProjectionSyncPayload 
+} from '../services/projectionService';
+import { 
   Printer, 
   Search, 
   Maximize, 
@@ -47,6 +53,7 @@ import {
   Feather, 
   Milestone, 
   MonitorPlay,
+  Image as ImageIcon,
   Layers,
   Info,
   History,
@@ -57,7 +64,8 @@ import {
   Music,
   Edit3,
   Library,
-  BookText
+  BookText,
+  ListOrdered
 } from 'lucide-react';
 import SongModal from './SongModal';
 
@@ -254,6 +262,9 @@ const Reader: React.FC = () => {
   const setExternalMaskOpen = useAppStore(s => s.setExternalMaskOpen);
   const projectionBlackout = useAppStore(s => s.projectionBlackout);
   const setProjectionBlackout = useAppStore(s => s.setProjectionBlackout);
+  const projectedImage = useAppStore(s => s.projectedImage);
+  const setProjectedImage = useAppStore(s => s.setProjectedImage);
+  const toggleImageModal = useAppStore(s => s.toggleImageModal);
   const fontSize = useAppStore(s => s.fontSize);
   const setFontSize = useAppStore(s => s.setFontSize);
   
@@ -392,6 +403,18 @@ const Reader: React.FC = () => {
   const [jumpHighlightIndices, setJumpHighlightIndices] = useState<number[]>([]);
   const [syncToggle, setSyncToggle] = useState(0);
   const [isSongModalOpen, setIsSongModalOpen] = useState(false);
+  const [isNavPanelOpen, setIsNavPanelOpen] = useState(() => typeof window !== 'undefined' ? window.innerWidth > 768 : true);
+  const [navFilterText, setNavFilterText] = useState('');
+
+  const filteredSegments = useMemo(() => {
+    return structuredSegments.map((seg, idx) => ({ seg, idx, num: idx + 1 }))
+      .filter(({ num, seg }) => {
+        if (!navFilterText.trim()) return true;
+        const q = navFilterText.trim().toLowerCase();
+        if (String(num).includes(q)) return true;
+        return seg.text.toLowerCase().includes(q);
+      });
+  }, [structuredSegments, navFilterText]);
 
   const isCurrentInDock = useMemo(() => {
     if (!activeSermon?.id) return false;
@@ -600,7 +623,29 @@ const Reader: React.FC = () => {
     };
   }, [setExternalMaskOpen, handleSelectionChange]);
 
-  const getProjectionPayload = useCallback((targetSegmentIdx?: number | null) => {
+  const getProjectionPayload = useCallback((targetSegmentIdx?: number | null): ProjectionSyncPayload | null => {
+    if (projectedImage) {
+      return {
+        type: 'sync' as const,
+        title: projectedImage.name || '',
+        date: '',
+        city: '',
+        time: '',
+        text: '',
+        projectedWords: [],
+        fontSize,
+        theme,
+        blackout: projectionBlackout,
+        highlights: [],
+        selectionIndices: [],
+        searchResults: [],
+        currentResultIndex: -1,
+        activeDefinition: null,
+        isBible: false,
+        projectedImage
+      };
+    }
+
     if (!sermon) return null;
     
     const activeIdx = targetSegmentIdx !== undefined 
@@ -609,7 +654,7 @@ const Reader: React.FC = () => {
     
     if (activeIdx === null || activeIdx < 0 || !structuredSegments[activeIdx]) {
       return {
-        type: 'sync',
+        type: 'sync' as const,
         title: sermon.title || '',
         date: sermon.date || '',
         city: sermon.city || '',
@@ -623,7 +668,9 @@ const Reader: React.FC = () => {
         selectionIndices: [],
         searchResults: [],
         currentResultIndex: -1,
-        activeDefinition: null
+        activeDefinition: null,
+        isBible,
+        projectedImage: null
       };
     }
 
@@ -649,7 +696,7 @@ const Reader: React.FC = () => {
     }
 
     return {
-      type: 'sync',
+      type: 'sync' as const,
       title: sermon.title || '',
       date: sermon.date || '',
       city: sermon.city || '',
@@ -663,9 +710,11 @@ const Reader: React.FC = () => {
       selectionIndices,
       searchResults,
       currentResultIndex,
-      activeDefinition
+      activeDefinition,
+      isBible,
+      projectedImage: null
     };
-  }, [sermon, structuredSegments, segments, selectionIndices, highlightMap, jumpHighlightIndices, searchResults, currentResultIndex, activeDefinition, fontSize, theme, projectionBlackout]);
+  }, [sermon, structuredSegments, segments, selectionIndices, highlightMap, jumpHighlightIndices, searchResults, currentResultIndex, activeDefinition, fontSize, theme, projectionBlackout, isBible, projectedImage]);
 
   const prevSermonIdRef = useRef(sermon?.id);
   useEffect(() => {
@@ -675,27 +724,10 @@ const Reader: React.FC = () => {
     }
   }, [sermon?.id, updateProjectedSegmentIndex]);
 
-  const lastPayloadStrRef = useRef<string>('');
-
   const sendProjectionPayload = useCallback((targetSegmentIdx?: number | null) => {
     const payload = getProjectionPayload(targetSegmentIdx);
     if (!payload) return;
-
-    const payloadStr = JSON.stringify(payload);
-    if (payloadStr !== lastPayloadStrRef.current) {
-      lastPayloadStrRef.current = payloadStr;
-      try {
-        localStorage.setItem('kings_sword_last_projection_sync', payloadStr);
-        sessionStorage.setItem('kings_sword_last_projection_sync', payloadStr);
-      } catch (e) {}
-    }
-
-    if (broadcastChannel.current) {
-      try { broadcastChannel.current.postMessage(payload); } catch (e) {}
-    }
-    if (projectionWindow && !projectionWindow.closed) {
-      try { projectionWindow.postMessage(payload, '*'); } catch (e) {}
-    }
+    broadcastProjectionPayload(payload);
   }, [getProjectionPayload]);
 
   useEffect(() => {
@@ -703,34 +735,22 @@ const Reader: React.FC = () => {
   }, [sendProjectionPayload]);
 
   useEffect(() => {
-    if (sermon && isProjectionOpen) {
+    if ((sermon || projectedImage) && isProjectionOpen) {
       sendProjectionPayload(projectedSegmentIndexRef.current);
     }
-  }, [sermon, projectedSegmentIndex, isProjectionOpen, sendProjectionPayload, syncToggle]);
+  }, [sermon, projectedSegmentIndex, isProjectionOpen, sendProjectionPayload, syncToggle, projectedImage]);
 
   const stopProjection = useCallback(() => {
-    if (projectionWindow) {
-      try {
-        if (!projectionWindow.closed) {
-          projectionWindow.close();
-        }
-      } catch (e) {}
-    }
+    closeProjectionWindow();
     projectionWindow = null;
     setIsProjectionOpen(false);
     updateProjectedSegmentIndex(null);
-    if (broadcastChannel.current) {
-      try {
-        broadcastChannel.current.postMessage({ type: 'close' });
-      } catch (e) {}
-    }
-    try {
-      localStorage.removeItem('kings_sword_last_projection_sync');
-    } catch (e) {}
-  }, []);
+  }, [updateProjectedSegmentIndex]);
 
   const ensureProjectionWindow = useCallback((targetIdx?: number) => {
-    const isWindowActive = Boolean(projectionWindow && !projectionWindow.closed);
+    if (projectedImage) {
+      setProjectedImage(null);
+    }
 
     const firstNonEmptyIdx = structuredSegments.findIndex(s => s.text.trim().length > 0);
     const defaultIdx = firstNonEmptyIdx !== -1 ? firstNonEmptyIdx : (structuredSegments.length > 0 ? 0 : null);
@@ -743,76 +763,13 @@ const Reader: React.FC = () => {
       updateProjectedSegmentIndex(effectiveIdx);
     }
 
-    if (isWindowActive && projectionWindow) {
-      setIsProjectionOpen(true);
-      sendProjectionPayload(effectiveIdx);
-      try { projectionWindow.focus(); } catch (e) {}
-      return;
-    }
-
-    // Window is NOT active -> open new projection window on 2nd screen synchronously
     setIsProjectionOpen(true);
-    projectionWindow = null;
-
-    sendProjectionPayload(effectiveIdx);
-
-    const url = new URL(window.location.href);
-    url.searchParams.set('projection', 'true');
-
-    const dualScreenLeft = window.screenLeft !== undefined ? window.screenLeft : (window.screenX || 0);
-    const dualScreenTop = window.screenTop !== undefined ? window.screenTop : (window.screenY || 0);
-    const currentWidth = window.outerWidth || window.innerWidth || (window.screen?.availWidth || 1920);
-
-    let left = dualScreenLeft + currentWidth;
-    let top = dualScreenTop;
-    let targetWidth = window.screen?.availWidth || 1920;
-    let targetHeight = window.screen?.availHeight || 1080;
-
-    const windowFeatures = `width=${targetWidth},height=${targetHeight},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=no`;
-
-    try {
-      projectionWindow = window.open(url.toString(), 'KingsSwordProjection', windowFeatures);
-      if (projectionWindow === window) {
-        projectionWindow = null;
-        try {
-          const cleanUrl = window.location.pathname + window.location.hash;
-          window.history.replaceState({}, '', cleanUrl);
-        } catch (e) {}
-      }
-    } catch (err) {
-      projectionWindow = null;
+    const payload = getProjectionPayload(effectiveIdx);
+    if (payload) {
+      const win = openProjectionWindow(payload);
+      projectionWindow = win;
     }
-
-    if (projectionWindow) {
-      try {
-        projectionWindow.moveTo(left, top);
-        projectionWindow.resizeTo(targetWidth, targetHeight);
-        projectionWindow.focus();
-      } catch (e) {}
-
-      sendProjectionPayload(effectiveIdx);
-
-      if ('getScreenDetails' in window || 'queryLocalScreens' in window) {
-        const getDetails = (window as any).getScreenDetails || (window as any).queryLocalScreens;
-        getDetails().then((screenDetails: any) => {
-          if (screenDetails && screenDetails.screens && screenDetails.screens.length > 1 && projectionWindow && !projectionWindow.closed) {
-            const current = screenDetails.currentScreen;
-            const secondary = screenDetails.screens.find((s: any) => s !== current || !s.isPrimary) || screenDetails.screens[1];
-            if (secondary) {
-              const secLeft = secondary.availLeft ?? secondary.left ?? left;
-              const secTop = secondary.availTop ?? secondary.top ?? top;
-              const secWidth = secondary.availWidth ?? secondary.width ?? targetWidth;
-              const secHeight = secondary.availHeight ?? secondary.height ?? targetHeight;
-              try {
-                projectionWindow.moveTo(secLeft, secTop);
-                projectionWindow.resizeTo(secWidth, secHeight);
-              } catch (e) {}
-            }
-          }
-        }).catch(() => {});
-      }
-    }
-  }, [structuredSegments, updateProjectedSegmentIndex, sendProjectionPayload]);
+  }, [structuredSegments, updateProjectedSegmentIndex, getProjectionPayload, projectedImage, setProjectedImage]);
 
   const reopenProjectionWindow = useCallback(() => {
     ensureProjectionWindow();
@@ -1720,6 +1677,26 @@ const Reader: React.FC = () => {
               isFullscreen={isOSFullscreen} 
               baseFontSize={fontSize} 
             />
+            <ActionButton 
+              onClick={() => toggleImageModal()} 
+              icon={ImageIcon} 
+              tooltip="Projeter des Images (Détection Auto Paysage/Portrait)" 
+              active={Boolean(projectedImage)} 
+              special={Boolean(projectedImage)} 
+              isFullscreen={isOSFullscreen} 
+              baseFontSize={fontSize} 
+            />
+            {structuredSegments.length > 0 && (
+              <ActionButton 
+                onClick={() => setIsNavPanelOpen(prev => !prev)} 
+                icon={ListOrdered} 
+                tooltip={isNavPanelOpen ? "Masquer le sélecteur vertical de versets / paragraphes" : "Afficher le sélecteur vertical de versets / paragraphes"} 
+                active={isNavPanelOpen} 
+                special={isNavPanelOpen}
+                isFullscreen={isOSFullscreen} 
+                baseFontSize={fontSize} 
+              />
+            )}
 
             {/* Zoom / Font controls */}
             <div 
@@ -1761,38 +1738,6 @@ const Reader: React.FC = () => {
         <div className="shrink-0 min-h-11 py-1.5 bg-teal-950/95 text-white border-b border-teal-800/80 flex items-center justify-center sm:justify-end px-4 md:px-8 z-[100000] animate-in slide-in-from-top-2 duration-200 shadow-lg flex-wrap gap-2">
           <div className="flex items-center gap-2 flex-wrap">
             <button
-              onClick={reopenProjectionWindow}
-              className="px-2.5 py-1 bg-teal-900/90 hover:bg-teal-800 text-teal-200 hover:text-white rounded-lg text-xs font-bold border border-teal-700/60 transition-all flex items-center gap-1.5 shadow-sm"
-              data-tooltip="Ouvrir ou focaliser la fenêtre de projection"
-            >
-              <MonitorPlay className="w-3.5 h-3.5 text-teal-300" />
-              <span className="hidden sm:inline">Fenêtre Écran 2</span>
-            </button>
-
-            <div className="h-4 w-px bg-teal-800/80 mx-0.5 hidden sm:block" />
-
-            <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 bg-teal-900/40 rounded-lg border border-teal-700/40 text-[11px] text-teal-200/90 font-mono">
-              <span>Raccourcis :</span>
-              <kbd className="bg-teal-950 px-1.5 py-0.5 rounded border border-teal-700/60 font-bold text-[10px]">←</kbd>
-              <kbd className="bg-teal-950 px-1.5 py-0.5 rounded border border-teal-700/60 font-bold text-[10px]">→</kbd>
-              <span>Paragraphe</span>
-              <span className="text-teal-400">|</span>
-              <kbd className="bg-teal-950 px-1.5 py-0.5 rounded border border-teal-700/60 font-bold text-[10px]">↓</kbd>
-              <kbd className="bg-teal-950 px-1.5 py-0.5 rounded border border-teal-700/60 font-bold text-[10px]">↑</kbd>
-              <span>Scroll</span>
-              <span className="text-teal-400">|</span>
-              <kbd className="bg-teal-950 px-1.5 py-0.5 rounded border border-teal-700/60 font-bold text-[10px]">PgUp</kbd>
-              <kbd className="bg-teal-950 px-1.5 py-0.5 rounded border border-teal-700/60 font-bold text-[10px]">PgDn</kbd>
-              <span>Source</span>
-              <span className="text-teal-400">|</span>
-              <kbd className="bg-teal-950 px-1.5 py-0.5 rounded border border-teal-700/60 font-bold text-[10px]">B</kbd>
-              <span>Noir</span>
-              <span className="text-teal-400">|</span>
-              <kbd className="bg-teal-950 px-1.5 py-0.5 rounded border border-teal-700/60 font-bold text-[10px]">Échap</kbd>
-              <span>Quitter</span>
-            </div>
-
-            <button
               onClick={() => setProjectionBlackout(!projectionBlackout)}
               className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all shadow-sm ${
                 projectionBlackout 
@@ -1827,6 +1772,21 @@ const Reader: React.FC = () => {
             <div className="h-4 w-px bg-teal-800/80 mx-0.5 hidden sm:block" />
 
             <button
+              onClick={() => toggleImageModal()}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border shadow-xs ${
+                projectedImage 
+                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400/80 ring-1 ring-emerald-300 animate-pulse' 
+                  : 'bg-teal-900/90 hover:bg-teal-800 text-teal-200 border-teal-700/60'
+              }`}
+              data-tooltip="Ouvrir la médiathèque d'images (Détection automatique Paysage/Portrait)"
+            >
+              <ImageIcon className="w-3.5 h-3.5" />
+              <span>{projectedImage ? 'Image active' : 'Images'}</span>
+            </button>
+
+            <div className="h-4 w-px bg-teal-800/80 mx-0.5 hidden sm:block" />
+
+            <button
               onClick={stopProjection}
               className="px-2.5 py-1 hover:bg-red-500/20 text-red-300 hover:text-red-200 border border-red-500/30 rounded-lg transition-all text-xs font-bold flex items-center gap-1 cursor-pointer"
               data-tooltip="Arrêter et fermer la projection (Raccourci : Touche Échap / Escape ou Q)"
@@ -1834,120 +1794,6 @@ const Reader: React.FC = () => {
               <X className="w-3.5 h-3.5" /> Quitter (Échap)
             </button>
           </div>
-        </div>
-      )}
-
-      {/* Barre de sélection directe des versets (1 à N) - Fixe sous la barre d'outils */}
-      {isBibleChapter && structuredSegments.length > 0 && (
-        <div className="shrink-0 w-full px-4 md:px-8 py-2 bg-slate-100/90 dark:bg-zinc-950/90 backdrop-blur-xl border-b border-zinc-200 dark:border-zinc-800 flex flex-wrap sm:flex-nowrap items-center gap-2.5 z-[99999] no-print animate-in fade-in slide-in-from-top-1 duration-200">
-          <div className="flex items-center gap-1.5 shrink-0 select-none py-0.5">
-            <BookOpen className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
-            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-300 hidden sm:inline">
-              Versets ({structuredSegments.length}) :
-            </span>
-          </div>
-
-          <div className="flex-1 flex flex-wrap items-center gap-1 py-0.5">
-            {structuredSegments.map((_, idx) => {
-              const verseNum = idx + 1;
-              const isProjected = projectedSegmentIndex === idx;
-              const isSelected = selectedBibleVerse === verseNum;
-              return (
-                <button
-                  key={verseNum}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedBibleVerse(verseNum);
-                    const segEl = segmentRefs.current.get(idx);
-                    if (segEl) {
-                      safeScrollToElement(segEl);
-                    } else {
-                      setJumpToParagraph(verseNum);
-                    }
-                    handleProjectSegment(idx, true);
-                  }}
-                  className={`min-w-[28px] h-7 px-1.5 rounded-lg text-[10.5px] font-black flex items-center justify-center transition-all cursor-pointer select-none shrink-0 font-sans active:scale-95 ${
-                    isProjected
-                      ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-400 scale-105'
-                      : isSelected
-                        ? 'bg-teal-600 text-white shadow-sm ring-2 ring-teal-500/50 scale-105'
-                        : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200/90 dark:border-zinc-800 hover:border-teal-500 hover:text-teal-600 dark:hover:text-teal-400 shadow-2xs'
-                  }`}
-                  data-tooltip={isProjected ? `Verset ${verseNum} (actuellement projeté)` : `Aller et projeter le verset ${verseNum}`}
-                >
-                  {verseNum}
-                </button>
-              );
-            })}
-          </div>
-
-          {selectedBibleVerse && (
-            <button
-              onClick={() => setSelectedBibleVerse(null)}
-              className="text-[9px] font-bold text-zinc-400 hover:text-teal-600 dark:hover:text-teal-400 shrink-0 ml-1 px-1.5 py-0.5 rounded border border-transparent hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors"
-              data-tooltip="Réinitialiser la sélection de verset"
-            >
-              V. {selectedBibleVerse} ✕
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Barre de sélection directe des paragraphes (1 à N) - Fixe sous la barre d'outils pour les sermons */}
-      {isSermon && structuredSegments.length > 0 && (
-        <div className="shrink-0 w-full px-4 md:px-8 py-2 bg-slate-100/90 dark:bg-zinc-950/90 backdrop-blur-xl border-b border-zinc-200 dark:border-zinc-800 flex flex-wrap sm:flex-nowrap items-center gap-2.5 z-[99999] no-print animate-in fade-in slide-in-from-top-1 duration-200">
-          <div className="flex items-center gap-1.5 shrink-0 select-none py-0.5">
-            <Layers className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
-            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-300 hidden sm:inline">
-              Paragraphes ({structuredSegments.length}) :
-            </span>
-          </div>
-
-          <div className="flex-1 flex flex-wrap items-center gap-1 py-0.5">
-            {structuredSegments.map((_, idx) => {
-              const paraNum = idx + 1;
-              const isProjected = projectedSegmentIndex === idx;
-              const isSelected = selectedSermonParagraph === paraNum;
-              return (
-                <button
-                  key={paraNum}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedSermonParagraph(paraNum);
-                    const segEl = segmentRefs.current.get(idx);
-                    if (segEl) {
-                      safeScrollToElement(segEl);
-                    } else {
-                      setJumpToParagraph(paraNum);
-                    }
-                    handleProjectSegment(idx, true);
-                  }}
-                  className={`min-w-[28px] h-7 px-1.5 rounded-lg text-[10.5px] font-black flex items-center justify-center transition-all cursor-pointer select-none shrink-0 font-sans active:scale-95 ${
-                    isProjected
-                      ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-400 scale-105'
-                      : isSelected
-                        ? 'bg-teal-600 text-white shadow-sm ring-2 ring-teal-500/50 scale-105'
-                        : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200/90 dark:border-zinc-800 hover:border-teal-500 hover:text-teal-600 dark:hover:text-teal-400 shadow-2xs'
-                  }`}
-                  data-tooltip={isProjected ? `Paragraphe ${paraNum} (actuellement projeté)` : `Aller et projeter le paragraphe ${paraNum}`}
-                >
-                  {paraNum}
-                </button>
-              );
-            })}
-          </div>
-
-          {selectedSermonParagraph && (
-            <button
-              onClick={() => setSelectedSermonParagraph(null)}
-              className="text-[9px] font-bold text-zinc-400 hover:text-teal-600 dark:hover:text-teal-400 shrink-0 ml-1 px-1.5 py-0.5 rounded border border-transparent hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors"
-              data-tooltip="Réinitialiser la sélection de paragraphe"
-            >
-              § {selectedSermonParagraph} ✕
-            </button>
-          )}
         </div>
       )}
 
@@ -2001,8 +1847,185 @@ const Reader: React.FC = () => {
         </div>
       )}
 
-      <div className="flex-1 relative overflow-hidden flex justify-center">
-        <div ref={scrollContainerRef} onMouseUp={handleTextSelection} className={`absolute inset-0 overflow-y-auto custom-scrollbar serif-text leading-relaxed text-zinc-800 dark:text-zinc-300 transition-all ${isOSFullscreen ? 'py-6 pl-14 pr-4 sm:px-14 md:px-16' : 'py-12 pl-14 pr-4 sm:pl-16 sm:pr-8 md:pl-20 md:pr-12 lg:px-20'}`}>
+      <div className="flex-1 relative overflow-hidden flex">
+        {/* Menu vertical de sélection des versets / paragraphes (Pleine hauteur, toggable & responsive horizontalement) */}
+        {isNavPanelOpen && structuredSegments.length > 0 && (
+          <aside 
+            className="h-full flex flex-col shrink-0 border-r border-zinc-200/90 dark:border-zinc-800/90 bg-slate-50/95 dark:bg-zinc-950/95 backdrop-blur-2xl transition-all duration-200 select-none z-30 shadow-sm w-20 sm:w-28 md:w-36 lg:w-40 overflow-hidden no-print"
+            aria-label="Sélecteur vertical de versets et paragraphes"
+          >
+            {/* En-tête du sélecteur vertical */}
+            <div className="p-1.5 sm:p-2 border-b border-zinc-200/80 dark:border-zinc-800/80 bg-white/80 dark:bg-zinc-900/80 shrink-0">
+              <div className="flex items-center justify-between gap-1 mb-1">
+                <div className="flex items-center gap-1 min-w-0">
+                  {isBibleChapter ? (
+                    <BookOpen className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
+                  ) : isSong ? (
+                    <Music className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
+                  ) : isExpose ? (
+                    <BookText className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
+                  ) : (
+                    <Layers className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
+                  )}
+                  <span className="text-[9.5px] font-black uppercase tracking-wider text-zinc-800 dark:text-zinc-200 truncate">
+                    {isBibleChapter ? 'Versets' : isSong ? 'Strophes' : isExpose ? 'Pages' : 'Paragraphes'}
+                  </span>
+                  <span className="text-[8.5px] font-black text-teal-600 dark:text-teal-400 bg-teal-600/10 px-1 py-0.5 rounded-full font-mono">
+                    {structuredSegments.length}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsNavPanelOpen(false)}
+                  data-tooltip="Masquer le sélecteur vertical"
+                  className="w-4.5 h-4.5 flex items-center justify-center rounded text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 transition-colors shrink-0 cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+
+              {/* Filtre / saut rapide par numéro */}
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="N°..."
+                  value={navFilterText}
+                  onChange={(e) => setNavFilterText(e.target.value)}
+                  className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md px-1.5 py-0.5 text-[10px] font-bold text-zinc-800 dark:text-zinc-200 placeholder:text-zinc-400 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/30 transition-all font-mono"
+                />
+                {navFilterText && (
+                  <button
+                    type="button"
+                    onClick={() => setNavFilterText('')}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 text-[9px] font-bold"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Grille responsive des numéros */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-1 sm:p-1.5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
+                {filteredSegments.map(({ seg, idx, num }) => {
+                  const isProjected = projectedSegmentIndex === idx;
+                  const isSelected = (isBibleChapter && selectedBibleVerse === num) || (isSermon && selectedSermonParagraph === num);
+                  const previewSnippet = seg.text ? seg.text.replace(/\s+/g, ' ').trim().slice(0, 80) : '';
+
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (isBibleChapter) {
+                          setSelectedBibleVerse(num);
+                        } else if (isSermon) {
+                          setSelectedSermonParagraph(num);
+                        }
+                        const segEl = segmentRefs.current.get(idx);
+                        if (segEl) {
+                          safeScrollToElement(segEl);
+                        } else {
+                          setJumpToParagraph(num);
+                        }
+                        handleProjectSegment(idx, true);
+                      }}
+                      data-tooltip={`${isBibleChapter ? 'Verset' : isSong ? 'Strophe' : 'Paragraphe'} ${num}${previewSnippet ? ` : "${previewSnippet}..."` : ''}`}
+                      className={`h-7 rounded-md text-[10.5px] font-black flex items-center justify-center transition-all cursor-pointer select-none font-mono active:scale-90 shadow-2xs relative ${
+                        isProjected
+                          ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-400 scale-105 z-10'
+                          : isSelected
+                            ? 'bg-teal-600 text-white shadow-sm ring-2 ring-teal-500/50 scale-105 z-10'
+                            : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200/90 dark:border-zinc-800 hover:border-teal-500 hover:text-teal-600 dark:hover:text-teal-400'
+                      }`}
+                    >
+                      <span>{num}</span>
+                      {isProjected && (
+                        <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-white rounded-full animate-ping" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {filteredSegments.length === 0 && (
+                <div className="p-3 text-center text-[10px] text-zinc-400 font-medium">
+                  Aucun résultat
+                </div>
+              )}
+            </div>
+
+            {/* Pied de page avec raccourcis rapides */}
+            <div className="p-1 sm:p-1.5 border-t border-zinc-200/80 dark:border-zinc-800/80 bg-white/80 dark:bg-zinc-900/80 flex items-center justify-between text-[8.5px] font-black text-zinc-500 shrink-0 gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const segEl = segmentRefs.current.get(0);
+                  if (segEl) safeScrollToElement(segEl);
+                  else if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
+                }}
+                className="px-1 py-0.5 rounded hover:bg-zinc-200/60 dark:hover:bg-zinc-800 hover:text-teal-600 transition-colors uppercase tracking-wider"
+                data-tooltip="Aller au début (1)"
+              >
+                Haut
+              </button>
+
+              {(selectedBibleVerse || selectedSermonParagraph) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedBibleVerse(null);
+                    setSelectedSermonParagraph(null);
+                  }}
+                  className="px-1 py-0.5 rounded text-red-500 hover:bg-red-500/10 transition-colors uppercase tracking-wider"
+                  data-tooltip="Effacer la sélection"
+                >
+                  Reset
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  const lastIdx = structuredSegments.length - 1;
+                  const segEl = segmentRefs.current.get(lastIdx);
+                  if (segEl) safeScrollToElement(segEl);
+                }}
+                className="px-1 py-0.5 rounded hover:bg-zinc-200/60 dark:hover:bg-zinc-800 hover:text-teal-600 transition-colors uppercase tracking-wider"
+                data-tooltip={`Aller à la fin (${structuredSegments.length})`}
+              >
+                Fin
+              </button>
+            </div>
+          </aside>
+        )}
+
+        {/* Bouton d'ouverture flottant lorsque le panneau est masqué */}
+        {!isNavPanelOpen && structuredSegments.length > 0 && (
+          <button 
+            onClick={() => setIsNavPanelOpen(true)}
+            data-tooltip={isBibleChapter ? "Afficher le sélecteur vertical de versets" : isSong ? "Afficher le sélecteur de strophes" : "Afficher le sélecteur vertical de paragraphes"}
+            className="absolute top-4 left-3 z-30 flex items-center gap-1.5 px-2.5 py-1.5 bg-white/90 dark:bg-zinc-900/90 hover:bg-teal-600 hover:text-white dark:hover:bg-teal-600 dark:hover:text-white text-zinc-700 dark:text-zinc-200 border border-zinc-200/90 dark:border-zinc-800 rounded-xl shadow-md transition-all duration-200 text-xs font-bold active:scale-95 group cursor-pointer backdrop-blur-md no-print"
+          >
+            <ListOrdered className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 group-hover:text-white shrink-0" />
+            <span className="font-mono text-[10.5px] hidden sm:inline">{structuredSegments.length} {isBibleChapter ? 'versets' : isSong ? 'strophes' : '§'}</span>
+          </button>
+        )}
+
+        <div 
+          ref={scrollContainerRef} 
+          onMouseUp={handleTextSelection} 
+          className={`flex-1 h-full overflow-y-auto custom-scrollbar serif-text leading-relaxed text-zinc-800 dark:text-zinc-300 transition-all ${
+            isOSFullscreen 
+              ? 'py-4 px-3 sm:px-6 md:px-8' 
+              : isNavPanelOpen 
+                ? 'py-6 pl-2 pr-3 sm:pl-3 sm:pr-4 md:pl-4 md:pr-6 lg:pl-5 lg:pr-8' 
+                : 'py-8 pl-12 pr-4 sm:pl-14 sm:pr-6 md:px-8 lg:px-12'
+          }`}
+        >
           <div className={`w-full mx-auto printable-content whitespace-pre-wrap ${isSong ? 'text-left max-w-4xl' : 'text-justify max-w-full'} pb-20`} style={{ fontSize: `${fontSize}px` }}>
             {structuredSegments.map((seg, segIdx) => {
               if (seg.text.trim() === '') return null;
@@ -2028,7 +2051,7 @@ const Reader: React.FC = () => {
                     }
                     handleProjectSegment(segIdx, true);
                   }}
-                  className={`group/seg relative mb-3 py-3.5 px-6 rounded-[20px] transition-all select-text ${
+                  className={`group/seg relative mb-2.5 py-3 px-4 sm:px-5 rounded-2xl transition-all select-text ${
                     isProjectionOpen ? 'cursor-pointer' : 'cursor-text'
                   } ${
                     isProjected 

@@ -19,61 +19,9 @@ let mainWindow;
 let db = null;
 
 // ==========================================
-// PROTECTION ANTI-COPIE & EMPREINTE MACHINE
+// SÉCURITÉ LOCALE & CHIFFREMENT
 // ==========================================
 const SECURITY_SECRET = 'KS_SWORD_MASTER_SECURITY_KEY_2026';
-
-function getMachineHardwareInfo() {
-  try {
-    const cpus = os.cpus() || [];
-    const cpuModel = cpus.length > 0 ? cpus[0].model.trim() : 'CPU_GENERIC';
-    const cpuCount = cpus.length || 1;
-    const totalMem = Math.round(os.totalmem() / (1024 * 1024 * 1024));
-    const platform = os.platform();
-    const hostname = os.hostname() || 'HOSTNAME';
-    const homedir = os.homedir() || 'HOME';
-    const networkInterfaces = os.networkInterfaces() || {};
-    
-    // Filtre des interfaces pour exclure adaptateurs virtuels (VPN, WSL, Docker, VMware, etc.)
-    const virtualRegex = /vEthernet|virtual|vmware|vbox|docker|wsl|nordlynx|wg|tun|tap|hyper-v|loopback/i;
-    let mac = '';
-
-    // Passage 1 : interface physique valide
-    for (const key of Object.keys(networkInterfaces)) {
-      if (virtualRegex.test(key)) continue;
-      for (const net of networkInterfaces[key] || []) {
-        if (net.mac && net.mac !== '00:00:00:00:00:00' && !net.internal) {
-          mac = net.mac;
-          break;
-        }
-      }
-      if (mac) break;
-    }
-
-    // Passage 2 de secours
-    if (!mac) {
-      for (const key of Object.keys(networkInterfaces)) {
-        for (const net of networkInterfaces[key] || []) {
-          if (net.mac && net.mac !== '00:00:00:00:00:00' && !net.internal) {
-            mac = net.mac;
-            break;
-          }
-        }
-        if (mac) break;
-      }
-    }
-
-    const raw = `${platform}::${cpuModel}::${cpuCount}::${totalMem}GB::${hostname}::${homedir}::${mac}`;
-    const hash = crypto.createHash('sha256').update(raw).digest('hex');
-    const part1 = hash.substring(0, 4).toUpperCase();
-    const part2 = hash.substring(4, 8).toUpperCase();
-    const machineId = `KS-${part1}-${part2}`;
-
-    return { machineId, fullHash: hash };
-  } catch (e) {
-    return { machineId: 'KS-GEN-0001', fullHash: 'fallback_hash' };
-  }
-}
 
 function encryptSecret(plainText) {
   if (!plainText) return '';
@@ -121,78 +69,6 @@ function decryptSecret(cipherText) {
     console.warn('[SECURITY] Erreur déchiffrement secret:', e.message);
   }
   return cipherText;
-}
-
-function computeActivationKey(machineId) {
-  const hash = crypto.createHmac('sha256', SECURITY_SECRET).update(machineId).digest('hex');
-  return `ACT-${hash.substring(0, 4).toUpperCase()}-${hash.substring(4, 8).toUpperCase()}`;
-}
-
-function checkDeviceLock() {
-  if (isDev) {
-    return { locked: false, machineId: getMachineHardwareInfo().machineId };
-  }
-
-  const { machineId, fullHash } = getMachineHardwareInfo();
-  const userDataPath = app.getPath('userData');
-  const lockFilePath = path.join(userDataPath, 'device_identity.lock');
-
-  try {
-    if (!fs.existsSync(lockFilePath)) {
-      // Première installation normale sur cette machine : liaison automatique
-      const token = computeActivationKey(machineId);
-      const data = JSON.stringify({
-        machineId,
-        hash: fullHash,
-        token,
-        boundAt: new Date().toISOString()
-      });
-      fs.writeFileSync(lockFilePath, data, 'utf-8');
-      return { locked: false, machineId };
-    }
-
-    const fileContent = fs.readFileSync(lockFilePath, 'utf-8');
-    const record = JSON.parse(fileContent);
-
-    // Détection de copie sur un autre ordinateur
-    if (record.machineId !== machineId || record.hash !== fullHash) {
-      return {
-        locked: true,
-        machineId,
-        registeredMachineId: record.machineId,
-        reason: 'UNAUTHORIZED_COPY_DETECTED'
-      };
-    }
-
-    return { locked: false, machineId };
-  } catch (e) {
-    console.error('[SECURITY] Erreur vérification verrou machine:', e.message);
-    return { locked: false, machineId };
-  }
-}
-
-function activateDeviceOnMachine(activationCode) {
-  const { machineId, fullHash } = getMachineHardwareInfo();
-  const expectedCode = computeActivationKey(machineId);
-
-  if (!activationCode || activationCode.trim().toUpperCase() !== expectedCode) {
-    return { success: false, error: 'Code d\'activation incorrect pour cette machine.' };
-  }
-
-  try {
-    const userDataPath = app.getPath('userData');
-    const lockFilePath = path.join(userDataPath, 'device_identity.lock');
-    const data = JSON.stringify({
-      machineId,
-      hash: fullHash,
-      token: expectedCode,
-      activatedAt: new Date().toISOString()
-    });
-    fs.writeFileSync(lockFilePath, data, 'utf-8');
-    return { success: true };
-  } catch (e) {
-    return { success: false, error: e.message };
-  }
 }
 
 function initDatabase() {
@@ -687,11 +563,11 @@ ipcMain.handle('db:setKV', (event, key, value) => {
 });
 
 ipcMain.handle('security:getLockStatus', () => {
-  return checkDeviceLock();
+  return { locked: false, machineId: '' };
 });
 
-ipcMain.handle('security:activateDevice', (event, code) => {
-  return activateDeviceOnMachine(code);
+ipcMain.handle('security:activateDevice', () => {
+  return { success: true };
 });
 
 ipcMain.handle('security:encryptSecureData', (event, plainText) => {

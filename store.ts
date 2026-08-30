@@ -1,6 +1,6 @@
 
 import { create } from 'zustand';
-import { Sermon, Note, ChatMessage, SearchMode, Notification, Citation, Highlight } from './types';
+import { Sermon, Note, ChatMessage, SearchMode, Notification, Citation, Highlight, ProjectedImageMedia } from './types';
 import { BibleVersion } from './types/bible';
 import { 
   getAllSermonsMetadata,
@@ -16,6 +16,7 @@ import {
 } from './services/db';
 import { getBibleChapterSermon, getBibleBookSermon, searchBibleVersesAdvanced } from './services/bibleService';
 import { fetchJsonSafe } from './utils/fetchHelper';
+import { getStoredMediaImages, saveStoredMediaImages } from './services/imageMediaService';
 
 const generateUUID = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 9));
 
@@ -83,6 +84,9 @@ interface AppState {
   projectionBlackout: boolean;
   isExternalMaskOpen: boolean;
   isBibleModalOpen: boolean;
+  isImageModalOpen: boolean;
+  projectedImage: ProjectedImageMedia | null;
+  mediaImages: ProjectedImageMedia[];
   sidebarWidth: number;
   aiWidth: number;
   notesWidth: number;
@@ -124,6 +128,12 @@ interface AppState {
   toggleNotes: () => void;
   toggleBibleModal: () => void;
   setBibleModalOpen: (v: boolean) => void;
+  toggleImageModal: () => void;
+  setIsImageModalOpen: (v: boolean) => void;
+  setProjectedImage: (image: ProjectedImageMedia | null) => void;
+  loadMediaImages: () => Promise<void>;
+  addMediaImage: (img: Omit<ProjectedImageMedia, 'id' | 'createdAt'>) => Promise<ProjectedImageMedia>;
+  deleteMediaImage: (id: string) => Promise<void>;
   setSidebarOpen: (v: boolean) => void;
   setAiOpen: (v: boolean) => void;
   setNotesOpen: (v: boolean) => void;
@@ -212,6 +222,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   projectionBlackout: false,
   isExternalMaskOpen: false,
   isBibleModalOpen: false,
+  isImageModalOpen: false,
+  projectedImage: null,
+  mediaImages: [],
   sidebarWidth: 420,
   aiWidth: 400,
   notesWidth: 350,
@@ -727,6 +740,37 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setProjectionBlackout: (v) => set({ projectionBlackout: v }),
   setExternalMaskOpen: (v) => set({ isExternalMaskOpen: v }),
+  toggleImageModal: () => set(s => ({ isImageModalOpen: !s.isImageModalOpen })),
+  setIsImageModalOpen: (v) => set({ isImageModalOpen: v }),
+  setProjectedImage: (image) => set({ projectedImage: image }),
+  loadMediaImages: async () => {
+    try {
+      const images = await getStoredMediaImages();
+      set({ mediaImages: images });
+    } catch (e) {}
+  },
+  addMediaImage: async (img) => {
+    const newImage: ProjectedImageMedia = {
+      ...img,
+      id: `img-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      createdAt: new Date().toISOString()
+    };
+    const current = get().mediaImages;
+    const updated = [newImage, ...current];
+    set({ mediaImages: updated });
+    await saveStoredMediaImages(updated);
+    return newImage;
+  },
+  deleteMediaImage: async (id) => {
+    const current = get().mediaImages;
+    const updated = current.filter(item => item.id !== id);
+    const { projectedImage } = get();
+    if (projectedImage && projectedImage.id === id) {
+      set({ projectedImage: null });
+    }
+    set({ mediaImages: updated });
+    await saveStoredMediaImages(updated);
+  },
   setSidebarWidth: (w) => set({ sidebarWidth: w }),
   setAiWidth: (w) => set({ aiWidth: w }),
   setNotesWidth: (w) => set({ notesWidth: w }),
