@@ -31,6 +31,8 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.5.4",
     "concurrently": "^8.2.2",
@@ -42,5 +44,42 @@
     "typescript": "^5.3.3",
     "vite": "^5.1.4",
     "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.kingssword.app",
+    "productName": "King's Sword",
+    "copyright": "Copyright © 2026 Bienvenu Sédin Massamba",
+    "asar": true,
+    "asarUnpack": [
+      "**/node_modules/better-sqlite3/**"
+    ],
+    "files": [
+      "dist/**/*",
+      "main.js",
+      "preload.js",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release",
+      "buildResources": "public"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "public/favicon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "King's Sword"
+    }
   }
 }

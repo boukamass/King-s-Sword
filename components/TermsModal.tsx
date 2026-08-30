@@ -41,7 +41,7 @@ export const TermsModal: React.FC<TermsModalProps> = ({ isOpen, onClose }) => {
           <button
             onClick={onClose}
             className="p-1.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200/50 dark:hover:bg-zinc-800 rounded-lg transition-colors"
-            title="Fermer"
+            data-tooltip="Fermer"
           >
             <X className="w-5 h-5" />
           </button>

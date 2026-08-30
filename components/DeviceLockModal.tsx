@@ -79,7 +79,7 @@ export const DeviceLockModal: React.FC<DeviceLockModalProps> = ({ machineId, onU
                 id="btn-copy-machine-id"
                 onClick={handleCopyMachineId}
                 className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 rounded-lg text-zinc-200 transition-colors"
-                title="Copier le code machine"
+                data-tooltip="Copier le code machine"
               >
                 {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 <span>{copied ? 'Copié !' : 'Copier'}</span>
