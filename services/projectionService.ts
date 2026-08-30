@@ -3,6 +3,7 @@ import { WordDefinition } from './dictionaryService';
 
 export interface ProjectionSyncPayload {
   type?: 'sync';
+  timestamp?: number;
   title: string;
   date: string;
   city: string;
@@ -40,17 +41,32 @@ export const getBroadcastChannel = (): BroadcastChannel | null => {
 };
 
 /**
- * Returns whether the secondary projection window is currently active and open.
+ * Sets or updates the projection window reference
  */
-export const isProjectionWindowOpen = (): boolean => {
-  return Boolean(projectionWindowRef && !projectionWindowRef.closed);
+export const setProjectionWindow = (win: Window | null): void => {
+  projectionWindowRef = win;
 };
 
 /**
- * Gets the current window reference
+ * Returns whether the secondary projection window is currently active and open.
+ */
+export const isProjectionWindowOpen = (): boolean => {
+  try {
+    return Boolean(projectionWindowRef && !projectionWindowRef.closed);
+  } catch (e) {
+    return false;
+  }
+};
+
+/**
+ * Gets the current window reference safely
  */
 export const getProjectionWindow = (): Window | null => {
-  if (projectionWindowRef && projectionWindowRef.closed) {
+  try {
+    if (projectionWindowRef && projectionWindowRef.closed) {
+      projectionWindowRef = null;
+    }
+  } catch (e) {
     projectionWindowRef = null;
   }
   return projectionWindowRef;
@@ -60,16 +76,34 @@ export const getProjectionWindow = (): Window | null => {
  * Sends projection payload via BroadcastChannel, direct postMessage, and LocalStorage.
  */
 export const broadcastProjectionPayload = (payload: ProjectionSyncPayload): void => {
-  const fullPayload = {
+  const fullPayload: ProjectionSyncPayload = {
     type: 'sync',
-    ...payload
+    timestamp: Date.now(),
+    title: payload.title || '',
+    date: payload.date || '',
+    city: payload.city || '',
+    time: payload.time || '',
+    text: payload.text || '',
+    projectedWords: Array.isArray(payload.projectedWords) ? payload.projectedWords : [],
+    fontSize: payload.fontSize || 42,
+    blackout: payload.blackout ?? false,
+    theme: payload.theme || 'light',
+    highlights: Array.isArray(payload.highlights) ? payload.highlights : [],
+    selectionIndices: Array.isArray(payload.selectionIndices) ? payload.selectionIndices : [],
+    searchResults: Array.isArray(payload.searchResults) ? payload.searchResults : [],
+    currentResultIndex: payload.currentResultIndex ?? -1,
+    activeDefinition: payload.activeDefinition || null,
+    isBible: payload.isBible ?? false,
+    projectedImage: payload.projectedImage || null
   };
 
   const payloadStr = JSON.stringify(fullPayload);
 
-  // 1. LocalStorage & SessionStorage persistence
+  // 1. LocalStorage & SessionStorage persistence (timestamp ensures storage event always fires across tabs)
   try {
     localStorage.setItem(STORAGE_KEY, payloadStr);
+  } catch (e) {}
+  try {
     sessionStorage.setItem(STORAGE_KEY, payloadStr);
   } catch (e) {}
 
@@ -82,10 +116,15 @@ export const broadcastProjectionPayload = (payload: ProjectionSyncPayload): void
   }
 
   // 3. Direct window postMessage
-  if (projectionWindowRef && !projectionWindowRef.closed) {
+  const win = getProjectionWindow();
+  if (win) {
     try {
-      projectionWindowRef.postMessage(fullPayload, '*');
-    } catch (e) {}
+      if (!win.closed) {
+        win.postMessage(fullPayload, '*');
+      }
+    } catch (e) {
+      projectionWindowRef = null;
+    }
   }
 };
 
@@ -93,16 +132,20 @@ export const broadcastProjectionPayload = (payload: ProjectionSyncPayload): void
  * Opens or focuses the projection window on the secondary screen and transmits payload.
  */
 export const openProjectionWindow = (initialPayload?: ProjectionSyncPayload): Window | null => {
-  if (projectionWindowRef && !projectionWindowRef.closed) {
-    try {
-      projectionWindowRef.focus();
-      if (initialPayload) {
-        broadcastProjectionPayload(initialPayload);
+  try {
+    if (projectionWindowRef && !projectionWindowRef.closed) {
+      try {
+        projectionWindowRef.focus();
+        if (initialPayload) {
+          broadcastProjectionPayload(initialPayload);
+        }
+        return projectionWindowRef;
+      } catch (e) {
+        projectionWindowRef = null;
       }
-      return projectionWindowRef;
-    } catch (e) {
-      projectionWindowRef = null;
     }
+  } catch (e) {
+    projectionWindowRef = null;
   }
 
   if (initialPayload) {
@@ -111,12 +154,17 @@ export const openProjectionWindow = (initialPayload?: ProjectionSyncPayload): Wi
 
   const url = new URL(window.location.href);
   url.searchParams.set('projection', 'true');
+  url.searchParams.delete('mask');
 
   const dualScreenLeft = window.screenLeft !== undefined ? window.screenLeft : (window.screenX || 0);
   const dualScreenTop = window.screenTop !== undefined ? window.screenTop : (window.screenY || 0);
   const currentWidth = window.outerWidth || window.innerWidth || (window.screen?.availWidth || 1920);
 
-  const left = dualScreenLeft + currentWidth;
+  // If extended screen is available, place on secondary screen. Otherwise place alongside safely.
+  const screenAvailWidth = window.screen?.availWidth || 1920;
+  const left = (dualScreenLeft + currentWidth) < (screenAvailWidth * 2) 
+    ? (dualScreenLeft + currentWidth) 
+    : 0;
   const top = dualScreenTop;
   const targetWidth = window.screen?.availWidth || 1920;
   const targetHeight = window.screen?.availHeight || 1080;

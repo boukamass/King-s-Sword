@@ -1,7 +1,58 @@
-import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BookOpenCheck, Calendar, Clock, ChevronDown, ChevronUp, MapPin, Image as ImageIcon } from 'lucide-react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState, Component, ErrorInfo, ReactNode } from 'react';
+import { BookOpenCheck, Calendar, Clock, ChevronDown, ChevronUp, MapPin, Image as ImageIcon, RefreshCw } from 'lucide-react';
 import { Highlight, ProjectedImageMedia } from '../types';
 import { WordDefinition } from '../services/dictionaryService';
+import { getBroadcastChannel, CHANNEL_NAME, STORAGE_KEY } from '../services/projectionService';
+
+interface ErrorBoundaryProps {
+  children: ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ProjectionErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  public state: ErrorBoundaryState = {
+    hasError: false,
+    error: null
+  };
+
+  public static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('ProjectionView ErrorBoundary caught an error:', error, errorInfo);
+  }
+
+  public render() {
+    if (this.state.hasError) {
+      return (
+        <div className="fixed inset-0 bg-black flex flex-col items-center justify-center p-8 text-center text-white font-sans">
+          <div className="w-16 h-16 rounded-full bg-teal-600/20 border border-teal-500/40 flex items-center justify-center text-teal-400 mb-6">
+            <RefreshCw className="w-8 h-8 animate-spin" />
+          </div>
+          <h2 className="text-2xl font-bold uppercase tracking-widest text-teal-400 mb-2">King's Sword Projection</h2>
+          <p className="text-sm text-zinc-400 max-w-md mb-6">
+            Réinitialisation du module de projection en cours...
+          </p>
+          <button
+            onClick={() => {
+              this.setState({ hasError: false, error: null });
+              window.location.reload();
+            }}
+            className="px-6 py-2.5 bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-all shadow-lg active:scale-95 cursor-pointer"
+          >
+            Recharger la fenêtre
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const PROJECTION_HIGHLIGHT_STYLING: Record<string, string> = {
   sky: 'bg-sky-500/40 border-b-[3px] border-sky-400/60',
@@ -52,13 +103,22 @@ const DEFAULT_SYNC_DATA: ProjectionSyncPayload = {
   projectedImage: null
 };
 
-export const ProjectionView: React.FC = memo(() => {
+const ProjectionViewInternal: React.FC = memo(() => {
   const [syncData, setSyncData] = useState<ProjectionSyncPayload>(() => {
     try {
-      const saved = localStorage.getItem('kings_sword_last_projection_sync') || sessionStorage.getItem('kings_sword_last_projection_sync');
+      const saved = localStorage.getItem(STORAGE_KEY) || sessionStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && typeof parsed === 'object') return { ...DEFAULT_SYNC_DATA, ...parsed };
+        if (parsed && typeof parsed === 'object') {
+          return {
+            ...DEFAULT_SYNC_DATA,
+            ...parsed,
+            highlights: Array.isArray(parsed.highlights) ? parsed.highlights : [],
+            selectionIndices: Array.isArray(parsed.selectionIndices) ? parsed.selectionIndices : [],
+            searchResults: Array.isArray(parsed.searchResults) ? parsed.searchResults : [],
+            projectedWords: Array.isArray(parsed.projectedWords) ? parsed.projectedWords : []
+          };
+        }
       }
     } catch (e) {}
     return DEFAULT_SYNC_DATA;
@@ -66,6 +126,7 @@ export const ProjectionView: React.FC = memo(() => {
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const activeWordRefs = useRef<Map<number, HTMLElement>>(new Map());
+  const channelRef = useRef<BroadcastChannel | null>(null);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [canScrollUp, setCanScrollUp] = useState(false);
   const [canScrollDown, setCanScrollDown] = useState(false);
@@ -102,7 +163,7 @@ export const ProjectionView: React.FC = memo(() => {
 
   const [isFullscreen, setIsFullscreen] = useState(Boolean(document.fullscreenElement));
 
-  // Automatic fullscreen immersion on mount & on the very first user gesture anywhere
+  // Automatic fullscreen immersion on mount & on user gesture
   useEffect(() => {
     const tryFs = () => {
       if (!document.fullscreenElement) {
@@ -113,11 +174,10 @@ export const ProjectionView: React.FC = memo(() => {
     // Attempt immediately upon opening
     tryFs();
 
-    // Auto-trigger immediately on ANY user gesture on the window (mousemove, keydown, click, touch, focus)
+    // Auto-trigger immediately on user gesture on the window
     const gestureEvents = ['mousemove', 'pointermove', 'pointerdown', 'mousedown', 'keydown', 'touchstart', 'focus', 'wheel'];
     const handleGesture = () => {
       tryFs();
-      // Manage cursor auto-hide for total immersion without redundant re-renders
       if (isCursorIdleRef.current) {
         updateCursorIdle(false);
       }
@@ -144,7 +204,7 @@ export const ProjectionView: React.FC = memo(() => {
       document.removeEventListener('MSFullscreenChange', handleFsChange);
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     };
-  }, [triggerFullscreen]);
+  }, [triggerFullscreen, updateCursorIdle]);
 
   const updateScrollState = useCallback(() => {
     const el = scrollContainerRef.current;
@@ -270,7 +330,7 @@ export const ProjectionView: React.FC = memo(() => {
     autoScrollLoopRef.current = requestAnimationFrame(runAutoScrollLoop);
   }, [runAutoScrollLoop, stopAutoScroll]);
 
-  // Wheel listener for ultra-smooth fluid scrolling without abrupt browser notches
+  // Wheel listener for ultra-smooth fluid scrolling
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
       const el = scrollContainerRef.current;
@@ -283,7 +343,6 @@ export const ProjectionView: React.FC = memo(() => {
       }
 
       e.preventDefault();
-      // Calibrated smooth step (neither too fast nor sluggish)
       const step = e.deltaY * 0.85;
       smoothScrollBy(step);
     };
@@ -297,7 +356,6 @@ export const ProjectionView: React.FC = memo(() => {
   // Mouse listeners for middle button (button 1) autoscroll
   useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
-      // Middle button click (button === 1)
       if (e.button === 1) {
         e.preventDefault();
         e.stopPropagation();
@@ -305,7 +363,6 @@ export const ProjectionView: React.FC = memo(() => {
         return;
       }
 
-      // Any other click cancels autoscroll mode
       if (autoScrollOriginRef.current) {
         stopAutoScroll();
       }
@@ -322,7 +379,6 @@ export const ProjectionView: React.FC = memo(() => {
       } else {
         const sign = Math.sign(dy);
         const distance = Math.abs(dy) - deadzone;
-        // Natural speed curve: gentle start, maximum comfort speed for reading projection (~15px/frame)
         const speed = Math.min(15, Math.pow(distance / 9, 1.25) * 0.7);
         autoScrollVelocityRef.current = sign * speed;
         setAutoScrollDirection(sign > 0 ? 'down' : 'up');
@@ -343,6 +399,8 @@ export const ProjectionView: React.FC = memo(() => {
       window.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('auxclick', handleAuxClick);
+      if (smoothAnimFrameRef.current) cancelAnimationFrame(smoothAnimFrameRef.current);
+      if (autoScrollLoopRef.current) cancelAnimationFrame(autoScrollLoopRef.current);
     };
   }, [startAutoScroll, stopAutoScroll]);
 
@@ -352,32 +410,24 @@ export const ProjectionView: React.FC = memo(() => {
       if (!data) return;
       if (data.type === 'sync') {
         const payload: ProjectionSyncPayload = {
-          title: data.title || '',
-          date: data.date || '',
-          city: data.city || '',
-          time: data.time || '',
-          text: data.text || '',
-          projectedWords: data.projectedWords || [],
-          fontSize: data.fontSize || 42,
-          blackout: data.blackout ?? false,
+          title: String(data.title || ''),
+          date: String(data.date || ''),
+          city: String(data.city || ''),
+          time: String(data.time || ''),
+          text: String(data.text || ''),
+          projectedWords: Array.isArray(data.projectedWords) ? data.projectedWords : [],
+          fontSize: typeof data.fontSize === 'number' ? data.fontSize : 42,
+          blackout: Boolean(data.blackout),
           theme: data.theme || 'light',
-          highlights: data.highlights || [],
-          selectionIndices: data.selectionIndices || [],
-          searchResults: data.searchResults || [],
-          currentResultIndex: data.currentResultIndex ?? -1,
+          highlights: Array.isArray(data.highlights) ? data.highlights : [],
+          selectionIndices: Array.isArray(data.selectionIndices) ? data.selectionIndices : [],
+          searchResults: Array.isArray(data.searchResults) ? data.searchResults : [],
+          currentResultIndex: typeof data.currentResultIndex === 'number' ? data.currentResultIndex : -1,
           activeDefinition: data.activeDefinition || null,
-          isBible: data.isBible ?? false,
+          isBible: Boolean(data.isBible),
           projectedImage: data.projectedImage || null
         };
-        setSyncData(prev => {
-          if (payload.projectedImage) {
-            return payload;
-          }
-          if (!payload.text && prev.text && payload.title === prev.title && !payload.blackout) {
-            return { ...prev, ...payload, text: prev.text, projectedWords: prev.projectedWords };
-          }
-          return payload;
-        });
+        setSyncData(payload);
       } else if (data.type === 'scroll') {
         if (data.direction === 'down') handleScrollDown(data.amount || 0.45);
         else if (data.direction === 'up') handleScrollUp(data.amount || 0.45);
@@ -387,28 +437,29 @@ export const ProjectionView: React.FC = memo(() => {
       }
     };
 
-    let channel: BroadcastChannel | null = null;
     try {
-      channel = new BroadcastChannel('kings_sword_projection');
-      channel.onmessage = (e) => handlePayload(e.data);
+      channelRef.current = new BroadcastChannel(CHANNEL_NAME);
+      channelRef.current.onmessage = (e) => handlePayload(e.data);
     } catch (err) {}
 
     const handleWindowMessage = (e: MessageEvent) => handlePayload(e.data);
     window.addEventListener('message', handleWindowMessage);
 
     const handleStorage = (e: StorageEvent) => {
-      if (e.key === 'kings_sword_last_projection_sync' && e.newValue) {
+      if (e.key === STORAGE_KEY && e.newValue) {
         try {
           const parsed = JSON.parse(e.newValue);
-          handlePayload({ type: 'sync', ...parsed });
+          if (parsed && typeof parsed === 'object') {
+            handlePayload({ type: 'sync', ...parsed });
+          }
         } catch (err) {}
       }
     };
     window.addEventListener('storage', handleStorage);
 
     const announceReady = () => {
-      if (channel) {
-        try { channel.postMessage({ type: 'ready' }); } catch (e) {}
+      if (channelRef.current) {
+        try { channelRef.current.postMessage({ type: 'ready' }); } catch (e) {}
       }
       if (window.opener) {
         try { window.opener.postMessage({ type: 'ready' }, '*'); } catch (e) {}
@@ -416,13 +467,18 @@ export const ProjectionView: React.FC = memo(() => {
     };
 
     announceReady();
-    const retryTimer = setTimeout(announceReady, 500);
+    const retryTimer1 = setTimeout(announceReady, 250);
+    const retryTimer2 = setTimeout(announceReady, 800);
 
     return () => {
-      if (channel) channel.close();
+      if (channelRef.current) {
+        channelRef.current.close();
+        channelRef.current = null;
+      }
       window.removeEventListener('message', handleWindowMessage);
       window.removeEventListener('storage', handleStorage);
-      clearTimeout(retryTimer);
+      clearTimeout(retryTimer1);
+      clearTimeout(retryTimer2);
     };
   }, [handleScrollDown, handleScrollUp]);
 
@@ -445,47 +501,51 @@ export const ProjectionView: React.FC = memo(() => {
       const firstIdx = syncData.selectionIndices[0];
       const targetSpan = activeWordRefs.current.get(firstIdx);
       if (targetSpan) {
-        targetSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        try {
+          targetSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } catch (e) {
+          try { targetSpan.scrollIntoView(); } catch (err) {}
+        }
       }
     }
   }, [syncData.selectionIndices]);
 
-  // Keyboard navigation
+  // Keyboard navigation reusing channelRef
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      let channel: BroadcastChannel | null = null;
-      try { channel = new BroadcastChannel('kings_sword_projection'); } catch (err) {}
+      const isInput = ['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName) || (e.target as HTMLElement)?.isContentEditable;
+      if (isInput) return;
 
       const sendNext = () => {
-        if (channel) try { channel.postMessage({ type: 'next_segment' }); } catch (err) {}
+        if (channelRef.current) try { channelRef.current.postMessage({ type: 'next_segment' }); } catch (err) {}
         if (window.opener) try { window.opener.postMessage({ type: 'next_segment' }, '*'); } catch (err) {}
       };
 
       const sendPrev = () => {
-        if (channel) try { channel.postMessage({ type: 'prev_segment' }); } catch (err) {}
+        if (channelRef.current) try { channelRef.current.postMessage({ type: 'prev_segment' }); } catch (err) {}
         if (window.opener) try { window.opener.postMessage({ type: 'prev_segment' }, '*'); } catch (err) {}
       };
 
       const sendNextSource = () => {
-        if (channel) try { channel.postMessage({ type: 'next_source' }); } catch (err) {}
+        if (channelRef.current) try { channelRef.current.postMessage({ type: 'next_source' }); } catch (err) {}
         if (window.opener) try { window.opener.postMessage({ type: 'next_source' }, '*'); } catch (err) {}
       };
 
       const sendPrevSource = () => {
-        if (channel) try { channel.postMessage({ type: 'prev_source' }); } catch (err) {}
+        if (channelRef.current) try { channelRef.current.postMessage({ type: 'prev_source' }); } catch (err) {}
         if (window.opener) try { window.opener.postMessage({ type: 'prev_source' }, '*'); } catch (err) {}
       };
 
       const sendBlackout = () => {
-        if (channel) try { channel.postMessage({ type: 'toggle_blackout' }); } catch (err) {}
+        if (channelRef.current) try { channelRef.current.postMessage({ type: 'toggle_blackout' }); } catch (err) {}
         if (window.opener) try { window.opener.postMessage({ type: 'toggle_blackout' }, '*'); } catch (err) {}
         setSyncData(prev => ({ ...prev, blackout: !prev.blackout }));
       };
 
       const closeProjectionWindow = () => {
-        if (channel) try { channel.postMessage({ type: 'close' }); } catch (err) {}
+        if (channelRef.current) try { channelRef.current.postMessage({ type: 'close' }); } catch (err) {}
         if (window.opener) try { window.opener.postMessage({ type: 'close' }, '*'); } catch (err) {}
-        window.close();
+        try { window.close(); } catch (err) {}
       };
 
       // Fullscreen shortcut
@@ -539,14 +599,14 @@ export const ProjectionView: React.FC = memo(() => {
       // Scroll Down inside content: ArrowDown (↓)
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        handleScrollDown(0.45);
+        smoothScrollBy(90);
         return;
       }
 
       // Scroll Up inside content: ArrowUp (↑)
       if (e.key === 'ArrowUp') {
         e.preventDefault();
-        handleScrollUp(0.45);
+        smoothScrollBy(-90);
         return;
       }
 
@@ -575,12 +635,11 @@ export const ProjectionView: React.FC = memo(() => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('resize', updateScrollState);
     };
-  }, [handleScrollDown, handleScrollUp, canScrollDown, canScrollUp, updateScrollState, triggerFullscreen]);
+  }, [updateScrollState, triggerFullscreen, smoothScrollBy]);
 
   const hasTitle = Boolean(syncData.title && syncData.title.trim().length > 0);
   const hasText = Boolean(syncData.text && syncData.text.trim().length > 0);
 
-  const chars = syncData.text ? syncData.text.length : 1;
   const isSong =
     syncData.date === 'Cantique' ||
     syncData.time === 'Chant' ||
@@ -606,12 +665,11 @@ export const ProjectionView: React.FC = memo(() => {
   const songFontSizeCSS = `min(${songFitWidthVw.toFixed(2)}vw, ${songFitHeightVh.toFixed(2)}vh, 8.5vmin)`;
   const songLineHeight = 1.32;
 
-  // Fixed optimal font sizing calibrated for 1080p screen viewed at 15-18 meters (no auto font resizing, perfectly readable and proportioned)
+  // Fixed optimal font sizing calibrated for 1080p screen viewed at 15-18 meters
   const sermonFixedFontSize = '5.4vmin';
-  // Slightly increased line-height for sermons and exposé as requested (optimal breathability and clarity at 15-18m)
   const sermonLineHeight = 1.48;
 
-  // Fixed optimal font size for Bible verses (calibrated for 1080p screens viewed at 15-18m)
+  // Fixed optimal font size for Bible verses
   const bibleCalculatedSize = '5.2vmin';
   const bibleLineHeight = 1.44;
 
@@ -626,25 +684,25 @@ export const ProjectionView: React.FC = memo(() => {
     ? bibleLineHeight
     : sermonLineHeight;
 
-  // Split projected words into lines so song lines never wrap (MUST be called on every render)
+  // Split projected words into lines so song lines never wrap safely
   const songLinesOfWords = useMemo(() => {
     if (!isSong || !syncData.projectedWords || syncData.projectedWords.length === 0) return null;
     const lines: { text: string; globalIndex: number; color?: string }[][] = [];
     let currentLine: { text: string; globalIndex: number; color?: string }[] = [];
 
     for (const w of syncData.projectedWords) {
-      if (w.text.includes('\n')) {
+      if (w && typeof w.text === 'string' && w.text.includes('\n')) {
         const parts = w.text.split('\n');
         for (let i = 0; i < parts.length; i++) {
           if (parts[i]) {
             currentLine.push({ ...w, text: parts[i] });
           }
           if (i < parts.length - 1) {
-            lines.push(currentLine);
+            lines.push(currentLine.length > 0 ? currentLine : [{ text: '\u00A0', globalIndex: -1 }]);
             currentLine = [];
           }
         }
-      } else {
+      } else if (w) {
         currentLine.push(w);
       }
     }
@@ -675,6 +733,7 @@ export const ProjectionView: React.FC = memo(() => {
               <img
                 src={img.url}
                 alt=""
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                 className="w-full h-full object-cover scale-125 blur-3xl opacity-40 brightness-60 select-none transform-gpu"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/60" />
@@ -686,6 +745,7 @@ export const ProjectionView: React.FC = memo(() => {
                 <img
                   src={img.url}
                   alt={img.name || 'Image projetée'}
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                   className="max-h-[90vh] max-w-[85vw] object-contain rounded-xl select-none animate-in zoom-in-95 fade-in duration-300 transform-gpu"
                 />
               </div>
@@ -697,6 +757,7 @@ export const ProjectionView: React.FC = memo(() => {
             <img
               src={img.url}
               alt={img.name || 'Image projetée'}
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
               className="max-h-[94vh] max-w-[96vw] object-contain shadow-2xl rounded-lg select-none animate-in zoom-in-95 fade-in duration-300 transform-gpu"
             />
           </div>
@@ -730,6 +791,7 @@ export const ProjectionView: React.FC = memo(() => {
         <img
           src={`${import.meta.env.BASE_URL}logo.png`}
           alt="Logo"
+          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           className="w-20 h-20 opacity-80 mb-6 object-cover rounded-full shadow-lg"
         />
         <p className="text-[13px] font-black uppercase tracking-[0.5em] text-zinc-600">King's Sword Projection</p>
@@ -754,6 +816,7 @@ export const ProjectionView: React.FC = memo(() => {
             <img
               src={`${import.meta.env.BASE_URL}logo.png`}
               alt="Logo"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
               className="w-8 h-8 object-cover rounded-full"
             />
             <span className="text-[12px] font-black uppercase tracking-[0.4em] text-teal-400">King's Sword</span>
@@ -768,6 +831,7 @@ export const ProjectionView: React.FC = memo(() => {
             <img
               src={`${import.meta.env.BASE_URL}logo.png`}
               alt="Logo"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
               className="w-12 h-12 object-cover rounded-full"
             />
           </div>
@@ -849,9 +913,9 @@ export const ProjectionView: React.FC = memo(() => {
             {isSong ? (
               songLinesOfWords ? (
                 songLinesOfWords.map((lineWords, lineIdx) => (
-                  <div key={lineIdx} className="whitespace-nowrap overflow-visible leading-snug">
+                  <div key={lineIdx} className="whitespace-nowrap overflow-visible leading-snug min-h-[1em]">
                     {lineWords.map((word, wIdx) => {
-                      const isSelected = syncData.selectionIndices.includes(word.globalIndex);
+                      const isSelected = Array.isArray(syncData.selectionIndices) && typeof word.globalIndex === 'number' && syncData.selectionIndices.includes(word.globalIndex);
                       const styleClass = isSelected
                         ? PROJECTION_HIGHLIGHT_STYLING.selection
                         : word.color
@@ -862,8 +926,10 @@ export const ProjectionView: React.FC = memo(() => {
                         <span
                           key={wIdx}
                           ref={(el) => {
-                            if (el) activeWordRefs.current.set(word.globalIndex, el);
-                            else activeWordRefs.current.delete(word.globalIndex);
+                            if (typeof word.globalIndex === 'number' && word.globalIndex >= 0) {
+                              if (el) activeWordRefs.current.set(word.globalIndex, el);
+                              else activeWordRefs.current.delete(word.globalIndex);
+                            }
                           }}
                           className={`py-0.5 ${styleClass}`}
                         >
@@ -875,14 +941,14 @@ export const ProjectionView: React.FC = memo(() => {
                 ))
               ) : (
                 syncData.text.split(/\r?\n/).map((line, lIdx) => (
-                  <div key={lIdx} className="whitespace-nowrap overflow-visible leading-snug">
-                    {line}
+                  <div key={lIdx} className="whitespace-nowrap overflow-visible leading-snug min-h-[1em]">
+                    {line || '\u00A0'}
                   </div>
                 ))
               )
-            ) : syncData.projectedWords && syncData.projectedWords.length > 0 ? (
+            ) : Array.isArray(syncData.projectedWords) && syncData.projectedWords.length > 0 ? (
               syncData.projectedWords.map((word, idx) => {
-                const isSelected = syncData.selectionIndices.includes(word.globalIndex);
+                const isSelected = Array.isArray(syncData.selectionIndices) && typeof word.globalIndex === 'number' && syncData.selectionIndices.includes(word.globalIndex);
                 const styleClass = isSelected
                   ? PROJECTION_HIGHLIGHT_STYLING.selection
                   : word.color
@@ -893,8 +959,10 @@ export const ProjectionView: React.FC = memo(() => {
                   <span
                     key={idx}
                     ref={(el) => {
-                      if (el) activeWordRefs.current.set(word.globalIndex, el);
-                      else activeWordRefs.current.delete(word.globalIndex);
+                      if (typeof word.globalIndex === 'number' && word.globalIndex >= 0) {
+                        if (el) activeWordRefs.current.set(word.globalIndex, el);
+                        else activeWordRefs.current.delete(word.globalIndex);
+                      }
                     }}
                     className={`py-1 ${styleClass}`}
                   >
@@ -950,6 +1018,7 @@ export const ProjectionView: React.FC = memo(() => {
             <img
               src={`${import.meta.env.BASE_URL}logo.png`}
               alt="Logo"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
               className="w-[2.4vmin] h-[2.4vmin] object-cover rounded-full"
             />
           </div>
@@ -1034,6 +1103,15 @@ export const ProjectionView: React.FC = memo(() => {
   );
 });
 
+export const ProjectionView: React.FC = memo(() => {
+  return (
+    <ProjectionErrorBoundary>
+      <ProjectionViewInternal />
+    </ProjectionErrorBoundary>
+  );
+});
+
 export const MaskView: React.FC = memo(() => {
   return <div className="fixed inset-0 bg-black z-[999999] cursor-none" />;
 });
+
