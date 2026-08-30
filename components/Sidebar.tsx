@@ -33,6 +33,7 @@ import {
   Plus,
   Edit3,
   Trash2,
+  Image as ImageIcon,
   SlidersHorizontal
 } from 'lucide-react';
 
@@ -1063,6 +1064,13 @@ const Sidebar: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
+          <button 
+            onClick={() => useAppStore.getState().toggleImageModal()} 
+            className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-teal-600 transition-all active:scale-95" 
+            data-tooltip="Projection d'images (Détection auto Paysage/Portrait)"
+          >
+            <ImageIcon className="w-3.5 h-3.5" />
+          </button>
           <button onClick={(e) => { e.stopPropagation(); if (confirm("Actualiser l'application ?")) resetLibrary(); }} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-teal-600 transition-all active:scale-95" data-tooltip="Actualiser"><RefreshCw className={`w-3 h-3 ${isPending ? 'animate-spin' : ''}`} /></button>
           <button onClick={toggleSidebar} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-red-500 transition-all active:scale-95" data-tooltip="Fermer le panneau"><X className="w-3.5 h-3.5" /></button>
         </div>

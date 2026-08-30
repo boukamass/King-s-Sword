@@ -77,6 +77,18 @@ export interface Song {
   updatedAt?: string;
 }
 
+export interface ProjectedImageMedia {
+  id: string;
+  name: string;
+  url: string;
+  orientation: 'landscape' | 'portrait' | 'square';
+  aspectRatio: number;
+  width?: number;
+  height?: number;
+  caption?: string;
+  createdAt?: string;
+}
+
 export interface ElectronAPI {
   platform: string;
   onUpdateAvailable: (callback: () => void) => void;
