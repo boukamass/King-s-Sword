@@ -10,6 +10,9 @@ export default defineConfig(({ mode }) => {
   
   return {
     plugins: [react()],
+    resolve: {
+      dedupe: ['react', 'react-dom']
+    },
     server: {
       port: 3000,
       host: '0.0.0.0',
@@ -30,8 +33,8 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           manualChunks: {
-            'vendor-react': ['react', 'react-dom'],
-            'vendor-utils': ['marked', 'jspdf', 'docx', 'zustand'],
+            'vendor-react': ['react', 'react-dom', 'zustand'],
+            'vendor-utils': ['marked', 'jspdf', 'docx'],
             'vendor-genai': ['@google/genai']
           }
         }

@@ -77,6 +77,13 @@ export interface Song {
   updatedAt?: string;
 }
 
+export interface MediaFolder {
+  id: string;
+  name: string;
+  color?: string;
+  createdAt?: string;
+}
+
 export interface ProjectedImageMedia {
   id: string;
   name: string;
@@ -87,6 +94,7 @@ export interface ProjectedImageMedia {
   height?: number;
   caption?: string;
   createdAt?: string;
+  folderId?: string;
 }
 
 export interface ElectronAPI {

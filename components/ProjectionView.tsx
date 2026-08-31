@@ -1,8 +1,12 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState, Component, ErrorInfo, ReactNode } from 'react';
-import { BookOpenCheck, Calendar, Clock, ChevronDown, ChevronUp, MapPin, Image as ImageIcon, RefreshCw } from 'lucide-react';
+import { BookOpenCheck, Calendar, Clock, ChevronDown, ChevronUp, MapPin, Image as ImageIcon, RefreshCw, Camera } from 'lucide-react';
+import html2canvas from 'html2canvas';
 import { Highlight, ProjectedImageMedia } from '../types';
 import { WordDefinition } from '../services/dictionaryService';
 import { getBroadcastChannel, CHANNEL_NAME, STORAGE_KEY } from '../services/projectionService';
+import { executeProjectionCapture } from '../services/projectionCaptureService';
+import { detectImageMeta } from '../services/imageMediaService';
+import { useAppStore } from '../store';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -83,6 +87,7 @@ export interface ProjectionSyncPayload {
   activeDefinition: WordDefinition | null;
   isBible?: boolean;
   projectedImage?: ProjectedImageMedia | null;
+  projectionBgImage?: ProjectedImageMedia | null;
 }
 
 const DEFAULT_SYNC_DATA: ProjectionSyncPayload = {
@@ -100,7 +105,8 @@ const DEFAULT_SYNC_DATA: ProjectionSyncPayload = {
   currentResultIndex: -1,
   activeDefinition: null,
   isBible: false,
-  projectedImage: null
+  projectedImage: null,
+  projectionBgImage: null
 };
 
 const ProjectionViewInternal: React.FC = memo(() => {
@@ -125,12 +131,17 @@ const ProjectionViewInternal: React.FC = memo(() => {
   });
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const activeWordRefs = useRef<Map<number, HTMLElement>>(new Map());
   const channelRef = useRef<BroadcastChannel | null>(null);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [canScrollUp, setCanScrollUp] = useState(false);
   const [canScrollDown, setCanScrollDown] = useState(false);
   const [isScrollable, setIsScrollable] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
+
+  const addMediaImage = useAppStore(s => s.addMediaImage);
+  const addNotification = useAppStore(s => s.addNotification);
 
   const [isCursorIdle, setIsCursorIdle] = useState(false);
   const isCursorIdleRef = useRef(false);
@@ -174,9 +185,13 @@ const ProjectionViewInternal: React.FC = memo(() => {
     // Attempt immediately upon opening
     tryFs();
 
-    // Auto-trigger immediately on user gesture on the window
+    // Auto-trigger immediately on user gesture on the window (excluding Escape)
     const gestureEvents = ['mousemove', 'pointermove', 'pointerdown', 'mousedown', 'keydown', 'touchstart', 'focus', 'wheel'];
-    const handleGesture = () => {
+    const handleGesture = (e?: Event) => {
+      // Do not re-trigger fullscreen on Escape or Q keystroke (used to exit projection)
+      if (e instanceof KeyboardEvent && (e.key === 'Escape' || e.key === 'q' || e.key === 'Q')) {
+        return;
+      }
       tryFs();
       if (isCursorIdleRef.current) {
         updateCursorIdle(false);
@@ -404,6 +419,23 @@ const ProjectionViewInternal: React.FC = memo(() => {
     };
   }, [startAutoScroll, stopAutoScroll]);
 
+  const performCapture = useCallback(async () => {
+    if (isCapturing) return;
+    setIsCapturing(true);
+    try {
+      await executeProjectionCapture();
+    } catch (err) {
+      console.error('Erreur lors de la capture de projection:', err);
+    } finally {
+      setIsCapturing(false);
+    }
+  }, [isCapturing]);
+
+  const performCaptureRef = useRef(performCapture);
+  useEffect(() => {
+    performCaptureRef.current = performCapture;
+  }, [performCapture]);
+
   // Multi-channel Communication: BroadcastChannel, window.opener postMessage, localStorage
   useEffect(() => {
     const handlePayload = (data: any) => {
@@ -425,7 +457,8 @@ const ProjectionViewInternal: React.FC = memo(() => {
           currentResultIndex: typeof data.currentResultIndex === 'number' ? data.currentResultIndex : -1,
           activeDefinition: data.activeDefinition || null,
           isBible: Boolean(data.isBible),
-          projectedImage: data.projectedImage || null
+          projectedImage: data.projectedImage || null,
+          projectionBgImage: data.projectionBgImage || null
         };
         setSyncData(payload);
       } else if (data.type === 'scroll') {
@@ -433,6 +466,10 @@ const ProjectionViewInternal: React.FC = memo(() => {
         else if (data.direction === 'up') handleScrollUp(data.amount || 0.45);
         else if (data.direction === 'top' && scrollContainerRef.current) {
           scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      } else if (data.type === 'capture') {
+        if (performCaptureRef.current) {
+          performCaptureRef.current();
         }
       }
     };
@@ -673,11 +710,28 @@ const ProjectionViewInternal: React.FC = memo(() => {
   const bibleCalculatedSize = '5.2vmin';
   const bibleLineHeight = 1.44;
 
+  // Instant preloading of projection background image
+  useEffect(() => {
+    if (syncData.projectionBgImage?.url) {
+      const img = new Image();
+      img.referrerPolicy = 'no-referrer';
+      img.src = syncData.projectionBgImage.url;
+    }
+  }, [syncData.projectionBgImage?.url]);
+
   const calculatedFontSize = isSong
     ? songFontSizeCSS
     : isBible
     ? bibleCalculatedSize
     : sermonFixedFontSize;
+  const headerFontSizeCSS = useMemo(() => {
+    const titleStr = syncData.title || '';
+    const metaStr = (syncData.date || '') + (syncData.time || '') + (syncData.city || '');
+    const totalChars = Math.max(12, titleStr.length + (metaStr.length > 0 ? metaStr.length + 8 : 0));
+    // Calculate max size in vmin so title & metadata fit generously on 1 single line without overflow, truncation or wrapping
+    const maxFitVmin = Math.max(1.85, 115 / (totalChars * 0.48));
+    return `min(${calculatedFontSize}, ${maxFitVmin.toFixed(2)}vmin)`;
+  }, [calculatedFontSize, syncData.title, syncData.date, syncData.time, syncData.city]);
   const calculatedLineHeight = isSong
     ? songLineHeight
     : isBible
@@ -717,156 +771,102 @@ const ProjectionViewInternal: React.FC = memo(() => {
   // Image Projection Module (VideoPsalm / Broadcast Quality Presentation)
   if (syncData.projectedImage && syncData.projectedImage.url) {
     const img = syncData.projectedImage;
-    const isPortrait = (img.orientation === 'portrait') || (img.aspectRatio && img.aspectRatio < 0.95);
 
     return (
       <div 
         onClick={!isFullscreen ? triggerFullscreen : undefined}
-        className={`fixed inset-0 bg-black flex flex-col items-center justify-center select-none overflow-hidden h-screen w-screen font-sans animate-in fade-in duration-300 relative ${
+        className={`fixed inset-0 bg-black flex items-center justify-center select-none overflow-hidden h-screen w-screen font-sans animate-in fade-in duration-300 relative ${
           isCursorIdle ? 'cursor-none' : 'cursor-default'
         }`}
       >
-        {isPortrait ? (
-          <>
-            {/* Ambient Blurred Background for Portrait Images (Fills 16:9 widescreen naturally) */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-              <img
-                src={img.url}
-                alt=""
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                className="w-full h-full object-cover scale-125 blur-3xl opacity-40 brightness-60 select-none transform-gpu"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/60" />
-            </div>
+        <img
+          src={img.url}
+          alt={img.name || 'Image projetée'}
+          crossOrigin="anonymous"
+          referrerPolicy="no-referrer"
+          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          className="w-full h-full object-cover select-none animate-in fade-in duration-300 transform-gpu"
+        />
+      </div>
+    );
+  }
 
-            {/* Foreground Sharp Centered Portrait Image */}
-            <div className="relative z-10 flex flex-col items-center justify-center h-full w-full p-4 sm:p-6 md:p-8">
-              <div className="relative max-h-[92vh] max-w-[92vw] flex items-center justify-center shadow-2xl rounded-2xl overflow-hidden ring-1 ring-white/20">
-                <img
-                  src={img.url}
-                  alt={img.name || 'Image projetée'}
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  className="max-h-[90vh] max-w-[85vw] object-contain rounded-xl select-none animate-in zoom-in-95 fade-in duration-300 transform-gpu"
-                />
-              </div>
-            </div>
-          </>
-        ) : (
-          /* Landscape mode: Crisp widescreen presentation with preserved aspect ratio */
-          <div className="relative z-10 flex flex-col items-center justify-center h-full w-full p-2 sm:p-4 md:p-6">
+  // Idle Projection Screen (When no paragraph text is currently selected)
+  if (!hasText) {
+    const displayTitle = syncData.title || "KING'S SWORD";
+    const hasMeta = Boolean(syncData.date || syncData.time || syncData.city);
+
+    return (
+      <div 
+        onClick={triggerFullscreen}
+        className="fixed inset-0 w-screen h-screen bg-black flex items-center justify-center p-4 md:p-8 text-center select-none font-sans cursor-pointer animate-in fade-in duration-300 relative overflow-hidden"
+      >
+        {/* Fullscreen Background Image Layer */}
+        {syncData.projectionBgImage && syncData.projectionBgImage.url && (
+          <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none z-0">
             <img
-              src={img.url}
-              alt={img.name || 'Image projetée'}
+              src={syncData.projectionBgImage.url}
+              alt=""
+              referrerPolicy="no-referrer"
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-              className="max-h-[94vh] max-w-[96vw] object-contain shadow-2xl rounded-lg select-none animate-in zoom-in-95 fade-in duration-300 transform-gpu"
+              className="w-full h-full object-cover opacity-80 brightness-95 transition-all duration-700 transform-gpu"
+            />
+            <div className="absolute inset-0 bg-black/40" />
+          </div>
+        )}
+
+        {/* Centered Aesthetic Card (Logo, Title & Metadata strictly 100% centered) */}
+        <div className="relative z-10 flex flex-col items-center justify-center max-w-4xl w-full p-8 md:p-12 rounded-3xl bg-black/50 backdrop-blur-md border border-white/15 shadow-2xl space-y-6 animate-in zoom-in-95 duration-300">
+          {/* Logo Emblem */}
+          <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-teal-500/10 border-2 border-teal-500/40 flex items-center justify-center shadow-2xl overflow-hidden ring-4 ring-teal-500/10">
+            <img
+              src={`${import.meta.env.BASE_URL}logo.png`}
+              alt="Logo"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              className="w-14 h-14 md:w-16 md:h-16 object-cover rounded-full"
             />
           </div>
-        )}
 
-        {/* Optional Caption Subtitle */}
-        {img.caption && (
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 max-w-4xl px-6 py-2.5 bg-black/80 backdrop-blur-md rounded-2xl border border-white/20 text-center text-white text-[2.2vmin] font-bold shadow-2xl animate-in slide-in-from-bottom-2 duration-200">
-            <p className="leading-snug drop-shadow">{img.caption}</p>
-          </div>
-        )}
+          {/* Main Title */}
+          <h1 className="text-[5.5vmin] font-black text-white tracking-tight leading-tight uppercase drop-shadow-2xl">
+            {displayTitle}
+          </h1>
 
-        {/* Format Badge Indicator (Landscape / Portrait) */}
-        {!isFullscreen && (
-          <div className="absolute top-4 right-4 z-30 flex items-center gap-2 opacity-70 hover:opacity-100 transition-opacity">
-            <span className="text-[10px] font-bold uppercase tracking-widest px-3 py-1 bg-black/70 backdrop-blur-md rounded-full text-teal-300 border border-teal-500/40 shadow-lg">
-              {isPortrait ? 'Format Portrait' : 'Format Paysage'}
+          {/* Metadata: Date, Time, City */}
+          {hasMeta && (
+            <div className="flex items-center gap-4 md:gap-6 text-[1.8vmin] font-bold text-teal-300 uppercase tracking-widest flex-wrap justify-center">
+              {syncData.date && (
+                <div className="flex items-center gap-2 bg-black/50 px-4 py-1.5 rounded-full border border-teal-500/20">
+                  <Calendar className="w-4 h-4 text-teal-400" />
+                  <span>{syncData.date}</span>
+                </div>
+              )}
+              {syncData.time && (
+                <div className="flex items-center gap-2 bg-black/50 px-4 py-1.5 rounded-full border border-teal-500/20">
+                  <Clock className="w-4 h-4 text-teal-400" />
+                  <span>{syncData.time}</span>
+                </div>
+              )}
+              {syncData.city && (
+                <div className="flex items-center gap-2 bg-black/50 px-4 py-1.5 rounded-full border border-teal-500/20">
+                  <MapPin className="w-4 h-4 text-teal-400" />
+                  <span>{syncData.city}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Status Instruction Badge */}
+          <div className="pt-2">
+            <span className="text-[1.2vmin] font-bold uppercase tracking-[0.25em] text-zinc-300 bg-teal-950/80 border border-teal-500/30 px-5 py-2 rounded-full shadow-lg inline-block">
+              SÉLECTIONNEZ UN PARAGRAPHE POUR PROJETER
             </span>
           </div>
-        )}
-      </div>
-    );
-  }
 
-  if (!hasText && !hasTitle) {
-    return (
-      <div 
-        onClick={triggerFullscreen}
-        className="fixed inset-0 bg-black flex flex-col items-center justify-center p-20 text-center select-none font-sans cursor-pointer animate-in fade-in duration-300"
-      >
-        <img
-          src={`${import.meta.env.BASE_URL}logo.png`}
-          alt="Logo"
-          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-          className="w-20 h-20 opacity-80 mb-6 object-cover rounded-full shadow-lg"
-        />
-        <p className="text-[13px] font-black uppercase tracking-[0.5em] text-zinc-600">King's Sword Projection</p>
-        <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-teal-600/70 mt-2">En attente de paragraphe...</p>
-        {!isFullscreen && (
-          <span className="mt-8 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500 border border-zinc-800 bg-zinc-950 px-3.5 py-1.5 rounded-full hover:border-teal-500 hover:text-teal-400 transition-all">
-            Cliquez ou appuyez sur F pour passer en Plein Écran
-          </span>
-        )}
-      </div>
-    );
-  }
-
-  if (!hasText && hasTitle) {
-    return (
-      <div 
-        onClick={triggerFullscreen}
-        className="fixed inset-0 bg-black flex flex-col items-center justify-between p-12 text-center select-none font-sans cursor-pointer animate-in fade-in duration-300"
-      >
-        <div className="w-full flex items-center justify-between opacity-60">
-          <div className="flex items-center gap-3">
-            <img
-              src={`${import.meta.env.BASE_URL}logo.png`}
-              alt="Logo"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-              className="w-8 h-8 object-cover rounded-full"
-            />
-            <span className="text-[12px] font-black uppercase tracking-[0.4em] text-teal-400">King's Sword</span>
-          </div>
-          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400 bg-zinc-900 border border-zinc-800 px-3 py-1 rounded-full">
-            Prêt pour la projection
-          </span>
-        </div>
-
-        <div className="max-w-5xl my-auto flex flex-col items-center gap-6">
-          <div className="w-20 h-20 rounded-full bg-teal-600/10 border border-teal-500/30 flex items-center justify-center text-teal-400 mb-2 shadow-2xl overflow-hidden">
-            <img
-              src={`${import.meta.env.BASE_URL}logo.png`}
-              alt="Logo"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-              className="w-12 h-12 object-cover rounded-full"
-            />
-          </div>
-          <h1 className="text-[5.5vmin] font-black text-white tracking-tight leading-tight uppercase drop-shadow-2xl">
-            {syncData.title}
-          </h1>
-          <div className="flex items-center gap-6 text-[1.8vmin] font-bold text-teal-400 uppercase tracking-widest flex-wrap justify-center mt-2">
-            {syncData.date && (
-              <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 opacity-70" />
-                <span>{syncData.date}</span>
-              </div>
-            )}
-            {syncData.time && (
-              <div className="flex items-center gap-2">
-                <Clock className="w-5 h-5 opacity-70" />
-                <span>{syncData.time}</span>
-              </div>
-            )}
-            {syncData.city && (
-              <div className="flex items-center gap-2">
-                <MapPin className="w-5 h-5 opacity-70" />
-                <span>{syncData.city}</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-col items-center gap-3">
-          <div className="text-[11px] font-bold uppercase tracking-[0.3em] text-zinc-500">
-            Sélectionnez un paragraphe dans le lecteur pour le projeter
-          </div>
+          {/* Fullscreen Hint */}
           {!isFullscreen && (
-            <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500 border border-zinc-800 bg-zinc-950 px-3.5 py-1.5 rounded-full hover:border-teal-500 hover:text-teal-400 transition-all">
-              Cliquez ou appuyez sur F pour passer en Plein Écran
+            <span className="text-[1vmin] font-semibold uppercase tracking-[0.2em] text-zinc-400 border border-zinc-800 bg-zinc-950/80 px-4 py-1.5 rounded-full hover:border-teal-500 hover:text-teal-400 transition-all">
+              Cliquez ou appuyez sur F pour le Plein Écran
             </span>
           )}
         </div>
@@ -876,13 +876,72 @@ const ProjectionViewInternal: React.FC = memo(() => {
 
   return (
     <div 
+      ref={containerRef}
       onClick={!isFullscreen ? triggerFullscreen : undefined}
-      className={`fixed inset-0 bg-black flex flex-col items-center select-none overflow-hidden h-screen w-screen font-sans animate-in fade-in duration-300 ${
+      className={`fixed inset-0 bg-black flex flex-col items-center select-none overflow-hidden h-screen w-screen font-sans animate-in fade-in duration-300 relative ${
         isCursorIdle ? 'cursor-none' : 'cursor-default'
       }`}
     >
+      {/* Projection Background Image Layer */}
+      {syncData.projectionBgImage && syncData.projectionBgImage.url && (
+        <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none z-0">
+          <img
+            src={syncData.projectionBgImage.url}
+            alt=""
+            referrerPolicy="no-referrer"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            className="w-full h-full object-cover opacity-80 brightness-90 transition-all duration-700 transform-gpu"
+          />
+          <div className="absolute inset-0 bg-black/45" />
+        </div>
+      )}
+
+      {/* Top Header Bar with Title & Metadata (Strict single-line height to maximize projected text area) */}
+      <div className="w-full bg-gradient-to-b from-black/90 via-black/75 to-transparent border-b border-white/10 backdrop-blur-md flex flex-nowrap items-center justify-between px-6 md:px-10 py-2.5 shrink-0 z-30 gap-6 min-w-0">
+        <div className="flex items-center gap-3 min-w-0 flex-1 whitespace-nowrap">
+          <div className="w-[1.2em] h-[1.2em] rounded-full bg-teal-600/20 border border-teal-600/30 flex items-center justify-center shadow-lg overflow-hidden shrink-0" style={{ fontSize: headerFontSizeCSS }}>
+            <img
+              src={`${import.meta.env.BASE_URL}logo.png`}
+              alt="Logo"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              className="w-[0.9em] h-[0.9em] object-cover rounded-full"
+            />
+          </div>
+          <h1 
+            className="font-black text-teal-400 tracking-tight drop-shadow-md whitespace-nowrap shrink-0"
+            style={{ fontSize: headerFontSizeCSS }}
+          >
+            {syncData.title}
+          </h1>
+        </div>
+        
+        <div 
+          className="flex items-center gap-5 font-bold text-zinc-300 uppercase tracking-wider whitespace-nowrap shrink-0"
+          style={{ fontSize: headerFontSizeCSS }}
+        >
+          {syncData.date && (
+            <div className="flex items-center gap-1.5">
+              <Calendar className="w-[0.9em] h-[0.9em] text-teal-400/80 shrink-0" />
+              <span className="font-mono">{syncData.date}</span>
+            </div>
+          )}
+          {syncData.time && (
+            <div className="flex items-center gap-1.5">
+              <Clock className="w-[0.9em] h-[0.9em] text-teal-400/80 shrink-0" />
+              <span>{syncData.time}</span>
+            </div>
+          )}
+          {syncData.city && (
+            <div className="flex items-center gap-1.5">
+              <MapPin className="w-[0.9em] h-[0.9em] text-teal-400/80 shrink-0" />
+              <span>{syncData.city}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Main Text Presentation Area with Vertical Scroll */}
-      <div className="h-[94%] w-full relative overflow-hidden flex flex-col">
+      <div className="flex-1 w-full relative z-10 overflow-hidden flex flex-col pb-0 mb-0">
         {/* Top Gradient Overflow Mask */}
         <div
           className={`absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-black via-black/70 to-transparent z-20 pointer-events-none transition-opacity duration-300 ${
@@ -983,11 +1042,18 @@ const ProjectionViewInternal: React.FC = memo(() => {
           }`}
         />
 
-        {/* Floating Discreet Scroll Controls & Indicator */}
+        {/* Floating Discreet Scroll Controls (Only if scrollable) */}
         {isScrollable && (
-          <div className="absolute right-6 bottom-4 z-30 flex items-center gap-2 bg-zinc-900/80 backdrop-blur-md border border-white/15 px-3.5 py-1.5 rounded-full shadow-2xl transition-all">
+          <div 
+            className="no-capture absolute right-6 bottom-4 z-30 flex items-center gap-2 bg-zinc-900/85 backdrop-blur-md border border-white/20 px-3 py-1.5 rounded-full shadow-2xl transition-all select-none"
+            data-html2canvas-ignore="true"
+          >
             <button
-              onClick={() => handleScrollUp(0.4)}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleScrollUp(0.4);
+              }}
               className={`p-1 text-zinc-300 hover:text-teal-400 active:scale-90 transition-all ${
                 !canScrollUp ? 'opacity-30 cursor-not-allowed' : ''
               }`}
@@ -999,7 +1065,11 @@ const ProjectionViewInternal: React.FC = memo(() => {
               {scrollProgress}%
             </span>
             <button
-              onClick={() => handleScrollDown(0.4)}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleScrollDown(0.4);
+              }}
               className={`p-1 text-zinc-300 hover:text-teal-400 active:scale-90 transition-all ${
                 !canScrollDown ? 'opacity-30 cursor-not-allowed' : ''
               }`}
@@ -1009,39 +1079,6 @@ const ProjectionViewInternal: React.FC = memo(() => {
             </button>
           </div>
         )}
-      </div>
-
-      {/* Footer Bar with Metadata (Compact Height to maximize vertical space) */}
-      <div className="h-[6%] w-full bg-gradient-to-b from-zinc-950 to-black border-t border-white/10 backdrop-blur-2xl flex items-center justify-between px-6 md:px-10 shrink-0 z-30">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-[3.2vmin] h-[3.2vmin] rounded-full bg-teal-600/20 border border-teal-600/30 flex items-center justify-center shadow-lg overflow-hidden shrink-0">
-            <img
-              src={`${import.meta.env.BASE_URL}logo.png`}
-              alt="Logo"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-              className="w-[2.4vmin] h-[2.4vmin] object-cover rounded-full"
-            />
-          </div>
-          <h1 className="text-[1.8vmin] font-black text-teal-500 tracking-tighter drop-shadow-md truncate">
-            {syncData.title}
-          </h1>
-        </div>
-        <div className="flex items-center gap-5 text-[1.2vmin] font-bold text-zinc-400 uppercase tracking-[0.2em] shrink-0">
-          <div className="flex items-center gap-1.5">
-            <Calendar className="w-[1.4vmin] h-[1.4vmin] text-teal-500/60" />
-            <span className="font-mono">{syncData.date}</span>
-          </div>
-          {syncData.time && (
-            <div className="flex items-center gap-1.5">
-              <Clock className="w-[1.4vmin] h-[1.4vmin] text-teal-500/60" />
-              <span>{syncData.time}</span>
-            </div>
-          )}
-          <div className="flex items-center gap-1.5">
-            <MapPin className="w-[1.4vmin] h-[1.4vmin] text-teal-500/60" />
-            <span>{syncData.city}</span>
-          </div>
-        </div>
       </div>
 
       {/* Middle Mouse Button (Molette) AutoScroll HUD Disc */}
