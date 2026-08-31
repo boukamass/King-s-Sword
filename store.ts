@@ -1,6 +1,6 @@
 
 import { create } from 'zustand';
-import { Sermon, Note, ChatMessage, SearchMode, Notification, Citation, Highlight, ProjectedImageMedia } from './types';
+import { Sermon, Note, ChatMessage, SearchMode, Notification, Citation, Highlight, ProjectedImageMedia, MediaFolder } from './types';
 import { BibleVersion } from './types/bible';
 import { 
   getAllSermonsMetadata,
@@ -16,7 +16,7 @@ import {
 } from './services/db';
 import { getBibleChapterSermon, getBibleBookSermon, searchBibleVersesAdvanced } from './services/bibleService';
 import { fetchJsonSafe } from './utils/fetchHelper';
-import { getStoredMediaImages, saveStoredMediaImages } from './services/imageMediaService';
+import { getStoredMediaImages, saveStoredMediaImages, getStoredMediaFolders, saveStoredMediaFolders } from './services/imageMediaService';
 
 const generateUUID = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 9));
 
@@ -86,7 +86,9 @@ interface AppState {
   isBibleModalOpen: boolean;
   isImageModalOpen: boolean;
   projectedImage: ProjectedImageMedia | null;
+  projectionBgImage: ProjectedImageMedia | null;
   mediaImages: ProjectedImageMedia[];
+  mediaFolders: MediaFolder[];
   sidebarWidth: number;
   aiWidth: number;
   notesWidth: number;
@@ -131,9 +133,15 @@ interface AppState {
   toggleImageModal: () => void;
   setIsImageModalOpen: (v: boolean) => void;
   setProjectedImage: (image: ProjectedImageMedia | null) => void;
+  setProjectionBgImage: (image: ProjectedImageMedia | null) => void;
   loadMediaImages: () => Promise<void>;
   addMediaImage: (img: Omit<ProjectedImageMedia, 'id' | 'createdAt'>) => Promise<ProjectedImageMedia>;
   deleteMediaImage: (id: string) => Promise<void>;
+  loadMediaFolders: () => Promise<void>;
+  createMediaFolder: (name: string, color?: string) => Promise<MediaFolder>;
+  renameMediaFolder: (id: string, newName: string) => Promise<void>;
+  deleteMediaFolder: (id: string) => Promise<void>;
+  setImageFolder: (imageId: string, folderId: string | undefined) => Promise<void>;
   setSidebarOpen: (v: boolean) => void;
   setAiOpen: (v: boolean) => void;
   setNotesOpen: (v: boolean) => void;
@@ -224,7 +232,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   isBibleModalOpen: false,
   isImageModalOpen: false,
   projectedImage: null,
+  projectionBgImage: null,
   mediaImages: [],
+  mediaFolders: [],
   sidebarWidth: 420,
   aiWidth: 400,
   notesWidth: 350,
@@ -382,22 +392,14 @@ export const useAppStore = create<AppState>((set, get) => ({
           set({ activeSermon: bibleSermon, selectedBibleBookId: bookId, selectedBibleChapter: chapter, selectedBibleVerse: null });
         }
       } else if (id.startsWith('expose-')) {
-          const { getExposePage, getExposeChapter, loadExposeData } = await import('./services/exposeService');
+          const { getExposePage, getExposeChapter } = await import('./services/exposeService');
           if (id.startsWith('expose-pg-')) {
               const pageNumber = parseInt(id.replace('expose-pg-', ''), 10);
-              const [exposeSermon, data] = await Promise.all([
-                getExposePage(pageNumber),
-                loadExposeData()
-              ]);
+              const exposeSermon = await getExposePage(pageNumber);
               if (get().selectedSermonId !== id) return;
-              const pageData = data?.pages?.[pageNumber];
-              const chapNum = pageData?.chapter_number !== null && pageData?.chapter_number !== undefined
-                ? String(pageData.chapter_number)
-                : (pageNumber <= 10 ? '0' : null);
 
               set({ 
-                activeSermon: exposeSermon,
-                selectedExposeChapter: chapNum !== null ? chapNum : get().selectedExposeChapter
+                activeSermon: exposeSermon
               });
           } else if (id.startsWith('expose-ch-')) {
               const chNumber = id.replace('expose-ch-', '');
@@ -743,6 +745,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleImageModal: () => set(s => ({ isImageModalOpen: !s.isImageModalOpen })),
   setIsImageModalOpen: (v) => set({ isImageModalOpen: v }),
   setProjectedImage: (image) => set({ projectedImage: image }),
+  setProjectionBgImage: (image) => set({ projectionBgImage: image }),
   loadMediaImages: async () => {
     try {
       const images = await getStoredMediaImages();
@@ -764,12 +767,58 @@ export const useAppStore = create<AppState>((set, get) => ({
   deleteMediaImage: async (id) => {
     const current = get().mediaImages;
     const updated = current.filter(item => item.id !== id);
-    const { projectedImage } = get();
+    const { projectedImage, projectionBgImage } = get();
     if (projectedImage && projectedImage.id === id) {
       set({ projectedImage: null });
     }
+    if (projectionBgImage && projectionBgImage.id === id) {
+      set({ projectionBgImage: null });
+    }
     set({ mediaImages: updated });
     await saveStoredMediaImages(updated);
+  },
+  loadMediaFolders: async () => {
+    try {
+      const folders = await getStoredMediaFolders();
+      set({ mediaFolders: folders });
+    } catch (e) {}
+  },
+  createMediaFolder: async (name, color = 'teal') => {
+    const newFolder: MediaFolder = {
+      id: `folder-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      name: name.trim(),
+      color,
+      createdAt: new Date().toISOString()
+    };
+    const current = get().mediaFolders;
+    const updated = [...current, newFolder];
+    set({ mediaFolders: updated });
+    await saveStoredMediaFolders(updated);
+    return newFolder;
+  },
+  renameMediaFolder: async (id, newName) => {
+    const current = get().mediaFolders;
+    const updated = current.map(f => f.id === id ? { ...f, name: newName.trim() } : f);
+    set({ mediaFolders: updated });
+    await saveStoredMediaFolders(updated);
+  },
+  deleteMediaFolder: async (id) => {
+    const currentFolders = get().mediaFolders;
+    const updatedFolders = currentFolders.filter(f => f.id !== id);
+    set({ mediaFolders: updatedFolders });
+    await saveStoredMediaFolders(updatedFolders);
+
+    // Unassign images from deleted folder so no images are lost
+    const currentImages = get().mediaImages;
+    const updatedImages = currentImages.map(img => img.folderId === id ? { ...img, folderId: undefined } : img);
+    set({ mediaImages: updatedImages });
+    await saveStoredMediaImages(updatedImages);
+  },
+  setImageFolder: async (imageId, folderId) => {
+    const currentImages = get().mediaImages;
+    const updatedImages = currentImages.map(img => img.id === imageId ? { ...img, folderId } : img);
+    set({ mediaImages: updatedImages });
+    await saveStoredMediaImages(updatedImages);
   },
   setSidebarWidth: (w) => set({ sidebarWidth: w }),
   setAiWidth: (w) => set({ aiWidth: w }),

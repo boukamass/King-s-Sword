@@ -20,6 +20,7 @@ export interface ProjectionSyncPayload {
   activeDefinition: WordDefinition | null;
   isBible?: boolean;
   projectedImage?: ProjectedImageMedia | null;
+  projectionBgImage?: ProjectedImageMedia | null;
 }
 
 export const STORAGE_KEY = 'kings_sword_last_projection_sync';
@@ -94,7 +95,8 @@ export const broadcastProjectionPayload = (payload: ProjectionSyncPayload): void
     currentResultIndex: payload.currentResultIndex ?? -1,
     activeDefinition: payload.activeDefinition || null,
     isBible: payload.isBible ?? false,
-    projectedImage: payload.projectedImage || null
+    projectedImage: payload.projectedImage || null,
+    projectionBgImage: payload.projectionBgImage || null
   };
 
   const payloadStr = JSON.stringify(fullPayload);
@@ -126,6 +128,31 @@ export const broadcastProjectionPayload = (payload: ProjectionSyncPayload): void
       projectionWindowRef = null;
     }
   }
+};
+
+/**
+ * Sends a command requesting a capture snapshot of what is currently projected.
+ */
+export const requestProjectionCapture = (): void => {
+  const channel = getBroadcastChannel();
+  if (channel) {
+    try {
+      channel.postMessage({ type: 'capture', timestamp: Date.now() });
+    } catch (e) {}
+  }
+  const win = getProjectionWindow();
+  if (win) {
+    try {
+      if (!win.closed) {
+        win.postMessage({ type: 'capture', timestamp: Date.now() }, '*');
+      }
+    } catch (e) {
+      projectionWindowRef = null;
+    }
+  }
+  try {
+    window.postMessage({ type: 'capture', timestamp: Date.now() }, '*');
+  } catch (e) {}
 };
 
 /**

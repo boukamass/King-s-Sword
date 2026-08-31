@@ -12,8 +12,10 @@ import {
   openProjectionWindow, 
   broadcastProjectionPayload, 
   closeProjectionWindow, 
-  ProjectionSyncPayload 
+  isProjectionWindowOpen,
+  ProjectionSyncPayload
 } from '../services/projectionService';
+import { executeProjectionCapture } from '../services/projectionCaptureService';
 import { 
   Printer, 
   Search, 
@@ -57,6 +59,7 @@ import {
   Layers,
   Info,
   History,
+  Camera,
   Languages,
   Plus,
   ChevronRight,
@@ -264,6 +267,8 @@ const Reader: React.FC = () => {
   const setProjectionBlackout = useAppStore(s => s.setProjectionBlackout);
   const projectedImage = useAppStore(s => s.projectedImage);
   const setProjectedImage = useAppStore(s => s.setProjectedImage);
+  const projectionBgImage = useAppStore(s => s.projectionBgImage);
+  const setProjectionBgImage = useAppStore(s => s.setProjectionBgImage);
   const toggleImageModal = useAppStore(s => s.toggleImageModal);
   const fontSize = useAppStore(s => s.fontSize);
   const setFontSize = useAppStore(s => s.setFontSize);
@@ -711,11 +716,33 @@ const Reader: React.FC = () => {
         currentResultIndex: -1,
         activeDefinition: null,
         isBible: false,
-        projectedImage
+        projectedImage,
+        projectionBgImage
       };
     }
 
-    if (!sermon) return null;
+    if (!sermon) {
+      return {
+        type: 'sync' as const,
+        title: '',
+        date: '',
+        city: '',
+        time: '',
+        text: '',
+        projectedWords: [],
+        fontSize,
+        theme,
+        blackout: projectionBlackout,
+        highlights: [],
+        selectionIndices: [],
+        searchResults: [],
+        currentResultIndex: -1,
+        activeDefinition: null,
+        isBible: false,
+        projectedImage: null,
+        projectionBgImage
+      };
+    }
     
     const activeIdx = targetSegmentIdx !== undefined 
       ? targetSegmentIdx 
@@ -739,7 +766,8 @@ const Reader: React.FC = () => {
         currentResultIndex: -1,
         activeDefinition: null,
         isBible,
-        projectedImage: null
+        projectedImage: null,
+        projectionBgImage
       };
     }
 
@@ -756,7 +784,7 @@ const Reader: React.FC = () => {
         
         return {
           text: w.text,
-          globalIndex: w.globalIndex,
+ globalIndex: w.globalIndex,
           color: selectionSet.has(w.globalIndex) 
             ? 'selection' 
             : (h ? (h.color || 'amber') : (isJump || isSearch ? 'amber' : undefined))
@@ -781,9 +809,10 @@ const Reader: React.FC = () => {
       currentResultIndex,
       activeDefinition,
       isBible,
-      projectedImage: null
+      projectedImage,
+      projectionBgImage
     };
-  }, [sermon, structuredSegments, segments, selectionIndices, highlightMap, jumpHighlightIndices, searchResults, currentResultIndex, activeDefinition, fontSize, theme, projectionBlackout, isBible, projectedImage]);
+  }, [sermon, structuredSegments, segments, selectionIndices, highlightMap, jumpHighlightIndices, searchResults, currentResultIndex, activeDefinition, fontSize, theme, projectionBlackout, isBible, projectedImage, projectionBgImage]);
 
   const prevSermonIdRef = useRef(sermon?.id);
   useEffect(() => {
@@ -804,10 +833,10 @@ const Reader: React.FC = () => {
   }, [sendProjectionPayload]);
 
   useEffect(() => {
-    if ((sermon || projectedImage) && isProjectionOpen) {
+    if ((sermon || projectedImage || projectionBgImage) && (isProjectionOpen || isProjectionWindowOpen())) {
       sendProjectionPayload(projectedSegmentIndexRef.current);
     }
-  }, [sermon, projectedSegmentIndex, isProjectionOpen, sendProjectionPayload, syncToggle, projectedImage]);
+  }, [sermon, projectedSegmentIndex, isProjectionOpen, sendProjectionPayload, syncToggle, projectedImage, projectionBgImage]);
 
   const stopProjection = useCallback(() => {
     closeProjectionWindow();
@@ -821,12 +850,9 @@ const Reader: React.FC = () => {
       setProjectedImage(null);
     }
 
-    const firstNonEmptyIdx = structuredSegments.findIndex(s => s.text.trim().length > 0);
-    const defaultIdx = firstNonEmptyIdx !== -1 ? firstNonEmptyIdx : (structuredSegments.length > 0 ? 0 : null);
-
     const effectiveIdx = typeof targetIdx === 'number' 
       ? targetIdx 
-      : (projectedSegmentIndexRef.current !== null ? projectedSegmentIndexRef.current : defaultIdx);
+      : (projectedSegmentIndexRef.current !== null ? projectedSegmentIndexRef.current : null);
 
     if (effectiveIdx !== null) {
       updateProjectedSegmentIndex(effectiveIdx);
@@ -838,7 +864,7 @@ const Reader: React.FC = () => {
       const win = openProjectionWindow(payload);
       projectionWindow = win;
     }
-  }, [structuredSegments, updateProjectedSegmentIndex, getProjectionPayload, projectedImage, setProjectedImage]);
+  }, [updateProjectedSegmentIndex, getProjectionPayload, projectedImage, setProjectedImage]);
 
   const reopenProjectionWindow = useCallback(() => {
     ensureProjectionWindow();
@@ -1842,16 +1868,48 @@ const Reader: React.FC = () => {
 
             <button
               onClick={() => toggleImageModal()}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border shadow-xs ${
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border shadow-xs cursor-pointer whitespace-nowrap shrink-0 ${
                 projectedImage 
                   ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400/80 ring-1 ring-emerald-300 animate-pulse' 
+                  : projectionBgImage
+                  ? 'bg-teal-700 hover:bg-teal-600 text-teal-100 border-teal-400/60 ring-1 ring-teal-400/30'
                   : 'bg-teal-900/90 hover:bg-teal-800 text-teal-200 border-teal-700/60'
               }`}
-              data-tooltip="Ouvrir la médiathèque d'images (Détection automatique Paysage/Portrait)"
+              data-tooltip="Médiathèque d'images : Projeter en fond d'écran ou en plein écran"
             >
-              <ImageIcon className="w-3.5 h-3.5" />
-              <span>{projectedImage ? 'Image active' : 'Images'}</span>
+              <ImageIcon className="w-3.5 h-3.5 shrink-0" />
+              <span className="whitespace-nowrap truncate max-w-[160px] inline-block">
+                {projectedImage 
+                  ? 'Plein écran actif' 
+                  : projectionBgImage 
+                  ? `Fond : ${projectionBgImage.name}` 
+                  : 'Images'}
+              </span>
             </button>
+
+            <button
+              onClick={() => {
+                executeProjectionCapture();
+              }}
+              className="px-2.5 py-1 bg-amber-950/80 hover:bg-amber-900 text-amber-200 border border-amber-700/60 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+              data-tooltip="Prendre une capture de l'écran de projection actuel et l'ajouter à la galerie"
+            >
+              <Camera className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span className="whitespace-nowrap">Capturer</span>
+            </button>
+
+            {projectionBgImage && !projectedImage && (
+              <button
+                onClick={() => {
+                  setProjectionBgImage(null);
+                  setTimeout(() => sendProjectionPayload(projectedSegmentIndexRef.current), 50);
+                }}
+                className="px-2 py-1 bg-teal-900/90 hover:bg-red-500/20 text-teal-200 hover:text-red-200 border border-teal-700/60 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0"
+                data-tooltip="Retirer l'image de fond (revenir au fond noir)"
+              >
+                <span className="whitespace-nowrap">Retirer fond</span>
+              </button>
+            )}
 
             <div className="h-4 w-px bg-teal-800/80 mx-0.5 hidden sm:block" />
 
