@@ -1,6 +1,6 @@
 
 import { create } from 'zustand';
-import { Sermon, Note, ChatMessage, SearchMode, Notification, Citation, Highlight, ProjectedImageMedia, MediaFolder } from './types';
+import { Sermon, Note, NoteImage, ChatMessage, SearchMode, Notification, Citation, Highlight, ProjectedImageMedia, MediaFolder } from './types';
 import { BibleVersion } from './types/bible';
 import { 
   getAllSermonsMetadata,
@@ -163,6 +163,8 @@ interface AppState {
   updateNote: (id: string, updates: Partial<Note>) => void;
   deleteNote: (id: string) => void;
   addCitationToNote: (noteId: string, citation: Partial<Citation>) => void;
+  addImageToNote: (noteId: string, image: { url: string; name?: string; caption?: string }) => void;
+  removeImageFromNote: (noteId: string, imageId: string) => void;
   reorderNotes: (draggedId: string, targetId: string) => void;
   triggerStudyRequest: (text: string | null) => void;
   setJumpToText: (text: string | null) => void;
@@ -695,6 +697,47 @@ export const useAppStore = create<AppState>((set, get) => ({
     updatedNotes[noteIndex] = {
       ...updatedNotes[noteIndex],
       citations: [...updatedNotes[noteIndex].citations, citation]
+    };
+
+    set({ notes: updatedNotes });
+    await saveNoteToDB(updatedNotes[noteIndex]);
+  },
+
+  addImageToNote: async (noteId, imageObj) => {
+    const { notes } = get();
+    const noteIndex = notes.findIndex(n => n.id === noteId);
+    if (noteIndex === -1) return;
+
+    const newImage: NoteImage = {
+      id: generateUUID(),
+      url: imageObj.url,
+      name: imageObj.name || 'Image',
+      caption: imageObj.caption || '',
+      addedAt: new Date().toISOString()
+    };
+
+    const updatedNotes = [...notes];
+    const currentImages = updatedNotes[noteIndex].images || [];
+    updatedNotes[noteIndex] = {
+      ...updatedNotes[noteIndex],
+      images: [...currentImages, newImage]
+    };
+
+    set({ notes: updatedNotes });
+    await saveNoteToDB(updatedNotes[noteIndex]);
+    get().addNotification(`Image ajoutée à la note "${updatedNotes[noteIndex].title}"`, 'success');
+  },
+
+  removeImageFromNote: async (noteId, imageId) => {
+    const { notes } = get();
+    const noteIndex = notes.findIndex(n => n.id === noteId);
+    if (noteIndex === -1) return;
+
+    const updatedNotes = [...notes];
+    const currentImages = updatedNotes[noteIndex].images || [];
+    updatedNotes[noteIndex] = {
+      ...updatedNotes[noteIndex],
+      images: currentImages.filter(img => img.id !== imageId)
     };
 
     set({ notes: updatedNotes });

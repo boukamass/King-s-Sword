@@ -37,11 +37,20 @@ export interface Citation {
   paragraph_index?: number;
 }
 
+export interface NoteImage {
+  id: string;
+  url: string;
+  name?: string;
+  caption?: string;
+  addedAt?: string;
+}
+
 export interface Note {
   id: string;
   title: string;
   content: string;
   citations: Citation[];
+  images?: NoteImage[];
   creationDate: string;
   date: string;
   color?: string;

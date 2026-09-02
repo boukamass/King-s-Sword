@@ -66,7 +66,7 @@ const PROJECTION_HIGHLIGHT_STYLING: Record<string, string> = {
   violet: 'bg-violet-500/40 border-b-[3px] border-violet-400/60',
   lime: 'bg-lime-500/40 border-b-[3px] border-lime-400/60',
   orange: 'bg-orange-500/40 border-b-[3px] border-orange-400/60',
-  selection: 'bg-white text-black font-bold shadow-lg',
+  selection: 'bg-white text-black font-bold shadow-md',
   default: 'bg-white/20 border-b-[3px] border-white/30'
 };
 
@@ -227,11 +227,89 @@ const ProjectionViewInternal: React.FC = memo(() => {
     const { scrollTop, scrollHeight, clientHeight } = el;
     const maxScroll = scrollHeight - clientHeight;
     const hasScroll = maxScroll > 15;
+    const up = scrollTop > 10;
+    const down = scrollTop < maxScroll - 10;
+    const progress = maxScroll > 0 ? Math.round((scrollTop / maxScroll) * 100) : 0;
+    
     setIsScrollable(hasScroll);
-    setCanScrollUp(scrollTop > 10);
-    setCanScrollDown(scrollTop < maxScroll - 10);
-    setScrollProgress(maxScroll > 0 ? Math.round((scrollTop / maxScroll) * 100) : 0);
-  }, []);
+    setCanScrollUp(up);
+    setCanScrollDown(down);
+    setScrollProgress(progress);
+
+    // Precise detection of visible words and top visible line snippet for Screen 1
+    let topVisibleGlobalIndex: number | null = null;
+    let bottomVisibleGlobalIndex: number | null = null;
+    let topVisibleSnippet = '';
+
+    if (activeWordRefs.current.size > 0) {
+      const containerRect = el.getBoundingClientRect();
+      const visibleWords: { index: number; el: HTMLElement; rect: DOMRect; text: string }[] = [];
+
+      const sortedEntries = Array.from(activeWordRefs.current.entries()).sort((a, b) => a[0] - b[0]);
+
+      for (const [gIdx, domEl] of sortedEntries) {
+        if (!domEl) continue;
+        const wRect = domEl.getBoundingClientRect();
+        // Check if word is inside container viewport
+        if (wRect.bottom >= containerRect.top + 6 && wRect.top <= containerRect.bottom - 6) {
+          visibleWords.push({
+            index: gIdx,
+            el: domEl,
+            rect: wRect,
+            text: domEl.textContent || ''
+          });
+        }
+      }
+
+      if (visibleWords.length > 0) {
+        topVisibleGlobalIndex = visibleWords[0].index;
+        bottomVisibleGlobalIndex = visibleWords[visibleWords.length - 1].index;
+
+        // Extract the first 2 visible lines (words with top coordinate within ~2.3 line heights)
+        const firstTop = visibleWords[0].rect.top;
+        const lineThreshold = Math.max(28, visibleWords[0].rect.height * 2.3);
+        const topLinesWords = visibleWords.filter(w => w.rect.top <= firstTop + lineThreshold);
+        topVisibleSnippet = topLinesWords.map(w => w.text).join('').trim();
+
+        // Fallback: if snippet is too short, take up to the first 16 visible words
+        if (topVisibleSnippet.length < 25 && visibleWords.length > topLinesWords.length) {
+          topVisibleSnippet = visibleWords.slice(0, 16).map(w => w.text).join('').trim();
+        }
+      }
+    }
+
+    if (!topVisibleSnippet && syncData.text) {
+      const lines = syncData.text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      if (lines.length > 0) {
+        const lineIdx = Math.min(lines.length - 1, Math.floor((progress / 100) * lines.length));
+        topVisibleSnippet = lines.slice(lineIdx, lineIdx + 2).join(' / ');
+      }
+    }
+
+    // Broadcast scroll state & live reading indicator to Screen 1
+    const syncMsg = {
+      type: 'projection_scroll_sync',
+      progress,
+      ratio: maxScroll > 0 ? scrollTop / maxScroll : 0,
+      isScrollable: hasScroll,
+      canScrollUp: up,
+      canScrollDown: down,
+      topVisibleGlobalIndex,
+      bottomVisibleGlobalIndex,
+      topVisibleSnippet,
+      timestamp: Date.now()
+    };
+    if (channelRef.current) {
+      try { channelRef.current.postMessage(syncMsg); } catch (e) {}
+    }
+    if (window.opener) {
+      try { window.opener.postMessage(syncMsg, '*'); } catch (e) {}
+    }
+    if (window.parent && window.parent !== window) {
+      try { window.parent.postMessage(syncMsg, '*'); } catch (e) {}
+    }
+    try { window.postMessage(syncMsg, '*'); } catch (e) {}
+  }, [syncData.text]);
 
   // --- Silky Smooth Physics-based Wheel & Key Scroll Engine ---
   const targetScrollTopRef = useRef<number>(0);
@@ -466,6 +544,14 @@ const ProjectionViewInternal: React.FC = memo(() => {
         else if (data.direction === 'up') handleScrollUp(data.amount || 0.45);
         else if (data.direction === 'top' && scrollContainerRef.current) {
           scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        } else if (data.direction === 'bottom' && scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTo({ top: scrollContainerRef.current.scrollHeight, behavior: 'smooth' });
+        } else if (data.direction === 'ratio' && typeof data.ratio === 'number' && scrollContainerRef.current) {
+          const el = scrollContainerRef.current;
+          const maxScroll = el.scrollHeight - el.clientHeight;
+          if (maxScroll > 0) {
+            el.scrollTo({ top: data.ratio * maxScroll, behavior: 'smooth' });
+          }
         }
       } else if (data.type === 'capture') {
         if (performCaptureRef.current) {
@@ -524,27 +610,24 @@ const ProjectionViewInternal: React.FC = memo(() => {
     else document.documentElement.classList.remove('dark');
   }, [syncData.theme]);
 
-  // Reset scroll to top when paragraph text changes
+  // Reset scroll to top when paragraph text changes and broadcast initial line positions
   useEffect(() => {
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = 0;
+      targetScrollTopRef.current = 0;
       updateScrollState();
     }
-  }, [syncData.text, updateScrollState]);
+    const t1 = setTimeout(() => updateScrollState(), 60);
+    const t2 = setTimeout(() => updateScrollState(), 250);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [syncData.text, syncData.projectedWords, updateScrollState]);
 
-  // Auto-scroll to selected word if a specific selection is made
+  // Selection indices change handler (no auto-scroll during continuous drag selection to avoid text jumping)
   useEffect(() => {
-    if (syncData.selectionIndices && syncData.selectionIndices.length > 0) {
-      const firstIdx = syncData.selectionIndices[0];
-      const targetSpan = activeWordRefs.current.get(firstIdx);
-      if (targetSpan) {
-        try {
-          targetSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        } catch (e) {
-          try { targetSpan.scrollIntoView(); } catch (err) {}
-        }
-      }
-    }
+    // Selection state is rendered via syncData.selectionIndices in the template without moving the screen
   }, [syncData.selectionIndices]);
 
   // Keyboard navigation reusing channelRef
@@ -876,6 +959,8 @@ const ProjectionViewInternal: React.FC = memo(() => {
 
   return (
     <div 
+      id="projection-view-container"
+      data-projection-view="true"
       ref={containerRef}
       onClick={!isFullscreen ? triggerFullscreen : undefined}
       className={`fixed inset-0 bg-black flex flex-col items-center select-none overflow-hidden h-screen w-screen font-sans animate-in fade-in duration-300 relative ${
@@ -1042,10 +1127,18 @@ const ProjectionViewInternal: React.FC = memo(() => {
           }`}
         />
 
+        {/* Elegant Application Name Watermark (Bottom Right) */}
+        <div className="absolute right-6 bottom-3.5 z-20 pointer-events-none select-none flex items-center gap-2 opacity-60 hover:opacity-90 transition-opacity">
+          <span className="w-1.5 h-1.5 rounded-full bg-teal-400 shadow-[0_0_8px_rgba(45,212,191,0.8)] shrink-0" />
+          <span className="text-[1.1vmin] font-black tracking-[0.2em] text-zinc-200 uppercase drop-shadow-md">
+            King’s Sword
+          </span>
+        </div>
+
         {/* Floating Discreet Scroll Controls (Only if scrollable) */}
         {isScrollable && (
           <div 
-            className="no-capture absolute right-6 bottom-4 z-30 flex items-center gap-2 bg-zinc-900/85 backdrop-blur-md border border-white/20 px-3 py-1.5 rounded-full shadow-2xl transition-all select-none"
+            className="no-capture absolute right-6 bottom-11 z-30 flex items-center gap-2 bg-zinc-900/85 backdrop-blur-md border border-white/20 px-3 py-1.5 rounded-full shadow-2xl transition-all select-none"
             data-html2canvas-ignore="true"
           >
             <button

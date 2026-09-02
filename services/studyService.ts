@@ -35,24 +35,40 @@ export const analyzeSelectionContext = async (
 
   const otherSermonsContext = allContextSermons
     .filter(s => s.id !== currentSermon?.id)
-    .slice(0, 5)
-    .map(s => `ID: ${s.id} | ${s.title}\nCONTENU:\n${(s.text || '').substring(0, 10000)}`)
+    .slice(0, 10)
+    .map(s => `=== DOCUMENT SOURCE : ${s.title} (${s.date || 'Non daté'}, ${s.city || ''}) [ID: ${s.id}] ===\nCONTENU :\n${(s.text || '').substring(0, 35000)}`)
     .join("\n\n---\n\n");
 
   const prompt = `
-    Analyse théologique de la sélection : "${selection}"
-    
-    DOCUMENT PRINCIPAL : ${currentSermon?.title || 'Document'} (${currentSermon?.date || ''})
-    EXTRAIT :
-    ${currentText.substring(0, 20000)} 
-    
-    RÉFÉRENCES CROISÉES :
-    ${otherSermonsContext}
-    
-    INSTRUCTIONS :
-    - Analyse profonde et solennelle.
-    - Cite les paragraphes au format : [Réf: ID_SERMON, Para. N].
-  `;
+Tu es un moteur d'analyse et de recherche théologique d'excellence (niveau Google NotebookLM / Chercheur Universitaire et Docteur des Écritures).
+
+MISSION :
+Fournir une analyse théologique approfondie, exégétique, exhaustive et rigoureusement documentée de l'extrait sélectionné, en croisant le document principal et les sources du contexte.
+
+EXTRAIT SÉLECTIONNÉ À ÉTUDIER :
+> "${selection}"
+
+DOCUMENT PRINCIPAL :
+Titre : ${currentSermon?.title || 'Document'}
+Date / Lieu : ${currentSermon?.date || ''} - ${currentSermon?.city || ''}
+ID : ${currentSermon?.id || ''}
+TEXTE DU DOCUMENT :
+${currentText.substring(0, 60000)}
+
+SOURCES ET RÉFÉRENCES CROISÉES DU CONTEXTE :
+${otherSermonsContext || "Aucune source secondaire ajoutée au Dock IA."}
+
+STRUCTURE OBLIGATOIRE DE LA RÉPONSE :
+1. 📖 **Exégèse & Contexte Immédiat** : Analyse détaillée du sens textuel, des mots-clés, de la portée originelle et du moment où cette vérité a été proclamée.
+2. 🏛️ **Fondements & Portée Doctrinale** : Développement théologique approfondi des doctrines et principes bibliques/prophétiques sous-jacents (citations explicites à l'appui).
+3. 🔗 **Harmonie & Références Croisées** : Rapprochements précis avec les autres sermons du contexte ou passages des Écritures, mettant en lumière la cohérence et l'enchaînement de la révélation.
+4. 💡 **Synthèse & Application Spirituelle** : Synthèse percutante des leçons concrètes, avertissements et exhortations pour la foi pratique.
+
+RÈGLE DE CITATION STRICTE :
+Chaque citation ou argument textuel DOIT obligatoirement être référencé sous le format exact :
+> "Citation exacte du texte..." [Réf: ID_SERMON, Para. N]
+(Si le paragraphe exact est inconnu, utiliser [Réf: ID_SERMON]).
+`;
 
   // 1. Tenter Gemini Cloud si disponible
   if (apiKey && navigator.onLine) {
