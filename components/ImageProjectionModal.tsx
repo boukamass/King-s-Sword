@@ -265,8 +265,9 @@ export const ImageProjectionModal: React.FC = memo(() => {
   };
 
   const handleRemoveBgImage = () => {
+    useAppStore.getState().setProjectionBgImage(null);
     setProjectionBgImage(null);
-    addNotification('Image de fond retirée', 'info');
+    addNotification('Image de fond retirée (revenir au fond noir)', 'info');
 
     let currentPayload: ProjectionSyncPayload | null = null;
     try {
@@ -277,6 +278,7 @@ export const ImageProjectionModal: React.FC = memo(() => {
     } catch (e) {}
 
     const updatedPayload: ProjectionSyncPayload = {
+      type: 'sync',
       title: currentPayload?.title || '',
       date: currentPayload?.date || '',
       city: currentPayload?.city || '',

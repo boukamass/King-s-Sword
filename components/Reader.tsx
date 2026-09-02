@@ -865,6 +865,37 @@ const Reader: React.FC = () => {
     broadcastProjectionPayload(payload);
   }, [getProjectionPayload]);
 
+  const handleRemoveBgImage = useCallback(() => {
+    useAppStore.getState().setProjectionBgImage(null);
+    addNotification("Image de fond retirée (revenir au fond noir)", "info");
+
+    const basePayload = getProjectionPayload(projectedSegmentIndexRef.current);
+    const updatedPayload: ProjectionSyncPayload = basePayload 
+      ? { ...basePayload, projectionBgImage: null }
+      : {
+          type: 'sync',
+          title: sermon?.title || '',
+          date: sermon?.date || '',
+          city: sermon?.city || '',
+          time: sermon?.time || '',
+          text: '',
+          projectedWords: [],
+          fontSize,
+          theme,
+          blackout: projectionBlackout,
+          highlights: sermon?.highlights || [],
+          selectionIndices: [],
+          searchResults: [],
+          currentResultIndex: -1,
+          activeDefinition: null,
+          isBible,
+          projectedImage: null,
+          projectionBgImage: null
+        };
+
+    broadcastProjectionPayload(updatedPayload);
+  }, [getProjectionPayload, addNotification, sermon, fontSize, theme, projectionBlackout, isBible]);
+
   useEffect(() => {
     sendProjectionPayloadRef.current = sendProjectionPayload;
   }, [sendProjectionPayload]);
@@ -1869,8 +1900,8 @@ const Reader: React.FC = () => {
       </div>
 
       {isProjectionOpen && (
-        <div className="shrink-0 min-h-11 py-1.5 bg-teal-950/95 text-white border-b border-teal-800/80 flex items-center justify-center sm:justify-end px-4 md:px-8 z-[100000] animate-in slide-in-from-top-2 duration-200 shadow-lg flex-wrap gap-2">
-          <div className="flex items-center gap-2 flex-wrap">
+        <div className="shrink-0 min-h-11 py-1.5 bg-teal-950 text-white border-b border-teal-800/80 flex items-center justify-between px-4 md:px-8 z-20 shadow-md flex-wrap gap-2 relative no-print">
+          <div className="flex items-center gap-2 flex-wrap w-full justify-between sm:justify-end">
             <button
               onClick={() => setProjectionBlackout(!projectionBlackout)}
               className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all shadow-sm ${
@@ -1939,11 +1970,8 @@ const Reader: React.FC = () => {
 
             {projectionBgImage && !projectedImage && (
               <button
-                onClick={() => {
-                  setProjectionBgImage(null);
-                  setTimeout(() => sendProjectionPayload(projectedSegmentIndexRef.current), 50);
-                }}
-                className="px-2 py-1 bg-teal-900/90 hover:bg-red-500/20 text-teal-200 hover:text-red-200 border border-teal-700/60 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0"
+                onClick={handleRemoveBgImage}
+                className="px-2.5 py-1 bg-teal-900/90 hover:bg-red-500/30 text-teal-200 hover:text-red-100 border border-teal-700/60 hover:border-red-500/50 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 shadow-sm active:scale-95"
                 data-tooltip="Retirer l'image de fond (revenir au fond noir)"
               >
                 <span className="whitespace-nowrap">Retirer fond</span>
