@@ -2,6 +2,7 @@ import { ProjectionSyncPayload, STORAGE_KEY, requestProjectionCapture } from './
 import { ProjectedImageMedia } from '../types';
 import { useAppStore } from '../store';
 import { detectImageMeta } from './imageMediaService';
+import html2canvas from 'html2canvas';
 
 /**
  * Safely loads an image URL into an HTMLImageElement with CORS handling, Blob fallback, and strict timeout.
@@ -172,6 +173,132 @@ export const getActiveProjectionPayload = (): ProjectionSyncPayload => {
   };
 };
 
+interface FormattedWord {
+  text: string;
+  globalIndex?: number;
+  color?: string;
+  isSelected?: boolean;
+}
+
+const COLOR_STYLES: Record<string, { bg: string; text: string; underline?: string }> = {
+  selection: { bg: '#ffffff', text: '#000000' },
+  sky: { bg: 'rgba(14, 165, 233, 0.45)', text: '#ffffff', underline: 'rgba(56, 189, 248, 0.8)' },
+  teal: { bg: 'rgba(20, 184, 166, 0.45)', text: '#ffffff', underline: 'rgba(45, 212, 191, 0.8)' },
+  amber: { bg: 'rgba(245, 158, 11, 0.55)', text: '#ffffff', underline: 'rgba(251, 191, 36, 0.8)' },
+  rose: { bg: 'rgba(244, 63, 94, 0.45)', text: '#ffffff', underline: 'rgba(251, 113, 133, 0.8)' },
+  violet: { bg: 'rgba(139, 92, 246, 0.45)', text: '#ffffff', underline: 'rgba(167, 139, 250, 0.8)' },
+  lime: { bg: 'rgba(132, 204, 22, 0.45)', text: '#ffffff', underline: 'rgba(163, 230, 53, 0.8)' },
+  orange: { bg: 'rgba(249, 115, 22, 0.45)', text: '#ffffff', underline: 'rgba(251, 146, 60, 0.8)' },
+  default: { bg: 'rgba(255, 255, 255, 0.25)', text: '#ffffff', underline: 'rgba(255, 255, 255, 0.4)' }
+};
+
+const getFormattedWords = (payload: ProjectionSyncPayload): FormattedWord[] => {
+  const selectionSet = new Set(payload.selectionIndices || []);
+  const highlightMap = new Map<number, string>();
+
+  if (Array.isArray(payload.highlights)) {
+    payload.highlights.forEach((h: any) => {
+      if (typeof h === 'number') highlightMap.set(h, 'amber');
+      else if (h && typeof h.wordIndex === 'number') highlightMap.set(h.wordIndex, h.color || 'amber');
+    });
+  }
+
+  if (Array.isArray(payload.projectedWords) && payload.projectedWords.length > 0) {
+    return payload.projectedWords.map((w: any) => {
+      const idx = typeof w.globalIndex === 'number' ? w.globalIndex : -1;
+      const isSelected = idx >= 0 ? selectionSet.has(idx) : w.color === 'selection';
+      const color = isSelected ? 'selection' : (w.color || (idx >= 0 ? highlightMap.get(idx) : undefined));
+      return {
+        text: String(w.text || ''),
+        globalIndex: w.globalIndex,
+        color,
+        isSelected
+      };
+    });
+  }
+
+  const rawText = payload.text || '';
+  if (!rawText) return [];
+
+  const tokens = rawText.split(/(\s+)/);
+  let globalIdx = 0;
+
+  return tokens.map(token => {
+    const isWhitespace = /^\s+$/.test(token);
+    let color: string | undefined = undefined;
+    let isSelected = false;
+    let assignedIndex: number | undefined = undefined;
+
+    if (!isWhitespace && token.length > 0) {
+      assignedIndex = globalIdx;
+      isSelected = selectionSet.has(globalIdx);
+      const hColor = highlightMap.get(globalIdx);
+      color = isSelected ? 'selection' : hColor;
+      globalIdx++;
+    }
+
+    return {
+      text: token,
+      globalIndex: assignedIndex,
+      color,
+      isSelected
+    };
+  });
+};
+
+const wrapFormattedWords = (
+  ctx: CanvasRenderingContext2D,
+  words: FormattedWord[],
+  maxWidth: number
+): FormattedWord[][] => {
+  const lines: FormattedWord[][] = [];
+  let currentLine: FormattedWord[] = [];
+  let currentLineWidth = 0;
+
+  for (const wordObj of words) {
+    const text = wordObj.text;
+    if (text.includes('\n')) {
+      const parts = text.split(/\r?\n/);
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        if (part) {
+          const partObj: FormattedWord = { ...wordObj, text: part };
+          const wWidth = ctx.measureText(part).width;
+          if (currentLineWidth + wWidth > maxWidth && currentLine.length > 0) {
+            lines.push(currentLine);
+            currentLine = [partObj];
+            currentLineWidth = wWidth;
+          } else {
+            currentLine.push(partObj);
+            currentLineWidth += wWidth;
+          }
+        }
+        if (i < parts.length - 1) {
+          lines.push(currentLine);
+          currentLine = [];
+          currentLineWidth = 0;
+        }
+      }
+    } else {
+      const wWidth = ctx.measureText(text).width;
+      if (currentLineWidth + wWidth > maxWidth && currentLine.length > 0) {
+        lines.push(currentLine);
+        currentLine = [wordObj];
+        currentLineWidth = wWidth;
+      } else {
+        currentLine.push(wordObj);
+        currentLineWidth += wWidth;
+      }
+    }
+  }
+
+  if (currentLine.length > 0) {
+    lines.push(currentLine);
+  }
+
+  return lines;
+};
+
 /**
  * Helper to wrap text into multiple lines for Canvas context.
  */
@@ -285,19 +412,20 @@ export const generateProjectionSnapshot = async (
   if (rawText.trim().length > 0) {
     const headerHeight = 90;
 
-    // Header gradient background
+    // Header gradient background fading smoothly to transparent (no solid black band)
     const headerGrad = ctx.createLinearGradient(0, 0, 0, headerHeight);
-    headerGrad.addColorStop(0, 'rgba(0, 0, 0, 0.9)');
-    headerGrad.addColorStop(1, 'rgba(0, 0, 0, 0.65)');
+    headerGrad.addColorStop(0, 'rgba(0, 0, 0, 0.85)');
+    headerGrad.addColorStop(0.65, 'rgba(0, 0, 0, 0.45)');
+    headerGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
     ctx.fillStyle = headerGrad;
     ctx.fillRect(0, 0, width, headerHeight);
 
-    // Header bottom border
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-    ctx.lineWidth = 2;
+    // Header bottom border (subtle line)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(0, headerHeight);
-    ctx.lineTo(width, headerHeight);
+    ctx.moveTo(0, headerHeight * 0.85);
+    ctx.lineTo(width, headerHeight * 0.85);
     ctx.stroke();
 
     // Logo emblem in header
@@ -345,51 +473,79 @@ export const generateProjectionSnapshot = async (
       ctx.fillText(metaParts.join('  •  '), width - 50, headerHeight / 2);
     }
 
-    // Prepare Text Rendering
+    // Prepare Text Rendering with Highlights, Underlines & Selections
     const bottomReserved = payload.activeDefinition ? 160 : 60;
     const availableHeight = height - headerHeight - bottomReserved;
 
     const sidePadding = isSong ? 100 : 120;
     const maxTextWidth = width - sidePadding * 2;
 
-    // Temporary measure font size
+    const allFormattedWords = getFormattedWords(payload);
+
+    // Initial estimation with font size 52px
     ctx.font = 'bold 52px sans-serif';
-    const wrappedLines = wrapTextLines(ctx, rawText, maxTextWidth);
-    const lineCount = Math.max(wrappedLines.length, 1);
+    const estimatedWrappedLines = wrapFormattedWords(ctx, allFormattedWords, maxTextWidth);
+    const lineCount = Math.max(estimatedWrappedLines.length, 1);
 
     // Dynamic Font Scaling
     let fontSize = Math.min(60, Math.max(34, Math.floor(availableHeight / (lineCount * 1.5))));
     const lineHeight = fontSize * 1.45;
     ctx.font = `bold ${fontSize}px sans-serif`;
 
-    // Re-wrap if font size adjusted
-    const finalWrappedLines = wrapTextLines(ctx, rawText, maxTextWidth);
+    // Final wrapping with scaled font
+    const finalWrappedLines = wrapFormattedWords(ctx, allFormattedWords, maxTextWidth);
     const finalLineCount = Math.max(finalWrappedLines.length, 1);
     const totalTextHeight = finalLineCount * lineHeight;
 
     const startY = headerHeight + (availableHeight - totalTextHeight) / 2 + fontSize / 2;
 
-    // Drawing options according to alignment
-    ctx.fillStyle = '#ffffff';
     ctx.textBaseline = 'middle';
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-    ctx.shadowBlur = 18;
+    ctx.textAlign = 'left';
 
-    if (isSong) {
-      // Centered alignment for songs
-      ctx.textAlign = 'center';
-      finalWrappedLines.forEach((line, index) => {
-        const y = startY + index * lineHeight;
-        ctx.fillText(line, width / 2, y);
+    finalWrappedLines.forEach((lineWords, lineIndex) => {
+      const y = startY + lineIndex * lineHeight;
+      const lineTotalWidth = lineWords.reduce((sum, w) => sum + ctx.measureText(w.text).width, 0);
+
+      let currentX = isSong ? (width - lineTotalWidth) / 2 : sidePadding;
+
+      lineWords.forEach((wordObj) => {
+        const textWidth = ctx.measureText(wordObj.text).width;
+        const colorKey = wordObj.color;
+        const style = colorKey ? COLOR_STYLES[colorKey] || COLOR_STYLES.default : null;
+
+        if (style) {
+          // 1. Draw background highlight or selection box
+          const bgTop = y - fontSize * 0.65;
+          const bgHeight = fontSize * 1.25;
+          ctx.fillStyle = style.bg;
+          ctx.fillRect(currentX, bgTop, textWidth, bgHeight);
+
+          // 2. Draw underline border if style defines an underline color
+          if (style.underline) {
+            ctx.strokeStyle = style.underline;
+            ctx.lineWidth = Math.max(2, Math.floor(fontSize * 0.07));
+            ctx.beginPath();
+            ctx.moveTo(currentX, bgTop + bgHeight);
+            ctx.lineTo(currentX + textWidth, bgTop + bgHeight);
+            ctx.stroke();
+          }
+
+          // 3. Draw text in word style color (e.g. black for selection, white for highlight)
+          ctx.shadowColor = 'transparent';
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = style.text;
+          ctx.fillText(wordObj.text, currentX, y);
+        } else {
+          // Normal word text with shadow
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+          ctx.shadowBlur = 18;
+          ctx.fillStyle = '#ffffff';
+          ctx.fillText(wordObj.text, currentX, y);
+        }
+
+        currentX += textWidth;
       });
-    } else {
-      // Left alignment for Sermons & Bible
-      ctx.textAlign = 'left';
-      finalWrappedLines.forEach((line, index) => {
-        const y = startY + index * lineHeight;
-        ctx.fillText(line, sidePadding, y);
-      });
-    }
+    });
 
     // Reset shadow
     ctx.shadowColor = 'transparent';
@@ -508,6 +664,27 @@ export const generateProjectionSnapshot = async (
     ctx.shadowBlur = 0;
   }
 
+  // 6. Draw App Name Watermark on Bottom Right (matches ProjectionView)
+  ctx.save();
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  ctx.font = 'bold 22px sans-serif';
+  const wmText = "KING'S SWORD";
+  const wmX = width - 50;
+  const wmY = height - 38;
+
+  // Subtle teal dot
+  ctx.fillStyle = '#2dd4bf';
+  ctx.beginPath();
+  ctx.arc(wmX - ctx.measureText(wmText).width - 16, wmY, 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = 'rgba(244, 244, 245, 0.75)';
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+  ctx.shadowBlur = 8;
+  ctx.fillText(wmText, wmX, wmY);
+  ctx.restore();
+
   return canvas.toDataURL('image/png');
 };
 
@@ -524,7 +701,32 @@ export const executeProjectionCapture = async (): Promise<void> => {
   const payload = getActiveProjectionPayload();
 
   try {
-    const dataUrl = await generateProjectionSnapshot(payload);
+    let dataUrl: string | null = null;
+
+    // 1. Try real DOM capture via html2canvas if ProjectionView element is present in the active document
+    const projElem = document.getElementById('projection-view-container') || document.querySelector('[data-projection-view="true"]');
+    if (projElem && projElem.clientWidth > 0 && projElem.clientHeight > 0) {
+      try {
+        const canvas = await html2canvas(projElem as HTMLElement, {
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#000000',
+          scale: 2,
+          ignoreElements: (element) =>
+            element.getAttribute('data-html2canvas-ignore') === 'true' ||
+            element.classList.contains('no-capture')
+        });
+        dataUrl = canvas.toDataURL('image/png');
+      } catch (domErr) {
+        console.warn('DOM capture failed, falling back to synthetic canvas snapshot:', domErr);
+      }
+    }
+
+    // 2. Fallback to high-definition snapshot canvas if DOM element is not directly accessible
+    if (!dataUrl) {
+      dataUrl = await generateProjectionSnapshot(payload);
+    }
+
     const meta = await detectImageMeta(dataUrl);
 
     const titleSnippet = payload.title || (payload.isBible ? 'Verset Biblique' : 'Projection');

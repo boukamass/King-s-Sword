@@ -42,22 +42,31 @@ export const askGeminiChat = async (
     try {
       const ai = new GoogleGenAI({ apiKey });
       
-      const systemInstruction = `Tu es l'assistant de King's Sword. 
-      Effectue une analyse théologique profonde et solennelle en utilisant les sermons fournis dans le contexte.
-      Mets en lumière les liens prophétiques.
-      CITE TOUJOURS LE PARAGRAPHE : > "Texte" [Réf: ID_DOC, Para. N]
-      Termine toujours par la référence exacte : [Réf: ID_DOC, Para. N].`;
-
-      const optimizedContext = contextText.substring(0, 60000); 
+      const systemInstruction = `Tu es l'assistant d'étude et de recherche théologique de King's Sword, doté d'une rigueur d'analyse et d'une profondeur comparables à Google NotebookLM et aux meilleurs outils de recherche exégétique.
       
-      const userPromptWithContext = `INSTRUCTIONS :
-1. Utilise les documents fournis ci-dessous.
-2. Format de citation obligatoire : > "Citation" [Réf: ID_DOC, Para. N]
+DIRECTIVES D'EXCELLENCE :
+1. Rigueur & Profondeur : Ne te contente jamais de réponses vagues, génériques ou superficielles. Développe chaque point avec clarté, substance, arguments théologiques solides et profondeur spirituelle.
+2. Exploitation intégrale des sources : Analyse en profondeur tous les sermons, écritures et documents fournis dans le contexte ci-dessous.
+3. Citations systématiques et précises : Chaque affirmation importante, vérité doctrinale ou enseignement clé doit être appuyé par des citations directes extraites des documents fournis.
+4. Format de référence strict :
+   > "Citation exacte du texte..." [Réf: ID_DOC, Para. N]
+   (Exemple : > "La foi est une substance..." [Réf: 65-1128M, Para. 42])
+5. Structure claire : Organise toujours tes réponses avec des titres en gras, des listes structurées et une conclusion synthétique.`;
 
-CONTEXTE :
+      const optimizedContext = contextText.substring(0, 120000); 
+      
+      const userPromptWithContext = `DOCUMENTS SOURCES FOURNIS DANS LE CONTEXTE (Dock IA / Sermons actifs) :
+============================================================
 ${optimizedContext}
+============================================================
 
-QUESTION : "${prompt}"`;
+CONSIGNES :
+1. Réponds à la question de manière détaillée, approfondie et structurée en te basant prioritairement sur les documents ci-dessus.
+2. Inclus des citations textuelles exactes sous la forme : > "Citation..." [Réf: ID_DOC, Para. N]
+3. Si la question nécessite un croisement entre plusieurs sermons ou écritures, mets en évidence les liens prophétiques et l'harmonie des messages.
+
+QUESTION DU CHERCHEUR :
+"${prompt}"`;
 
       const contents = [
         ...history.slice(-4).map(h => ({ 

@@ -156,6 +156,38 @@ export const requestProjectionCapture = (): void => {
 };
 
 /**
+ * Sends a scroll command to the projection screen.
+ */
+export const sendProjectionScrollCommand = (direction: 'up' | 'down' | 'top' | 'bottom' | 'ratio', amountOrRatio?: number): void => {
+  const msg = {
+    type: 'scroll',
+    direction,
+    amount: typeof amountOrRatio === 'number' ? amountOrRatio : 0.4,
+    ratio: typeof amountOrRatio === 'number' ? amountOrRatio : undefined,
+    timestamp: Date.now()
+  };
+  const channel = getBroadcastChannel();
+  if (channel) {
+    try {
+      channel.postMessage(msg);
+    } catch (e) {}
+  }
+  const win = getProjectionWindow();
+  if (win) {
+    try {
+      if (!win.closed) {
+        win.postMessage(msg, '*');
+      }
+    } catch (e) {
+      projectionWindowRef = null;
+    }
+  }
+  try {
+    window.postMessage(msg, '*');
+  } catch (e) {}
+};
+
+/**
  * Opens or focuses the projection window on the secondary screen and transmits payload.
  */
 export const openProjectionWindow = (initialPayload?: ProjectionSyncPayload): Window | null => {

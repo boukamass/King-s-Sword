@@ -1,12 +1,32 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '../store';
 import { translations } from '../translations';
-import { Document, Packer, Paragraph, HeadingLevel, TextRun, AlignmentType } from 'docx';
-import saveAs from 'file-saver';
 import { marked } from 'marked';
 import { jsPDF } from 'jspdf';
-import { Printer, FileText, FileDown, Link2, ExternalLink, NotebookPen, Calendar, MapPin, Sparkles, Hash, Quote } from 'lucide-react';
+import { 
+  Printer, 
+  FileText, 
+  FileDown, 
+  Link2, 
+  ExternalLink, 
+  NotebookPen, 
+  Calendar, 
+  MapPin, 
+  Sparkles, 
+  Hash, 
+  Quote, 
+  Image as ImageIcon, 
+  ImagePlus, 
+  Trash2, 
+  X, 
+  Search, 
+  Plus, 
+  Check, 
+  Eye, 
+  Folder 
+} from 'lucide-react';
 import { Citation } from '../types';
+import { exportNoteToDocx } from '../services/docxExportService';
 
 const ActionButton = ({ onClick, icon: Icon, tooltip }: { onClick: () => void; icon: React.ElementType; tooltip: string }) => (
   <button 
@@ -23,6 +43,8 @@ const NoteEditor: React.FC = () => {
         activeNoteId,
         notes,
         sermons,
+        mediaImages,
+        mediaFolders,
         updateNote,
         setActiveNoteId,
         setSelectedSermonId,
@@ -31,6 +53,8 @@ const NoteEditor: React.FC = () => {
         setNavigatedFromNoteId,
         languageFilter,
         addNotification,
+        addImageToNote,
+        removeImageFromNote,
     } = useAppStore();
 
     const note = notes.find(n => n.id === activeNoteId);
@@ -39,6 +63,10 @@ const NoteEditor: React.FC = () => {
 
     const [editingTitle, setEditingTitle] = useState(false);
     const [editingContent, setEditingContent] = useState(false);
+    const [isGalleryPickerOpen, setIsGalleryPickerOpen] = useState(false);
+    const [gallerySearchQuery, setGallerySearchQuery] = useState('');
+    const [selectedFolderId, setSelectedFolderId] = useState<string>('ALL');
+    const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
     const titleInputRef = useRef<HTMLInputElement>(null);
     const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -203,10 +231,28 @@ const NoteEditor: React.FC = () => {
         }
     };
 
+    const handleExportDocx = async () => {
+        if (!note) return;
+        addNotification("Génération du document Word (.docx)...", "info");
+        const success = await exportNoteToDocx(note);
+        if (success) {
+            addNotification("Note exportée au format Word (.docx) avec succès !", "success");
+        } else {
+            addNotification("Erreur lors de l'exportation Word.", "error");
+        }
+    };
+
     const handlePrint = () => {
         if (window.electronAPI) window.electronAPI.printPage();
         else window.print();
     };
+
+    // Filter media images for gallery picker
+    const filteredGalleryImages = mediaImages.filter(img => {
+        const matchesFolder = selectedFolderId === 'ALL' || img.folderId === selectedFolderId || (selectedFolderId === 'UNASSIGNED' && !img.folderId);
+        const matchesQuery = !gallerySearchQuery.trim() || img.name.toLowerCase().includes(gallerySearchQuery.toLowerCase());
+        return matchesFolder && matchesQuery;
+    });
 
     return (
         <div className="flex-1 h-full flex flex-col bg-slate-50 dark:bg-zinc-950 overflow-hidden animate-in fade-in duration-500 transition-colors duration-500">
@@ -227,6 +273,7 @@ const NoteEditor: React.FC = () => {
                     <div className="flex items-center gap-2">
                         <ActionButton icon={Printer} tooltip={t.print} onClick={handlePrint} />
                         <ActionButton icon={FileText} tooltip={t.export_pdf} onClick={handleExportPdf} />
+                        <ActionButton icon={FileDown} tooltip="Exporter au format Word (.docx)" onClick={handleExportDocx} />
                         <div className="w-px h-5 bg-zinc-200 dark:bg-zinc-800 mx-2" />
                         <button onClick={() => setActiveNoteId(null)} data-tooltip="Fermer et retourner au lecteur" className="px-5 py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-red-500 hover:text-white dark:hover:bg-red-600 text-[9px] font-black uppercase tracking-[0.2em] rounded-lg transition-all active:scale-95 text-zinc-600 dark:text-zinc-300 shadow-sm">
                             {t.reader_exit}
@@ -278,6 +325,75 @@ const NoteEditor: React.FC = () => {
                                         ) : (
                                           <span className="italic opacity-40 font-normal">Saisissez vos commentaires sur ces enseignements...</span>
                                         )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Section Images rattachées */}
+                            <div className="mt-8 pt-6 border-t border-zinc-100 dark:border-zinc-800">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center gap-2">
+                                        <ImageIcon className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                                        <span className="text-xs font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
+                                            Images & Illustrations jointes {note.images?.length ? `(${note.images.length})` : ''}
+                                        </span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsGalleryPickerOpen(true)}
+                                        className="px-3.5 py-1.5 bg-teal-50 dark:bg-teal-950/60 hover:bg-teal-100 dark:hover:bg-teal-900/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                                    >
+                                        <ImagePlus className="w-3.5 h-3.5" />
+                                        <span>Ajouter de la galerie</span>
+                                    </button>
+                                </div>
+
+                                {note.images && note.images.length > 0 ? (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                                        {note.images.map((img) => (
+                                            <div 
+                                                key={img.id}
+                                                className="group/img relative bg-zinc-50 dark:bg-zinc-800/80 rounded-2xl border border-zinc-200 dark:border-zinc-700 overflow-hidden flex flex-col shadow-xs hover:shadow-md transition-all"
+                                            >
+                                                <div 
+                                                    onClick={() => setPreviewImageUrl(img.url)}
+                                                    className="relative aspect-video w-full bg-black/10 cursor-pointer overflow-hidden flex items-center justify-center"
+                                                    title="Cliquer pour agrandir"
+                                                >
+                                                    <img 
+                                                        src={img.url} 
+                                                        alt={img.name || ''} 
+                                                        className="max-h-full max-w-full object-contain group-hover/img:scale-105 transition-transform duration-200" 
+                                                        referrerPolicy="no-referrer"
+                                                    />
+                                                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                                        <Eye className="w-5 h-5 drop-shadow" />
+                                                    </div>
+                                                </div>
+
+                                                <div className="p-2.5 flex items-center justify-between gap-2 bg-white dark:bg-zinc-800 border-t border-zinc-100 dark:border-zinc-700/60">
+                                                    <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200 truncate flex-1" title={img.name || img.caption}>
+                                                        {img.caption || img.name || 'Image'}
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeImageFromNote(note.id, img.id)}
+                                                        className="w-6 h-6 flex items-center justify-center text-zinc-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors shrink-0"
+                                                        title="Retirer cette image de la note"
+                                                    >
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div 
+                                        onClick={() => setIsGalleryPickerOpen(true)}
+                                        className="p-6 border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl hover:border-teal-500/50 hover:bg-teal-50/20 dark:hover:bg-teal-950/10 cursor-pointer transition-all flex flex-col items-center justify-center gap-2 text-zinc-400 dark:text-zinc-500"
+                                    >
+                                        <ImagePlus className="w-8 h-8 opacity-60 text-teal-600 dark:text-teal-400" />
+                                        <span className="text-xs font-medium text-center">Aucune image rattachée à cette note. Cliquer pour parcourir la galerie média.</span>
                                     </div>
                                 )}
                             </div>
@@ -342,6 +458,167 @@ const NoteEditor: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Modal Sélecteur d'Images de la Galerie */}
+            {isGalleryPickerOpen && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+                        <div className="p-5 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-950/50">
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center shadow-md shadow-teal-600/20">
+                                    <ImagePlus className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-black uppercase text-zinc-800 dark:text-white tracking-wider">
+                                        Sélectionner des images de la galerie
+                                    </h3>
+                                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                                        Cliquez sur une image pour l'ajouter à votre note
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsGalleryPickerOpen(false)}
+                                className="w-8 h-8 rounded-xl flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        {/* Barre de Recherche et Filtre par Dossier */}
+                        <div className="p-4 border-b border-zinc-100 dark:border-zinc-800/80 flex flex-col sm:flex-row gap-3 items-center justify-between bg-zinc-50/30 dark:bg-zinc-950/20">
+                            <div className="relative flex-1 w-full">
+                                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                                <input
+                                    type="text"
+                                    value={gallerySearchQuery}
+                                    onChange={e => setGallerySearchQuery(e.target.value)}
+                                    placeholder="Rechercher une image..."
+                                    className="w-full pl-9 pr-4 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs text-zinc-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-600"
+                                />
+                            </div>
+
+                            <div className="flex items-center gap-1.5 overflow-x-auto custom-scrollbar w-full sm:w-auto shrink-0 pb-1 sm:pb-0">
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedFolderId('ALL')}
+                                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                                        selectedFolderId === 'ALL'
+                                            ? 'bg-teal-600 text-white'
+                                            : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                                    }`}
+                                >
+                                    Toutes ({mediaImages.length})
+                                </button>
+                                {mediaFolders.map(folder => (
+                                    <button
+                                        key={folder.id}
+                                        type="button"
+                                        onClick={() => setSelectedFolderId(folder.id)}
+                                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1 ${
+                                            selectedFolderId === folder.id
+                                                ? 'bg-teal-600 text-white'
+                                                : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                                        }`}
+                                    >
+                                        <Folder className="w-3 h-3" />
+                                        <span>{folder.name}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Grille des Images */}
+                        <div className="flex-1 overflow-y-auto p-5 custom-scrollbar bg-zinc-50/50 dark:bg-zinc-950/20">
+                            {filteredGalleryImages.length === 0 ? (
+                                <div className="h-48 flex flex-col items-center justify-center text-zinc-400 gap-2">
+                                    <ImageIcon className="w-8 h-8 opacity-40" />
+                                    <p className="text-xs">Aucune image trouvée</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                    {filteredGalleryImages.map(img => {
+                                        const isAlreadyAttached = note.images?.some(i => i.url === img.url);
+
+                                        return (
+                                            <div
+                                                key={img.id}
+                                                onClick={() => {
+                                                    if (!isAlreadyAttached) {
+                                                        addImageToNote(note.id, { url: img.url, name: img.name });
+                                                    }
+                                                }}
+                                                className={`group relative bg-white dark:bg-zinc-800 rounded-2xl border transition-all duration-200 overflow-hidden flex flex-col cursor-pointer ${
+                                                    isAlreadyAttached 
+                                                        ? 'border-teal-500 ring-2 ring-teal-500/30 opacity-75'
+                                                        : 'border-zinc-200 dark:border-zinc-700 hover:border-teal-500/60 hover:shadow-lg'
+                                                }`}
+                                            >
+                                                <div className="relative aspect-video w-full bg-zinc-100 dark:bg-zinc-900 overflow-hidden flex items-center justify-center">
+                                                    <img
+                                                        src={img.url}
+                                                        alt={img.name}
+                                                        className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-200"
+                                                        referrerPolicy="no-referrer"
+                                                    />
+                                                    {isAlreadyAttached && (
+                                                        <div className="absolute inset-0 bg-teal-600/20 backdrop-blur-3xs flex items-center justify-center text-white font-bold text-xs gap-1">
+                                                            <Check className="w-5 h-5 bg-teal-600 rounded-full p-1" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="p-2.5 bg-white dark:bg-zinc-800 flex items-center justify-between">
+                                                    <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200 truncate" title={img.name}>
+                                                        {img.name}
+                                                    </span>
+                                                    {!isAlreadyAttached && (
+                                                        <Plus className="w-4 h-4 text-teal-600 dark:text-teal-400 group-hover:scale-110 transition-transform shrink-0" />
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 flex justify-end">
+                            <button
+                                type="button"
+                                onClick={() => setIsGalleryPickerOpen(false)}
+                                className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-md shadow-teal-600/20"
+                            >
+                                Terminer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Aperçu Plein Écran de l'Image */}
+            {previewImageUrl && (
+                <div 
+                    onClick={() => setPreviewImageUrl(null)}
+                    className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200 cursor-zoom-out"
+                >
+                    <div className="relative max-w-5xl max-h-[90vh] flex flex-col items-center justify-center">
+                        <button
+                            type="button"
+                            onClick={() => setPreviewImageUrl(null)}
+                            className="absolute -top-12 right-0 w-10 h-10 rounded-full bg-white/20 hover:bg-white/40 text-white flex items-center justify-center transition-colors cursor-pointer"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                        <img
+                            src={previewImageUrl}
+                            alt=""
+                            className="max-h-[85vh] max-w-full object-contain rounded-2xl shadow-2xl"
+                            referrerPolicy="no-referrer"
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

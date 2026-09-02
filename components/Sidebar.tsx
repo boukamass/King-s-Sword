@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo, memo, useDeferredValue, useTransition, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useMemo, memo, useDeferredValue, startTransition, useCallback } from 'react';
 import { useAppStore, SearchResult } from '../store';
 import { translations } from '../translations';
 import { SearchMode, Sermon } from '../types';
@@ -488,7 +488,6 @@ const SearchModeButton = memo(({ mode, label, tooltip, currentMode, setMode }: {
 ));
 
 const Sidebar: React.FC = () => {
-  const [isPending, startTransition] = useTransition();
   const sermons = useAppStore(s => s.sermons);
   const searchResults = useAppStore(s => s.searchResults);
   const selectedSermonId = useAppStore(s => s.selectedSermonId);
@@ -1025,7 +1024,7 @@ const Sidebar: React.FC = () => {
   if (!sidebarOpen) return null;
 
   return (
-    <div className={`w-full border-r border-slate-200/50 dark:border-slate-800/80 bg-slate-50 dark:bg-zinc-950 h-full flex flex-col overflow-hidden transition-all duration-500 ${isPending ? 'opacity-70' : ''}`}>
+    <div className={`w-full border-r border-slate-200/50 dark:border-slate-800/80 bg-slate-50 dark:bg-zinc-950 h-full flex flex-col overflow-hidden transition-all duration-500 ${isSearching ? 'opacity-70' : ''}`}>
       {noteSelectorPayload && (
         <NoteSelectorModal 
             selectionText={noteSelectorPayload.text} 
@@ -1071,7 +1070,7 @@ const Sidebar: React.FC = () => {
           >
             <ImageIcon className="w-3.5 h-3.5" />
           </button>
-          <button onClick={(e) => { e.stopPropagation(); if (confirm("Actualiser l'application ?")) resetLibrary(); }} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-teal-600 transition-all active:scale-95" data-tooltip="Actualiser"><RefreshCw className={`w-3 h-3 ${isPending ? 'animate-spin' : ''}`} /></button>
+          <button onClick={(e) => { e.stopPropagation(); if (confirm("Actualiser l'application ?")) resetLibrary(); }} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-teal-600 transition-all active:scale-95" data-tooltip="Actualiser"><RefreshCw className={`w-3 h-3 ${isSearching ? 'animate-spin' : ''}`} /></button>
           <button onClick={toggleSidebar} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-red-500 transition-all active:scale-95" data-tooltip="Fermer le panneau"><X className="w-3.5 h-3.5" /></button>
         </div>
       </div>
@@ -1752,10 +1751,6 @@ const Sidebar: React.FC = () => {
               <div className="flex items-center justify-center gap-2 animate-in fade-in duration-300 mt-1 flex-wrap">
                 <span className="px-1.5 py-0.2 rounded bg-teal-500/10 dark:bg-teal-400/15 border border-teal-500/25 text-[8.5px] font-extrabold text-teal-700 dark:text-teal-300 tracking-wider uppercase">
                   KSW v{APP_VERSION}
-                </span>
-                <span className="w-1 h-1 bg-teal-500/50 dark:bg-teal-400/50 rounded-full" />
-                <span className="text-[9.5px] font-semibold text-zinc-700 dark:text-zinc-200 tracking-tight">
-                  Vision de l'Aigle Tabernacle, Koufoli, PNR, Congo
                 </span>
               </div>
             )}

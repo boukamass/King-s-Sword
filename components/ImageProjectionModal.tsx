@@ -20,7 +20,8 @@ import {
   Search,
   ChevronDown,
   Check,
-  FolderOutput
+  FolderOutput,
+  NotebookPen
 } from 'lucide-react';
 import { useAppStore } from '../store';
 import { ProjectedImageMedia, MediaFolder } from '../types';
@@ -53,6 +54,10 @@ export const ImageProjectionModal: React.FC = memo(() => {
   const projectionBlackout = useAppStore(s => s.projectionBlackout);
   const setProjectionBlackout = useAppStore(s => s.setProjectionBlackout);
   const addNotification = useAppStore(s => s.addNotification);
+  const notes = useAppStore(s => s.notes);
+  const activeNoteId = useAppStore(s => s.activeNoteId);
+  const addImageToNote = useAppStore(s => s.addImageToNote);
+  const addNote = useAppStore(s => s.addNote);
 
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -68,6 +73,7 @@ export const ImageProjectionModal: React.FC = memo(() => {
   const [editingFolderName, setEditingFolderName] = useState('');
   const [deletingFolderId, setDeletingFolderId] = useState<string | null>(null);
   const [openFolderMenuId, setOpenFolderMenuId] = useState<string | null>(null);
+  const [openNoteMenuImageId, setOpenNoteMenuImageId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -78,14 +84,17 @@ export const ImageProjectionModal: React.FC = memo(() => {
     }
   }, [isOpen, loadMediaImages, loadMediaFolders]);
 
-  // Close folder menu when clicking outside
+  // Close menus when clicking outside
   useEffect(() => {
-    const handleClickOutside = () => setOpenFolderMenuId(null);
-    if (openFolderMenuId) {
+    const handleClickOutside = () => {
+      setOpenFolderMenuId(null);
+      setOpenNoteMenuImageId(null);
+    };
+    if (openFolderMenuId || openNoteMenuImageId) {
       window.addEventListener('click', handleClickOutside);
       return () => window.removeEventListener('click', handleClickOutside);
     }
-  }, [openFolderMenuId]);
+  }, [openFolderMenuId, openNoteMenuImageId]);
 
   // Process files (Drag & Drop or Input)
   const processFiles = useCallback(async (files: FileList | File[]) => {
@@ -954,7 +963,19 @@ export const ImageProjectionModal: React.FC = memo(() => {
                         </p>
 
                         {!isConfirmingDelete && (
-                          <div className="flex items-center gap-0.5 shrink-0">
+                          <div className="flex items-center gap-0.5 shrink-0 relative">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenNoteMenuImageId(openNoteMenuImageId === img.id ? null : img.id);
+                              }}
+                              className="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 rounded-md transition-colors cursor-pointer hover:bg-teal-50 dark:hover:bg-teal-950/40 shrink-0"
+                              title="Ajouter cette image à une note"
+                            >
+                              <NotebookPen className="w-3.5 h-3.5" />
+                            </button>
+
                             <button
                               type="button"
                               onClick={(e) => handleDownloadImage(img, e)}
@@ -976,6 +997,76 @@ export const ImageProjectionModal: React.FC = memo(() => {
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
+
+                            {/* Note Assign Dropdown Popover */}
+                            {openNoteMenuImageId === img.id && (
+                              <div 
+                                className="absolute bottom-full right-0 mb-1 z-50 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl py-1 min-w-[200px] max-w-[240px] animate-in fade-in zoom-in-95 duration-150 max-h-56 overflow-y-auto custom-scrollbar"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <div className="px-2.5 py-1 text-[9px] font-black uppercase text-slate-400 border-b border-slate-100 dark:border-zinc-700 flex items-center justify-between">
+                                  <span>Ajouter à la note :</span>
+                                  <button 
+                                    onClick={() => setOpenNoteMenuImageId(null)}
+                                    className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+
+                                {notes.length === 0 ? (
+                                  <div className="px-3 py-2 text-[11px] text-slate-500 dark:text-zinc-400 italic">
+                                    Aucune note disponible
+                                  </div>
+                                ) : (
+                                  notes.map(n => {
+                                    const isActive = activeNoteId === n.id;
+                                    return (
+                                      <button
+                                        key={n.id}
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          addImageToNote(n.id, { url: img.url, name: img.name });
+                                          setOpenNoteMenuImageId(null);
+                                        }}
+                                        className="w-full px-2.5 py-1.5 text-[11px] text-left flex items-center justify-between hover:bg-teal-50 dark:hover:bg-teal-950/40 text-slate-700 dark:text-zinc-200 cursor-pointer font-medium"
+                                      >
+                                        <span className="truncate max-w-[130px]">{n.title}</span>
+                                        {isActive && (
+                                          <span className="text-[8px] font-black uppercase px-1.5 py-0.2 rounded bg-teal-100 text-teal-800 dark:bg-teal-900/80 dark:text-teal-200 shrink-0">
+                                            Active
+                                          </span>
+                                        )}
+                                      </button>
+                                    );
+                                  })
+                                )}
+
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    addNote({
+                                      title: `Note - ${img.name}`,
+                                      content: `Image ajoutée depuis la galerie.`,
+                                      images: [{
+                                        id: Date.now().toString(36),
+                                        url: img.url,
+                                        name: img.name,
+                                        addedAt: new Date().toISOString()
+                                      }]
+                                    });
+                                    setOpenNoteMenuImageId(null);
+                                    addNotification(`Nouvelle note créée avec l'image "${img.name}"`, 'success');
+                                  }}
+                                  className="w-full px-2.5 py-2 text-[11px] font-bold text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/40 flex items-center gap-1.5 border-t border-slate-100 dark:border-zinc-700 cursor-pointer"
+                                >
+                                  <Plus className="w-3.5 h-3.5 shrink-0" />
+                                  <span className="truncate">Créer note avec image</span>
+                                </button>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

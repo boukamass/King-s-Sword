@@ -111,18 +111,6 @@ export const DEFAULT_PRESET_IMAGES: ProjectedImageMedia[] = [
     folderId: 'folder-defaut'
   },
   {
-    id: 'preset-cross-worship',
-    name: 'La Croix & Rayons de Gloire',
-    url: 'https://images.unsplash.com/photo-1544642899-f0d453658900?q=80&w=1600&auto=format&fit=crop',
-    orientation: 'portrait',
-    aspectRatio: 0.67,
-    width: 1000,
-    height: 1500,
-    caption: '« Car Dieu a tant aimé le monde qu\'il a donné son Fils unique... » (Jean 3:16)',
-    createdAt: new Date().toISOString(),
-    folderId: 'folder-defaut'
-  },
-  {
     id: 'preset-golden-sky-clouds',
     name: 'Nuages Dorés & Horizon Éclatant',
     url: 'https://images.unsplash.com/photo-1513002749550-c59d786b8e6c?q=80&w=1600&auto=format&fit=crop',
@@ -315,8 +303,14 @@ export const getStoredMediaImages = async (): Promise<ProjectedImageMedia[]> => 
   const legacyIds = new Set(['folder-surnaturel', 'folder-culte', 'folder-nature', 'folder-symboles']);
 
   try {
-    const data = await idbGet<ProjectedImageMedia[]>(MEDIA_STORAGE_KEY);
-    if (data && Array.isArray(data) && data.length > 0) {
+    const rawData = await idbGet<ProjectedImageMedia[]>(MEDIA_STORAGE_KEY);
+    if (rawData && Array.isArray(rawData) && rawData.length > 0) {
+      // Remove any previously cached cross preset image
+      const data = rawData.filter(img => img.id !== 'preset-cross-worship');
+      if (data.length !== rawData.length) {
+        await saveStoredMediaImages(data);
+      }
+
       // Preload images into memory
       data.forEach(img => preloadImage(img.url));
 
