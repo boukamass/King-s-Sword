@@ -86,6 +86,8 @@ export interface ProjectionSyncPayload {
   currentResultIndex: number;
   activeDefinition: WordDefinition | null;
   isBible?: boolean;
+  isAnnouncement?: boolean;
+  announcementAlignment?: 'center' | 'left';
   projectedImage?: ProjectedImageMedia | null;
   projectionBgImage?: ProjectedImageMedia | null;
 }
@@ -105,6 +107,8 @@ const DEFAULT_SYNC_DATA: ProjectionSyncPayload = {
   currentResultIndex: -1,
   activeDefinition: null,
   isBible: false,
+  isAnnouncement: false,
+  announcementAlignment: 'center',
   projectedImage: null,
   projectionBgImage: null
 };
@@ -771,6 +775,11 @@ const ProjectionViewInternal: React.FC = memo(() => {
     (syncData.date && ['LSG 1910', 'KJV', 'DARBY', 'OSTERVALD', 'MARTIN', 'BIBLE'].includes(syncData.date.toUpperCase()))
   );
 
+  const isAnnouncement = Boolean(
+    syncData.isAnnouncement ||
+    (syncData.date && syncData.date.toLowerCase() === 'annonce')
+  );
+
   const songLines = useMemo(() => {
     if (!syncData.text) return [];
     return syncData.text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
@@ -793,6 +802,12 @@ const ProjectionViewInternal: React.FC = memo(() => {
   const bibleCalculatedSize = '5.2vmin';
   const bibleLineHeight = 1.44;
 
+  // Sizing for Announcements
+  const announcementCalculatedSize = syncData.fontSize
+    ? `min(${((syncData.fontSize / 10) * 1.05).toFixed(2)}vmin, 6.5vmin)`
+    : '5.2vmin';
+  const announcementLineHeight = 1.44;
+
   // Instant preloading of projection background image
   useEffect(() => {
     if (syncData.projectionBgImage?.url) {
@@ -806,6 +821,8 @@ const ProjectionViewInternal: React.FC = memo(() => {
     ? songFontSizeCSS
     : isBible
     ? bibleCalculatedSize
+    : isAnnouncement
+    ? announcementCalculatedSize
     : sermonFixedFontSize;
   const headerFontSizeCSS = useMemo(() => {
     const titleStr = syncData.title || '';
@@ -820,6 +837,8 @@ const ProjectionViewInternal: React.FC = memo(() => {
     ? songLineHeight
     : isBible
     ? bibleLineHeight
+    : isAnnouncement
+    ? announcementLineHeight
     : sermonLineHeight;
 
   // Split projected words into lines so song lines never wrap safely
@@ -1038,14 +1057,20 @@ const ProjectionViewInternal: React.FC = memo(() => {
           className={`flex-1 overflow-y-auto custom-scrollbar flex flex-col items-stretch w-full ${
             isScrollable ? 'justify-start pt-3 pb-24' : 'justify-center py-6'
           } ${
-            isSong ? 'px-4 sm:px-6 md:px-10' : 'pl-6 sm:pl-8 md:pl-12 pr-4 sm:pr-6 md:pr-8'
+            isSong
+              ? 'px-4 sm:px-6 md:px-10'
+              : isAnnouncement
+              ? syncData.announcementAlignment === 'left'
+                ? 'pl-8 sm:pl-12 md:pl-16 pr-6 sm:pr-8'
+                : 'px-8 sm:px-12 md:px-20'
+              : 'pl-6 sm:pl-8 md:pl-12 pr-4 sm:pr-6 md:pr-8'
           }`}
         >
           <div
             className={`text-white font-bold w-full max-w-none whitespace-pre-wrap ${
               isScrollable ? 'my-0' : 'my-auto'
             } ${
-              isSong ? 'text-center' : 'text-left'
+              isSong || (isAnnouncement && syncData.announcementAlignment !== 'left') ? 'text-center' : 'text-left'
             }`}
             style={{
               fontSize: calculatedFontSize,
@@ -1091,6 +1116,14 @@ const ProjectionViewInternal: React.FC = memo(() => {
                   </div>
                 ))
               )
+            ) : isAnnouncement ? (
+              <div className={`w-full flex flex-col space-y-3 ${syncData.announcementAlignment === 'left' ? 'text-left items-start' : 'text-center items-center'}`}>
+                {syncData.text.split(/\r?\n/).map((line, lIdx) => (
+                  <div key={lIdx} className="whitespace-pre-wrap break-words leading-relaxed w-full">
+                    {line || '\u00A0'}
+                  </div>
+                ))}
+              </div>
             ) : Array.isArray(syncData.projectedWords) && syncData.projectedWords.length > 0 ? (
               syncData.projectedWords.map((word, idx) => {
                 const isSelected = Array.isArray(syncData.selectionIndices) && typeof word.globalIndex === 'number' && syncData.selectionIndices.includes(word.globalIndex);

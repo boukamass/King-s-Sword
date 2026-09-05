@@ -1,6 +1,6 @@
 
 import { create } from 'zustand';
-import { Sermon, Note, NoteImage, ChatMessage, SearchMode, Notification, Citation, Highlight, ProjectedImageMedia, MediaFolder } from './types';
+import { Sermon, Note, NoteImage, ChatMessage, SearchMode, Notification, Citation, Highlight, ProjectedImageMedia, MediaFolder, Announcement } from './types';
 import { BibleVersion } from './types/bible';
 import { 
   getAllSermonsMetadata,
@@ -85,7 +85,9 @@ interface AppState {
   isExternalMaskOpen: boolean;
   isBibleModalOpen: boolean;
   isImageModalOpen: boolean;
+  isAnnouncementModalOpen: boolean;
   projectedImage: ProjectedImageMedia | null;
+  projectedAnnouncement: Announcement | null;
   projectionBgImage: ProjectedImageMedia | null;
   mediaImages: ProjectedImageMedia[];
   mediaFolders: MediaFolder[];
@@ -132,6 +134,9 @@ interface AppState {
   setBibleModalOpen: (v: boolean) => void;
   toggleImageModal: () => void;
   setIsImageModalOpen: (v: boolean) => void;
+  toggleAnnouncementModal: () => void;
+  setIsAnnouncementModalOpen: (v: boolean) => void;
+  setProjectedAnnouncement: (a: Announcement | null) => void;
   setProjectedImage: (image: ProjectedImageMedia | null) => void;
   setProjectionBgImage: (image: ProjectedImageMedia | null) => void;
   loadMediaImages: () => Promise<void>;
@@ -233,7 +238,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   isExternalMaskOpen: false,
   isBibleModalOpen: false,
   isImageModalOpen: false,
+  isAnnouncementModalOpen: false,
   projectedImage: null,
+  projectedAnnouncement: null,
   projectionBgImage: null,
   mediaImages: [],
   mediaFolders: [],
@@ -787,6 +794,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   setExternalMaskOpen: (v) => set({ isExternalMaskOpen: v }),
   toggleImageModal: () => set(s => ({ isImageModalOpen: !s.isImageModalOpen })),
   setIsImageModalOpen: (v) => set({ isImageModalOpen: v }),
+  toggleAnnouncementModal: () => set(s => ({ isAnnouncementModalOpen: !s.isAnnouncementModalOpen })),
+  setIsAnnouncementModalOpen: (v) => set({ isAnnouncementModalOpen: v }),
+  setProjectedAnnouncement: (a) => set({ projectedAnnouncement: a }),
   setProjectedImage: (image) => set({ projectedImage: image }),
   setProjectionBgImage: (image) => set({ projectionBgImage: image }),
   loadMediaImages: async () => {

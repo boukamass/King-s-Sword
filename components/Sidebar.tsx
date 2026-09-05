@@ -34,6 +34,7 @@ import {
   Edit3,
   Trash2,
   Image as ImageIcon,
+  Megaphone,
   SlidersHorizontal
 } from 'lucide-react';
 
@@ -1063,6 +1064,13 @@ const Sidebar: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
+          <button 
+            onClick={() => useAppStore.getState().toggleAnnouncementModal()} 
+            className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-teal-600 transition-all active:scale-95" 
+            data-tooltip="Écrire et Projeter des Annonces"
+          >
+            <Megaphone className="w-3.5 h-3.5" />
+          </button>
           <button 
             onClick={() => useAppStore.getState().toggleImageModal()} 
             className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-teal-600 transition-all active:scale-95" 

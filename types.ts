@@ -86,6 +86,19 @@ export interface Song {
   updatedAt?: string;
 }
 
+export interface Announcement {
+  id: string;
+  title: string;
+  category?: string;
+  date?: string;
+  location?: string;
+  content: string;
+  alignment?: 'center' | 'left';
+  accentColor?: 'teal' | 'amber' | 'blue' | 'purple' | 'emerald' | 'rose';
+  fontSize?: number;
+  updatedAt?: string;
+}
+
 export interface MediaFolder {
   id: string;
   name: string;

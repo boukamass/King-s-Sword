@@ -57,6 +57,7 @@ import {
   Milestone, 
   MonitorPlay,
   Image as ImageIcon,
+  Megaphone,
   Layers,
   Info,
   History,
@@ -270,6 +271,9 @@ const Reader: React.FC = () => {
   const projectionBgImage = useAppStore(s => s.projectionBgImage);
   const setProjectionBgImage = useAppStore(s => s.setProjectionBgImage);
   const toggleImageModal = useAppStore(s => s.toggleImageModal);
+  const toggleAnnouncementModal = useAppStore(s => s.toggleAnnouncementModal);
+  const projectedAnnouncement = useAppStore(s => s.projectedAnnouncement);
+  const setProjectedAnnouncement = useAppStore(s => s.setProjectedAnnouncement);
   const fontSize = useAppStore(s => s.fontSize);
   const setFontSize = useAppStore(s => s.setFontSize);
   
@@ -552,8 +556,8 @@ const Reader: React.FC = () => {
     }
   }, [structuredSegments]);
 
-  const handleTextSelection = useCallback((e?: React.MouseEvent) => {
-    if (e && (e.target as HTMLElement).closest('.selection-menu-container')) {
+  const handleTextSelection = useCallback((e?: any) => {
+    if (e && (e.target as HTMLElement)?.closest && (e.target as HTMLElement).closest('.selection-menu-container')) {
       return;
     }
 
@@ -561,26 +565,32 @@ const Reader: React.FC = () => {
     if (sel && !sel.isCollapsed && sel.toString().trim().length > 0 && scrollContainerRef.current) {
       if (sel.rangeCount === 0) return;
       const range = sel.getRangeAt(0);
+      
+      // Ensure the selection is actually inside the reader scroll container
+      if (!scrollContainerRef.current.contains(range.commonAncestorContainer)) {
+        return;
+      }
+
       const rect = range.getBoundingClientRect();
       if (rect.width === 0 && rect.height === 0) return;
 
       const scrollContainer = scrollContainerRef.current;
       const scrollRect = scrollContainer.getBoundingClientRect();
       
-      const menuHeight = 55; 
+      const menuHeight = 60; 
       const spaceAbove = rect.top - scrollRect.top;
       
       let x = (rect.left + rect.width / 2) - scrollRect.left;
-      let y;
+      let y: number;
 
       if (spaceAbove > menuHeight + 16) {
         y = (rect.top - scrollRect.top) + scrollContainer.scrollTop - menuHeight - 12;
       } else {
-        y = (rect.bottom - scrollRect.top) + scrollContainer.scrollTop + 12;
+        y = (rect.bottom - scrollRect.top) + scrollContainer.scrollTop + 14;
       }
 
-      // Keep menu inside container horizontally
-      x = Math.max(160, Math.min(scrollContainer.clientWidth - 160, x));
+      // Keep menu inside container horizontally with margins
+      x = Math.max(180, Math.min(scrollContainer.clientWidth - 180, x));
 
       setSelection({ 
         text: sel.toString().trim(), 
@@ -602,7 +612,7 @@ const Reader: React.FC = () => {
         }
       } catch (err) {}
     } else {
-      if (!e || !(e.target as HTMLElement).closest('.selection-menu-container')) {
+      if (!e || !(e.target as HTMLElement)?.closest?.('.selection-menu-container')) {
         setSelection(null);
         setSelectionIndices([]);
       }
@@ -722,8 +732,17 @@ const Reader: React.FC = () => {
       setTimeout(restoreScroll, 400);
     };
 
+    const handleDocumentSelectionTrigger = () => {
+      // Small timeout to allow DOM selection to finish updating
+      setTimeout(() => {
+        handleTextSelection();
+      }, 10);
+    };
+
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     document.addEventListener('selectionchange', handleSelectionChange);
+    document.addEventListener('mouseup', handleDocumentSelectionTrigger);
+    document.addEventListener('touchend', handleDocumentSelectionTrigger);
 
     return () => {
       broadcastChannel.current?.close();
@@ -731,10 +750,37 @@ const Reader: React.FC = () => {
       clearInterval(checkWindowStatus);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('selectionchange', handleSelectionChange);
+      document.removeEventListener('mouseup', handleDocumentSelectionTrigger);
+      document.removeEventListener('touchend', handleDocumentSelectionTrigger);
     };
-  }, [setExternalMaskOpen, handleSelectionChange]);
+  }, [setExternalMaskOpen, handleSelectionChange, handleTextSelection]);
 
   const getProjectionPayload = useCallback((targetSegmentIdx?: number | null): ProjectionSyncPayload | null => {
+    if (projectedAnnouncement) {
+      return {
+        type: 'sync' as const,
+        title: projectedAnnouncement.title.trim() || 'ANNONCE',
+        date: projectedAnnouncement.category?.trim() || 'Annonce',
+        time: projectedAnnouncement.date?.trim() || '',
+        city: projectedAnnouncement.location?.trim() || '',
+        text: projectedAnnouncement.content.trim(),
+        projectedWords: [],
+        fontSize: projectedAnnouncement.fontSize || 44,
+        theme: 'dark',
+        blackout: projectionBlackout,
+        highlights: [],
+        selectionIndices: [],
+        searchResults: [],
+        currentResultIndex: -1,
+        activeDefinition: null,
+        isBible: false,
+        isAnnouncement: true,
+        announcementAlignment: projectedAnnouncement.alignment || 'center',
+        projectedImage: null,
+        projectionBgImage
+      };
+    }
+
     if (projectedImage) {
       return {
         type: 'sync' as const,
@@ -901,10 +947,10 @@ const Reader: React.FC = () => {
   }, [sendProjectionPayload]);
 
   useEffect(() => {
-    if ((sermon || projectedImage || projectionBgImage) && (isProjectionOpen || isProjectionWindowOpen())) {
+    if ((sermon || projectedImage || projectionBgImage || projectedAnnouncement) && (isProjectionOpen || isProjectionWindowOpen())) {
       sendProjectionPayload(projectedSegmentIndexRef.current);
     }
-  }, [sermon, projectedSegmentIndex, isProjectionOpen, sendProjectionPayload, syncToggle, projectedImage, projectionBgImage, selectionIndices]);
+  }, [sermon, projectedSegmentIndex, isProjectionOpen, sendProjectionPayload, syncToggle, projectedImage, projectionBgImage, projectedAnnouncement, selectionIndices]);
 
   const stopProjection = useCallback(() => {
     closeProjectionWindow();
@@ -916,6 +962,9 @@ const Reader: React.FC = () => {
   const ensureProjectionWindow = useCallback((targetIdx?: number) => {
     if (projectedImage) {
       setProjectedImage(null);
+    }
+    if (projectedAnnouncement) {
+      setProjectedAnnouncement(null);
     }
 
     const effectiveIdx = typeof targetIdx === 'number' 
@@ -932,7 +981,7 @@ const Reader: React.FC = () => {
       const win = openProjectionWindow(payload);
       projectionWindow = win;
     }
-  }, [updateProjectedSegmentIndex, getProjectionPayload, projectedImage, setProjectedImage]);
+  }, [updateProjectedSegmentIndex, getProjectionPayload, projectedImage, setProjectedImage, projectedAnnouncement, setProjectedAnnouncement]);
 
   const reopenProjectionWindow = useCallback(() => {
     ensureProjectionWindow();
@@ -1851,6 +1900,15 @@ const Reader: React.FC = () => {
               isFullscreen={isOSFullscreen} 
               baseFontSize={fontSize} 
             />
+            <ActionButton 
+              onClick={() => toggleAnnouncementModal()} 
+              icon={Megaphone} 
+              tooltip="Écrire et Projeter des Annonces & Communications" 
+              active={Boolean(projectedAnnouncement)} 
+              special={Boolean(projectedAnnouncement)} 
+              isFullscreen={isOSFullscreen} 
+              baseFontSize={fontSize} 
+            />
             {structuredSegments.length > 0 && (
               <ActionButton 
                 onClick={() => setIsNavPanelOpen(prev => !prev)} 
@@ -1954,6 +2012,21 @@ const Reader: React.FC = () => {
                   : projectionBgImage 
                   ? `Fond : ${projectionBgImage.name}` 
                   : 'Images'}
+              </span>
+            </button>
+
+            <button
+              onClick={() => toggleAnnouncementModal()}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border shadow-xs cursor-pointer whitespace-nowrap shrink-0 ${
+                projectedAnnouncement
+                  ? 'bg-amber-600 hover:bg-amber-500 text-white border-amber-400/80 ring-1 ring-amber-300 animate-pulse'
+                  : 'bg-teal-900/90 hover:bg-teal-800 text-teal-200 border-teal-700/60'
+              }`}
+              data-tooltip="Module Annonces : Écrire et Projeter des annonces personnalisées"
+            >
+              <Megaphone className="w-3.5 h-3.5 shrink-0" />
+              <span className="whitespace-nowrap">
+                {projectedAnnouncement ? `Annonce : ${projectedAnnouncement.title}` : 'Annonces'}
               </span>
             </button>
 
@@ -2214,7 +2287,9 @@ const Reader: React.FC = () => {
           onScroll={handleScrollContainerScroll}
           onWheel={handleScrollContainerWheel}
           onMouseUp={handleTextSelection} 
-          className={`flex-1 h-full overflow-y-auto custom-scrollbar serif-text leading-relaxed text-zinc-800 dark:text-zinc-300 transition-all ${
+          onTouchEnd={handleTextSelection}
+          onKeyUp={handleTextSelection}
+          className={`flex-1 h-full overflow-y-auto custom-scrollbar serif-text leading-relaxed text-zinc-800 dark:text-zinc-300 transition-all relative ${
             isOSFullscreen 
               ? 'py-4 px-3 sm:px-6 md:px-8' 
               : isNavPanelOpen 
