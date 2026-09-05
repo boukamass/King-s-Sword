@@ -2263,62 +2263,79 @@ const Reader: React.FC = () => {
                     isProjectionOpen && !isProjected ? 'hover:ring-1 hover:ring-teal-500/30' : ''
                   }`}
                 >
-                  {/* Floating Action Buttons on hover / when projected (top right) */}
-                  <div className={`absolute top-2 right-2 flex items-center gap-1.5 no-print z-10 transition-opacity duration-150 ${
-                    isProjected ? 'opacity-100' : 'opacity-0 group-hover/seg:opacity-100'
-                  }`}>
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); handleProjectSegment(segIdx, true); }}
-                      className={`inline-flex items-center gap-1 border text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer ${
-                        isProjected 
-                          ? 'bg-amber-500 hover:bg-amber-600 text-black border-amber-500 font-extrabold'
-                          : 'bg-white dark:bg-zinc-900 hover:bg-teal-600 text-teal-700 dark:text-teal-300 hover:text-white border-teal-600/40 dark:border-teal-500/40'
-                      }`}
-                      data-tooltip={isProjected ? "Cliquer pour arrêter la projection de ce paragraphe" : "Projeter ce paragraphe sur grand écran"}
-                    >
-                      <MonitorPlay className="w-3 h-3" />
-                      <span>{isProjected ? "En projection" : "Projeter"}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => { 
-                        e.stopPropagation(); 
-                        setNoteSelectorPayload({ text: seg.text.trim(), sermon, paragraphIndex: segIdx + 1 }); 
-                      }}
-                      className="inline-flex items-center gap-1 bg-white dark:bg-zinc-900 hover:bg-emerald-600 text-emerald-700 dark:text-emerald-300 hover:text-white border border-emerald-600/40 dark:border-emerald-500/40 text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer"
-                      data-tooltip="Ajouter ce paragraphe au journal d'étude"
-                      data-tooltip-icon="notes"
-                    >
-                      <NotebookPen className="w-3 h-3" />
-                      <span>Note</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => { 
-                        e.stopPropagation(); 
-                        if (activeSermon?.id) {
-                          const inDock = manualContextIds.includes(activeSermon.id);
-                          toggleContextSermon(activeSermon.id, true);
-                          addNotification(
-                            inDock 
-                              ? `Retiré du dock IA` 
-                              : `Ajouté au dock IA`, 
-                            "success"
-                          );
-                        }
-                      }}
-                      className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer border ${
-                        isCurrentInDock
-                          ? 'bg-teal-600 text-white border-teal-600'
-                          : 'bg-white dark:bg-zinc-900 hover:bg-teal-600 text-teal-700 dark:text-teal-300 hover:text-white border-teal-600/40 dark:border-teal-500/40'
-                      }`}
-                      data-tooltip={isCurrentInDock ? "Retirer ce sermon du dock IA" : "Ajouter ce sermon au dock IA"}
-                      data-tooltip-icon="sparkles"
-                    >
-                      <Sparkles className="w-3 h-3" />
-                      <span>{isCurrentInDock ? "Dans le Dock IA" : "+ Dock IA"}</span>
-                    </button>
+                  {/* Ligne d'en-tête et d'actions du paragraphe - positionnée au-dessus du texte pour ne JAMAIS le masquer */}
+                  <div className="flex items-center justify-between gap-2 mb-1.5 no-print select-none min-h-[26px]">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {isProjected ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-300 font-extrabold text-[10.5px] uppercase tracking-wider shadow-xs border border-amber-500/40">
+                          <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                          <MonitorPlay className="w-3.5 h-3.5" />
+                          <span>EN PROJECTION (ÉCRAN 2)</span>
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-mono font-bold text-zinc-400/80 dark:text-zinc-500/80 group-hover/seg:text-teal-600 dark:group-hover/seg:text-teal-400 transition-colors">
+                          {isBibleChapter ? `Verset ${segIdx + 1}` : isSong ? (isChorus ? `Refrain` : `Strophe ${segIdx + 1}`) : `§ ${segIdx + 1}`}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Boutons d'action (Projeter, Note, Dock IA) - restent strictement au-dessus du texte */}
+                    <div className={`flex items-center gap-1.5 shrink-0 transition-opacity duration-150 ${
+                      isProjected ? 'opacity-100' : 'opacity-0 group-hover/seg:opacity-100 focus-within:opacity-100'
+                    }`}>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleProjectSegment(segIdx, true); }}
+                        className={`inline-flex items-center gap-1 border text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer ${
+                          isProjected 
+                            ? 'bg-amber-500 hover:bg-amber-600 text-black border-amber-500 font-extrabold'
+                            : 'bg-white dark:bg-zinc-900 hover:bg-teal-600 text-teal-700 dark:text-teal-300 hover:text-white border-teal-600/40 dark:border-teal-500/40'
+                        }`}
+                        data-tooltip={isProjected ? "Cliquer pour arrêter la projection de ce paragraphe" : "Projeter ce paragraphe sur grand écran"}
+                      >
+                        <MonitorPlay className="w-3 h-3" />
+                        <span>{isProjected ? "En projection" : "Projeter"}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          setNoteSelectorPayload({ text: seg.text.trim(), sermon, paragraphIndex: segIdx + 1 }); 
+                        }}
+                        className="inline-flex items-center gap-1 bg-white dark:bg-zinc-900 hover:bg-emerald-600 text-emerald-700 dark:text-emerald-300 hover:text-white border border-emerald-600/40 dark:border-emerald-500/40 text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer"
+                        data-tooltip="Ajouter ce paragraphe au journal d'étude"
+                        data-tooltip-icon="notes"
+                      >
+                        <NotebookPen className="w-3 h-3" />
+                        <span>Note</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          if (activeSermon?.id) {
+                            const inDock = manualContextIds.includes(activeSermon.id);
+                            toggleContextSermon(activeSermon.id, true);
+                            addNotification(
+                              inDock 
+                                ? `Retiré du dock IA` 
+                                : `Ajouté au dock IA`, 
+                              "success"
+                            );
+                          }
+                        }}
+                        className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer border ${
+                          isCurrentInDock
+                            ? 'bg-teal-600 text-white border-teal-600'
+                            : 'bg-white dark:bg-zinc-900 hover:bg-teal-600 text-teal-700 dark:text-teal-300 hover:text-white border-teal-600/40 dark:border-teal-500/40'
+                        }`}
+                        data-tooltip={isCurrentInDock ? "Retirer ce sermon du dock IA" : "Ajouter ce sermon au dock IA"}
+                        data-tooltip-icon="sparkles"
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        <span>{isCurrentInDock ? "Dans le Dock IA" : "+ Dock IA"}</span>
+                      </button>
+                    </div>
                   </div>
 
                   <div data-para-content={segIdx} className={`relative para-text-content select-text leading-relaxed ${isProjected ? 'pl-5 sm:pl-6' : ''}`}>
