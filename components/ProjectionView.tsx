@@ -809,12 +809,13 @@ const ProjectionViewInternal: React.FC = memo(() => {
     : sermonFixedFontSize;
   const headerFontSizeCSS = useMemo(() => {
     const titleStr = syncData.title || '';
-    const metaStr = (syncData.date || '') + (syncData.time || '') + (syncData.city || '');
+    const showMeta = !isSong && !isBible;
+    const metaStr = showMeta ? ((syncData.date || '') + (syncData.time || '') + (syncData.city || '')) : '';
     const totalChars = Math.max(12, titleStr.length + (metaStr.length > 0 ? metaStr.length + 8 : 0));
     // Calculate max size in vmin so title & metadata fit generously on 1 single line without overflow, truncation or wrapping
     const maxFitVmin = Math.max(1.85, 115 / (totalChars * 0.48));
     return `min(${calculatedFontSize}, ${maxFitVmin.toFixed(2)}vmin)`;
-  }, [calculatedFontSize, syncData.title, syncData.date, syncData.time, syncData.city]);
+  }, [calculatedFontSize, syncData.title, syncData.date, syncData.time, syncData.city, isSong, isBible]);
   const calculatedLineHeight = isSong
     ? songLineHeight
     : isBible
@@ -877,7 +878,7 @@ const ProjectionViewInternal: React.FC = memo(() => {
   // Idle Projection Screen (When no paragraph text is currently selected)
   if (!hasText) {
     const displayTitle = syncData.title || "KING'S SWORD";
-    const hasMeta = Boolean(syncData.date || syncData.time || syncData.city);
+    const hasMeta = !isSong && !isBible && Boolean(syncData.date || syncData.time || syncData.city);
 
     return (
       <div 
@@ -915,7 +916,7 @@ const ProjectionViewInternal: React.FC = memo(() => {
             {displayTitle}
           </h1>
 
-          {/* Metadata: Date, Time, City */}
+          {/* Metadata: Date, Time, City (Uniquement pour les sermons et exposés) */}
           {hasMeta && (
             <div className="flex items-center gap-4 md:gap-6 text-[1.8vmin] font-bold text-teal-300 uppercase tracking-widest flex-wrap justify-center">
               {syncData.date && (
@@ -1000,29 +1001,32 @@ const ProjectionViewInternal: React.FC = memo(() => {
           </h1>
         </div>
         
-        <div 
-          className="flex items-center gap-5 font-bold text-zinc-300 uppercase tracking-wider whitespace-nowrap shrink-0"
-          style={{ fontSize: headerFontSizeCSS }}
-        >
-          {syncData.date && (
-            <div className="flex items-center gap-1.5">
-              <Calendar className="w-[0.9em] h-[0.9em] text-teal-400/80 shrink-0" />
-              <span className="font-mono">{syncData.date}</span>
-            </div>
-          )}
-          {syncData.time && (
-            <div className="flex items-center gap-1.5">
-              <Clock className="w-[0.9em] h-[0.9em] text-teal-400/80 shrink-0" />
-              <span>{syncData.time}</span>
-            </div>
-          )}
-          {syncData.city && (
-            <div className="flex items-center gap-1.5">
-              <MapPin className="w-[0.9em] h-[0.9em] text-teal-400/80 shrink-0" />
-              <span>{syncData.city}</span>
-            </div>
-          )}
-        </div>
+        {/* Métadonnées détaillées (Date, Heure, Ville) uniquement pour les sermons et exposés ; masquées pour les chants et la Bible */}
+        {!isSong && !isBible && (
+          <div 
+            className="flex items-center gap-5 font-bold text-zinc-300 uppercase tracking-wider whitespace-nowrap shrink-0"
+            style={{ fontSize: headerFontSizeCSS }}
+          >
+            {syncData.date && (
+              <div className="flex items-center gap-1.5">
+                <Calendar className="w-[0.9em] h-[0.9em] text-teal-400/80 shrink-0" />
+                <span className="font-mono">{syncData.date}</span>
+              </div>
+            )}
+            {syncData.time && (
+              <div className="flex items-center gap-1.5">
+                <Clock className="w-[0.9em] h-[0.9em] text-teal-400/80 shrink-0" />
+                <span>{syncData.time}</span>
+              </div>
+            )}
+            {syncData.city && (
+              <div className="flex items-center gap-1.5">
+                <MapPin className="w-[0.9em] h-[0.9em] text-teal-400/80 shrink-0" />
+                <span>{syncData.city}</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Main Text Presentation Area with Vertical Scroll */}

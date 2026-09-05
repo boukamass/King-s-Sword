@@ -406,6 +406,12 @@ export const generateProjectionSnapshot = async (
     payload.time === 'Chant' ||
     Boolean(payload.title && /^\d+\.\s*/.test(payload.title) && payload.date === 'Cantique');
 
+  const isBible = Boolean(
+    payload.isBible ||
+    (payload.city && (payload.city.includes('Testament') || payload.city.includes('Bible'))) ||
+    (payload.date && ['LSG 1910', 'KJV', 'DARBY', 'OSTERVALD', 'MARTIN', 'BIBLE'].includes(payload.date.toUpperCase()))
+  );
+
   const rawText = payload.text || '';
 
   // 4. Header Bar & Text Content OR Idle Screen
@@ -460,17 +466,19 @@ export const generateProjectionSnapshot = async (
     ctx.textBaseline = 'middle';
     ctx.fillText(titleText, titleX, headerHeight / 2);
 
-    // Metadata on right
-    const metaParts: string[] = [];
-    if (payload.date) metaParts.push(payload.date);
-    if (payload.time) metaParts.push(payload.time);
-    if (payload.city) metaParts.push(payload.city);
+    // Metadata on right (only for sermons and exposés)
+    if (!isSong && !isBible) {
+      const metaParts: string[] = [];
+      if (payload.date) metaParts.push(payload.date);
+      if (payload.time) metaParts.push(payload.time);
+      if (payload.city) metaParts.push(payload.city);
 
-    if (metaParts.length > 0) {
-      ctx.fillStyle = '#e4e4e7';
-      ctx.font = 'bold 26px sans-serif';
-      ctx.textAlign = 'right';
-      ctx.fillText(metaParts.join('  •  '), width - 50, headerHeight / 2);
+      if (metaParts.length > 0) {
+        ctx.fillStyle = '#e4e4e7';
+        ctx.font = 'bold 26px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(metaParts.join('  •  '), width - 50, headerHeight / 2);
+      }
     }
 
     // Prepare Text Rendering with Highlights, Underlines & Selections
@@ -643,16 +651,18 @@ export const generateProjectionSnapshot = async (
     ctx.shadowBlur = 20;
     ctx.fillText(titleText.toUpperCase(), width / 2, height / 2 + 20);
 
-    // Centered Metadata
-    const metaParts: string[] = [];
-    if (payload.date) metaParts.push(payload.date);
-    if (payload.time) metaParts.push(payload.time);
-    if (payload.city) metaParts.push(payload.city);
+    // Centered Metadata (only for sermons and exposés)
+    if (!isSong && !isBible) {
+      const metaParts: string[] = [];
+      if (payload.date) metaParts.push(payload.date);
+      if (payload.time) metaParts.push(payload.time);
+      if (payload.city) metaParts.push(payload.city);
 
-    if (metaParts.length > 0) {
-      ctx.fillStyle = '#2dd4bf';
-      ctx.font = 'bold 26px sans-serif';
-      ctx.fillText(metaParts.join('  •  '), width / 2, height / 2 + 80);
+      if (metaParts.length > 0) {
+        ctx.fillStyle = '#2dd4bf';
+        ctx.font = 'bold 26px sans-serif';
+        ctx.fillText(metaParts.join('  •  '), width / 2, height / 2 + 80);
+      }
     }
 
     // Status Pill / Notice
