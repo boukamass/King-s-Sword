@@ -1027,29 +1027,26 @@ const ProjectionViewInternal: React.FC = memo(() => {
 
       {/* Main Text Presentation Area with Vertical Scroll */}
       <div className="flex-1 w-full relative z-10 overflow-hidden flex flex-col pb-0 mb-0">
-        {/* Top Gradient Overflow Mask */}
-        <div
-          className={`absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-black via-black/70 to-transparent z-20 pointer-events-none transition-opacity duration-300 ${
-            canScrollUp ? 'opacity-100' : 'opacity-0'
-          }`}
-        />
-
-        {/* Scrollable Text Body */}
+        {/* Scrollable Text Body - Zero masks, 100% visible crisp text */}
         <div
           ref={scrollContainerRef}
           onScroll={updateScrollState}
-          className={`flex-1 overflow-y-auto custom-scrollbar py-6 flex flex-col justify-start items-stretch w-full ${
-            isSong ? 'px-3 sm:px-4 md:px-6' : 'pl-5 sm:pl-7 md:pl-10 pr-3 sm:pr-4 md:pr-6'
+          className={`flex-1 overflow-y-auto custom-scrollbar flex flex-col items-stretch w-full ${
+            isScrollable ? 'justify-start pt-3 pb-24' : 'justify-center py-6'
+          } ${
+            isSong ? 'px-4 sm:px-6 md:px-10' : 'pl-6 sm:pl-8 md:pl-12 pr-4 sm:pr-6 md:pr-8'
           }`}
         >
           <div
-            className={`text-white font-bold my-auto w-full max-w-none whitespace-pre-wrap ${
+            className={`text-white font-bold w-full max-w-none whitespace-pre-wrap ${
+              isScrollable ? 'my-0' : 'my-auto'
+            } ${
               isSong ? 'text-center' : 'text-left'
             }`}
             style={{
               fontSize: calculatedFontSize,
               lineHeight: calculatedLineHeight,
-              textShadow: '0 4px 30px rgba(0,0,0,0.6)',
+              textShadow: '0 4px 30px rgba(0,0,0,0.8)',
               wordBreak: 'break-word',
               overflowWrap: 'break-word'
             }}
@@ -1057,7 +1054,7 @@ const ProjectionViewInternal: React.FC = memo(() => {
             {isSong ? (
               songLinesOfWords ? (
                 songLinesOfWords.map((lineWords, lineIdx) => (
-                  <div key={lineIdx} className="whitespace-nowrap overflow-visible leading-snug min-h-[1em]">
+                  <div key={lineIdx} className="whitespace-pre-wrap break-words overflow-visible leading-snug min-h-[1em]">
                     {lineWords.map((word, wIdx) => {
                       const isSelected = Array.isArray(syncData.selectionIndices) && typeof word.globalIndex === 'number' && syncData.selectionIndices.includes(word.globalIndex);
                       const styleClass = isSelected
@@ -1085,7 +1082,7 @@ const ProjectionViewInternal: React.FC = memo(() => {
                 ))
               ) : (
                 syncData.text.split(/\r?\n/).map((line, lIdx) => (
-                  <div key={lIdx} className="whitespace-nowrap overflow-visible leading-snug min-h-[1em]">
+                  <div key={lIdx} className="whitespace-pre-wrap break-words overflow-visible leading-snug min-h-[1em]">
                     {line || '\u00A0'}
                   </div>
                 ))
@@ -1120,17 +1117,10 @@ const ProjectionViewInternal: React.FC = memo(() => {
           </div>
         </div>
 
-        {/* Bottom Gradient Overflow Mask */}
-        <div
-          className={`absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-black via-black/80 to-transparent z-20 pointer-events-none transition-opacity duration-300 ${
-            canScrollDown ? 'opacity-100' : 'opacity-0'
-          }`}
-        />
-
         {/* Elegant Application Name Watermark (Bottom Right) */}
-        <div className="absolute right-6 bottom-3.5 z-20 pointer-events-none select-none flex items-center gap-2 opacity-60 hover:opacity-90 transition-opacity">
+        <div className="absolute right-6 bottom-3.5 z-20 pointer-events-none select-none flex items-center gap-2 opacity-50 hover:opacity-80 transition-opacity">
           <span className="w-1.5 h-1.5 rounded-full bg-teal-400 shadow-[0_0_8px_rgba(45,212,191,0.8)] shrink-0" />
-          <span className="text-[1.1vmin] font-black tracking-[0.2em] text-zinc-200 uppercase drop-shadow-md">
+          <span className="text-[1.1vmin] font-black tracking-[0.2em] text-zinc-300 uppercase drop-shadow-md">
             King’s Sword
           </span>
         </div>
