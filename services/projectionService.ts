@@ -19,6 +19,8 @@ export interface ProjectionSyncPayload {
   currentResultIndex: number;
   activeDefinition: WordDefinition | null;
   isBible?: boolean;
+  isAnnouncement?: boolean;
+  announcementAlignment?: 'center' | 'left';
   projectedImage?: ProjectedImageMedia | null;
   projectionBgImage?: ProjectedImageMedia | null;
 }
@@ -95,6 +97,8 @@ export const broadcastProjectionPayload = (payload: ProjectionSyncPayload): void
     currentResultIndex: payload.currentResultIndex ?? -1,
     activeDefinition: payload.activeDefinition || null,
     isBible: payload.isBible ?? false,
+    isAnnouncement: payload.isAnnouncement ?? false,
+    announcementAlignment: payload.announcementAlignment || 'center',
     projectedImage: payload.projectedImage || null,
     projectionBgImage: payload.projectionBgImage || null
   };
@@ -304,3 +308,8 @@ export const closeProjectionWindow = (): void => {
     sessionStorage.removeItem(STORAGE_KEY);
   } catch (e) {}
 };
+
+/**
+ * Backward compatibility alias for openProjectionWindow
+ */
+export const openProjectionWindowSafely = openProjectionWindow;

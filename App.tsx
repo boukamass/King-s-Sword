@@ -10,6 +10,7 @@ import NoteEditor from './components/NoteEditor';
 import { Sparkles, NotebookPen, Info, Trash2, HelpCircle, BookOpen } from 'lucide-react';
 import { ProjectionView, MaskView } from './components/ProjectionView';
 import { ImageProjectionModal } from './components/ImageProjectionModal';
+import { AnnouncementModal } from './components/AnnouncementModal';
 
 const GlobalTooltip = memo(() => {
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -294,6 +295,7 @@ const App: React.FC = () => {
       <Notifications />
       <GlobalTooltip />
       <ImageProjectionModal />
+      <AnnouncementModal />
     </div>
   );
 };
