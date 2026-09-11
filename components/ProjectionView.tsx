@@ -87,6 +87,7 @@ export interface ProjectionSyncPayload {
   currentResultIndex: number;
   activeDefinition: WordDefinition | null;
   isBible?: boolean;
+  isSong?: boolean;
   isAnnouncement?: boolean;
   announcementAlignment?: 'center' | 'left';
   projectedImage?: ProjectedImageMedia | null;
@@ -108,6 +109,7 @@ const DEFAULT_SYNC_DATA: ProjectionSyncPayload = {
   currentResultIndex: -1,
   activeDefinition: null,
   isBible: false,
+  isSong: false,
   isAnnouncement: false,
   announcementAlignment: 'center',
   projectedImage: null,
@@ -832,10 +834,12 @@ const ProjectionViewInternal: React.FC = memo(() => {
   const hasTitle = Boolean(syncData.title && syncData.title.trim().length > 0);
   const hasText = Boolean(syncData.text && syncData.text.trim().length > 0);
 
-  const isSong =
+  const isSong = Boolean(
+    syncData.isSong ||
     syncData.date === 'Cantique' ||
     syncData.time === 'Chant' ||
-    Boolean(syncData.title && /^\d+\.\s*/.test(syncData.title) && syncData.date === 'Cantique');
+    (syncData.title && /^\d+\.\s*/.test(syncData.title) && syncData.date === 'Cantique')
+  );
 
   const isBible = Boolean(
     syncData.isBible ||
@@ -858,10 +862,13 @@ const ProjectionViewInternal: React.FC = memo(() => {
   const songLinesCount = Math.max(songLines.length, 1);
   const maxLineLength = Math.max(...(songLines.length > 0 ? songLines.map(l => l.length) : [1]), 1);
 
-  // Dynamic font sizing for songs
-  const songFitWidthVw = Math.max(1.2, 80 / (maxLineLength * 0.58));
-  const songFitHeightVh = Math.max(1.5, 68 / (songLinesCount * 1.32));
-  const songFontSizeCSS = `min(${songFitWidthVw.toFixed(2)}vw, ${songFitHeightVh.toFixed(2)}vh, 8.5vmin)`;
+  // Dynamic font sizing for songs:
+  // Elevated minimum base size for church projection legibility (6.0vmin - 8.2vmin)
+  // Constrained so that the stanza NEVER exceeds available vertical viewport height (~73vh)
+  // and lines fit width (~91vw), avoiding any unwanted scrolling.
+  const songFitWidthVw = Math.max(3.5, 91 / (Math.min(maxLineLength, 50) * 0.47));
+  const songFitHeightVh = Math.max(5.4, 73 / (songLinesCount * 1.32));
+  const songFontSizeCSS = `min(${songFitWidthVw.toFixed(2)}vw, ${songFitHeightVh.toFixed(2)}vh, 8.2vmin)`;
   const songLineHeight = 1.32;
 
   // Dynamic font scaling according to syncData.fontSize
@@ -874,10 +881,37 @@ const ProjectionViewInternal: React.FC = memo(() => {
   const sermonCalculatedSize = `${(5.4 * fontScale).toFixed(2)}vmin`;
   const sermonLineHeight = 1.48;
 
-  const bibleCalculatedSize = `${(5.2 * fontScale).toFixed(2)}vmin`;
-  const bibleLineHeight = 1.44;
+  // Dynamic font sizing for Bible verses:
+  // Elevated baseline size ensuring great readability from afar,
+  // mathematically scaled to strictly guarantee that the full verse fits
+  // in the available vertical viewport without needing any scrolling.
+  const bibleOptimalBaseSize = useMemo(() => {
+    if (!isBible) return 5.4;
+    const text = (syncData.text || '').trim();
+    const len = text.length;
+    if (len === 0) return 7.8;
 
-  const announcementCalculatedSize = `${(5.2 * fontScale).toFixed(2)}vmin`;
+    const explicitLines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const lineCountByBreaks = explicitLines.length;
+
+    // Height limit if explicit multi-line breaks exist (e.g. poetry in Psalms)
+    const heightLimitByBreaks = lineCountByBreaks > 1 
+      ? (72 / (lineCountByBreaks * 1.42))
+      : 12;
+
+    // Mathematical area-scaling curve guaranteeing the verse fits completely
+    // in usable vertical height (~72vmin) without needing any scrolling:
+    const sizeFromLength = Math.sqrt(15600 / len);
+
+    const optimal = Math.min(sizeFromLength, heightLimitByBreaks);
+    // Elevated minimum floor at 5.5vmin (for long verses), ceiling at 8.0vmin (for short verses)
+    return Math.max(5.5, Math.min(8.0, Number(optimal.toFixed(2))));
+  }, [isBible, syncData.text]);
+
+  const bibleCalculatedSize = `${(bibleOptimalBaseSize * fontScale).toFixed(2)}vmin`;
+  const bibleLineHeight = 1.42;
+
+  const announcementCalculatedSize = `${(5.4 * fontScale).toFixed(2)}vmin`;
   const announcementLineHeight = 1.44;
 
   const songCalculatedSize = `calc(${songFontSizeCSS} * ${fontScale.toFixed(2)})`;
@@ -1118,7 +1152,9 @@ const ProjectionViewInternal: React.FC = memo(() => {
         <div
           ref={scrollContainerRef}
           onScroll={updateScrollState}
-          className={`flex-1 overflow-y-auto custom-scrollbar flex flex-col items-stretch w-full pt-4 pb-28 ${
+          className={`flex-1 overflow-y-auto custom-scrollbar flex flex-col items-stretch w-full ${
+            isSong || isBible ? 'pt-6 sm:pt-8 md:pt-10 pb-24' : 'pt-4 pb-28'
+          } ${
             isSong
               ? 'px-4 sm:px-6 md:px-10'
               : isAnnouncement

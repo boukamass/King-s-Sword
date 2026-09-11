@@ -877,6 +877,7 @@ const Reader: React.FC = () => {
         currentResultIndex: -1,
         activeDefinition: null,
         isBible,
+        isSong,
         projectedImage: null,
         projectionBgImage
       };
@@ -921,10 +922,11 @@ const Reader: React.FC = () => {
       currentResultIndex,
       activeDefinition,
       isBible,
+      isSong,
       projectedImage,
       projectionBgImage
     };
-  }, [sermon, structuredSegments, segments, selectionIndices, selection, highlightMap, jumpHighlightIndices, searchResults, currentResultIndex, activeDefinition, projectionFontSize, theme, projectionBlackout, isBible, projectedImage, projectionBgImage]);
+  }, [sermon, structuredSegments, segments, selectionIndices, selection, highlightMap, jumpHighlightIndices, searchResults, currentResultIndex, activeDefinition, projectionFontSize, theme, projectionBlackout, isBible, isSong, projectedImage, projectionBgImage]);
 
   const prevSermonIdRef = useRef(sermon?.id);
   useEffect(() => {
