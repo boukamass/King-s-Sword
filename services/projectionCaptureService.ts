@@ -401,10 +401,12 @@ export const generateProjectionSnapshot = async (
   // Load logo image
   const logoImg = await getLogoImage();
 
-  const isSong =
+  const isSong = Boolean(
+    payload.isSong ||
     payload.date === 'Cantique' ||
     payload.time === 'Chant' ||
-    Boolean(payload.title && /^\d+\.\s*/.test(payload.title) && payload.date === 'Cantique');
+    (payload.title && /^\d+\.\s*/.test(payload.title) && payload.date === 'Cantique')
+  );
 
   const isBible = Boolean(
     payload.isBible ||
@@ -495,9 +497,14 @@ export const generateProjectionSnapshot = async (
     const estimatedWrappedLines = wrapFormattedWords(ctx, allFormattedWords, maxTextWidth);
     const lineCount = Math.max(estimatedWrappedLines.length, 1);
 
-    // Dynamic Font Scaling
-    let fontSize = Math.min(60, Math.max(34, Math.floor(availableHeight / (lineCount * 1.5))));
-    const lineHeight = fontSize * 1.45;
+    // Dynamic Font Scaling with increased minimum and optimal ceiling for Bible verses and Songs
+    const maxCaptureFontSize = (isSong || isBible) ? 80 : 60;
+    const minCaptureFontSize = (isSong || isBible) ? 46 : 34;
+    let fontSize = Math.min(
+      maxCaptureFontSize,
+      Math.max(minCaptureFontSize, Math.floor(availableHeight / (lineCount * (isSong ? 1.34 : 1.45))))
+    );
+    const lineHeight = fontSize * (isSong ? 1.34 : 1.45);
     ctx.font = `bold ${fontSize}px sans-serif`;
 
     // Final wrapping with scaled font

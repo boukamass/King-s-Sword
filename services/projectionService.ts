@@ -20,6 +20,7 @@ export interface ProjectionSyncPayload {
   currentResultIndex: number;
   activeDefinition: WordDefinition | null;
   isBible?: boolean;
+  isSong?: boolean;
   isAnnouncement?: boolean;
   announcementAlignment?: 'center' | 'left';
   projectedImage?: ProjectedImageMedia | null;
