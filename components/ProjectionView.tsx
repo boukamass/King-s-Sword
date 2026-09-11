@@ -932,17 +932,23 @@ const ProjectionViewInternal: React.FC = memo(() => {
     : isAnnouncement
     ? announcementCalculatedSize
     : sermonCalculatedSize;
-  const headerFontSizeCSS = useMemo(() => {
-    const titleStr = syncData.title || '';
-    const showMeta = !isSong && !isBible;
-    const metaStr = showMeta 
-      ? (isSermon ? ((syncData.date || '') + (syncData.city || '')) : ((syncData.date || '') + (syncData.time || '') + (syncData.city || ''))) 
-      : '';
-    const totalChars = Math.max(12, titleStr.length + (metaStr.length > 0 ? metaStr.length + 8 : 0));
-    // Calculate max size in vmin so title & metadata fit generously on 1 single line with high 18-meter visibility
-    const maxFitVmin = Math.max(3.8, 175 / (totalChars * 0.42));
-    return `min(4.8vmin, ${maxFitVmin.toFixed(2)}vmin)`;
-  }, [syncData.title, syncData.date, syncData.time, syncData.city, isSong, isBible, isSermon]);
+
+  // Decoupled Header Typography (Solution A: Separate Title scaling & Date badge sizing)
+  const dateFontSizeCSS = 'clamp(1.9vmin, 2.3vmin, 2.7vmin)';
+  const logoFontSizeCSS = 'clamp(2.4vmin, 3.1vmin, 3.7vmin)';
+
+  const titleFontSizeCSS = useMemo(() => {
+    const titleStr = (syncData.title || '').trim();
+    const len = titleStr.length;
+    if (len === 0) return '3.6vmin';
+
+    // Adaptive scaling based specifically on title length so it stays impactful
+    // without crowding out the date badge
+    if (len <= 25) return 'min(4.2vmin, 6.2vw)';
+    if (len <= 45) return 'min(3.4vmin, 5.0vw)';
+    if (len <= 65) return 'min(2.8vmin, 4.0vw)';
+    return 'min(2.3vmin, 3.3vw)';
+  }, [syncData.title]);
   const calculatedLineHeight = isSong
     ? songLineHeight
     : isBible
@@ -1107,10 +1113,13 @@ const ProjectionViewInternal: React.FC = memo(() => {
         </div>
       )}
 
-      {/* Top Header Bar with Title & Metadata (Maximized size and 18m visibility) */}
-      <div className="w-full bg-gradient-to-b from-black/95 via-black/80 to-transparent border-b border-white/15 backdrop-blur-md flex flex-nowrap items-center justify-between px-8 md:px-12 py-3 shrink-0 z-30 gap-6 min-w-0">
-        <div className="flex items-center gap-3.5 min-w-0 flex-1 whitespace-nowrap">
-          <div className="w-[1.3em] h-[1.3em] rounded-full bg-teal-600/25 border-2 border-teal-500/40 flex items-center justify-center shadow-xl overflow-hidden shrink-0" style={{ fontSize: headerFontSizeCSS }}>
+      {/* Top Header Bar with Title & Metadata (Decoupled layout preventing any overlap) */}
+      <div className="w-full bg-gradient-to-b from-black/95 via-black/80 to-transparent border-b border-white/15 backdrop-blur-md flex flex-nowrap items-center justify-between px-6 sm:px-8 md:px-12 py-3 shrink-0 z-30 gap-4 sm:gap-6 min-w-0">
+        <div className="flex items-center gap-3 sm:gap-3.5 min-w-0 flex-1 overflow-hidden">
+          <div 
+            className="w-[1.25em] h-[1.25em] rounded-full bg-teal-600/25 border-2 border-teal-500/40 flex items-center justify-center shadow-xl overflow-hidden shrink-0" 
+            style={{ fontSize: logoFontSizeCSS }}
+          >
             <img
               src={`${import.meta.env.BASE_URL}logo.png`}
               alt="Logo"
@@ -1119,25 +1128,26 @@ const ProjectionViewInternal: React.FC = memo(() => {
             />
           </div>
           <h1 
-            className="font-black text-teal-300 uppercase tracking-tight drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)] whitespace-nowrap shrink-0"
-            style={{ fontSize: headerFontSizeCSS }}
+            className="font-black text-teal-300 uppercase tracking-tight drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)] truncate min-w-0"
+            style={{ fontSize: titleFontSizeCSS }}
+            title={syncData.title}
           >
             {syncData.title}
           </h1>
         </div>
         
-        {/* Métadonnées en-tête (Date pour les sermons, ou Date/Heure pour annonces/exposés) */}
+        {/* Métadonnées en-tête (Date protégée contre tout écrasement pour les sermons, ou Date/Heure pour annonces/exposés) */}
         {!isSong && !isBible && syncData.date && (
           <div 
-            className="flex items-center gap-4 font-black text-teal-200 uppercase tracking-wider whitespace-nowrap shrink-0"
-            style={{ fontSize: headerFontSizeCSS }}
+            className="flex items-center gap-3 font-black text-teal-200 uppercase tracking-wider whitespace-nowrap shrink-0"
+            style={{ fontSize: dateFontSizeCSS }}
           >
-            <div className="flex items-center gap-2 bg-black/70 px-4 py-1.5 rounded-full border-2 border-teal-500/45 shadow-lg">
+            <div className="flex items-center gap-2 bg-black/75 px-3.5 sm:px-4 py-1.5 rounded-full border-2 border-teal-500/45 shadow-lg shrink-0">
               <Calendar className="w-[1.15em] h-[1.15em] text-teal-400 shrink-0" />
               <span className="font-mono">{syncData.date}</span>
             </div>
             {!isSermon && syncData.time && (
-              <div className="flex items-center gap-2 bg-black/70 px-4 py-1.5 rounded-full border-2 border-teal-500/45 shadow-lg">
+              <div className="flex items-center gap-2 bg-black/75 px-3.5 sm:px-4 py-1.5 rounded-full border-2 border-teal-500/45 shadow-lg shrink-0">
                 <Clock className="w-[1.15em] h-[1.15em] text-teal-400 shrink-0" />
                 <span>{syncData.time}</span>
               </div>
@@ -1148,12 +1158,12 @@ const ProjectionViewInternal: React.FC = memo(() => {
 
       {/* Main Text Presentation Area with Vertical Scroll */}
       <div className="flex-1 w-full relative z-10 overflow-hidden flex flex-col pb-0 mb-0">
-        {/* Scrollable Text Body - Zero masks, 100% visible crisp text */}
+        {/* Scrollable Text Body - Zero masks, 100% visible crisp text, vertically centered */}
         <div
           ref={scrollContainerRef}
           onScroll={updateScrollState}
           className={`flex-1 overflow-y-auto custom-scrollbar flex flex-col items-stretch w-full ${
-            isSong || isBible ? 'pt-6 sm:pt-8 md:pt-10 pb-24' : 'pt-4 pb-28'
+            isSong || isBible ? 'py-6 sm:py-8 md:py-10' : 'py-6 sm:py-8 md:py-10'
           } ${
             isSong
               ? 'px-4 sm:px-6 md:px-10'
@@ -1161,11 +1171,11 @@ const ProjectionViewInternal: React.FC = memo(() => {
               ? syncData.announcementAlignment === 'left'
                 ? 'pl-8 sm:pl-12 md:pl-16 pr-6 sm:pr-8'
                 : 'px-8 sm:px-12 md:px-20'
-              : 'pl-6 sm:pl-8 md:pl-12 pr-4 sm:pr-6 md:pr-8'
+              : 'px-6 sm:px-8 md:px-12'
           }`}
         >
           <div
-            className={`text-white font-bold w-full max-w-none whitespace-pre-wrap my-0 ${
+            className={`text-white font-bold w-full max-w-none whitespace-pre-wrap my-auto ${
               isSong || (isAnnouncement && syncData.announcementAlignment !== 'left') ? 'text-center' : 'text-left'
             }`}
             style={{
