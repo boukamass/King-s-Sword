@@ -88,3 +88,31 @@
 .prose-styles strong {
   font-weight: 700;
 }
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body, html, #root, .app-container, div {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+  body, html {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  #printable-note-container {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+  }
+  .page-break-inside-avoid {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}

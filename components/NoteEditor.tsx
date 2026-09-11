@@ -23,10 +23,12 @@ import {
   Plus, 
   Check, 
   Eye, 
-  Folder 
+  Folder,
+  BookOpen
 } from 'lucide-react';
 import { Citation } from '../types';
 import { exportNoteToDocx } from '../services/docxExportService';
+import { processNoteData, cleanTextArtifacts } from '../utils/noteFormatter';
 
 const ActionButton = ({ onClick, icon: Icon, tooltip }: { onClick: () => void; icon: React.ElementType; tooltip: string }) => (
   <button 
@@ -93,12 +95,12 @@ const NoteEditor: React.FC = () => {
 
     if (!note) return null;
 
+    const processedNote = processNoteData(note);
+
     const handleJumpToCitation = (sermonId: string, quotedText?: string, paragraphIndex?: number) => {
-        if(sermonId.startsWith('ia-response') || sermonId.startsWith('definition-')) return; 
+        if (sermonId.startsWith('ia-response') || sermonId.startsWith('definition-')) return; 
         
-        // Mémoriser la note d'origine pour permettre le retour
         setNavigatedFromNoteId(activeNoteId);
-        
         setSelectedSermonId(sermonId);
         if (paragraphIndex) {
             setJumpToParagraph(paragraphIndex);
@@ -112,15 +114,17 @@ const NoteEditor: React.FC = () => {
     const handleContentBlur = () => setEditingContent(false);
     
     const renderRichContent = (text: string, sourceSermonId?: string) => {
-        let processedText = text.replace(
+        const cleaned = cleanTextArtifacts(text);
+
+        let processedText = cleaned.replace(
             /\[\[\[NOTE_EXTERNE\]\]\]/g, 
-            "> **Note de l'Assistant :** L'information suivante est un complément basé sur des connaissances générales et ne provient pas des sermons fournis.\n\n>"
+            "> **Note de l'Assistant :** L'information suivante est un complément basé sur des connaissances générales.\n\n>"
         );
 
         let formattedText = processedText.replace(/\[Réf:\s*([\w-]+)\s*\]/gi, (match, sermonId) => {
           const sermon = sermons.find(s => s.id === sermonId);
           if (sermon) {
-            return `<a href="#" data-sermon-id="${sermonId}" class="sermon-ref text-teal-600 dark:text-blue-400 font-black hover:underline decoration-teal-500/30 underline-offset-4 inline-flex items-center gap-1" data-tooltip="Voir la source"><span>[${sermon.title}]</span></a>`;
+            return `<a href="#" data-sermon-id="${sermonId}" class="sermon-ref text-teal-600 dark:text-teal-400 font-bold hover:underline decoration-teal-500/30 underline-offset-4 inline-flex items-center gap-1"><span>[${sermon.title}]</span></a>`;
           }
           return match;
         });
@@ -128,12 +132,12 @@ const NoteEditor: React.FC = () => {
         if (sourceSermonId && !sourceSermonId.includes('ia-') && !sourceSermonId.includes('definition') && !formattedText.includes('sermon-ref')) {
             const sermon = sermons.find(s => s.id === sourceSermonId);
             if (sermon) {
-                formattedText += ` <a href="#" data-sermon-id="${sourceSermonId}" class="sermon-ref text-teal-600 dark:text-blue-400 font-black hover:underline decoration-teal-500/30 underline-offset-4" data-tooltip="Ouvrir le sermon source">[Source: ${sermon.title}]</a>`;
+                formattedText += ` <a href="#" data-sermon-id="${sourceSermonId}" class="sermon-ref text-teal-600 dark:text-teal-400 font-bold hover:underline decoration-teal-500/30 underline-offset-4">[Source: ${sermon.title}]</a>`;
             }
         }
         
         let html = marked(formattedText, { breaks: true }) as string;
-        const replacement = '<blockquote class="border-l-4 border-teal-600/30 bg-teal-600/5 py-3 px-5 rounded-r-2xl my-6 text-sm italic serif-text relative"><div class="absolute -left-2 -top-2 w-6 h-6 bg-white dark:bg-zinc-900 rounded-full flex items-center justify-center border border-teal-600/20 text-teal-600/40"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1 0 2.5 0 5-2.5 5s-2.5-1.25-2.5-2.5"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c1 0 1 0 1 1 0 2.5 0 5-2.5 5s-2.5-1.25-2.5-2.5"/></svg></div>';
+        const replacement = '<blockquote class="border-l-4 border-teal-600/40 bg-teal-600/5 py-3 px-5 rounded-r-2xl my-6 text-sm italic serif-text relative"><div class="absolute -left-2 -top-2 w-6 h-6 bg-white dark:bg-zinc-900 rounded-full flex items-center justify-center border border-teal-600/20 text-teal-600/40"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1 0 2.5 0 5-2.5 5s-2.5-1.25-2.5-2.5"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c1 0 1 0 1 1 0 2.5 0 5-2.5 5s-2.5-1.25-2.5-2.5"/></svg></div>';
         html = html.replace(/<blockquote>\s*<p><strong>Note de l’Assistant :<\/strong>/g, `${replacement}<p><strong>Note de l’Assistant :</strong>`);
         html = html.replace(/<blockquote>\s*<p><strong>Note de l'Assistant :<\/strong>/g, `${replacement}<p><strong>Note de l'Assistant :</strong>`);
         
@@ -170,6 +174,19 @@ const NoteEditor: React.FC = () => {
         }
     };
 
+    const cleanPdfText = (str: string): string => {
+        if (!str) return '';
+        return str
+            .replace(/[«»]/g, '"')
+            .replace(/[’‘`]/g, "'")
+            .replace(/[—–]/g, '-')
+            .replace(/…/g, '...')
+            .replace(/\u00A0/g, ' ')
+            .replace(/[\u200B-\u200D\uFEFF]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    };
+
     const handleExportPdf = async () => {
         if (!note) return;
         try {
@@ -179,54 +196,145 @@ const NoteEditor: React.FC = () => {
             const maxLineWidth = pageWidth - margin * 2;
             let y = margin;
             
+            // Header
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(10);
+            doc.setTextColor(13, 148, 136);
+            doc.text("KING'S SWORD  |  JOURNAL D'ÉTUDE & NOTES CHRONIQUES", margin, y);
+            y += 8;
+
+            doc.setDrawColor(13, 148, 136);
+            doc.line(margin, y, pageWidth - margin, y);
+            y += 12;
+
+            // Title
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(18);
-            const titleLines = doc.splitTextToSize(note.title, maxLineWidth);
+            doc.setTextColor(15, 23, 42);
+            const cleanTitle = cleanPdfText(processedNote.title);
+            const titleLines = doc.splitTextToSize(cleanTitle, maxLineWidth);
             doc.text(titleLines, margin, y);
-            y += titleLines.length * 10 + 6;
-    
-            if (note.content) {
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(12);
-                const contentLines = doc.splitTextToSize(note.content, maxLineWidth);
-                doc.text(contentLines, margin, y);
-                y += contentLines.length * 6 + 10;
-            }
-    
-            if (note.citations.length > 0) {
-                doc.setDrawColor(13, 148, 136);
-                doc.line(margin, y, pageWidth - margin, y);
-                y += 12;
+            y += titleLines.length * 9 + 6;
+
+            // Metadata
+            doc.setFont('helvetica', 'italic');
+            doc.setFontSize(9);
+            doc.setTextColor(100, 116, 139);
+            const formattedDate = note.date 
+              ? new Date(note.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+              : new Date().toLocaleDateString('fr-FR');
+            doc.text(`Date : ${formattedDate}   •   Sources référencées : ${processedNote.sources.length}`, margin, y);
+            y += 14;
+
+            // 1. Contenu principal
+            if (processedNote.contentParagraphs.length > 0) {
                 doc.setFont('helvetica', 'bold');
-                doc.setFontSize(14);
-                doc.text("Citations et Sources", margin, y);
-                y += 10;
-    
-                for (const citation of note.citations) {
+                doc.setFontSize(12);
+                doc.setTextColor(13, 148, 136);
+                doc.text("CONTENU PRINCIPAL", margin, y);
+                y += 8;
+
+                doc.setFont('times', 'normal');
+                doc.setFontSize(11);
+                doc.setTextColor(30, 41, 59);
+
+                for (const pText of processedNote.contentParagraphs) {
+                    const cleanP = cleanPdfText(pText);
+                    if (!cleanP) continue;
+                    if (y > doc.internal.pageSize.height - 25) { doc.addPage(); y = margin; }
+                    const pLines = doc.splitTextToSize(cleanP, maxLineWidth);
+                    doc.text(pLines, margin, y);
+                    y += pLines.length * 5.5 + 6;
+                }
+                y += 6;
+            }
+
+            // 2. Citations bibliques
+            if (processedNote.scriptureCitations.length > 0) {
+                if (y > doc.internal.pageSize.height - 35) { doc.addPage(); y = margin; }
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(12);
+                doc.setTextColor(13, 148, 136);
+                doc.text("CITATIONS BIBLIQUES", margin, y);
+                y += 8;
+
+                for (const sc of processedNote.scriptureCitations) {
                     if (y > doc.internal.pageSize.height - 30) { doc.addPage(); y = margin; }
-                    
-                    const div = document.createElement('div');
-                    div.innerHTML = renderRichContent(citation.quoted_text, citation.sermon_id);
-                    const cleanText = div.textContent || "";
-                    
+
                     doc.setFont('times', 'italic');
-                    doc.setFontSize(11);
-                    doc.setTextColor(60);
-                    const quoteLines = doc.splitTextToSize(cleanText, maxLineWidth - 10);
-                    doc.text(quoteLines, margin + 5, y);
-                    y += quoteLines.length * 5 + 4;
+                    doc.setFontSize(10.5);
+                    doc.setTextColor(51, 65, 85);
+                    const cleanQuote = cleanPdfText(sc.quote);
+                    const qLines = doc.splitTextToSize(`"${cleanQuote}"`, maxLineWidth - 10);
+                    doc.text(qLines, margin + 5, y);
+                    y += qLines.length * 5 + 4;
 
                     doc.setFont('helvetica', 'bold');
                     doc.setFontSize(9);
                     doc.setTextColor(13, 148, 136);
-                    const refText = `${citation.sermon_title_snapshot} (${citation.sermon_date_snapshot})${citation.paragraph_index ? ` — Para. ${citation.paragraph_index}` : ''}`;
-                    doc.text(`— ${refText}`, pageWidth - margin, y, { align: 'right' });
-                    y += 12;
+                    const refText = cleanPdfText(`${sc.reference}${sc.sourceIndex ? ` [${sc.sourceIndex}]` : ''}`);
+                    doc.text(refText, pageWidth - margin, y, { align: 'right' });
+                    y += 10;
+                }
+                y += 6;
+            }
+
+            // 3. Citations & enseignements
+            if (processedNote.teachingCitations.length > 0) {
+                if (y > doc.internal.pageSize.height - 35) { doc.addPage(); y = margin; }
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(12);
+                doc.setTextColor(13, 148, 136);
+                doc.text("CITATIONS & ENSEIGNEMENTS", margin, y);
+                y += 8;
+
+                for (const tc of processedNote.teachingCitations) {
+                    if (y > doc.internal.pageSize.height - 30) { doc.addPage(); y = margin; }
+
+                    doc.setFont('times', 'italic');
+                    doc.setFontSize(10.5);
+                    doc.setTextColor(51, 65, 85);
+                    const cleanQuote = cleanPdfText(tc.quote);
+                    const qLines = doc.splitTextToSize(`"${cleanQuote}"`, maxLineWidth - 10);
+                    doc.text(qLines, margin + 5, y);
+                    y += qLines.length * 5 + 4;
+
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(9);
+                    doc.setTextColor(13, 148, 136);
+                    const refText = cleanPdfText(`${tc.sourceTitle}${tc.sourceMeta ? ` - ${tc.sourceMeta}` : ''}${tc.sourceIndex ? ` [${tc.sourceIndex}]` : ''}`);
+                    doc.text(refText, pageWidth - margin, y, { align: 'right' });
+                    y += 10;
+                }
+                y += 6;
+            }
+
+            // 4. Sources & Références
+            if (processedNote.sources.length > 0) {
+                if (y > doc.internal.pageSize.height - 35) { doc.addPage(); y = margin; }
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(12);
+                doc.setTextColor(13, 148, 136);
+                doc.text("SOURCES & RÉFÉRENCES", margin, y);
+                y += 8;
+
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(9.5);
+                doc.setTextColor(51, 65, 85);
+
+                for (const src of processedNote.sources) {
+                    if (y > doc.internal.pageSize.height - 25) { doc.addPage(); y = margin; }
+                    const srcLine = cleanPdfText(`[${src.index}] ${src.formattedLine}`);
+                    const sLines = doc.splitTextToSize(srcLine, maxLineWidth);
+                    doc.text(sLines, margin, y);
+                    y += sLines.length * 5 + 4;
                 }
             }
-            doc.save(`${note.title.toLowerCase().replace(/\s+/g, '_')}.pdf`);
-            addNotification('Note exportée avec succès !', 'success');
+
+            doc.save(`${processedNote.title.toLowerCase().replace(/\s+/g, '_')}.pdf`);
+            addNotification('Note exportée en PDF avec succès !', 'success');
         } catch (error) {
+            console.error("PDF export error:", error);
             addNotification("Erreur lors de l'exportation PDF.", 'error');
         }
     };
@@ -243,11 +351,54 @@ const NoteEditor: React.FC = () => {
     };
 
     const handlePrint = () => {
-        if (window.electronAPI) window.electronAPI.printPage();
-        else window.print();
+        try {
+            if (window.electronAPI?.printPage) {
+                window.electronAPI.printPage();
+                return;
+            }
+
+            window.focus();
+            window.print();
+        } catch (err) {
+            console.error("Print error:", err);
+            const printEl = document.getElementById('printable-note-container');
+            if (printEl) {
+                const printWin = window.open('', '_blank');
+                if (printWin) {
+                    printWin.document.write(`
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <title>${processedNote.title}</title>
+                            <style>
+                                body { font-family: system-ui, -apple-system, sans-serif; padding: 30px; color: #000; background: #fff; line-height: 1.6; }
+                                h1 { font-size: 20px; color: #0f766e; text-transform: uppercase; border-bottom: 2px solid #0f766e; padding-bottom: 8px; }
+                                h2 { font-size: 22px; color: #0f172a; margin-top: 16px; text-transform: uppercase; }
+                                h3 { font-size: 13px; color: #0f766e; text-transform: uppercase; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; margin-top: 24px; }
+                                p { font-size: 13.5px; margin-bottom: 10px; color: #1e293b; }
+                                .page-break-inside-avoid { page-break-inside: avoid; break-inside: avoid; }
+                                img { max-width: 100%; max-height: 250px; object-fit: contain; }
+                            </style>
+                        </head>
+                        <body>
+                            ${printEl.innerHTML}
+                            <script>
+                                window.onload = function() {
+                                    window.print();
+                                    setTimeout(function() { window.close(); }, 500);
+                                };
+                            </script>
+                        </body>
+                        </html>
+                    `);
+                    printWin.document.close();
+                } else {
+                    addNotification("Veuillez autoriser les fenêtres surgissantes pour l'impression.", "info");
+                }
+            }
+        }
     };
 
-    // Filter media images for gallery picker
     const filteredGalleryImages = mediaImages.filter(img => {
         const matchesFolder = selectedFolderId === 'ALL' || img.folderId === selectedFolderId || (selectedFolderId === 'UNASSIGNED' && !img.folderId);
         const matchesQuery = !gallerySearchQuery.trim() || img.name.toLowerCase().includes(gallerySearchQuery.toLowerCase());
@@ -255,7 +406,8 @@ const NoteEditor: React.FC = () => {
     });
 
     return (
-        <div className="flex-1 h-full flex flex-col bg-slate-50 dark:bg-zinc-950 overflow-hidden animate-in fade-in duration-500 transition-colors duration-500">
+        <div className="flex-1 h-full flex flex-col bg-slate-50 dark:bg-zinc-950 overflow-hidden animate-in fade-in duration-500 transition-colors">
+            {/* Vue écran interactive */}
             <div className="no-print flex flex-col h-full">
                 <div className="px-6 h-14 border-b border-zinc-200/50 dark:border-zinc-800 flex items-center justify-between shrink-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-2xl z-20">
                     <div className="flex items-center gap-4">
@@ -283,6 +435,7 @@ const NoteEditor: React.FC = () => {
 
                 <div className="flex-1 overflow-y-auto custom-scrollbar bg-zinc-50/50 dark:bg-zinc-950/20">
                     <div className="max-w-4xl mx-auto p-10 space-y-10 pb-40">
+                        {/* Bloc Titre et Contenu Principal */}
                         <div className="group bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60 rounded-[40px] p-10 shadow-sm hover:shadow-xl transition-all duration-500">
                             <div className="flex items-center gap-4 mb-8">
                                 <div className="w-10 h-10 flex items-center justify-center bg-teal-600 text-white rounded-2xl text-sm shadow-xl shadow-teal-600/20">📝</div>
@@ -299,11 +452,12 @@ const NoteEditor: React.FC = () => {
                                         />
                                     ) : (
                                         <h3 onClick={() => setEditingTitle(true)} data-tooltip="Cliquer pour modifier le titre" className="text-2xl font-black text-zinc-900 dark:text-white uppercase tracking-tight cursor-text hover:text-teal-600 transition-colors">
-                                            {note.title}
+                                            {processedNote.title}
                                         </h3>
                                     )}
                                 </div>
                             </div>
+
                             <div className="serif-text text-xl leading-relaxed text-zinc-700 dark:text-zinc-300 pl-8 border-l-2 border-teal-600/20 selection:bg-teal-600/10">
                                 {editingContent ? (
                                     <textarea
@@ -320,8 +474,12 @@ const NoteEditor: React.FC = () => {
                                     />
                                 ) : (
                                     <div onClick={() => setEditingContent(true)} data-tooltip="Cliquer pour modifier les notes" className="min-h-[60px] cursor-text">
-                                        {note.content ? (
-                                          <p className="font-medium">{note.content}</p>
+                                        {processedNote.contentParagraphs.length > 0 ? (
+                                          <div className="space-y-4">
+                                            {processedNote.contentParagraphs.map((p, idx) => (
+                                              <p key={idx} className="font-medium leading-relaxed">{p}</p>
+                                            ))}
+                                          </div>
                                         ) : (
                                           <span className="italic opacity-40 font-normal">Saisissez vos commentaires sur ces enseignements...</span>
                                         )}
@@ -399,64 +557,163 @@ const NoteEditor: React.FC = () => {
                             </div>
                         </div>
 
+                        {/* Citations et Sources organisées */}
                         <div className="space-y-8">
                             <div className="flex items-center gap-5 px-6">
-                                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400 shrink-0">Encyclopédie Personnelle</span>
+                                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400 shrink-0">Encyclopédie & Références</span>
                                 <div className="flex-1 h-0.5 bg-zinc-200 dark:bg-zinc-800 rounded-full" />
                             </div>
 
-                            {note.citations.map((citation, idx) => {
-                                const isVirtual = citation.sermon_id.startsWith('ia-') || citation.sermon_id.startsWith('definition') || citation.sermon_id.startsWith('search');
-                                
-                                return (
-                                    <div 
-                                        key={citation.id} 
-                                        onClick={(e) => handleCitationClick(e, citation)}
-                                        className={`group relative bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[32px] p-8 shadow-sm transition-all duration-300 hover:shadow-2xl hover:border-teal-500/30 transform hover:-translate-y-1 ${!isVirtual ? 'cursor-pointer' : 'cursor-default'}`}
-                                    >
-                                        <div className="flex items-center justify-between mb-6">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 flex items-center justify-center bg-teal-600 text-white rounded-xl text-[10px] font-black shadow-lg shadow-teal-600/20">{idx + 1}</div>
-                                                <div className="flex flex-col">
-                                                   <h4 className="text-[11px] font-black text-zinc-800 dark:text-zinc-100 uppercase tracking-widest group-hover:text-teal-600 transition-colors">
-                                                       {citation.sermon_title_snapshot}
-                                                   </h4>
-                                                   <div className="flex items-center gap-2 mt-0.5">
-                                                      <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-tighter">{citation.sermon_date_snapshot}</span>
-                                                      {citation.sermon_version_snapshot && (
-                                                         <span className="text-[8px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-tighter bg-teal-600/5 px-1.5 rounded border border-teal-600/10">[{citation.sermon_version_snapshot}]</span>
-                                                      )}
-                                                   </div>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <div className="flex items-center gap-1.5 bg-zinc-100 dark:bg-zinc-800 text-teal-600 dark:text-teal-400 px-3 py-1 rounded-xl border border-teal-600/10 font-bold text-[9px] uppercase tracking-widest">
-                                                  <Hash className="w-3 h-3" />
-                                                  <span>Para. {citation.paragraph_index ?? '—'}</span>
-                                                </div>
-                                                {!isVirtual && (
-                                                   <div className="w-8 h-8 flex items-center justify-center bg-teal-600/5 text-teal-600 rounded-lg border border-teal-600/10 group-hover:bg-teal-600 group-hover:text-white transition-all">
-                                                      <ExternalLink className="w-3.5 h-3.5" />
-                                                   </div>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        <div className="relative overflow-hidden rounded-2xl bg-zinc-50/50 dark:bg-zinc-800/30 p-6 border border-zinc-100 dark:border-zinc-800/50">
-                                            <Quote className="absolute -left-1 -top-1 w-12 h-12 text-teal-600/5 rotate-12" />
-                                            <div className="prose-styles relative z-10">
-                                                <div 
-                                                  className="text-zinc-700 dark:text-zinc-300 text-base leading-loose italic serif-text selection:bg-teal-500/10"
-                                                  dangerouslySetInnerHTML={{ __html: renderRichContent(citation.quoted_text, citation.sermon_id) }} 
-                                                />
-                                            </div>
-                                        </div>
+                            {/* Citations bibliques */}
+                            {processedNote.scriptureCitations.length > 0 && (
+                              <div className="space-y-4">
+                                <h4 className="text-xs font-black uppercase tracking-wider text-teal-600 dark:text-teal-400 px-2 flex items-center gap-2">
+                                  <BookOpen className="w-4 h-4" />
+                                  <span>Citations Bibliques</span>
+                                </h4>
+                                {processedNote.scriptureCitations.map((sc, idx) => (
+                                  <div key={idx} className="bg-white dark:bg-zinc-900 border border-teal-600/20 dark:border-teal-900/30 rounded-2xl p-6 shadow-xs relative">
+                                    <Quote className="absolute -left-1 -top-1 w-10 h-10 text-teal-600/10 rotate-12" />
+                                    <blockquote className="text-zinc-800 dark:text-zinc-200 italic serif-text text-base leading-relaxed mb-3">
+                                      « {sc.quote} »
+                                    </blockquote>
+                                    <div className="flex justify-end items-center gap-2">
+                                      <span className="text-xs font-bold text-teal-700 dark:text-teal-300">
+                                        {sc.reference}
+                                      </span>
+                                      {sc.sourceIndex && (
+                                        <span className="text-[10px] font-black bg-teal-600/10 text-teal-600 dark:text-teal-400 px-2 py-0.5 rounded-full border border-teal-600/20">
+                                          [{sc.sourceIndex}]
+                                        </span>
+                                      )}
                                     </div>
-                                );
-                            })}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Citations d'enseignements / Sermons */}
+                            {processedNote.teachingCitations.length > 0 && (
+                              <div className="space-y-4">
+                                <h4 className="text-xs font-black uppercase tracking-wider text-teal-600 dark:text-teal-400 px-2 flex items-center gap-2">
+                                  <Quote className="w-4 h-4" />
+                                  <span>Citations d'Enseignements</span>
+                                </h4>
+                                {processedNote.teachingCitations.map((tc, idx) => (
+                                  <div key={idx} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-xs relative">
+                                    <blockquote className="text-zinc-800 dark:text-zinc-200 italic serif-text text-base leading-relaxed mb-3">
+                                      « {tc.quote} »
+                                    </blockquote>
+                                    <div className="flex justify-end items-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-400">
+                                      <span><strong className="text-teal-600 dark:text-teal-400">{tc.sourceTitle}</strong> {tc.sourceMeta ? `— ${tc.sourceMeta}` : ''}</span>
+                                      {tc.sourceIndex && (
+                                        <span className="text-[10px] font-black bg-teal-600/10 text-teal-600 dark:text-teal-400 px-2 py-0.5 rounded-full border border-teal-600/20">
+                                          [{tc.sourceIndex}]
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Section Sources & Bibliographie */}
+                            {processedNote.sources.length > 0 && (
+                              <div className="mt-10 pt-8 border-t border-zinc-200 dark:border-zinc-800 space-y-4">
+                                <h4 className="text-xs font-black uppercase tracking-widest text-zinc-800 dark:text-zinc-200 flex items-center gap-2">
+                                  <Link2 className="w-4 h-4 text-teal-600" />
+                                  <span>Sources & Références</span>
+                                </h4>
+                                <div className="space-y-2 bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800">
+                                  {processedNote.sources.map((src) => (
+                                    <div key={src.index} className="flex items-start gap-2 text-xs text-zinc-700 dark:text-zinc-300">
+                                      <span className="font-bold text-teal-600 dark:text-teal-400 shrink-0">[{src.index}]</span>
+                                      <span>{src.formattedLine}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                         </div>
                     </div>
                 </div>
+            </div>
+
+            {/* Zone dédiée à l'impression (Imprimante / window.print) */}
+            <div id="printable-note-container" className="hidden print:block p-8 bg-white text-black font-sans leading-relaxed">
+                <div className="border-b-2 border-teal-700 pb-3 mb-6 flex justify-between items-center">
+                    <div>
+                        <h1 className="text-xl font-bold uppercase text-teal-800">King's Sword</h1>
+                        <p className="text-xs text-slate-500 uppercase tracking-widest">Document d'Étude & Notes Chroniques</p>
+                    </div>
+                    <span className="text-xs text-slate-400">{new Date(note.date || note.creationDate).toLocaleDateString()}</span>
+                </div>
+
+                <h2 className="text-2xl font-bold mb-4 uppercase text-slate-900">{processedNote.title}</h2>
+
+                {processedNote.contentParagraphs.length > 0 && (
+                    <div className="mb-8 space-y-3">
+                        <h3 className="text-sm font-bold uppercase text-teal-800 border-b border-teal-200 pb-1 mb-2">Contenu Principal</h3>
+                        {processedNote.contentParagraphs.map((p, i) => (
+                            <p key={i} className="text-sm text-slate-800 leading-relaxed">{p}</p>
+                        ))}
+                    </div>
+                )}
+
+                {processedNote.scriptureCitations.length > 0 && (
+                    <div className="mb-8 space-y-4">
+                        <h3 className="text-sm font-bold uppercase text-teal-800 border-b border-teal-200 pb-1 mb-2">Citations Bibliques</h3>
+                        {processedNote.scriptureCitations.map((sc, i) => (
+                            <div key={i} className="pl-4 border-l-2 border-teal-600 italic text-sm text-slate-800 my-2 page-break-inside-avoid">
+                                <p>« {sc.quote} »</p>
+                                <p className="text-right text-xs font-bold text-teal-800 not-italic mt-1">
+                                    {sc.reference} {sc.sourceIndex ? `[${sc.sourceIndex}]` : ''}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {processedNote.teachingCitations.length > 0 && (
+                    <div className="mb-8 space-y-4">
+                        <h3 className="text-sm font-bold uppercase text-teal-800 border-b border-teal-200 pb-1 mb-2">Citations & Enseignements</h3>
+                        {processedNote.teachingCitations.map((tc, i) => (
+                            <div key={i} className="pl-4 border-l-2 border-slate-400 italic text-sm text-slate-800 my-2 page-break-inside-avoid">
+                                <p>« {tc.quote} »</p>
+                                <p className="text-right text-xs font-bold text-slate-700 not-italic mt-1">
+                                    {tc.sourceTitle} {tc.sourceMeta ? `— ${tc.sourceMeta}` : ''} {tc.sourceIndex ? `[${tc.sourceIndex}]` : ''}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {note.images && note.images.length > 0 && (
+                    <div className="mb-8 space-y-4 page-break-inside-avoid">
+                        <h3 className="text-sm font-bold uppercase text-teal-800 border-b border-teal-200 pb-1 mb-2">Images & Illustrations</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                            {note.images.map((img, i) => (
+                                <div key={i} className="flex flex-col items-center border border-slate-200 p-2 rounded">
+                                    <img src={img.url} alt={img.caption || img.name || ''} className="max-h-48 object-contain" />
+                                    {(img.caption || img.name) && <p className="text-xs italic text-slate-600 mt-1">{img.caption || img.name}</p>}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {processedNote.sources.length > 0 && (
+                    <div className="mt-8 pt-4 border-t border-slate-300 page-break-inside-avoid">
+                        <h3 className="text-sm font-bold uppercase text-slate-900 mb-2">Sources & Références</h3>
+                        <ul className="space-y-1 text-xs text-slate-700">
+                            {processedNote.sources.map((src) => (
+                                <li key={src.index}>
+                                    <strong>[{src.index}]</strong> {src.formattedLine}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
             </div>
 
             {/* Modal Sélecteur d'Images de la Galerie */}

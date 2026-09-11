@@ -12,12 +12,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     resolve: {
-      dedupe: ['react', 'react-dom'],
-      alias: {
-        'react': path.resolve(__dirname, './node_modules/react'),
-        'react-dom': path.resolve(__dirname, './node_modules/react-dom'),
-        'lucide-react': path.resolve(__dirname, './node_modules/lucide-react/dist/esm/lucide-react.mjs')
-      }
+      dedupe: ['react', 'react-dom']
     },
     server: {
       port: 3000,

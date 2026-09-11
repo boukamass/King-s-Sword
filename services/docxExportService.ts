@@ -18,6 +18,7 @@ import {
 } from 'docx';
 import saveAs from 'file-saver';
 import { Note } from '../types';
+import { processNoteData } from '../utils/noteFormatter';
 
 /**
  * Safely fetches an image (Data URL, blob or web URL) and converts it to ArrayBuffer + dimensions
@@ -75,6 +76,7 @@ async function fetchImageForDocx(url: string): Promise<{ buffer: ArrayBuffer; wi
 
 /**
  * Generates and downloads a beautifully formatted Microsoft Word (.docx) document from a Note
+ * strictly adhering to professional typography, citation separation and source guidelines.
  */
 export async function exportNoteToDocx(note: Note): Promise<boolean> {
   try {
@@ -82,12 +84,12 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
     const secondaryColor = "334155"; // Slate Charcoal
     const mutedColor = "64748B"; // Muted Gray
     const lightBg = "F8FAFC"; // Very light neutral
-    const borderColor = "CBD5E1"; // Subtle border
 
-    const paragraphs: Paragraph[] = [];
+    const processed = processNoteData(note);
+    const childrenElements: (Paragraph | Table)[] = [];
 
     // Header Title Banner
-    paragraphs.push(
+    childrenElements.push(
       new Paragraph({
         children: [
           new TextRun({
@@ -98,7 +100,7 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
             font: "Arial",
           }),
           new TextRun({
-            text: "  |  JOURNAL D'ÉTUDE & CHRONIQUES SPIRITUELLES",
+            text: "  |  DOCUMENT D'ÉTUDE & NOTES CHRONIQUES",
             size: 16,
             color: mutedColor,
             font: "Arial",
@@ -110,7 +112,7 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
     );
 
     // Decorative Horizontal Line / Divider
-    paragraphs.push(
+    childrenElements.push(
       new Paragraph({
         border: {
           bottom: {
@@ -125,15 +127,14 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
     );
 
     // Note Title
-    paragraphs.push(
+    childrenElements.push(
       new Paragraph({
-        text: note.title.toUpperCase(),
         heading: HeadingLevel.HEADING_1,
         alignment: AlignmentType.LEFT,
         spacing: { before: 120, after: 180 },
         children: [
           new TextRun({
-            text: note.title,
+            text: processed.title,
             bold: true,
             size: 36, // 18pt
             color: "0F172A",
@@ -143,20 +144,20 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
       })
     );
 
-    // Metadata Bar (Creation Date, Citations Count, Images Count)
+    // Metadata Bar
     const formattedDate = note.date 
       ? new Date(note.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
       : new Date().toLocaleDateString('fr-FR');
 
     const metaInfoParts = [`Date: ${formattedDate}`];
-    if (note.citations && note.citations.length > 0) {
-      metaInfoParts.push(`Citations: ${note.citations.length}`);
+    if (processed.sources.length > 0) {
+      metaInfoParts.push(`Sources référencées: ${processed.sources.length}`);
     }
     if (note.images && note.images.length > 0) {
       metaInfoParts.push(`Images jointes: ${note.images.length}`);
     }
 
-    paragraphs.push(
+    childrenElements.push(
       new Paragraph({
         children: [
           new TextRun({
@@ -171,13 +172,13 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
       })
     );
 
-    // Main Note Content
-    if (note.content && note.content.trim()) {
-      paragraphs.push(
+    // 1. SECTION CONTENU PRINCIPAL
+    if (processed.contentParagraphs.length > 0) {
+      childrenElements.push(
         new Paragraph({
           children: [
             new TextRun({
-              text: "RÉFLEXIONS & COMMENTAIRES",
+              text: "CONTENU PRINCIPAL",
               bold: true,
               size: 20, // 10pt
               color: primaryColor,
@@ -188,37 +189,182 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
         })
       );
 
-      // Split content lines
-      const lines = note.content.split('\n');
-      for (const line of lines) {
-        if (!line.trim()) {
-          paragraphs.push(new Paragraph({ spacing: { after: 120 } }));
-          continue;
-        }
-
-        const isBullet = line.trim().startsWith('- ') || line.trim().startsWith('* ');
-        const cleanText = isBullet ? line.trim().substring(2) : line;
-
-        paragraphs.push(
+      for (const pText of processed.contentParagraphs) {
+        childrenElements.push(
           new Paragraph({
             children: [
               new TextRun({
-                text: cleanText,
+                text: pText,
                 size: 22, // 11pt
                 color: "1E293B",
                 font: "Calibri"
               })
             ],
-            bullet: isBullet ? { level: 0 } : undefined,
-            spacing: { after: 140, line: 280 }
+            spacing: { after: 160, line: 280 }
           })
         );
       }
     }
 
-    // Attached Images Section
+    // 2. SECTION CITATIONS BIBLIQUES
+    if (processed.scriptureCitations.length > 0) {
+      childrenElements.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: "CITATIONS BIBLIQUES",
+              bold: true,
+              size: 20,
+              color: primaryColor,
+              font: "Arial"
+            })
+          ],
+          spacing: { before: 360, after: 180 }
+        })
+      );
+
+      for (const sc of processed.scriptureCitations) {
+        const quoteTable = new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          rows: [
+            new TableRow({
+              children: [
+                new TableCell({
+                  children: [
+                    new Paragraph({
+                      children: [
+                        new TextRun({
+                          text: `« ${sc.quote} »`,
+                          italics: true,
+                          size: 21,
+                          color: "334155",
+                          font: "Georgia"
+                        })
+                      ],
+                      spacing: { before: 120, after: 120, line: 260 }
+                    }),
+                    new Paragraph({
+                      alignment: AlignmentType.RIGHT,
+                      children: [
+                        new TextRun({
+                          text: `${sc.reference}${sc.sourceIndex ? ` [${sc.sourceIndex}]` : ''}`,
+                          bold: true,
+                          size: 19,
+                          color: primaryColor,
+                          font: "Calibri"
+                        })
+                      ],
+                      spacing: { after: 100 }
+                    })
+                  ],
+                  shading: {
+                    type: ShadingType.CLEAR,
+                    fill: lightBg,
+                    color: "auto"
+                  },
+                  borders: {
+                    left: {
+                      style: BorderStyle.SINGLE,
+                      size: 24,
+                      color: primaryColor
+                    },
+                    top: { style: BorderStyle.NONE },
+                    right: { style: BorderStyle.NONE },
+                    bottom: { style: BorderStyle.NONE }
+                  },
+                  margins: { top: 140, bottom: 140, left: 200, right: 200 }
+                })
+              ]
+            })
+          ]
+        });
+
+        childrenElements.push(quoteTable);
+        childrenElements.push(new Paragraph({ spacing: { after: 180 } }));
+      }
+    }
+
+    // 3. SECTION CITATIONS & ENSEIGNEMENTS
+    if (processed.teachingCitations.length > 0) {
+      childrenElements.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: "CITATIONS & ENSEIGNEMENTS",
+              bold: true,
+              size: 20,
+              color: primaryColor,
+              font: "Arial"
+            })
+          ],
+          spacing: { before: 360, after: 180 }
+        })
+      );
+
+      for (const tc of processed.teachingCitations) {
+        const quoteTable = new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          rows: [
+            new TableRow({
+              children: [
+                new TableCell({
+                  children: [
+                    new Paragraph({
+                      children: [
+                        new TextRun({
+                          text: `« ${tc.quote} »`,
+                          italics: true,
+                          size: 21,
+                          color: "334155",
+                          font: "Georgia"
+                        })
+                      ],
+                      spacing: { before: 120, after: 120, line: 260 }
+                    }),
+                    new Paragraph({
+                      alignment: AlignmentType.RIGHT,
+                      children: [
+                        new TextRun({
+                          text: `${tc.sourceTitle}${tc.sourceMeta ? ` — ${tc.sourceMeta}` : ''}${tc.sourceIndex ? ` [${tc.sourceIndex}]` : ''}`,
+                          bold: true,
+                          size: 19,
+                          color: primaryColor,
+                          font: "Calibri"
+                        })
+                      ],
+                      spacing: { after: 100 }
+                    })
+                  ],
+                  shading: {
+                    type: ShadingType.CLEAR,
+                    fill: lightBg,
+                    color: "auto"
+                  },
+                  borders: {
+                    left: {
+                      style: BorderStyle.SINGLE,
+                      size: 24,
+                      color: primaryColor
+                    },
+                    top: { style: BorderStyle.NONE },
+                    right: { style: BorderStyle.NONE },
+                    bottom: { style: BorderStyle.NONE }
+                  },
+                  margins: { top: 140, bottom: 140, left: 200, right: 200 }
+                })
+              ]
+            })
+          ]
+        });
+
+        childrenElements.push(quoteTable);
+        childrenElements.push(new Paragraph({ spacing: { after: 180 } }));
+      }
+    }
+
+    // 4. SECTION IMAGES
     if (note.images && note.images.length > 0) {
-      paragraphs.push(
+      childrenElements.push(
         new Paragraph({
           children: [
             new TextRun({
@@ -238,7 +384,6 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
         const imgData = await fetchImageForDocx(img.url);
 
         if (imgData) {
-          // Scale image proportionally to max width 480px
           const maxW = 480;
           let targetW = imgData.width;
           let targetH = imgData.height;
@@ -249,7 +394,7 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
             targetH = Math.round((targetH || 400) * ratio);
           }
 
-          paragraphs.push(
+          childrenElements.push(
             new Paragraph({
               alignment: AlignmentType.CENTER,
               children: [
@@ -267,14 +412,14 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
           );
 
           if (img.caption || img.name) {
-            paragraphs.push(
+            childrenElements.push(
               new Paragraph({
                 alignment: AlignmentType.CENTER,
                 children: [
                   new TextRun({
                     text: `Figure ${idx + 1} : ${img.caption || img.name}`,
                     italics: true,
-                    size: 18, // 9pt
+                    size: 18,
                     color: mutedColor,
                     font: "Calibri"
                   })
@@ -283,104 +428,50 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
               })
             );
           } else {
-            paragraphs.push(new Paragraph({ spacing: { after: 200 } }));
+            childrenElements.push(new Paragraph({ spacing: { after: 200 } }));
           }
         }
       }
     }
 
-    // Citations Section
-    if (note.citations && note.citations.length > 0) {
-      paragraphs.push(
+    // 5. SECTION SOURCES & RÉFÉRENCES (BIBLIOGRAPHIE)
+    if (processed.sources.length > 0) {
+      childrenElements.push(
         new Paragraph({
           children: [
             new TextRun({
-              text: "CITATIONS & PASSAGES DU MESSAGE",
+              text: "SOURCES & RÉFÉRENCES",
               bold: true,
               size: 20,
               color: primaryColor,
               font: "Arial"
             })
           ],
-          spacing: { before: 400, after: 200 }
+          spacing: { before: 400, after: 180 }
         })
       );
 
-      for (let i = 0; i < note.citations.length; i++) {
-        const citation = note.citations[i];
-        
-        // Strip out internal tags for clean Word text
-        const cleanQuotedText = citation.quoted_text
-          .replace(/\[\[\[NOTE_EXTERNE\]\]\]/g, "")
-          .replace(/\[Réf:\s*([\w-]+)\s*\]/gi, "")
-          .replace(/<[^>]*>/g, "")
-          .trim();
-
-        const refLine = `${citation.sermon_title_snapshot}${citation.sermon_date_snapshot ? ` (${citation.sermon_date_snapshot})` : ''}${citation.paragraph_index ? ` — Para. ${citation.paragraph_index}` : ''}`;
-
-        // Create a styled callout box / table cell for each citation
-        const quoteTable = new Table({
-          width: { size: 100, type: WidthType.PERCENTAGE },
-          rows: [
-            new TableRow({
-              children: [
-                new TableCell({
-                  children: [
-                    new Paragraph({
-                      children: [
-                        new TextRun({
-                          text: `« ${cleanQuotedText} »`,
-                          italics: true,
-                          size: 21, // 10.5pt
-                          color: "334155",
-                          font: "Georgia"
-                        })
-                      ],
-                      spacing: { before: 100, after: 120, line: 260 }
-                    }),
-                    new Paragraph({
-                      alignment: AlignmentType.RIGHT,
-                      children: [
-                        new TextRun({
-                          text: `— ${refLine}`,
-                          bold: true,
-                          size: 19, // 9.5pt
-                          color: primaryColor,
-                          font: "Calibri"
-                        })
-                      ],
-                      spacing: { after: 80 }
-                    })
-                  ],
-                  shading: {
-                    type: ShadingType.CLEAR,
-                    fill: lightBg,
-                    color: "auto"
-                  },
-                  borders: {
-                    left: {
-                      style: BorderStyle.SINGLE,
-                      size: 24, // 3pt thick left accent bar
-                      color: primaryColor
-                    },
-                    top: { style: BorderStyle.NONE },
-                    right: { style: BorderStyle.NONE },
-                    bottom: { style: BorderStyle.NONE }
-                  },
-                  margins: {
-                    top: 140,
-                    bottom: 140,
-                    left: 200,
-                    right: 200
-                  }
-                })
-              ]
-            })
-          ]
-        });
-
-        paragraphs.push(new Paragraph({ children: [], spacing: { before: 120 } }));
-        // Note: Table can be pushed directly in docx section or we can add it to document sections
+      for (const src of processed.sources) {
+        childrenElements.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `[${src.index}] `,
+                bold: true,
+                size: 20,
+                color: primaryColor,
+                font: "Calibri"
+              }),
+              new TextRun({
+                text: src.formattedLine,
+                size: 20,
+                color: "334155",
+                font: "Calibri"
+              })
+            ],
+            spacing: { after: 120, line: 240 }
+          })
+        );
       }
     }
 
@@ -391,7 +482,7 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
           properties: {
             page: {
               margin: {
-                top: 1440, // 1 inch
+                top: 1440,
                 bottom: 1440,
                 left: 1440,
                 right: 1440
@@ -450,13 +541,13 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
               ]
             })
           },
-          children: buildDocumentChildren(note, paragraphs)
+          children: childrenElements
         }
       ]
     });
 
     const blob = await Packer.toBlob(doc);
-    const safeFilename = `${(note.title || 'note').toLowerCase().replace(/[^a-z0-9]/gi, '_')}.docx`;
+    const safeFilename = `${(processed.title || 'note').toLowerCase().replace(/[^a-z0-9]/gi, '_')}.docx`;
     saveAs(blob, safeFilename);
 
     return true;
@@ -464,96 +555,4 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
     console.error("Error exporting to docx:", error);
     return false;
   }
-}
-
-/**
- * Helper to interleave tables and paragraphs in order
- */
-function buildDocumentChildren(note: Note, baseParagraphs: Paragraph[]): (Paragraph | Table)[] {
-  const result: (Paragraph | Table)[] = [...baseParagraphs];
-
-  if (!note.citations || note.citations.length === 0) {
-    return result;
-  }
-
-  // Generate table elements for citations
-  const primaryColor = "0F766E";
-  const lightBg = "F8FAFC";
-
-  for (let i = 0; i < note.citations.length; i++) {
-    const citation = note.citations[i];
-    
-    const cleanQuotedText = citation.quoted_text
-      .replace(/\[\[\[NOTE_EXTERNE\]\]\]/g, "")
-      .replace(/\[Réf:\s*([\w-]+)\s*\]/gi, "")
-      .replace(/<[^>]*>/g, "")
-      .trim();
-
-    const refLine = `${citation.sermon_title_snapshot}${citation.sermon_date_snapshot ? ` (${citation.sermon_date_snapshot})` : ''}${citation.paragraph_index ? ` — Para. ${citation.paragraph_index}` : ''}`;
-
-    const quoteTable = new Table({
-      width: { size: 100, type: WidthType.PERCENTAGE },
-      rows: [
-        new TableRow({
-          children: [
-            new TableCell({
-              children: [
-                new Paragraph({
-                  children: [
-                    new TextRun({
-                      text: `« ${cleanQuotedText} »`,
-                      italics: true,
-                      size: 21,
-                      color: "334155",
-                      font: "Georgia"
-                    })
-                  ],
-                  spacing: { before: 120, after: 120, line: 260 }
-                }),
-                new Paragraph({
-                  alignment: AlignmentType.RIGHT,
-                  children: [
-                    new TextRun({
-                      text: `— ${refLine}`,
-                      bold: true,
-                      size: 19,
-                      color: primaryColor,
-                      font: "Calibri"
-                    })
-                  ],
-                  spacing: { after: 100 }
-                })
-              ],
-              shading: {
-                type: ShadingType.CLEAR,
-                fill: lightBg,
-                color: "auto"
-              },
-              borders: {
-                left: {
-                  style: BorderStyle.SINGLE,
-                  size: 24,
-                  color: primaryColor
-                },
-                top: { style: BorderStyle.NONE },
-                right: { style: BorderStyle.NONE },
-                bottom: { style: BorderStyle.NONE }
-              },
-              margins: {
-                top: 140,
-                bottom: 140,
-                left: 200,
-                right: 200
-              }
-            })
-          ]
-        })
-      ]
-    });
-
-    result.push(quoteTable);
-    result.push(new Paragraph({ spacing: { after: 180 } }));
-  }
-
-  return result;
 }

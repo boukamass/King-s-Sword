@@ -1,5 +1,5 @@
 import React, { useState, useMemo, memo, useRef } from 'react';
-import { useAppStore } from '../store';
+import { useAppStore, sortNotesByRecency } from '../store';
 import { translations } from '../translations';
 import { Note, Citation } from '../types';
 import { normalizeText } from '../utils/textUtils';
@@ -194,9 +194,10 @@ const NotesPanel: React.FC = () => {
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   const filteredNotes = useMemo(() => {
-    if (!searchQuery.trim()) return notes;
+    const sorted = sortNotesByRecency(notes);
+    if (!searchQuery.trim()) return sorted;
     const q = normalizeText(searchQuery);
-    return notes.filter(n => {
+    return sorted.filter(n => {
       const titleNorm = normalizeText(n.title || '');
       const contentNorm = normalizeText(n.content || '');
       const citationsNorm = n.citations ? normalizeText(n.citations.map(c => c.quoted_text || '').join(' ')) : '';

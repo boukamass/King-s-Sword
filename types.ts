@@ -53,6 +53,7 @@ export interface Note {
   images?: NoteImage[];
   creationDate: string;
   date: string;
+  updatedAt?: string;
   color?: string;
   order: number;
 }

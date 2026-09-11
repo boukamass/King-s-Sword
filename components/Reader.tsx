@@ -17,6 +17,7 @@ import {
   ProjectionSyncPayload
 } from '../services/projectionService';
 import { executeProjectionCapture } from '../services/projectionCaptureService';
+import { getStoredAnnouncements } from '../services/announcementService';
 import { 
   Printer, 
   Search, 
@@ -396,14 +397,12 @@ const Reader: React.FC = () => {
   const [isOSFullscreen, setIsOSFullscreen] = useState(false);
   const [projectedSegmentIndex, setProjectedSegmentIndex] = useState<number | null>(null);
   const projectedSegmentIndexRef = useRef<number | null>(null);
-  const [projectionScrollProgress, setProjectionScrollProgress] = useState(0);
   const [projectionIsScrollable, setProjectionIsScrollable] = useState(false);
   const [projectionCanScrollUp, setProjectionCanScrollUp] = useState(false);
   const [projectionCanScrollDown, setProjectionCanScrollDown] = useState(false);
   const updateProjectedSegmentIndex = useCallback((idx: number | null) => {
     projectedSegmentIndexRef.current = idx;
     setProjectedSegmentIndex(idx);
-    setProjectionScrollProgress(0);
   }, []);
 
   const sendProjectionPayloadRef = useRef<((targetSegmentIdx?: number | null) => void) | null>(null);
@@ -434,10 +433,29 @@ const Reader: React.FC = () => {
     return manualContextIds.includes(activeSermon.id);
   }, [activeSermon, manualContextIds]);
 
-  const [localFontSize, setLocalFontSize] = useState<string | number>(fontSize);
+  const [projectionFontSize, setProjectionFontSize] = useState<number>(20);
+  const activeFontSize = isProjectionOpen ? projectionFontSize : fontSize;
+
+  const [localFontSize, setLocalFontSize] = useState<string | number>(activeFontSize);
   useEffect(() => {
-    setLocalFontSize(fontSize);
-  }, [fontSize]);
+    setLocalFontSize(activeFontSize);
+  }, [activeFontSize]);
+
+  const updateActiveFontSize = useCallback((updater: number | ((prev: number) => number)) => {
+    if (isProjectionOpen) {
+      setProjectionFontSize(prev => {
+        const current = typeof prev === 'number' ? prev : 20;
+        const next = typeof updater === 'function' ? updater(current) : updater;
+        return Math.max(10, Math.min(100, next));
+      });
+    } else {
+      setFontSize(prev => {
+        const current = typeof prev === 'number' ? prev : fontSize;
+        const next = typeof updater === 'function' ? updater(current) : updater;
+        return Math.max(10, Math.min(80, next));
+      });
+    }
+  }, [isProjectionOpen, setFontSize, fontSize]);
 
   const readerAreaRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -464,6 +482,7 @@ const Reader: React.FC = () => {
       readerIsAnimatingScrollRef.current = false;
       return;
     }
+
     const current = el.scrollTop;
     const target = readerTargetScrollTopRef.current;
     const diff = target - current;
@@ -474,10 +493,25 @@ const Reader: React.FC = () => {
       return;
     }
 
-    // Perfectly calibrated easing (0.22): instant responsiveness, fluid 60/120fps glide, zero abrupt notches
-    el.scrollTop = current + diff * 0.22;
+    // Ultra-calm, silk-smooth 60/120 FPS momentum lerp (0.07): very gentle, calm & smooth flow
+    el.scrollTop = current + diff * 0.07;
     readerSmoothAnimFrameRef.current = requestAnimationFrame(stepReaderSmoothScroll);
   }, []);
+
+  const smoothScrollReaderTo = useCallback((targetPos: number) => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollHeight - el.clientHeight;
+    if (maxScroll <= 0) return;
+
+    readerTargetScrollTopRef.current = Math.max(0, Math.min(maxScroll, targetPos));
+
+    if (!readerIsAnimatingScrollRef.current) {
+      readerIsAnimatingScrollRef.current = true;
+      if (readerSmoothAnimFrameRef.current) cancelAnimationFrame(readerSmoothAnimFrameRef.current);
+      readerSmoothAnimFrameRef.current = requestAnimationFrame(stepReaderSmoothScroll);
+    }
+  }, [stepReaderSmoothScroll]);
 
   const smoothScrollReaderBy = useCallback((amount: number) => {
     const el = scrollContainerRef.current;
@@ -489,14 +523,9 @@ const Reader: React.FC = () => {
       readerTargetScrollTopRef.current = el.scrollTop;
     }
 
-    readerTargetScrollTopRef.current = Math.max(0, Math.min(maxScroll, readerTargetScrollTopRef.current + amount));
-
-    if (!readerIsAnimatingScrollRef.current) {
-      readerIsAnimatingScrollRef.current = true;
-      if (readerSmoothAnimFrameRef.current) cancelAnimationFrame(readerSmoothAnimFrameRef.current);
-      readerSmoothAnimFrameRef.current = requestAnimationFrame(stepReaderSmoothScroll);
-    }
-  }, [stepReaderSmoothScroll]);
+    const nextTarget = Math.max(0, Math.min(maxScroll, readerTargetScrollTopRef.current + amount));
+    smoothScrollReaderTo(nextTarget);
+  }, [smoothScrollReaderTo]);
 
   const handleScrollContainerScroll = useCallback(() => {
     if (!readerIsAnimatingScrollRef.current && scrollContainerRef.current) {
@@ -649,9 +678,6 @@ const Reader: React.FC = () => {
       }
 
       if (data.type === 'projection_scroll_sync') {
-        if (typeof data.progress === 'number') {
-          setProjectionScrollProgress(data.progress);
-        }
         setProjectionIsScrollable(Boolean(data.isScrollable));
         setProjectionCanScrollUp(Boolean(data.canScrollUp));
         setProjectionCanScrollDown(Boolean(data.canScrollDown));
@@ -712,11 +738,13 @@ const Reader: React.FC = () => {
       const isFs = !!document.fullscreenElement;
       setIsOSFullscreen(isFs);
       
-      const currentFontSize = useAppStore.getState().fontSize;
-      if (isFs) {
-        if (currentFontSize === 20) useAppStore.getState().setFontSize(48);
-      } else {
-        if (currentFontSize === 48) useAppStore.getState().setFontSize(20);
+      if (!isProjectionOpen) {
+        const currentFontSize = useAppStore.getState().fontSize;
+        if (isFs) {
+          if (currentFontSize === 20) useAppStore.getState().setFontSize(48);
+        } else {
+          if (currentFontSize === 48) useAppStore.getState().setFontSize(20);
+        }
       }
 
       const restoreScroll = () => {
@@ -765,7 +793,7 @@ const Reader: React.FC = () => {
         city: projectedAnnouncement.location?.trim() || '',
         text: projectedAnnouncement.content.trim(),
         projectedWords: [],
-        fontSize: projectedAnnouncement.fontSize || 44,
+        fontSize: projectionFontSize || projectedAnnouncement.fontSize || 44,
         theme: 'dark',
         blackout: projectionBlackout,
         highlights: [],
@@ -790,7 +818,7 @@ const Reader: React.FC = () => {
         time: '',
         text: '',
         projectedWords: [],
-        fontSize,
+        fontSize: projectionFontSize,
         theme,
         blackout: projectionBlackout,
         highlights: [],
@@ -813,7 +841,7 @@ const Reader: React.FC = () => {
         time: '',
         text: '',
         projectedWords: [],
-        fontSize,
+        fontSize: projectionFontSize,
         theme,
         blackout: projectionBlackout,
         highlights: [],
@@ -840,7 +868,7 @@ const Reader: React.FC = () => {
         time: sermon.time || '',
         text: '',
         projectedWords: [],
-        fontSize,
+        fontSize: projectionFontSize,
         theme,
         blackout: projectionBlackout,
         highlights: sermon.highlights || [],
@@ -883,11 +911,12 @@ const Reader: React.FC = () => {
       time: sermon.time || '',
       text: activeText,
       projectedWords: projectedWordsData,
-      fontSize,
+      fontSize: projectionFontSize,
       theme,
       blackout: projectionBlackout,
       highlights: sermon.highlights || [],
       selectionIndices,
+      isSelectionFinal: Boolean(selection),
       searchResults,
       currentResultIndex,
       activeDefinition,
@@ -895,7 +924,7 @@ const Reader: React.FC = () => {
       projectedImage,
       projectionBgImage
     };
-  }, [sermon, structuredSegments, segments, selectionIndices, highlightMap, jumpHighlightIndices, searchResults, currentResultIndex, activeDefinition, fontSize, theme, projectionBlackout, isBible, projectedImage, projectionBgImage]);
+  }, [sermon, structuredSegments, segments, selectionIndices, selection, highlightMap, jumpHighlightIndices, searchResults, currentResultIndex, activeDefinition, projectionFontSize, theme, projectionBlackout, isBible, projectedImage, projectionBgImage]);
 
   const prevSermonIdRef = useRef(sermon?.id);
   useEffect(() => {
@@ -926,7 +955,7 @@ const Reader: React.FC = () => {
           time: sermon?.time || '',
           text: '',
           projectedWords: [],
-          fontSize,
+          fontSize: projectionFontSize,
           theme,
           blackout: projectionBlackout,
           highlights: sermon?.highlights || [],
@@ -940,7 +969,7 @@ const Reader: React.FC = () => {
         };
 
     broadcastProjectionPayload(updatedPayload);
-  }, [getProjectionPayload, addNotification, sermon, fontSize, theme, projectionBlackout, isBible]);
+  }, [getProjectionPayload, addNotification, sermon, projectionFontSize, theme, projectionBlackout, isBible]);
 
   useEffect(() => {
     sendProjectionPayloadRef.current = sendProjectionPayload;
@@ -950,14 +979,22 @@ const Reader: React.FC = () => {
     if ((sermon || projectedImage || projectionBgImage || projectedAnnouncement) && (isProjectionOpen || isProjectionWindowOpen())) {
       sendProjectionPayload(projectedSegmentIndexRef.current);
     }
-  }, [sermon, projectedSegmentIndex, isProjectionOpen, sendProjectionPayload, syncToggle, projectedImage, projectionBgImage, projectedAnnouncement, selectionIndices]);
+  }, [sermon, projectedSegmentIndex, isProjectionOpen, sendProjectionPayload, syncToggle, projectedImage, projectionBgImage, projectedAnnouncement, selectionIndices, projectionFontSize]);
+
+  useEffect(() => {
+    if (projectedAnnouncement && !isProjectionOpen) {
+      setIsProjectionOpen(true);
+    }
+  }, [projectedAnnouncement, isProjectionOpen]);
 
   const stopProjection = useCallback(() => {
     closeProjectionWindow();
     projectionWindow = null;
     setIsProjectionOpen(false);
     updateProjectedSegmentIndex(null);
-  }, [updateProjectedSegmentIndex]);
+    setProjectedImage(null);
+    setProjectedAnnouncement(null);
+  }, [updateProjectedSegmentIndex, setProjectedImage, setProjectedAnnouncement]);
 
   const ensureProjectionWindow = useCallback((targetIdx?: number) => {
     if (projectedImage) {
@@ -1310,6 +1347,22 @@ const Reader: React.FC = () => {
   }, [projectedSegmentIndex, ensureProjectionWindow, updateProjectedSegmentIndex, sendProjectionPayload]);
 
   const handleProjectNextSegment = useCallback(() => {
+    if (projectedAnnouncement) {
+      const list = getStoredAnnouncements();
+      if (list.length > 0) {
+        const currentIdx = list.findIndex(a => a.id === projectedAnnouncement.id || (a.title === projectedAnnouncement.title && a.content === projectedAnnouncement.content));
+        if (currentIdx !== -1 && currentIdx < list.length - 1) {
+          const nextAnn = list[currentIdx + 1];
+          setProjectedAnnouncement(nextAnn);
+          addNotification(`Annonce (${currentIdx + 2}/${list.length}) : ${nextAnn.title || 'Annonce'}`, 'info');
+        } else if (currentIdx === -1) {
+          setProjectedAnnouncement(list[0]);
+          addNotification(`Annonce (1/${list.length}) : ${list[0].title || 'Annonce'}`, 'info');
+        }
+      }
+      return;
+    }
+
     if (!structuredSegments || structuredSegments.length === 0) return;
     if (projectedSegmentIndex === null) {
       const firstNonEmpty = structuredSegments.findIndex(s => s.text.trim().length > 0);
@@ -1321,9 +1374,22 @@ const Reader: React.FC = () => {
       }
       if (next < structuredSegments.length) handleProjectSegment(next, true);
     }
-  }, [projectedSegmentIndex, structuredSegments, handleProjectSegment]);
+  }, [projectedAnnouncement, setProjectedAnnouncement, addNotification, structuredSegments, projectedSegmentIndex, handleProjectSegment]);
 
   const handleProjectPrevSegment = useCallback(() => {
+    if (projectedAnnouncement) {
+      const list = getStoredAnnouncements();
+      if (list.length > 0) {
+        const currentIdx = list.findIndex(a => a.id === projectedAnnouncement.id || (a.title === projectedAnnouncement.title && a.content === projectedAnnouncement.content));
+        if (currentIdx > 0) {
+          const prevAnn = list[currentIdx - 1];
+          setProjectedAnnouncement(prevAnn);
+          addNotification(`Annonce (${currentIdx}/${list.length}) : ${prevAnn.title || 'Annonce'}`, 'info');
+        }
+      }
+      return;
+    }
+
     if (!structuredSegments || structuredSegments.length === 0 || projectedSegmentIndex === null) return;
     if (projectedSegmentIndex > 0) {
       let prev = projectedSegmentIndex - 1;
@@ -1332,7 +1398,7 @@ const Reader: React.FC = () => {
       }
       if (prev >= 0 && structuredSegments[prev].text.trim() !== '') handleProjectSegment(prev, true);
     }
-  }, [projectedSegmentIndex, structuredSegments, handleProjectSegment]);
+  }, [projectedAnnouncement, setProjectedAnnouncement, addNotification, structuredSegments, projectedSegmentIndex, handleProjectSegment]);
 
   const handleNextSource = useCallback(async () => {
     const currentId = useAppStore.getState().selectedSermonId;
@@ -1569,17 +1635,17 @@ const Reader: React.FC = () => {
         // 3. Scroll view Up / Down: ArrowDown (↓) / ArrowUp (↑)
         if (e.key === 'ArrowDown') {
           e.preventDefault();
-          smoothScrollReaderBy(85);
+          smoothScrollReaderBy(50);
           if (broadcastChannel.current && isProjectionActive) {
-            broadcastChannel.current.postMessage({ type: 'scroll', direction: 'down', amount: 0.15 });
+            broadcastChannel.current.postMessage({ type: 'scroll', direction: 'down', amount: 0.08 });
           }
           return;
         }
         if (e.key === 'ArrowUp') {
           e.preventDefault();
-          smoothScrollReaderBy(-85);
+          smoothScrollReaderBy(-50);
           if (broadcastChannel.current && isProjectionActive) {
-            broadcastChannel.current.postMessage({ type: 'scroll', direction: 'up', amount: 0.15 });
+            broadcastChannel.current.postMessage({ type: 'scroll', direction: 'up', amount: 0.08 });
           }
           return;
         }
@@ -1792,24 +1858,20 @@ const Reader: React.FC = () => {
               {sermon.id.startsWith('song-') ? (
                 <>
                   <div className="inline-flex items-center gap-1.5"><Music className="w-3 h-3 text-teal-600 shrink-0" /><span>{sermon.date || 'Cantique'}</span></div>
-                  {sermon.city && <div className="inline-flex items-center gap-1.5"><span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-0.5" /><span>{sermon.city}</span></div>}
                 </>
               ) : sermon.id.startsWith('bible-') ? (
                 <>
                   <div className="inline-flex items-center gap-1.5"><BookOpen className="w-3 h-3 text-teal-600 shrink-0" /><span>Sainte Bible</span></div>
                   {sermon.date && <div className="inline-flex items-center gap-1.5"><span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-0.5" /><span>{sermon.date}</span></div>}
-                  {sermon.city && <div className="inline-flex items-center gap-1.5"><span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-0.5" /><span>{sermon.city}</span></div>}
                 </>
               ) : sermon.id.startsWith('expose-') ? (
                 <>
                   <div className="inline-flex items-center gap-1.5"><BookText className="w-3 h-3 text-teal-600 shrink-0" /><span>Exposé des 7 Âges</span></div>
-                  {sermon.city && <div className="inline-flex items-center gap-1.5"><span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-0.5" /><span>{sermon.city}</span></div>}
                 </>
               ) : (
                 <>
                   <div className="inline-flex items-center gap-1.5"><Calendar className="w-3 h-3 text-teal-600 shrink-0" /><span>{sermon.date}</span></div>
                   {sermon.time && <div className="inline-flex items-center gap-1.5"><span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-0.5" /><Clock className="w-3 h-3 text-teal-600 shrink-0" /><span>{sermon.time}</span></div>}
-                  {sermon.city && <div className="inline-flex items-center gap-1.5"><span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-0.5" /><MapPin className="w-3 h-3 text-teal-600 shrink-0" /><span>{sermon.city}</span></div>}
                 </>
               )}
             </div>
@@ -1923,14 +1985,42 @@ const Reader: React.FC = () => {
 
             {/* Zoom / Font controls */}
             <div 
-              className="flex items-center bg-white/50 dark:bg-zinc-800/50 border border-zinc-200/50 dark:border-zinc-800/50 no-print overflow-hidden transition-all"
+              className={`flex items-center no-print overflow-hidden transition-all ${
+                isProjectionOpen 
+                  ? 'bg-teal-950/80 dark:bg-teal-900/60 border-2 border-teal-500/80 text-teal-200 shadow-md shadow-teal-500/10' 
+                  : 'bg-white/50 dark:bg-zinc-800/50 border border-zinc-200/50 dark:border-zinc-800/50'
+              }`}
               style={isOSFullscreen ? { fontSize: `${fontSize * 0.6}px`, borderRadius: '0.5em', height: '1.5em' } : { borderRadius: '0.75rem' }}
+              title={isProjectionOpen ? "Ajuster la taille du texte PROJETÉ sur l'Écran 2" : "Ajuster la taille du texte en mode lecture"}
             >
-              <button onClick={() => setFontSize(s => s - 2)} className={`flex items-center justify-center text-zinc-400 hover:text-teal-600 ${isOSFullscreen ? '' : 'w-9 h-9'}`} style={isOSFullscreen ? { width: '1.5em', height: '100%' } : {}}>
+              {isProjectionOpen && (
+                <span className="text-[9px] font-black uppercase text-teal-400 pl-1.5 pr-0.5 tracking-tighter select-none">
+                  PROJ
+                </span>
+              )}
+              <button 
+                onClick={() => updateActiveFontSize(s => s - 2)} 
+                className={`flex items-center justify-center ${isProjectionOpen ? 'text-teal-300 hover:text-white' : 'text-zinc-400 hover:text-teal-600'} ${isOSFullscreen ? '' : 'w-8 h-9'}`} 
+                style={isOSFullscreen ? { width: '1.5em', height: '100%' } : {}}
+                title={isProjectionOpen ? "Réduire la taille sur l'Écran 2" : "Réduire la taille de lecture"}
+              >
                 <ZoomOut style={isOSFullscreen ? { width: '0.8em', height: '0.8em' } : { width: '1rem', height: '1rem' }} />
               </button>
-              <input type="text" value={localFontSize} onDoubleClick={() => setFontSize(20)} onChange={e => /^\d*$/.test(e.target.value) && setLocalFontSize(e.target.value)} onBlur={() => { const val = parseInt(String(localFontSize), 10); setFontSize(isNaN(val) ? fontSize : val); }} className="bg-transparent text-center font-black outline-none text-zinc-950 dark:text-white" style={isOSFullscreen ? { width: '2.2em', height: '100%', fontSize: '0.8em' } : { width: '3rem', height: '100%', fontSize: '11px' }} />
-              <button onClick={() => setFontSize(s => s + 2)} className={`flex items-center justify-center text-zinc-400 hover:text-teal-600 ${isOSFullscreen ? '' : 'w-9 h-9'}`} style={isOSFullscreen ? { width: '1.5em', height: '100%' } : {}}>
+              <input 
+                type="text" 
+                value={localFontSize} 
+                onDoubleClick={() => updateActiveFontSize(20)} 
+                onChange={e => /^\d*$/.test(e.target.value) && setLocalFontSize(e.target.value)} 
+                onBlur={() => { const val = parseInt(String(localFontSize), 10); updateActiveFontSize(isNaN(val) ? activeFontSize : val); }} 
+                className={`bg-transparent text-center font-black outline-none ${isProjectionOpen ? 'text-teal-200' : 'text-zinc-950 dark:text-white'}`} 
+                style={isOSFullscreen ? { width: '2.2em', height: '100%', fontSize: '0.8em' } : { width: '2.8rem', height: '100%', fontSize: '11px' }} 
+              />
+              <button 
+                onClick={() => updateActiveFontSize(s => s + 2)} 
+                className={`flex items-center justify-center ${isProjectionOpen ? 'text-teal-300 hover:text-white' : 'text-zinc-400 hover:text-teal-600'} ${isOSFullscreen ? '' : 'w-8 h-9'}`} 
+                style={isOSFullscreen ? { width: '1.5em', height: '100%' } : {}}
+                title={isProjectionOpen ? "Agrandir la taille sur l'Écran 2" : "Agrandir la taille de lecture"}
+              >
                 <ZoomIn style={isOSFullscreen ? { width: '0.8em', height: '0.8em' } : { width: '1rem', height: '1rem' }} />
               </button>
             </div>
@@ -1960,6 +2050,28 @@ const Reader: React.FC = () => {
       {isProjectionOpen && (
         <div className="shrink-0 min-h-11 py-1.5 bg-teal-950 text-white border-b border-teal-800/80 flex items-center justify-between px-4 md:px-8 z-20 shadow-md flex-wrap gap-2 relative no-print">
           <div className="flex items-center gap-2 flex-wrap w-full justify-between sm:justify-end">
+            {/* Outil de défilement du texte projeté (Écran 2) */}
+            <div className="flex items-center bg-teal-900/90 border border-teal-700/80 rounded-lg overflow-hidden px-1 py-0.5 shadow-xs gap-0.5">
+              <span className="text-[10px] font-bold text-teal-300 px-1.5 uppercase tracking-wider select-none hidden sm:inline">Défiler Écran 2</span>
+              <button 
+                onClick={() => sendProjectionScrollCommand('up', 0.08)} 
+                className="p-1 text-teal-200 hover:text-white hover:bg-teal-800 rounded transition-colors flex items-center justify-center gap-0.5 text-xs font-bold"
+                title="Faire défiler le texte projeté vers le HAUT (Écran 2)"
+              >
+                <ChevronUp className="w-3.5 h-3.5" />
+                <span className="text-[10px] hidden md:inline">Haut</span>
+              </button>
+              <button 
+                onClick={() => sendProjectionScrollCommand('down', 0.08)} 
+                className="p-1 text-teal-200 hover:text-white hover:bg-teal-800 rounded transition-colors flex items-center justify-center gap-0.5 text-xs font-bold"
+                title="Faire défiler le texte projeté vers le BAS (Écran 2)"
+              >
+                <ChevronDown className="w-3.5 h-3.5" />
+                <span className="text-[10px] hidden md:inline">Bas</span>
+              </button>
+            </div>
+
+            <div className="h-4 w-px bg-teal-800/80 mx-0.5 hidden sm:block" />
             <button
               onClick={() => setProjectionBlackout(!projectionBlackout)}
               className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all shadow-sm ${
@@ -1977,17 +2089,36 @@ const Reader: React.FC = () => {
 
             <button
               onClick={handleProjectPrevSegment}
-              disabled={projectedSegmentIndex === null || projectedSegmentIndex === 0}
-              className="px-2.5 py-1 bg-teal-900/90 hover:bg-teal-800 disabled:opacity-40 rounded-lg text-xs font-bold text-teal-200 border border-teal-700/60 transition-all flex items-center gap-1"
-              data-tooltip="Projeter le paragraphe précédent (Raccourci : Flèche Gauche ← / Maj+Espace)"
+              disabled={
+                projectedAnnouncement
+                  ? (() => {
+                      const list = getStoredAnnouncements();
+                      if (list.length === 0) return true;
+                      const idx = list.findIndex(a => a.id === projectedAnnouncement.id || (a.title === projectedAnnouncement.title && a.content === projectedAnnouncement.content));
+                      return idx <= 0;
+                    })()
+                  : (projectedSegmentIndex === null || projectedSegmentIndex === 0)
+              }
+              className="px-2.5 py-1 bg-teal-900/90 hover:bg-teal-800 disabled:opacity-40 rounded-lg text-xs font-bold text-teal-200 border border-teal-700/60 transition-all flex items-center gap-1 cursor-pointer disabled:cursor-not-allowed"
+              data-tooltip={projectedAnnouncement ? "Annonce précédente (Flèche Gauche ← / Maj+Espace)" : "Projeter le paragraphe précédent (Flèche Gauche ← / Maj+Espace)"}
             >
               <ChevronUp className="w-3.5 h-3.5" /> Préc.
             </button>
 
             <button
               onClick={handleProjectNextSegment}
-              className="px-2.5 py-1 bg-teal-900/90 hover:bg-teal-800 rounded-lg text-xs font-bold text-teal-200 border border-teal-700/60 transition-all flex items-center gap-1"
-              data-tooltip="Projeter le paragraphe suivant (Raccourci : Flèche Droite → / Espace)"
+              disabled={
+                projectedAnnouncement
+                  ? (() => {
+                      const list = getStoredAnnouncements();
+                      if (list.length === 0) return true;
+                      const idx = list.findIndex(a => a.id === projectedAnnouncement.id || (a.title === projectedAnnouncement.title && a.content === projectedAnnouncement.content));
+                      return idx !== -1 && idx >= list.length - 1;
+                    })()
+                  : (structuredSegments ? projectedSegmentIndex !== null && projectedSegmentIndex >= structuredSegments.length - 1 : false)
+              }
+              className="px-2.5 py-1 bg-teal-900/90 hover:bg-teal-800 disabled:opacity-40 rounded-lg text-xs font-bold text-teal-200 border border-teal-700/60 transition-all flex items-center gap-1 cursor-pointer disabled:cursor-not-allowed"
+              data-tooltip={projectedAnnouncement ? "Annonce suivante (Flèche Droite → / Espace)" : "Projeter le paragraphe suivant (Flèche Droite → / Espace)"}
             >
               Suiv. <ChevronDown className="w-3.5 h-3.5" />
             </button>
@@ -2025,8 +2156,20 @@ const Reader: React.FC = () => {
               data-tooltip="Module Annonces : Écrire et Projeter des annonces personnalisées"
             >
               <Megaphone className="w-3.5 h-3.5 shrink-0" />
-              <span className="whitespace-nowrap">
-                {projectedAnnouncement ? `Annonce : ${projectedAnnouncement.title}` : 'Annonces'}
+              <span className="whitespace-nowrap flex items-center gap-1">
+                {projectedAnnouncement ? (
+                  <>
+                    <span>Annonce : {projectedAnnouncement.title}</span>
+                    {(() => {
+                      const list = getStoredAnnouncements();
+                      const idx = list.findIndex(a => a.id === projectedAnnouncement.id || (a.title === projectedAnnouncement.title && a.content === projectedAnnouncement.content));
+                      if (idx !== -1 && list.length > 1) {
+                        return <span className="bg-amber-950/60 text-amber-100 px-1.5 py-0.2 text-[10px] rounded-full border border-amber-300/40">[{idx + 1}/{list.length}]</span>;
+                      }
+                      return null;
+                    })()}
+                  </>
+                ) : 'Annonces'}
               </span>
             </button>
 
@@ -2413,27 +2556,7 @@ const Reader: React.FC = () => {
                     </div>
                   </div>
 
-                  <div data-para-content={segIdx} className={`relative para-text-content select-text leading-relaxed ${isProjected ? 'pl-5 sm:pl-6' : ''}`}>
-                    {/* Indicateur ▶ au bord intérieur du paragraphe suivant le défilement de l'Écran 2 */}
-                    {isProjected && (
-                      <div 
-                        className="absolute left-0 top-1 bottom-1 pointer-events-none select-none z-20"
-                        style={{ width: '18px' }}
-                      >
-                        <div 
-                          className="absolute left-0 transition-all duration-100 ease-out flex items-center justify-center"
-                          style={{
-                            top: `${Math.min(98, Math.max(2, projectionScrollProgress))}%`,
-                            transform: 'translateY(-50%)'
-                          }}
-                          title={`Position Écran 2 : ${projectionScrollProgress}%`}
-                        >
-                          <span className="text-amber-500 dark:text-amber-400 text-sm sm:text-base font-black leading-none drop-shadow-[0_2px_6px_rgba(245,158,11,0.7)] animate-pulse">
-                            ▶
-                          </span>
-                        </div>
-                      </div>
-                    )}
+                  <div data-para-content={segIdx} className="relative para-text-content select-text leading-relaxed">
                     {content}
                   </div>
                 </div>
@@ -2542,6 +2665,31 @@ const Reader: React.FC = () => {
             }
           }}
         />
+      )}
+      {/* Outil flottant discret de défilement du texte projeté (Écran 2) */}
+      {isProjectionOpen && (
+        <div 
+          className="fixed bottom-6 right-6 z-[10000] no-print flex flex-col items-center bg-teal-950/90 border border-teal-500/60 text-white rounded-2xl p-1 shadow-2xl backdrop-blur-md transition-all hover:scale-105"
+          title="Outil de défilement du texte projeté sur l'Écran 2"
+        >
+          <span className="text-[8px] font-black uppercase text-teal-300 tracking-tighter px-1 pt-0.5 select-none">
+            PROJ
+          </span>
+          <button
+            onClick={() => sendProjectionScrollCommand('up', 0.08)}
+            className="p-1.5 text-teal-200 hover:text-white hover:bg-teal-800/80 rounded-xl transition-all active:scale-90"
+            title="Faire défiler vers le HAUT (Écran 2)"
+          >
+            <ChevronUp className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => sendProjectionScrollCommand('down', 0.08)}
+            className="p-1.5 text-teal-200 hover:text-white hover:bg-teal-800/80 rounded-xl transition-all active:scale-90"
+            title="Faire défiler vers le BAS (Écran 2)"
+          >
+            <ChevronDown className="w-4 h-4" />
+          </button>
+        </div>
       )}
     </div>
   );

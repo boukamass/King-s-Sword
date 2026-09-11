@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useAppStore } from '../store';
+import { useAppStore, sortNotesByRecency } from '../store';
 import { Sermon, Note } from '../types';
 import { marked } from 'marked';
 import { 
@@ -43,9 +43,10 @@ const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({ selectionText, se
   }, [view]);
 
   const filteredNotes = useMemo(() => {
-    if (!searchQuery.trim()) return notes;
+    const sorted = sortNotesByRecency(notes);
+    if (!searchQuery.trim()) return sorted;
     const q = normalizeText(searchQuery);
-    return notes.filter(n => normalizeText(n.title).includes(q));
+    return sorted.filter(n => normalizeText(n.title).includes(q));
   }, [notes, searchQuery]);
 
   const handleShowNewNoteView = () => {

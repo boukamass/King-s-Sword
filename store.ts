@@ -20,6 +20,37 @@ import { getStoredMediaImages, saveStoredMediaImages, getStoredMediaFolders, sav
 
 const generateUUID = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 9));
 
+export const getNoteTimestamp = (n: Note): number => {
+  const dates = [
+    n.updatedAt,
+    n.creationDate,
+    n.date,
+    ...(n.citations || []).map(c => c.date_added),
+    ...(n.images || []).map(img => img.addedAt)
+  ].filter(Boolean);
+
+  let maxTime = 0;
+  for (const d of dates) {
+    if (!d) continue;
+    const t = new Date(d).getTime();
+    if (!isNaN(t) && t > maxTime) {
+      maxTime = t;
+    }
+  }
+  return maxTime;
+};
+
+export const sortNotesByRecency = (notes: Note[]): Note[] => {
+  return [...notes].sort((a, b) => {
+    const timeA = getNoteTimestamp(a);
+    const timeB = getNoteTimestamp(b);
+    if (timeA !== timeB) {
+      return timeB - timeA;
+    }
+    return (a.order ?? 0) - (b.order ?? 0);
+  });
+};
+
 export interface SearchResult {
   paragraphId: string;
   sermonId: string;
@@ -280,7 +311,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         });
 
         const notes = await getAllNotes();
-        set({ sermons: uniqueMetadata, sermonsMap: map, notes, isLoading: false, loadingProgress: 100 });
+        set({ sermons: uniqueMetadata, sermonsMap: map, notes: sortNotesByRecency(notes), isLoading: false, loadingProgress: 100 });
         return;
       }
 
@@ -299,7 +330,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         });
 
         const notes = await getAllNotes();
-        set({ sermons: metadata, sermonsMap: map, notes, isLoading: false, loadingProgress: 100 });
+        set({ sermons: metadata, sermonsMap: map, notes: sortNotesByRecency(notes), isLoading: false, loadingProgress: 100 });
       }
     } catch (error) {
       console.error("DB Init Error:", error);
@@ -355,7 +386,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ 
         sermons: uniqueMetadata, 
         sermonsMap: map, 
-        notes,
+        notes: sortNotesByRecency(notes),
         loadingProgress: 100,
         isLoading: false,
         loadingMessage: null,
@@ -647,20 +678,22 @@ export const useAppStore = create<AppState>((set, get) => ({
   addNote: async (partial) => {
     const palette = ['default', 'sky', 'teal', 'amber', 'rose', 'violet'];
     const randomColor = palette[Math.floor(Math.random() * palette.length)];
+    const now = new Date().toISOString();
     
     const newNote: Note = {
       id: generateUUID(),
       title: partial.title || 'Nouvelle Note',
       content: partial.content || '',
       citations: partial.citations || [],
-      creationDate: new Date().toISOString(),
-      date: new Date().toISOString(),
-      order: get().notes.length,
+      creationDate: now,
+      date: now,
+      updatedAt: now,
+      order: 0,
       color: partial.color || randomColor,
       ...partial
     };
     set(state => ({ 
-      notes: [...state.notes, newNote], 
+      notes: sortNotesByRecency([newNote, ...state.notes]), 
       activeNoteId: newNote.id,
       notesOpen: true 
     }));
@@ -669,9 +702,11 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   updateNote: async (id, updates) => {
     const { notes } = get();
-    const newNotes = notes.map(n => n.id === id ? { ...n, ...updates } : n);
-    set({ notes: newNotes });
-    const updatedNote = newNotes.find(n => n.id === id);
+    const now = new Date().toISOString();
+    const newNotes = notes.map(n => n.id === id ? { ...n, ...updates, updatedAt: now } : n);
+    const sorted = sortNotesByRecency(newNotes);
+    set({ notes: sorted });
+    const updatedNote = sorted.find(n => n.id === id);
     if (updatedNote) await saveNoteToDB(updatedNote);
   },
 
@@ -679,7 +714,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { notes, activeNoteId } = get();
     const newNotes = notes.filter(n => n.id !== id);
     set({ 
-      notes: newNotes,
+      notes: sortNotesByRecency(newNotes),
       activeNoteId: activeNoteId === id ? null : activeNoteId
     });
     await deleteNoteFromDB(id);
@@ -690,9 +725,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     const noteIndex = notes.findIndex(n => n.id === noteId);
     if (noteIndex === -1) return;
 
+    const now = new Date().toISOString();
     const citation: Citation = {
       id: generateUUID(),
-      date_added: new Date().toISOString(),
+      date_added: now,
       sermon_id: partialCitation.sermon_id || '',
       sermon_title_snapshot: partialCitation.sermon_title_snapshot || '',
       sermon_date_snapshot: partialCitation.sermon_date_snapshot || '',
@@ -703,11 +739,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     const updatedNotes = [...notes];
     updatedNotes[noteIndex] = {
       ...updatedNotes[noteIndex],
+      updatedAt: now,
       citations: [...updatedNotes[noteIndex].citations, citation]
     };
 
-    set({ notes: updatedNotes });
-    await saveNoteToDB(updatedNotes[noteIndex]);
+    const sorted = sortNotesByRecency(updatedNotes);
+    set({ notes: sorted });
+    const targetNote = sorted.find(n => n.id === noteId);
+    if (targetNote) await saveNoteToDB(targetNote);
   },
 
   addImageToNote: async (noteId, imageObj) => {
@@ -715,23 +754,27 @@ export const useAppStore = create<AppState>((set, get) => ({
     const noteIndex = notes.findIndex(n => n.id === noteId);
     if (noteIndex === -1) return;
 
+    const now = new Date().toISOString();
     const newImage: NoteImage = {
       id: generateUUID(),
       url: imageObj.url,
       name: imageObj.name || 'Image',
       caption: imageObj.caption || '',
-      addedAt: new Date().toISOString()
+      addedAt: now
     };
 
     const updatedNotes = [...notes];
     const currentImages = updatedNotes[noteIndex].images || [];
     updatedNotes[noteIndex] = {
       ...updatedNotes[noteIndex],
+      updatedAt: now,
       images: [...currentImages, newImage]
     };
 
-    set({ notes: updatedNotes });
-    await saveNoteToDB(updatedNotes[noteIndex]);
+    const sorted = sortNotesByRecency(updatedNotes);
+    set({ notes: sorted });
+    const targetNote = sorted.find(n => n.id === noteId);
+    if (targetNote) await saveNoteToDB(targetNote);
     get().addNotification(`Image ajoutée à la note "${updatedNotes[noteIndex].title}"`, 'success');
   },
 
@@ -740,15 +783,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     const noteIndex = notes.findIndex(n => n.id === noteId);
     if (noteIndex === -1) return;
 
+    const now = new Date().toISOString();
     const updatedNotes = [...notes];
     const currentImages = updatedNotes[noteIndex].images || [];
     updatedNotes[noteIndex] = {
       ...updatedNotes[noteIndex],
+      updatedAt: now,
       images: currentImages.filter(img => img.id !== imageId)
     };
 
-    set({ notes: updatedNotes });
-    await saveNoteToDB(updatedNotes[noteIndex]);
+    const sorted = sortNotesByRecency(updatedNotes);
+    set({ notes: sorted });
+    const targetNote = sorted.find(n => n.id === noteId);
+    if (targetNote) await saveNoteToDB(targetNote);
   },
 
   reorderNotes: (draggedId, targetId) => {
