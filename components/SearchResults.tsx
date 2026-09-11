@@ -96,15 +96,6 @@ const SearchResultCard = memo(({
                               )}
                               <span className="font-mono">{result.date}</span>
                           </div>
-                          {result.city && (
-                            <>
-                              <span className="w-1.5 h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full shrink-0" />
-                              <div className="inline-flex items-center gap-1.5">
-                                  <MapPin className="w-3.5 h-3.5 text-teal-600/60 shrink-0" />
-                                  <span className="truncate">{result.city}</span>
-                              </div>
-                            </>
-                          )}
                       </div>
                     </div>
                 </div>

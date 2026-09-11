@@ -82,6 +82,7 @@ export interface ProjectionSyncPayload {
   theme: string;
   highlights: Highlight[];
   selectionIndices: number[];
+  isSelectionFinal?: boolean;
   searchResults: number[];
   currentResultIndex: number;
   activeDefinition: WordDefinition | null;
@@ -240,6 +241,9 @@ const ProjectionViewInternal: React.FC = memo(() => {
     setCanScrollDown(down);
     setScrollProgress(progress);
 
+    // Skip heavy DOM rect analysis during smooth animation to prevent layout thrashing and frame drops
+    if (isAnimatingScrollRef.current) return;
+
     // Precise detection of visible words and top visible line snippet for Screen 1
     let topVisibleGlobalIndex: number | null = null;
     let bottomVisibleGlobalIndex: number | null = null;
@@ -316,31 +320,47 @@ const ProjectionViewInternal: React.FC = memo(() => {
   }, [syncData.text]);
 
   // --- Silky Smooth Physics-based Wheel & Key Scroll Engine ---
-  const targetScrollTopRef = useRef<number>(0);
   const isAnimatingScrollRef = useRef<boolean>(false);
   const smoothAnimFrameRef = useRef<number | null>(null);
+  const targetScrollTopRef = useRef<number>(0);
 
   const stepSmoothScroll = useCallback(() => {
-    if (!scrollContainerRef.current) {
+    const el = scrollContainerRef.current;
+    if (!el) {
       isAnimatingScrollRef.current = false;
       return;
     }
-    const current = scrollContainerRef.current.scrollTop;
+
+    const current = el.scrollTop;
     const target = targetScrollTopRef.current;
     const diff = target - current;
 
-    if (Math.abs(diff) < 0.6) {
-      scrollContainerRef.current.scrollTop = target;
+    if (Math.abs(diff) < 0.5) {
+      el.scrollTop = target;
       isAnimatingScrollRef.current = false;
       updateScrollState();
       return;
     }
 
-    // Perfectly balanced easing (0.16) for fluid, non-abrupt and responsive scrolling
-    scrollContainerRef.current.scrollTop = current + diff * 0.16;
-    updateScrollState();
+    // Ultra-calm, silk-smooth 60/120 FPS momentum lerp (0.07): very gentle, calm & smooth flow
+    el.scrollTop = current + diff * 0.07;
     smoothAnimFrameRef.current = requestAnimationFrame(stepSmoothScroll);
   }, [updateScrollState]);
+
+  const smoothScrollTo = useCallback((targetPos: number) => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollHeight - el.clientHeight;
+    if (maxScroll <= 0) return;
+
+    targetScrollTopRef.current = Math.max(0, Math.min(maxScroll, targetPos));
+
+    if (!isAnimatingScrollRef.current) {
+      isAnimatingScrollRef.current = true;
+      if (smoothAnimFrameRef.current) cancelAnimationFrame(smoothAnimFrameRef.current);
+      smoothAnimFrameRef.current = requestAnimationFrame(stepSmoothScroll);
+    }
+  }, [stepSmoothScroll]);
 
   const smoothScrollBy = useCallback((amount: number) => {
     const el = scrollContainerRef.current;
@@ -351,21 +371,27 @@ const ProjectionViewInternal: React.FC = memo(() => {
     if (!isAnimatingScrollRef.current) {
       targetScrollTopRef.current = el.scrollTop;
     }
-    targetScrollTopRef.current = Math.max(0, Math.min(maxScroll, targetScrollTopRef.current + amount));
 
-    if (!isAnimatingScrollRef.current) {
-      isAnimatingScrollRef.current = true;
-      if (smoothAnimFrameRef.current) cancelAnimationFrame(smoothAnimFrameRef.current);
-      smoothAnimFrameRef.current = requestAnimationFrame(stepSmoothScroll);
-    }
-  }, [stepSmoothScroll]);
+    const nextTarget = Math.max(0, Math.min(maxScroll, targetScrollTopRef.current + amount));
+    smoothScrollTo(nextTarget);
+  }, [smoothScrollTo]);
 
-  const handleScrollDown = useCallback((amountMultiplier = 0.4) => {
-    smoothScrollBy(window.innerHeight * amountMultiplier);
+  const handleScrollDown = useCallback((amountMultiplier = 0.08) => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const amount = typeof amountMultiplier === 'number' && amountMultiplier > 1
+      ? amountMultiplier
+      : Math.round(el.clientHeight * (amountMultiplier || 0.08));
+    smoothScrollBy(amount);
   }, [smoothScrollBy]);
 
-  const handleScrollUp = useCallback((amountMultiplier = 0.4) => {
-    smoothScrollBy(-window.innerHeight * amountMultiplier);
+  const handleScrollUp = useCallback((amountMultiplier = 0.08) => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const amount = typeof amountMultiplier === 'number' && amountMultiplier > 1
+      ? amountMultiplier
+      : Math.round(el.clientHeight * (amountMultiplier || 0.08));
+    smoothScrollBy(-amount);
   }, [smoothScrollBy]);
 
   // --- Middle-Click (Molette / Bouton Central) Autoscroll Engine ---
@@ -440,15 +466,30 @@ const ProjectionViewInternal: React.FC = memo(() => {
       }
 
       e.preventDefault();
-      const step = e.deltaY * 0.85;
-      smoothScrollBy(step);
+      smoothScrollBy(e.deltaY * 1.1);
     };
 
     window.addEventListener('wheel', handleWheel, { passive: false });
     return () => {
       window.removeEventListener('wheel', handleWheel);
     };
-  }, [smoothScrollBy, stopAutoScroll]);
+  }, [stopAutoScroll, smoothScrollBy]);
+
+  // Keep targetScrollTopRef synced with native user scroll (scrollbar drag, touch) whenever smooth animation is idle
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+
+    const handleScroll = () => {
+      if (!isAnimatingScrollRef.current) {
+        targetScrollTopRef.current = el.scrollTop;
+        updateScrollState();
+      }
+    };
+
+    el.addEventListener('scroll', handleScroll, { passive: true });
+    return () => el.removeEventListener('scroll', handleScroll);
+  }, [updateScrollState]);
 
   // Mouse listeners for middle button (button 1) autoscroll
   useEffect(() => {
@@ -535,6 +576,7 @@ const ProjectionViewInternal: React.FC = memo(() => {
           theme: data.theme || 'light',
           highlights: Array.isArray(data.highlights) ? data.highlights : [],
           selectionIndices: Array.isArray(data.selectionIndices) ? data.selectionIndices : [],
+          isSelectionFinal: Boolean(data.isSelectionFinal),
           searchResults: Array.isArray(data.searchResults) ? data.searchResults : [],
           currentResultIndex: typeof data.currentResultIndex === 'number' ? data.currentResultIndex : -1,
           activeDefinition: data.activeDefinition || null,
@@ -544,17 +586,18 @@ const ProjectionViewInternal: React.FC = memo(() => {
         };
         setSyncData(payload);
       } else if (data.type === 'scroll') {
-        if (data.direction === 'down') handleScrollDown(data.amount || 0.45);
-        else if (data.direction === 'up') handleScrollUp(data.amount || 0.45);
-        else if (data.direction === 'top' && scrollContainerRef.current) {
-          scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        if (data.direction === 'down') handleScrollDown(data.amount || 0.08);
+        else if (data.direction === 'up') handleScrollUp(data.amount || 0.08);
+        else if (data.direction === 'top') {
+          smoothScrollTo(0);
         } else if (data.direction === 'bottom' && scrollContainerRef.current) {
-          scrollContainerRef.current.scrollTo({ top: scrollContainerRef.current.scrollHeight, behavior: 'smooth' });
+          const maxScroll = scrollContainerRef.current.scrollHeight - scrollContainerRef.current.clientHeight;
+          smoothScrollTo(maxScroll);
         } else if (data.direction === 'ratio' && typeof data.ratio === 'number' && scrollContainerRef.current) {
           const el = scrollContainerRef.current;
           const maxScroll = el.scrollHeight - el.clientHeight;
           if (maxScroll > 0) {
-            el.scrollTo({ top: data.ratio * maxScroll, behavior: 'smooth' });
+            smoothScrollTo(data.ratio * maxScroll);
           }
         }
       } else if (data.type === 'capture') {
@@ -614,25 +657,50 @@ const ProjectionViewInternal: React.FC = memo(() => {
     else document.documentElement.classList.remove('dark');
   }, [syncData.theme]);
 
-  // Reset scroll to top when paragraph text changes and broadcast initial line positions
-  useEffect(() => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = 0;
-      targetScrollTopRef.current = 0;
-      updateScrollState();
-    }
-    const t1 = setTimeout(() => updateScrollState(), 60);
-    const t2 = setTimeout(() => updateScrollState(), 250);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
-  }, [syncData.text, syncData.projectedWords, updateScrollState]);
+  const lastTextRef = useRef<string | null>(null);
 
-  // Selection indices change handler (no auto-scroll during continuous drag selection to avoid text jumping)
+  // Reset scroll to top ONLY when paragraph text actually changes and broadcast initial line positions
   useEffect(() => {
-    // Selection state is rendered via syncData.selectionIndices in the template without moving the screen
-  }, [syncData.selectionIndices]);
+    if (syncData.text !== lastTextRef.current) {
+      lastTextRef.current = syncData.text;
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = 0;
+        targetScrollTopRef.current = 0;
+        updateScrollState();
+      }
+      const t1 = setTimeout(() => updateScrollState(), 60);
+      const t2 = setTimeout(() => updateScrollState(), 250);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
+    }
+  }, [syncData.text, updateScrollState]);
+
+  // Instant selection highlight live, auto-scroll Screen 2 when selection finishes (isSelectionFinal)
+  useEffect(() => {
+    if (!Array.isArray(syncData.selectionIndices) || syncData.selectionIndices.length === 0) return;
+
+    if (syncData.isSelectionFinal) {
+      const timer = setTimeout(() => {
+        const firstIdx = syncData.selectionIndices[0];
+        const domEl = activeWordRefs.current.get(firstIdx);
+        if (domEl && scrollContainerRef.current) {
+          const container = scrollContainerRef.current;
+          const containerRect = container.getBoundingClientRect();
+          const elRect = domEl.getBoundingClientRect();
+
+          const isOutside = elRect.top < containerRect.top + 50 || elRect.bottom > containerRect.bottom - 50;
+          if (isOutside) {
+            const targetPos = container.scrollTop + (elRect.top - containerRect.top) - (containerRect.height / 2) + (elRect.height / 2);
+            smoothScrollTo(targetPos);
+          }
+        }
+      }, 50);
+
+      return () => clearTimeout(timer);
+    }
+  }, [syncData.selectionIndices, syncData.isSelectionFinal]);
 
   // Keyboard navigation reusing channelRef
   useEffect(() => {
@@ -723,14 +791,14 @@ const ProjectionViewInternal: React.FC = memo(() => {
       // Scroll Down inside content: ArrowDown (↓)
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        smoothScrollBy(90);
+        smoothScrollBy(60);
         return;
       }
 
       // Scroll Up inside content: ArrowUp (↑)
       if (e.key === 'ArrowUp') {
         e.preventDefault();
-        smoothScrollBy(-90);
+        smoothScrollBy(-60);
         return;
       }
 
@@ -780,6 +848,8 @@ const ProjectionViewInternal: React.FC = memo(() => {
     (syncData.date && syncData.date.toLowerCase() === 'annonce')
   );
 
+  const isSermon = !isSong && !isBible && !isAnnouncement;
+
   const songLines = useMemo(() => {
     if (!syncData.text) return [];
     return syncData.text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
@@ -794,19 +864,23 @@ const ProjectionViewInternal: React.FC = memo(() => {
   const songFontSizeCSS = `min(${songFitWidthVw.toFixed(2)}vw, ${songFitHeightVh.toFixed(2)}vh, 8.5vmin)`;
   const songLineHeight = 1.32;
 
-  // Fixed optimal font sizing calibrated for 1080p screen viewed at 15-18 meters
-  const sermonFixedFontSize = '5.4vmin';
+  // Dynamic font scaling according to syncData.fontSize
+  const fontScale = useMemo(() => {
+    if (!syncData.fontSize) return 1;
+    const base = syncData.fontSize > 35 ? 40 : 20;
+    return Math.max(0.4, Math.min(3.0, syncData.fontSize / base));
+  }, [syncData.fontSize]);
+
+  const sermonCalculatedSize = `${(5.4 * fontScale).toFixed(2)}vmin`;
   const sermonLineHeight = 1.48;
 
-  // Fixed optimal font size for Bible verses
-  const bibleCalculatedSize = '5.2vmin';
+  const bibleCalculatedSize = `${(5.2 * fontScale).toFixed(2)}vmin`;
   const bibleLineHeight = 1.44;
 
-  // Sizing for Announcements
-  const announcementCalculatedSize = syncData.fontSize
-    ? `min(${((syncData.fontSize / 10) * 1.05).toFixed(2)}vmin, 6.5vmin)`
-    : '5.2vmin';
+  const announcementCalculatedSize = `${(5.2 * fontScale).toFixed(2)}vmin`;
   const announcementLineHeight = 1.44;
+
+  const songCalculatedSize = `calc(${songFontSizeCSS} * ${fontScale.toFixed(2)})`;
 
   // Instant preloading of projection background image
   useEffect(() => {
@@ -818,21 +892,23 @@ const ProjectionViewInternal: React.FC = memo(() => {
   }, [syncData.projectionBgImage?.url]);
 
   const calculatedFontSize = isSong
-    ? songFontSizeCSS
+    ? songCalculatedSize
     : isBible
     ? bibleCalculatedSize
     : isAnnouncement
     ? announcementCalculatedSize
-    : sermonFixedFontSize;
+    : sermonCalculatedSize;
   const headerFontSizeCSS = useMemo(() => {
     const titleStr = syncData.title || '';
     const showMeta = !isSong && !isBible;
-    const metaStr = showMeta ? ((syncData.date || '') + (syncData.time || '') + (syncData.city || '')) : '';
+    const metaStr = showMeta 
+      ? (isSermon ? ((syncData.date || '') + (syncData.city || '')) : ((syncData.date || '') + (syncData.time || '') + (syncData.city || ''))) 
+      : '';
     const totalChars = Math.max(12, titleStr.length + (metaStr.length > 0 ? metaStr.length + 8 : 0));
-    // Calculate max size in vmin so title & metadata fit generously on 1 single line without overflow, truncation or wrapping
-    const maxFitVmin = Math.max(1.85, 115 / (totalChars * 0.48));
-    return `min(${calculatedFontSize}, ${maxFitVmin.toFixed(2)}vmin)`;
-  }, [calculatedFontSize, syncData.title, syncData.date, syncData.time, syncData.city, isSong, isBible]);
+    // Calculate max size in vmin so title & metadata fit generously on 1 single line with high 18-meter visibility
+    const maxFitVmin = Math.max(3.8, 175 / (totalChars * 0.42));
+    return `min(4.8vmin, ${maxFitVmin.toFixed(2)}vmin)`;
+  }, [syncData.title, syncData.date, syncData.time, syncData.city, isSong, isBible, isSermon]);
   const calculatedLineHeight = isSong
     ? songLineHeight
     : isBible
@@ -897,7 +973,9 @@ const ProjectionViewInternal: React.FC = memo(() => {
   // Idle Projection Screen (When no paragraph text is currently selected)
   if (!hasText) {
     const displayTitle = syncData.title || "KING'S SWORD";
-    const hasMeta = !isSong && !isBible && Boolean(syncData.date || syncData.time || syncData.city);
+    const showDate = Boolean(syncData.date);
+    const showTime = !isSermon && Boolean(syncData.time);
+    const hasMeta = !isSong && !isBible && (showDate || showTime);
 
     return (
       <div 
@@ -918,57 +996,51 @@ const ProjectionViewInternal: React.FC = memo(() => {
           </div>
         )}
 
-        {/* Centered Aesthetic Card (Logo, Title & Metadata strictly 100% centered) */}
-        <div className="relative z-10 flex flex-col items-center justify-center max-w-4xl w-full p-8 md:p-12 rounded-3xl bg-black/50 backdrop-blur-md border border-white/15 shadow-2xl space-y-6 animate-in zoom-in-95 duration-300">
+        {/* Centered Aesthetic Card (Logo, Title & Metadata strictly 100% centered for 18m visibility) */}
+        <div className="relative z-10 flex flex-col items-center justify-center max-w-5xl w-full p-10 md:p-16 rounded-3xl bg-black/60 backdrop-blur-md border border-white/20 shadow-2xl space-y-8 animate-in zoom-in-95 duration-300">
           {/* Logo Emblem */}
-          <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-teal-500/10 border-2 border-teal-500/40 flex items-center justify-center shadow-2xl overflow-hidden ring-4 ring-teal-500/10">
+          <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-teal-500/10 border-2 border-teal-500/50 flex items-center justify-center shadow-2xl overflow-hidden ring-4 ring-teal-500/15">
             <img
               src={`${import.meta.env.BASE_URL}logo.png`}
               alt="Logo"
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-              className="w-14 h-14 md:w-16 md:h-16 object-cover rounded-full"
+              className="w-16 h-16 md:w-20 md:h-20 object-cover rounded-full"
             />
           </div>
 
           {/* Main Title */}
-          <h1 className="text-[5.5vmin] font-black text-white tracking-tight leading-tight uppercase drop-shadow-2xl">
+          <h1 className="text-[7vmin] md:text-[8vmin] font-black text-white tracking-tight leading-tight uppercase drop-shadow-[0_10px_35px_rgba(0,0,0,0.95)]">
             {displayTitle}
           </h1>
 
-          {/* Metadata: Date, Time, City (Uniquement pour les sermons et exposés) */}
+          {/* Metadata: Date for sermons, or Date/Time for announcements */}
           {hasMeta && (
-            <div className="flex items-center gap-4 md:gap-6 text-[1.8vmin] font-bold text-teal-300 uppercase tracking-widest flex-wrap justify-center">
-              {syncData.date && (
-                <div className="flex items-center gap-2 bg-black/50 px-4 py-1.5 rounded-full border border-teal-500/20">
-                  <Calendar className="w-4 h-4 text-teal-400" />
+            <div className="flex items-center gap-5 md:gap-8 text-[4.2vmin] font-black text-teal-300 uppercase tracking-wider flex-wrap justify-center">
+              {showDate && syncData.date && (
+                <div className="flex items-center gap-3 bg-black/75 px-7 py-3 rounded-full border-2 border-teal-500/45 shadow-2xl">
+                  <Calendar className="w-[1.2em] h-[1.2em] text-teal-400 shrink-0" />
                   <span>{syncData.date}</span>
                 </div>
               )}
-              {syncData.time && (
-                <div className="flex items-center gap-2 bg-black/50 px-4 py-1.5 rounded-full border border-teal-500/20">
-                  <Clock className="w-4 h-4 text-teal-400" />
+              {showTime && syncData.time && (
+                <div className="flex items-center gap-3 bg-black/75 px-7 py-3 rounded-full border-2 border-teal-500/45 shadow-2xl">
+                  <Clock className="w-[1.2em] h-[1.2em] text-teal-400 shrink-0" />
                   <span>{syncData.time}</span>
-                </div>
-              )}
-              {syncData.city && (
-                <div className="flex items-center gap-2 bg-black/50 px-4 py-1.5 rounded-full border border-teal-500/20">
-                  <MapPin className="w-4 h-4 text-teal-400" />
-                  <span>{syncData.city}</span>
                 </div>
               )}
             </div>
           )}
 
           {/* Status Instruction Badge */}
-          <div className="pt-2">
-            <span className="text-[1.2vmin] font-bold uppercase tracking-[0.25em] text-zinc-300 bg-teal-950/80 border border-teal-500/30 px-5 py-2 rounded-full shadow-lg inline-block">
+          <div className="pt-3">
+            <span className="text-[1.8vmin] font-black uppercase tracking-[0.25em] text-zinc-200 bg-teal-950/90 border border-teal-500/40 px-8 py-3 rounded-full shadow-2xl inline-block">
               SÉLECTIONNEZ UN PARAGRAPHE POUR PROJETER
             </span>
           </div>
 
           {/* Fullscreen Hint */}
           {!isFullscreen && (
-            <span className="text-[1vmin] font-semibold uppercase tracking-[0.2em] text-zinc-400 border border-zinc-800 bg-zinc-950/80 px-4 py-1.5 rounded-full hover:border-teal-500 hover:text-teal-400 transition-all">
+            <span className="text-[1.5vmin] font-extrabold uppercase tracking-[0.2em] text-zinc-300 border border-zinc-700 bg-zinc-950/90 px-6 py-2.5 rounded-full hover:border-teal-500 hover:text-teal-400 transition-all">
               Cliquez ou appuyez sur F pour le Plein Écran
             </span>
           )}
@@ -1001,10 +1073,10 @@ const ProjectionViewInternal: React.FC = memo(() => {
         </div>
       )}
 
-      {/* Top Header Bar with Title & Metadata (Strict single-line height to maximize projected text area) */}
-      <div className="w-full bg-gradient-to-b from-black/90 via-black/75 to-transparent border-b border-white/10 backdrop-blur-md flex flex-nowrap items-center justify-between px-6 md:px-10 py-2.5 shrink-0 z-30 gap-6 min-w-0">
-        <div className="flex items-center gap-3 min-w-0 flex-1 whitespace-nowrap">
-          <div className="w-[1.2em] h-[1.2em] rounded-full bg-teal-600/20 border border-teal-600/30 flex items-center justify-center shadow-lg overflow-hidden shrink-0" style={{ fontSize: headerFontSizeCSS }}>
+      {/* Top Header Bar with Title & Metadata (Maximized size and 18m visibility) */}
+      <div className="w-full bg-gradient-to-b from-black/95 via-black/80 to-transparent border-b border-white/15 backdrop-blur-md flex flex-nowrap items-center justify-between px-8 md:px-12 py-3 shrink-0 z-30 gap-6 min-w-0">
+        <div className="flex items-center gap-3.5 min-w-0 flex-1 whitespace-nowrap">
+          <div className="w-[1.3em] h-[1.3em] rounded-full bg-teal-600/25 border-2 border-teal-500/40 flex items-center justify-center shadow-xl overflow-hidden shrink-0" style={{ fontSize: headerFontSizeCSS }}>
             <img
               src={`${import.meta.env.BASE_URL}logo.png`}
               alt="Logo"
@@ -1013,35 +1085,27 @@ const ProjectionViewInternal: React.FC = memo(() => {
             />
           </div>
           <h1 
-            className="font-black text-teal-400 tracking-tight drop-shadow-md whitespace-nowrap shrink-0"
+            className="font-black text-teal-300 uppercase tracking-tight drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)] whitespace-nowrap shrink-0"
             style={{ fontSize: headerFontSizeCSS }}
           >
             {syncData.title}
           </h1>
         </div>
         
-        {/* Métadonnées détaillées (Date, Heure, Ville) uniquement pour les sermons et exposés ; masquées pour les chants et la Bible */}
-        {!isSong && !isBible && (
+        {/* Métadonnées en-tête (Date pour les sermons, ou Date/Heure pour annonces/exposés) */}
+        {!isSong && !isBible && syncData.date && (
           <div 
-            className="flex items-center gap-5 font-bold text-zinc-300 uppercase tracking-wider whitespace-nowrap shrink-0"
+            className="flex items-center gap-4 font-black text-teal-200 uppercase tracking-wider whitespace-nowrap shrink-0"
             style={{ fontSize: headerFontSizeCSS }}
           >
-            {syncData.date && (
-              <div className="flex items-center gap-1.5">
-                <Calendar className="w-[0.9em] h-[0.9em] text-teal-400/80 shrink-0" />
-                <span className="font-mono">{syncData.date}</span>
-              </div>
-            )}
-            {syncData.time && (
-              <div className="flex items-center gap-1.5">
-                <Clock className="w-[0.9em] h-[0.9em] text-teal-400/80 shrink-0" />
+            <div className="flex items-center gap-2 bg-black/70 px-4 py-1.5 rounded-full border-2 border-teal-500/45 shadow-lg">
+              <Calendar className="w-[1.15em] h-[1.15em] text-teal-400 shrink-0" />
+              <span className="font-mono">{syncData.date}</span>
+            </div>
+            {!isSermon && syncData.time && (
+              <div className="flex items-center gap-2 bg-black/70 px-4 py-1.5 rounded-full border-2 border-teal-500/45 shadow-lg">
+                <Clock className="w-[1.15em] h-[1.15em] text-teal-400 shrink-0" />
                 <span>{syncData.time}</span>
-              </div>
-            )}
-            {syncData.city && (
-              <div className="flex items-center gap-1.5">
-                <MapPin className="w-[0.9em] h-[0.9em] text-teal-400/80 shrink-0" />
-                <span>{syncData.city}</span>
               </div>
             )}
           </div>
@@ -1054,9 +1118,7 @@ const ProjectionViewInternal: React.FC = memo(() => {
         <div
           ref={scrollContainerRef}
           onScroll={updateScrollState}
-          className={`flex-1 overflow-y-auto custom-scrollbar flex flex-col items-stretch w-full ${
-            isScrollable ? 'justify-start pt-3 pb-24' : 'justify-center py-6'
-          } ${
+          className={`flex-1 overflow-y-auto custom-scrollbar flex flex-col items-stretch w-full pt-4 pb-28 ${
             isSong
               ? 'px-4 sm:px-6 md:px-10'
               : isAnnouncement
@@ -1067,9 +1129,7 @@ const ProjectionViewInternal: React.FC = memo(() => {
           }`}
         >
           <div
-            className={`text-white font-bold w-full max-w-none whitespace-pre-wrap ${
-              isScrollable ? 'my-0' : 'my-auto'
-            } ${
+            className={`text-white font-bold w-full max-w-none whitespace-pre-wrap my-0 ${
               isSong || (isAnnouncement && syncData.announcementAlignment !== 'left') ? 'text-center' : 'text-left'
             }`}
             style={{
@@ -1077,7 +1137,8 @@ const ProjectionViewInternal: React.FC = memo(() => {
               lineHeight: calculatedLineHeight,
               textShadow: '0 4px 30px rgba(0,0,0,0.8)',
               wordBreak: 'break-word',
-              overflowWrap: 'break-word'
+              overflowWrap: 'break-word',
+              transition: 'font-size 0.35s cubic-bezier(0.16, 1, 0.3, 1), line-height 0.35s cubic-bezier(0.16, 1, 0.3, 1)'
             }}
           >
             {isSong ? (
@@ -1155,9 +1216,9 @@ const ProjectionViewInternal: React.FC = memo(() => {
         </div>
 
         {/* Elegant Application Name Watermark (Bottom Right) */}
-        <div className="absolute right-6 bottom-3.5 z-20 pointer-events-none select-none flex items-center gap-2 opacity-50 hover:opacity-80 transition-opacity">
-          <span className="w-1.5 h-1.5 rounded-full bg-teal-400 shadow-[0_0_8px_rgba(45,212,191,0.8)] shrink-0" />
-          <span className="text-[1.1vmin] font-black tracking-[0.2em] text-zinc-300 uppercase drop-shadow-md">
+        <div className="absolute right-6 bottom-3.5 z-20 pointer-events-none select-none flex items-center gap-2 opacity-60 hover:opacity-90 transition-opacity">
+          <span className="w-2 h-2 rounded-full bg-teal-400 shadow-[0_0_10px_rgba(45,212,191,0.9)] shrink-0" />
+          <span className="text-[1.8vmin] font-black tracking-[0.2em] text-zinc-200 uppercase drop-shadow-lg">
             King’s Sword
           </span>
         </div>
@@ -1165,37 +1226,37 @@ const ProjectionViewInternal: React.FC = memo(() => {
         {/* Floating Discreet Scroll Controls (Only if scrollable) */}
         {isScrollable && (
           <div 
-            className="no-capture absolute right-6 bottom-11 z-30 flex items-center gap-2 bg-zinc-900/85 backdrop-blur-md border border-white/20 px-3 py-1.5 rounded-full shadow-2xl transition-all select-none"
+            className="no-capture absolute right-6 bottom-12 z-30 flex items-center gap-2.5 bg-zinc-900/90 backdrop-blur-md border border-white/25 px-4 py-2 rounded-full shadow-2xl transition-all select-none"
             data-html2canvas-ignore="true"
           >
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                handleScrollUp(0.4);
+                handleScrollUp(0.08);
               }}
-              className={`p-1 text-zinc-300 hover:text-teal-400 active:scale-90 transition-all ${
+              className={`p-1 text-zinc-200 hover:text-teal-400 active:scale-90 transition-all ${
                 !canScrollUp ? 'opacity-30 cursor-not-allowed' : ''
               }`}
               data-tooltip="Défiler vers le haut (Flèche Haut / Molette)"
             >
-              <ChevronUp className="w-5 h-5" />
+              <ChevronUp className="w-6 h-6" />
             </button>
-            <span className="text-[1.2vmin] font-mono font-bold text-teal-400 tracking-wider">
+            <span className="text-[1.8vmin] font-mono font-black text-teal-300 tracking-wider">
               {scrollProgress}%
             </span>
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                handleScrollDown(0.4);
+                handleScrollDown(0.08);
               }}
-              className={`p-1 text-zinc-300 hover:text-teal-400 active:scale-90 transition-all ${
+              className={`p-1 text-zinc-200 hover:text-teal-400 active:scale-90 transition-all ${
                 !canScrollDown ? 'opacity-30 cursor-not-allowed' : ''
               }`}
               data-tooltip="Défiler vers le bas (Flèche Bas / Molette / Espace)"
             >
-              <ChevronDown className="w-5 h-5" />
+              <ChevronDown className="w-6 h-6" />
             </button>
           </div>
         )}

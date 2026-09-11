@@ -23,7 +23,7 @@ import {
   FolderOutput,
   NotebookPen
 } from 'lucide-react';
-import { useAppStore } from '../store';
+import { useAppStore, sortNotesByRecency } from '../store';
 import { ProjectedImageMedia, MediaFolder } from '../types';
 import { detectImageMeta, preloadImage } from '../services/imageMediaService';
 import { 
@@ -1021,7 +1021,7 @@ export const ImageProjectionModal: React.FC = memo(() => {
                                     Aucune note disponible
                                   </div>
                                 ) : (
-                                  notes.map(n => {
+                                  sortNotesByRecency(notes).map(n => {
                                     const isActive = activeNoteId === n.id;
                                     return (
                                       <button

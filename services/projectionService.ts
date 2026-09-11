@@ -15,6 +15,7 @@ export interface ProjectionSyncPayload {
   theme: string;
   highlights: Highlight[];
   selectionIndices: number[];
+  isSelectionFinal?: boolean;
   searchResults: number[];
   currentResultIndex: number;
   activeDefinition: WordDefinition | null;
