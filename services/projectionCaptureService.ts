@@ -460,15 +460,8 @@ export const generateProjectionSnapshot = async (
       titleX = logoX + logoSize + 18;
     }
 
-    // Title on left
-    const titleText = payload.title || "KING'S SWORD";
-    ctx.fillStyle = '#2dd4bf'; // Teal-400
-    ctx.font = 'bold 34px sans-serif';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(titleText, titleX, headerHeight / 2);
-
     // Metadata on right (only for sermons and exposés)
+    let metaWidth = 0;
     if (!isSong && !isBible) {
       const metaParts: string[] = [];
       if (payload.date) metaParts.push(payload.date);
@@ -479,9 +472,36 @@ export const generateProjectionSnapshot = async (
         ctx.fillStyle = '#e4e4e7';
         ctx.font = 'bold 26px sans-serif';
         ctx.textAlign = 'right';
-        ctx.fillText(metaParts.join('  •  '), width - 50, headerHeight / 2);
+        ctx.textBaseline = 'middle';
+        const metaText = metaParts.join('  •  ');
+        metaWidth = ctx.measureText(metaText).width + 30;
+        ctx.fillText(metaText, width - 50, headerHeight / 2);
       }
     }
+
+    // Title on left (scaled or truncated to avoid any collision with metadata)
+    const titleText = payload.title || "KING'S SWORD";
+    ctx.fillStyle = '#2dd4bf'; // Teal-400
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+
+    const maxTitleWidth = Math.max(200, width - titleX - metaWidth - 40);
+    let titleFontSize = 34;
+    ctx.font = `bold ${titleFontSize}px sans-serif`;
+    while (ctx.measureText(titleText).width > maxTitleWidth && titleFontSize > 22) {
+      titleFontSize -= 2;
+      ctx.font = `bold ${titleFontSize}px sans-serif`;
+    }
+
+    let renderedTitle = titleText;
+    if (ctx.measureText(renderedTitle).width > maxTitleWidth) {
+      while (renderedTitle.length > 4 && ctx.measureText(renderedTitle + '...').width > maxTitleWidth) {
+        renderedTitle = renderedTitle.slice(0, -1);
+      }
+      renderedTitle += '...';
+    }
+
+    ctx.fillText(renderedTitle, titleX, headerHeight / 2);
 
     // Prepare Text Rendering with Highlights, Underlines & Selections
     const bottomReserved = payload.activeDefinition ? 160 : 60;
