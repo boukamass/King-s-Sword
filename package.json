@@ -3,7 +3,7 @@
   "version": "2.0.0",
   "description": "Logiciel d'étude des sermons de W.M. Branham",
   "main": "main.js",
-  "author": "Bienvenu Sédin Massamba",
+  "author": "Bienvenu Massamba & Gastin Ngakosso",
   "scripts": {
     "dev": "vite",
     "start": "vite",
@@ -50,7 +50,7 @@
   "build": {
     "appId": "com.kingssword.app",
     "productName": "King's Sword",
-    "copyright": "Copyright © 2026 Bienvenu Sédin Massamba",
+    "copyright": "Copyright © 2026 Bienvenu Massamba & Gastin Ngakosso",
     "asar": true,
     "asarUnpack": [
       "**/node_modules/better-sqlite3/**"

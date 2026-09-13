@@ -1775,7 +1775,7 @@ const Sidebar: React.FC = () => {
               
               <div className="flex flex-col items-center gap-1 mt-0.5">
                 <p className="text-[9px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wide leading-tight">
-                  Développé par Bienvenu Sédin Massamba
+                  Développé par Bienvenu Massamba & Gastin Ngakosso
                 </p>
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-teal-500/10 dark:bg-teal-400/10 border border-teal-500/20">
                   <p className="text-[9.5px] font-semibold text-teal-800 dark:text-teal-200 tracking-tight leading-tight">
