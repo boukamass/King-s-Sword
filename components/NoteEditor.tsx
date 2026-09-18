@@ -17,6 +17,7 @@ import {
   Quote, 
   Image as ImageIcon, 
   ImagePlus, 
+  Upload,
   Trash2, 
   X, 
   Search, 
@@ -29,6 +30,7 @@ import {
 import { Citation } from '../types';
 import { exportNoteToDocx } from '../services/docxExportService';
 import { processNoteData, cleanTextArtifacts } from '../utils/noteFormatter';
+import { detectImageMeta } from '../services/imageMediaService';
 
 const ActionButton = ({ onClick, icon: Icon, tooltip }: { onClick: () => void; icon: React.ElementType; tooltip: string }) => (
   <button 
@@ -47,6 +49,9 @@ const NoteEditor: React.FC = () => {
         sermons,
         mediaImages,
         mediaFolders,
+        loadMediaImages,
+        loadMediaFolders,
+        addMediaImage,
         updateNote,
         setActiveNoteId,
         setSelectedSermonId,
@@ -57,6 +62,7 @@ const NoteEditor: React.FC = () => {
         addNotification,
         addImageToNote,
         removeImageFromNote,
+        setSidebarOpen,
     } = useAppStore();
 
     const note = notes.find(n => n.id === activeNoteId);
@@ -69,8 +75,28 @@ const NoteEditor: React.FC = () => {
     const [gallerySearchQuery, setGallerySearchQuery] = useState('');
     const [selectedFolderId, setSelectedFolderId] = useState<string>('ALL');
     const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+    const [isImportingDirect, setIsImportingDirect] = useState(false);
     const titleInputRef = useRef<HTMLInputElement>(null);
     const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
+    const directFileInputRef = useRef<HTMLInputElement>(null);
+
+    // Ferme automatiquement le panneau de la bibliothèque lors de la consultation du journal
+    useEffect(() => {
+        setSidebarOpen(false);
+    }, [setSidebarOpen]);
+
+    // Charge les images et dossiers média au montage ou à l'ouverture de la galerie
+    useEffect(() => {
+        loadMediaImages();
+        loadMediaFolders();
+    }, [loadMediaImages, loadMediaFolders]);
+
+    useEffect(() => {
+        if (isGalleryPickerOpen) {
+            loadMediaImages();
+            loadMediaFolders();
+        }
+    }, [isGalleryPickerOpen, loadMediaImages, loadMediaFolders]);
 
     useEffect(() => {
         if (!note && activeNoteId) {
@@ -399,6 +425,58 @@ const NoteEditor: React.FC = () => {
         }
     };
 
+    const handleDirectImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        setIsImportingDirect(true);
+        let importedCount = 0;
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            if (!file.type.startsWith('image/')) continue;
+
+            try {
+                const reader = new FileReader();
+                const base64Url = await new Promise<string>((resolve, reject) => {
+                    reader.onload = () => resolve(reader.result as string);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+
+                const meta = await detectImageMeta(base64Url);
+                const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+                const formattedName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+
+                const newSavedImage = await addMediaImage({
+                    name: formattedName,
+                    url: base64Url,
+                    orientation: meta.orientation,
+                    aspectRatio: meta.aspectRatio,
+                    width: meta.width,
+                    height: meta.height,
+                    caption: '',
+                    folderId: 'folder-importes'
+                });
+
+                if (note) {
+                    await addImageToNote(note.id, { url: newSavedImage.url, name: newSavedImage.name });
+                }
+                importedCount++;
+            } catch (err) {
+                console.error('Error importing image directly in NoteEditor:', err);
+            }
+        }
+
+        setIsImportingDirect(false);
+        if (e.target) {
+            e.target.value = '';
+        }
+        if (importedCount > 0) {
+            addNotification(`${importedCount} image(s) importée(s) et ajoutée(s) à la note`, 'success');
+        }
+    };
+
     const filteredGalleryImages = mediaImages.filter(img => {
         const matchesFolder = selectedFolderId === 'ALL' || img.folderId === selectedFolderId || (selectedFolderId === 'UNASSIGNED' && !img.folderId);
         const matchesQuery = !gallerySearchQuery.trim() || img.name.toLowerCase().includes(gallerySearchQuery.toLowerCase());
@@ -489,21 +567,40 @@ const NoteEditor: React.FC = () => {
 
                             {/* Section Images rattachées */}
                             <div className="mt-8 pt-6 border-t border-zinc-100 dark:border-zinc-800">
-                                <div className="flex items-center justify-between mb-4">
+                                <input
+                                    type="file"
+                                    ref={directFileInputRef}
+                                    onChange={handleDirectImageUpload}
+                                    accept="image/*"
+                                    multiple
+                                    className="hidden"
+                                />
+                                <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                                     <div className="flex items-center gap-2">
                                         <ImageIcon className="w-4 h-4 text-teal-600 dark:text-teal-400" />
                                         <span className="text-xs font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
                                             Images & Illustrations jointes {note.images?.length ? `(${note.images.length})` : ''}
                                         </span>
                                     </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsGalleryPickerOpen(true)}
-                                        className="px-3.5 py-1.5 bg-teal-50 dark:bg-teal-950/60 hover:bg-teal-100 dark:hover:bg-teal-900/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                                    >
-                                        <ImagePlus className="w-3.5 h-3.5" />
-                                        <span>Ajouter de la galerie</span>
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => directFileInputRef.current?.click()}
+                                            disabled={isImportingDirect}
+                                            className="px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-50"
+                                        >
+                                            <Upload className="w-3.5 h-3.5" />
+                                            <span>{isImportingDirect ? 'Importation...' : 'Importer'}</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsGalleryPickerOpen(true)}
+                                            className="px-3.5 py-1.5 bg-teal-50 dark:bg-teal-950/60 hover:bg-teal-100 dark:hover:bg-teal-900/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                                        >
+                                            <ImagePlus className="w-3.5 h-3.5" />
+                                            <span>Ajouter de la galerie</span>
+                                        </button>
+                                    </div>
                                 </div>
 
                                 {note.images && note.images.length > 0 ? (
@@ -546,12 +643,23 @@ const NoteEditor: React.FC = () => {
                                         ))}
                                     </div>
                                 ) : (
-                                    <div 
-                                        onClick={() => setIsGalleryPickerOpen(true)}
-                                        className="p-6 border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl hover:border-teal-500/50 hover:bg-teal-50/20 dark:hover:bg-teal-950/10 cursor-pointer transition-all flex flex-col items-center justify-center gap-2 text-zinc-400 dark:text-zinc-500"
-                                    >
-                                        <ImagePlus className="w-8 h-8 opacity-60 text-teal-600 dark:text-teal-400" />
-                                        <span className="text-xs font-medium text-center">Aucune image rattachée à cette note. Cliquer pour parcourir la galerie média.</span>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div 
+                                            onClick={() => directFileInputRef.current?.click()}
+                                            className="p-6 border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl hover:border-teal-500/50 hover:bg-teal-50/20 dark:hover:bg-teal-950/10 cursor-pointer transition-all flex flex-col items-center justify-center gap-2 text-zinc-400 dark:text-zinc-500"
+                                        >
+                                            <Upload className="w-8 h-8 opacity-60 text-teal-600 dark:text-teal-400" />
+                                            <span className="text-xs font-medium text-center">Importer depuis l'ordinateur</span>
+                                            <span className="text-[10px] text-zinc-400">PNG, JPG, WEBP</span>
+                                        </div>
+                                        <div 
+                                            onClick={() => setIsGalleryPickerOpen(true)}
+                                            className="p-6 border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl hover:border-teal-500/50 hover:bg-teal-50/20 dark:hover:bg-teal-950/10 cursor-pointer transition-all flex flex-col items-center justify-center gap-2 text-zinc-400 dark:text-zinc-500"
+                                        >
+                                            <ImagePlus className="w-8 h-8 opacity-60 text-teal-600 dark:text-teal-400" />
+                                            <span className="text-xs font-medium text-center">Parcourir la galerie média ({mediaImages.length})</span>
+                                            <span className="text-[10px] text-zinc-400">Sélectionner parmi les images enregistrées</span>
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -734,13 +842,24 @@ const NoteEditor: React.FC = () => {
                                     </p>
                                 </div>
                             </div>
-                            <button
-                                type="button"
-                                onClick={() => setIsGalleryPickerOpen(false)}
-                                className="w-8 h-8 rounded-xl flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-                            >
-                                <X className="w-4 h-4" />
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => directFileInputRef.current?.click()}
+                                    disabled={isImportingDirect}
+                                    className="px-3.5 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm shadow-teal-600/20 disabled:opacity-50"
+                                >
+                                    <Upload className="w-3.5 h-3.5" />
+                                    <span>{isImportingDirect ? 'Importation...' : 'Importer une image'}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsGalleryPickerOpen(false)}
+                                    className="w-8 h-8 rounded-xl flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
                         </div>
 
                         {/* Barre de Recherche et Filtre par Dossier */}
@@ -789,9 +908,17 @@ const NoteEditor: React.FC = () => {
                         {/* Grille des Images */}
                         <div className="flex-1 overflow-y-auto p-5 custom-scrollbar bg-zinc-50/50 dark:bg-zinc-950/20">
                             {filteredGalleryImages.length === 0 ? (
-                                <div className="h-48 flex flex-col items-center justify-center text-zinc-400 gap-2">
+                                <div className="h-48 flex flex-col items-center justify-center text-zinc-400 gap-3">
                                     <ImageIcon className="w-8 h-8 opacity-40" />
-                                    <p className="text-xs">Aucune image trouvée</p>
+                                    <p className="text-xs">Aucune image trouvée dans ce dossier</p>
+                                    <button
+                                        type="button"
+                                        onClick={() => directFileInputRef.current?.click()}
+                                        className="px-4 py-2 bg-teal-600/10 hover:bg-teal-600/20 text-teal-600 dark:text-teal-400 border border-teal-600/30 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                                    >
+                                        <Upload className="w-3.5 h-3.5" />
+                                        <span>Importer une image maintenant</span>
+                                    </button>
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">

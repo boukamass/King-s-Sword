@@ -611,15 +611,18 @@ export const useAppStore = create<AppState>((set, get) => ({
   removeNotification: (id) => set(state => ({
     notifications: state.notifications.filter(n => n.id !== id)
   })),
-  setActiveNoteId: (id) => set({ activeNoteId: id }),
+  setActiveNoteId: (id) => set({ activeNoteId: id, ...(id ? { sidebarOpen: false } : {}) }),
   toggleSidebar: () => set(s => ({ sidebarOpen: !s.sidebarOpen })),
   toggleAI: () => set(s => ({ aiOpen: !s.aiOpen })),
-  toggleNotes: () => set(s => ({ notesOpen: !s.notesOpen })),
+  toggleNotes: () => set(s => {
+    const next = !s.notesOpen;
+    return { notesOpen: next, ...(next ? { sidebarOpen: false } : {}) };
+  }),
   toggleBibleModal: () => set(s => ({ isBibleModalOpen: !s.isBibleModalOpen })),
   setBibleModalOpen: (v) => set({ isBibleModalOpen: v }),
   setSidebarOpen: (v) => set({ sidebarOpen: v }),
   setAiOpen: (v) => set({ aiOpen: v }),
-  setNotesOpen: (v) => set({ notesOpen: v }),
+  setNotesOpen: (v) => set({ notesOpen: v, ...(v ? { sidebarOpen: false } : {}) }),
   setCityFilter: (f) => set({ cityFilter: f }),
   setYearFilter: (f) => set({ yearFilter: f }),
   setMonthFilter: (f) => set({ monthFilter: f }),
@@ -695,7 +698,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     set(state => ({ 
       notes: sortNotesByRecency([newNote, ...state.notes]), 
       activeNoteId: newNote.id,
-      notesOpen: true 
+      notesOpen: true,
+      sidebarOpen: false
     }));
     await saveNoteToDB(newNote);
   },
