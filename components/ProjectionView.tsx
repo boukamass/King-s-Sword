@@ -243,12 +243,10 @@ const ProjectionViewInternal: React.FC = memo(() => {
     setCanScrollDown(down);
     setScrollProgress(progress);
 
-    // Skip heavy DOM rect analysis during smooth animation to prevent layout thrashing and frame drops
-    if (isAnimatingScrollRef.current) return;
-
-    // Precise detection of visible words and top visible line snippet for Screen 1
+    // Precise detection of visible words and top/bottom visible line for Screen 1
     let topVisibleGlobalIndex: number | null = null;
     let bottomVisibleGlobalIndex: number | null = null;
+    let lastVisibleLineIndices: number[] = [];
     let topVisibleSnippet = '';
 
     if (activeWordRefs.current.size > 0) {
@@ -260,8 +258,13 @@ const ProjectionViewInternal: React.FC = memo(() => {
       for (const [gIdx, domEl] of sortedEntries) {
         if (!domEl) continue;
         const wRect = domEl.getBoundingClientRect();
-        // Check if word is inside container viewport
-        if (wRect.bottom >= containerRect.top + 6 && wRect.top <= containerRect.bottom - 6) {
+        const wordHeight = wRect.height || 24;
+
+        // A word is considered genuinely visible if at least 45% of its height is inside the viewport container
+        const topCutoff = containerRect.top + 6;
+        const bottomCutoff = containerRect.bottom - (wordHeight * 0.45);
+
+        if (wRect.bottom >= topCutoff && wRect.top <= bottomCutoff) {
           visibleWords.push({
             index: gIdx,
             el: domEl,
@@ -275,10 +278,19 @@ const ProjectionViewInternal: React.FC = memo(() => {
         topVisibleGlobalIndex = visibleWords[0].index;
         bottomVisibleGlobalIndex = visibleWords[visibleWords.length - 1].index;
 
+        // Group words on the last visible line of Screen 2
+        const lastWord = visibleWords[visibleWords.length - 1];
+        const lineThreshold = Math.max(14, lastWord.rect.height * 0.65);
+        const lastLineWords = visibleWords.filter(w => 
+          Math.abs(w.rect.bottom - lastWord.rect.bottom) <= lineThreshold ||
+          Math.abs(w.rect.top - lastWord.rect.top) <= lineThreshold
+        );
+        lastVisibleLineIndices = lastLineWords.map(w => w.index);
+
         // Extract the first 2 visible lines (words with top coordinate within ~2.3 line heights)
         const firstTop = visibleWords[0].rect.top;
-        const lineThreshold = Math.max(28, visibleWords[0].rect.height * 2.3);
-        const topLinesWords = visibleWords.filter(w => w.rect.top <= firstTop + lineThreshold);
+        const topThreshold = Math.max(28, visibleWords[0].rect.height * 2.3);
+        const topLinesWords = visibleWords.filter(w => w.rect.top <= firstTop + topThreshold);
         topVisibleSnippet = topLinesWords.map(w => w.text).join('').trim();
 
         // Fallback: if snippet is too short, take up to the first 16 visible words
@@ -306,6 +318,7 @@ const ProjectionViewInternal: React.FC = memo(() => {
       canScrollDown: down,
       topVisibleGlobalIndex,
       bottomVisibleGlobalIndex,
+      lastVisibleLineIndices,
       topVisibleSnippet,
       timestamp: Date.now()
     };
@@ -346,6 +359,7 @@ const ProjectionViewInternal: React.FC = memo(() => {
 
     // Ultra-calm, silk-smooth 60/120 FPS momentum lerp (0.07): very gentle, calm & smooth flow
     el.scrollTop = current + diff * 0.07;
+    updateScrollState();
     smoothAnimFrameRef.current = requestAnimationFrame(stepSmoothScroll);
   }, [updateScrollState]);
 
@@ -678,6 +692,35 @@ const ProjectionViewInternal: React.FC = memo(() => {
       };
     }
   }, [syncData.text, updateScrollState]);
+
+  // Dynamically re-detect last visible line whenever font size or zoom level changes on Screen 2
+  useEffect(() => {
+    updateScrollState();
+    const t1 = setTimeout(() => updateScrollState(), 50);
+    const t2 = setTimeout(() => updateScrollState(), 180);
+    const t3 = setTimeout(() => updateScrollState(), 380);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  }, [syncData.fontSize, updateScrollState]);
+
+  // ResizeObserver guarantees dynamic updates on window resize, zoom in/out, or container dimension shifts
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      updateScrollState();
+    });
+    ro.observe(el);
+    if (el.firstElementChild) {
+      ro.observe(el.firstElementChild as Element);
+    }
+    return () => {
+      ro.disconnect();
+    };
+  }, [updateScrollState]);
 
   // Instant selection highlight live, auto-scroll Screen 2 when selection finishes (isSelectionFinal)
   useEffect(() => {

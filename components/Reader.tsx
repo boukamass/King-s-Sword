@@ -116,6 +116,8 @@ const WordComponent = memo(({
   isJumpHighlight, 
   citationColor, 
   highlight, 
+  isProjectionLastLine,
+  isProjectionBottomWord,
   onRemoveHighlight, 
   onRemoveJumpHighlight, 
   wordRef, 
@@ -127,12 +129,17 @@ const WordComponent = memo(({
       ? PALETTE_HIGHLIGHT_COLORS['amber'] 
       : '';
 
+  const projectionUnderlineClass = isProjectionLastLine
+    ? 'border-b-[2.5px] border-amber-500 dark:border-amber-400 bg-amber-500/15 font-semibold text-zinc-950 dark:text-white underline decoration-amber-500/80 decoration-[2px] underline-offset-[3px]'
+    : '';
+
   const content = (
     <span 
       ref={wordRef}
       data-global-index={word.globalIndex}
       onMouseUp={onMouseUp}
-      className={`transition-all duration-200 ${citationColor || ''} ${
+      data-tooltip={isProjectionBottomWord ? "Repère Écran 2 : Fin de l'affichage visible en projection" : undefined}
+      className={`transition-all duration-200 ${citationColor || ''} ${projectionUnderlineClass} ${
         isCurrentResult 
           ? 'bg-amber-600 shadow-[0_0_12px_rgba(245,158,11,0.5)] text-white px-0.5 rounded-sm font-bold' 
           : (isSearchResult || isJumpHighlight)
@@ -351,7 +358,10 @@ const Reader: React.FC = () => {
 
   const segments = useMemo(() => {
     if (!processedText) return [];
-    return processedText.split(/\n\s*\n+/); 
+    return processedText
+      .split(/\n\s*\n+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 0); 
   }, [processedText]);
 
   const structuredSegments = useMemo(() => {
@@ -400,6 +410,8 @@ const Reader: React.FC = () => {
   const [projectionIsScrollable, setProjectionIsScrollable] = useState(false);
   const [projectionCanScrollUp, setProjectionCanScrollUp] = useState(false);
   const [projectionCanScrollDown, setProjectionCanScrollDown] = useState(false);
+  const [projectionLastVisibleIndices, setProjectionLastVisibleIndices] = useState<number[]>([]);
+  const [projectionBottomVisibleIndex, setProjectionBottomVisibleIndex] = useState<number | null>(null);
   const updateProjectedSegmentIndex = useCallback((idx: number | null) => {
     projectedSegmentIndexRef.current = idx;
     setProjectedSegmentIndex(idx);
@@ -678,9 +690,22 @@ const Reader: React.FC = () => {
       }
 
       if (data.type === 'projection_scroll_sync') {
-        setProjectionIsScrollable(Boolean(data.isScrollable));
-        setProjectionCanScrollUp(Boolean(data.canScrollUp));
-        setProjectionCanScrollDown(Boolean(data.canScrollDown));
+        setProjectionIsScrollable(prev => prev !== Boolean(data.isScrollable) ? Boolean(data.isScrollable) : prev);
+        setProjectionCanScrollUp(prev => prev !== Boolean(data.canScrollUp) ? Boolean(data.canScrollUp) : prev);
+        setProjectionCanScrollDown(prev => prev !== Boolean(data.canScrollDown) ? Boolean(data.canScrollDown) : prev);
+
+        if (Array.isArray(data.lastVisibleLineIndices)) {
+          const newIndices: number[] = data.lastVisibleLineIndices;
+          setProjectionLastVisibleIndices(prev => {
+            if (prev.length === newIndices.length && prev.every((val, idx) => val === newIndices[idx])) {
+              return prev;
+            }
+            return newIndices;
+          });
+        }
+        if (typeof data.bottomVisibleGlobalIndex === 'number') {
+          setProjectionBottomVisibleIndex(prev => prev !== data.bottomVisibleGlobalIndex ? data.bottomVisibleGlobalIndex : prev);
+        }
         return;
       }
 
@@ -996,6 +1021,8 @@ const Reader: React.FC = () => {
     updateProjectedSegmentIndex(null);
     setProjectedImage(null);
     setProjectedAnnouncement(null);
+    setProjectionLastVisibleIndices([]);
+    setProjectionBottomVisibleIndex(null);
   }, [updateProjectedSegmentIndex, setProjectedImage, setProjectedAnnouncement]);
 
   const ensureProjectionWindow = useCallback((targetIdx?: number) => {
@@ -1313,14 +1340,20 @@ const Reader: React.FC = () => {
     return `${Math.floor(time/60)}:${Math.floor(time%60).toString().padStart(2,'0')}`;
   };
 
+  const projectionLastVisibleSet = useMemo(() => {
+    if (!isProjectionOpen && projectedSegmentIndex === null) return new Set<number>();
+    return new Set<number>(projectionLastVisibleIndices);
+  }, [isProjectionOpen, projectedSegmentIndex, projectionLastVisibleIndices]);
+
   const interactiveIndices = useMemo(() => {
     const set = new Set<number>();
     highlightMap.forEach((_, k) => set.add(k));
     citationHighlightMap.forEach((_, k) => set.add(k));
     searchMatchWordIndices.forEach(idx => set.add(idx));
     jumpHighlightIndices.forEach(idx => set.add(idx));
+    projectionLastVisibleSet.forEach(idx => set.add(idx));
     return set;
-  }, [highlightMap, citationHighlightMap, searchMatchWordIndices, jumpHighlightIndices]);
+  }, [highlightMap, citationHighlightMap, searchMatchWordIndices, jumpHighlightIndices, projectionLastVisibleSet]);
 
   const handleProjectSegment = useCallback((idx: number, isExplicitToggle = false) => {
     // ONLY explicit projection buttons (verse projection icon, toolbar button, prev/next controls, or paragraph click in projection mode) trigger projection!
@@ -1675,6 +1708,8 @@ const Reader: React.FC = () => {
             isJumpHighlight={jumpHighlightIndices.includes(word.globalIndex)} 
             citationColor={citationHighlightMap.get(word.globalIndex)?.colorClass} 
             highlight={highlightMap.get(word.globalIndex)} 
+            isProjectionLastLine={projectionLastVisibleSet.has(word.globalIndex)}
+            isProjectionBottomWord={projectionBottomVisibleIndex === word.globalIndex}
             onRemoveHighlight={handleRemoveHighlight} 
             onRemoveJumpHighlight={handleRemoveJumpHighlight} 
             onMouseUp={handleTextSelection} 
@@ -1684,7 +1719,7 @@ const Reader: React.FC = () => {
     });
     if (textBuffer) elements.push(textBuffer);
     return elements;
-  }, [interactiveIndices, searchMatchWordIndices, searchResults, currentResultIndex, jumpHighlightIndices, citationHighlightMap, highlightMap, handleRemoveHighlight, handleRemoveJumpHighlight, handleTextSelection]);
+  }, [interactiveIndices, searchMatchWordIndices, searchResults, currentResultIndex, jumpHighlightIndices, citationHighlightMap, highlightMap, projectionLastVisibleSet, projectionBottomVisibleIndex, handleRemoveHighlight, handleRemoveJumpHighlight, handleTextSelection]);
 
   const handleSearchNext = () => {
     if (searchResults.length === 0) return;
