@@ -481,7 +481,7 @@ const SearchModeButton = memo(({ mode, label, tooltip, currentMode, setMode }: {
   <button
     onClick={() => setMode(mode)}
     data-tooltip={tooltip}
-    className={`flex-1 text-center px-1 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all duration-300 tooltip-bottom border ${
+    className={`flex-1 text-center px-1 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all duration-300 border ${
       currentMode === mode
         ? 'bg-teal-600 text-white border-teal-600 shadow-lg shadow-teal-600/20'
         : 'bg-white dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:border-teal-500/50 hover:bg-zinc-50 dark:hover:bg-zinc-700/50'
@@ -1177,35 +1177,6 @@ const Sidebar: React.FC = () => {
           </button>
         </div>
 
-        {/* Accès Rapide Direct (Favoris & Récents) */}
-        <div className="flex items-center gap-1.5 pt-0.5">
-          <button
-            type="button"
-            onClick={() => useAppStore.getState().toggleQuickAccessModal('favorites')}
-            className="flex-1 flex items-center justify-center gap-1.5 py-1 px-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/25 text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-2xs"
-            data-tooltip="Voir tous vos favoris (sermons, versets, cantiques)"
-          >
-            <Star className="w-3 h-3 fill-amber-500/30 text-amber-600 dark:text-amber-400" />
-            <span>Favoris</span>
-            <span className="bg-amber-500 text-black px-1.5 py-0.2 rounded-full text-[8px] font-black">
-              {favoritesCount}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => useAppStore.getState().toggleQuickAccessModal('recents')}
-            className="flex-1 flex items-center justify-center gap-1.5 py-1 px-2 rounded-lg bg-slate-200/70 dark:bg-zinc-900/90 hover:bg-slate-300/80 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-slate-300/50 dark:border-zinc-800 text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-2xs"
-            data-tooltip="Voir l'historique des éléments projetés"
-          >
-            <Clock className="w-3 h-3 text-teal-600 dark:text-teal-400" />
-            <span>Récents</span>
-            <span className="bg-zinc-400/30 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 px-1.5 py-0.2 rounded-full text-[8px] font-bold">
-              {recentsCount}
-            </span>
-          </button>
-        </div>
-
         {/* Dynamic Version Selector for Bible Mode */}
         {libraryMode === 'bible' && (
           <div className="flex items-center justify-between gap-1 pt-1 border-t border-slate-200/60 dark:border-zinc-800/80">
@@ -1422,7 +1393,7 @@ const Sidebar: React.FC = () => {
                   onClick={handleToggleAllToContext}
                   data-tooltip={areAllItemsInDock ? "Tout retirer du dock IA" : "Tout ajouter au dock IA"}
                   data-tooltip-icon="sparkles"
-                  className={`w-7.5 h-7.5 flex items-center justify-center rounded-lg border transition-all active:scale-95 shadow-sm tooltip-bottom ${
+                  className={`w-7.5 h-7.5 flex items-center justify-center rounded-lg border transition-all active:scale-95 shadow-sm ${
                     areAllItemsInDock 
                       ? 'bg-amber-500 border-amber-600 text-white shadow-amber-500/20' 
                       : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-teal-600 hover:bg-teal-50 dark:hover:bg-zinc-700'
@@ -1435,7 +1406,7 @@ const Sidebar: React.FC = () => {
                   <button 
                     onClick={() => setAudioFilter(!audioFilter)}
                     data-tooltip={audioFilter ? "Afficher tous les sermons" : "Sermons avec audio uniquement"}
-                    className={`w-7.5 h-7.5 flex items-center justify-center rounded-lg border transition-all active:scale-95 shadow-sm tooltip-bottom ${
+                    className={`w-7.5 h-7.5 flex items-center justify-center rounded-lg border transition-all active:scale-95 shadow-sm ${
                       audioFilter ? 'bg-teal-600 border-teal-600 text-white shadow-teal-600/20' : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-400'
                     }`}
                   >
@@ -1795,7 +1766,7 @@ const Sidebar: React.FC = () => {
           {/* Poignée Chevron Centrée */}
           <button 
             onClick={() => setIsFooterExpanded(!isFooterExpanded)}
-            title={isFooterExpanded ? 'Réduire les informations' : 'Afficher les informations détaillées'}
+            data-tooltip={isFooterExpanded ? 'Réduire les informations' : 'Afficher les informations détaillées'}
             className={`absolute left-1/2 -translate-x-1/2 w-12 h-3.5 flex items-center justify-center text-zinc-400 dark:text-zinc-500 hover:text-teal-600 dark:hover:text-teal-400 transition-all z-20 cursor-pointer ${isFooterExpanded ? 'top-0.5' : '-top-0.5'}`}
           >
             {isFooterExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3 h-3" />}

@@ -7,7 +7,7 @@ import AIAssistant from './components/AIAssistant';
 import NotesPanel from './components/NotesPanel';
 import Notifications from './components/Notifications';
 import NoteEditor from './components/NoteEditor';
-import { Sparkles, NotebookPen, Info, Trash2, HelpCircle, BookOpen } from 'lucide-react';
+import { Sparkles, NotebookPen, Info, Trash2, HelpCircle, BookOpen, Star, Clock, Edit3 } from 'lucide-react';
 import { ProjectionView, MaskView } from './components/ProjectionView';
 import { ImageProjectionModal } from './components/ImageProjectionModal';
 import { AnnouncementModal } from './components/AnnouncementModal';
@@ -22,8 +22,8 @@ const GlobalTooltip = memo(() => {
     let currentTarget: HTMLElement | null = null;
 
     const calcPos = (clientX: number, clientY: number) => {
-      const tooltipWidth = tooltipRef.current?.offsetWidth || 160;
-      const tooltipHeight = tooltipRef.current?.offsetHeight || 32;
+      const tooltipWidth = tooltipRef.current?.offsetWidth || 180;
+      const tooltipHeight = tooltipRef.current?.offsetHeight || 34;
       let targetX = clientX + 14;
       let targetY = clientY + 16;
       if (targetX + tooltipWidth > window.innerWidth - 12) targetX = clientX - tooltipWidth - 12;
@@ -36,9 +36,17 @@ const GlobalTooltip = memo(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (rafId) cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => {
-        const target = (e.target as HTMLElement).closest('[data-tooltip]') as HTMLElement;
+        const target = (e.target as HTMLElement).closest('[data-tooltip], [title]') as HTMLElement;
         if (target) {
-          const text = target.getAttribute('data-tooltip') || '';
+          // Prevent browser native yellow tooltip delay/clash by transferring title to data-tooltip
+          if (target.hasAttribute('title') && target.getAttribute('title')) {
+            const titleVal = target.getAttribute('title') || '';
+            target.setAttribute('data-tooltip', titleVal);
+            target.removeAttribute('title');
+            target.setAttribute('data-original-title', titleVal);
+          }
+
+          const text = target.getAttribute('data-tooltip') || target.getAttribute('data-original-title') || '';
           const icon = target.getAttribute('data-tooltip-icon') || undefined;
           
           if (!text.trim()) {
@@ -90,6 +98,10 @@ const GlobalTooltip = memo(() => {
       case 'info': return <Info className="w-3 h-3 text-teal-400 shrink-0" />;
       case 'notes': return <NotebookPen className="w-3 h-3 text-teal-400 shrink-0" />;
       case 'book': return <BookOpen className="w-3 h-3 text-teal-400 shrink-0" />;
+      case 'star': return <Star className="w-3 h-3 text-amber-400 shrink-0" />;
+      case 'clock': return <Clock className="w-3 h-3 text-teal-400 shrink-0" />;
+      case 'edit': return <Edit3 className="w-3 h-3 text-sky-400 shrink-0" />;
+      case 'help': return <HelpCircle className="w-3 h-3 text-amber-400 shrink-0" />;
       default: return null;
     }
   };
@@ -267,7 +279,7 @@ const App: React.FC = () => {
                   onClick={toggleNotes}
                   data-tooltip="Ouvrir le journal de notes"
                   data-tooltip-icon="notes"
-                  className="flex items-center justify-center w-9 h-9 bg-white/90 dark:bg-zinc-800/90 backdrop-blur-md text-zinc-600 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl shadow-md hover:bg-teal-600/10 hover:text-teal-600 hover:border-teal-600/30 transition-all duration-200 active:scale-95 cursor-pointer"
+                  className="flex items-center justify-center w-10 h-10 bg-white/90 dark:bg-zinc-800/90 backdrop-blur-md text-zinc-600 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl shadow-md hover:bg-teal-600/10 hover:text-teal-600 hover:border-teal-600/30 transition-all duration-200 active:scale-95 cursor-pointer shrink-0"
                 >
                   <NotebookPen className="w-4 h-4 text-teal-600 dark:text-teal-400" />
                 </button>
@@ -277,7 +289,7 @@ const App: React.FC = () => {
                   onClick={toggleAI}
                   data-tooltip="Ouvrir l'Assistant IA"
                   data-tooltip-icon="sparkles"
-                  className="flex items-center justify-center w-9 h-9 bg-white/90 dark:bg-zinc-800/90 backdrop-blur-md text-zinc-600 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl shadow-md hover:bg-teal-600/10 hover:text-teal-600 hover:border-teal-600/30 transition-all duration-200 active:scale-95 cursor-pointer"
+                  className="flex items-center justify-center w-10 h-10 bg-white/90 dark:bg-zinc-800/90 backdrop-blur-md text-zinc-600 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl shadow-md hover:bg-teal-600/10 hover:text-teal-600 hover:border-teal-600/30 transition-all duration-200 active:scale-95 cursor-pointer shrink-0"
                 >
                   <Sparkles className="w-4 h-4 text-teal-600 dark:text-teal-400" />
                 </button>

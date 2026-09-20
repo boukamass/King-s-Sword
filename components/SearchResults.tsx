@@ -354,7 +354,7 @@ const SearchResults: React.FC = () => {
                 <div className="flex items-center gap-2 bg-zinc-100/50 dark:bg-zinc-900/50 p-1 rounded-2xl border border-zinc-200/50 dark:border-zinc-800/50">
                     <button 
                       onClick={() => { setShowOnlyQuery(!showOnlyQuery); if(!showOnlyQuery) setShowOnlySynonyms(false); }}
-                      className={`flex items-center gap-2 px-4 h-9 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm tooltip-bottom ${
+                      className={`flex items-center gap-2 px-4 h-9 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm ${
                         showOnlyQuery 
                           ? 'bg-amber-600 text-white border-amber-600 shadow-md' 
                           : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-400 hover:text-amber-600'
@@ -367,7 +367,7 @@ const SearchResults: React.FC = () => {
 
                     <button 
                       onClick={() => { setShowOnlySynonyms(!showOnlySynonyms); if(!showOnlySynonyms) setShowOnlyQuery(false); }}
-                      className={`flex items-center gap-2 px-4 h-9 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm tooltip-bottom ${
+                      className={`flex items-center gap-2 px-4 h-9 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm ${
                         showOnlySynonyms 
                           ? 'bg-teal-600 text-white border-teal-600 shadow-md' 
                           : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-400 hover:text-teal-600'
@@ -382,7 +382,7 @@ const SearchResults: React.FC = () => {
             <button 
                 onClick={handleExportPdf}
                 data-tooltip="Exporter PDF"
-                className="w-9 h-9 flex items-center justify-center bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-400 hover:text-teal-600 transition-all active:scale-95 shadow-sm tooltip-bottom"
+                className="w-9 h-9 flex items-center justify-center bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-400 hover:text-teal-600 transition-all active:scale-95 shadow-sm"
             >
                 <FileText className="w-4 h-4" />
             </button>

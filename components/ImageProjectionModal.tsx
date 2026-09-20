@@ -628,7 +628,7 @@ export const ImageProjectionModal: React.FC = memo(() => {
               setNewFolderName('');
             }}
             className="px-3 py-1.5 bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/60 dark:hover:bg-teal-900/80 text-teal-700 dark:text-teal-300 border border-teal-300/80 dark:border-teal-700/80 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
-            title="Créer un nouveau dossier par thème"
+            data-tooltip="Créer un nouveau dossier par thème"
           >
             <FolderPlus className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
             <span>+ Nouveau dossier</span>
@@ -651,7 +651,7 @@ export const ImageProjectionModal: React.FC = memo(() => {
                   setEditingFolderName(activeFolder.name);
                 }}
                 className="px-2.5 py-1 bg-white dark:bg-zinc-800 hover:bg-teal-100 dark:hover:bg-teal-900 text-teal-700 dark:text-teal-300 rounded-lg border border-teal-200 dark:border-teal-700 text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
-                title="Renommer ce dossier"
+                data-tooltip="Renommer ce dossier"
               >
                 <Pencil className="w-3 h-3" />
                 <span>Renommer</span>
@@ -661,7 +661,8 @@ export const ImageProjectionModal: React.FC = memo(() => {
                 type="button"
                 onClick={() => setDeletingFolderId(activeFolder.id)}
                 className="px-2.5 py-1 bg-white dark:bg-zinc-800 hover:bg-red-50 dark:hover:bg-red-950 text-red-600 dark:text-red-400 rounded-lg border border-red-200 dark:border-red-800 text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
-                title="Supprimer ce dossier"
+                data-tooltip="Supprimer ce dossier"
+                data-tooltip-icon="trash"
               >
                 <Trash2 className="w-3 h-3" />
                 <span>Supprimer</span>
@@ -909,7 +910,7 @@ export const ImageProjectionModal: React.FC = memo(() => {
                     <div 
                       onClick={() => handleSetBgImage(img)}
                       className="relative aspect-video w-full bg-slate-100 dark:bg-zinc-900/90 cursor-pointer rounded-t-2xl overflow-hidden flex items-center justify-center select-none"
-                      title="Cliquer pour définir comme fond d'écran de projection"
+                      data-tooltip="Cliquer pour définir comme fond d'écran de projection"
                     >
                       {isPortrait ? (
                         <>
@@ -960,7 +961,7 @@ export const ImageProjectionModal: React.FC = memo(() => {
                     {/* Card Footer info & actions */}
                     <div className="p-2.5 bg-white dark:bg-zinc-800 flex flex-col gap-2 rounded-b-2xl border-t border-slate-100 dark:border-zinc-700/60 relative">
                       <div className="flex items-center justify-between gap-1 min-w-0">
-                        <p className="text-xs font-bold text-slate-800 dark:text-zinc-200 truncate flex-1" title={img.name}>
+                        <p className="text-xs font-bold text-slate-800 dark:text-zinc-200 truncate flex-1" data-tooltip={img.name}>
                           {img.name}
                         </p>
 
@@ -973,7 +974,8 @@ export const ImageProjectionModal: React.FC = memo(() => {
                                 setOpenNoteMenuImageId(openNoteMenuImageId === img.id ? null : img.id);
                               }}
                               className="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 rounded-md transition-colors cursor-pointer hover:bg-teal-50 dark:hover:bg-teal-950/40 shrink-0"
-                              title="Ajouter cette image à une note"
+                              data-tooltip="Ajouter cette image à une note"
+                              data-tooltip-icon="notes"
                             >
                               <NotebookPen className="w-3.5 h-3.5" />
                             </button>
@@ -982,7 +984,7 @@ export const ImageProjectionModal: React.FC = memo(() => {
                               type="button"
                               onClick={(e) => handleDownloadImage(img, e)}
                               className="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 rounded-md transition-colors cursor-pointer hover:bg-teal-50 dark:hover:bg-teal-950/40 shrink-0"
-                              title="Télécharger l'image"
+                              data-tooltip="Télécharger l'image"
                             >
                               <Download className="w-3.5 h-3.5" />
                             </button>
@@ -995,7 +997,8 @@ export const ImageProjectionModal: React.FC = memo(() => {
                                 setConfirmDeleteId(img.id);
                               }}
                               className="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-red-500 rounded-md transition-colors cursor-pointer hover:bg-red-50 dark:hover:bg-red-950/40 shrink-0"
-                              title="Supprimer cette image"
+                              data-tooltip="Supprimer cette image"
+                              data-tooltip-icon="trash"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -1082,7 +1085,7 @@ export const ImageProjectionModal: React.FC = memo(() => {
                             setOpenFolderMenuId(isFolderMenuOpen ? null : img.id);
                           }}
                           className="w-full px-2 py-1 bg-slate-50 hover:bg-slate-100 dark:bg-zinc-900/80 dark:hover:bg-zinc-700/80 border border-slate-200 dark:border-zinc-700 rounded-lg text-[10px] text-slate-600 dark:text-zinc-300 flex items-center justify-between gap-1 transition-colors cursor-pointer truncate"
-                          title="Ranger dans un dossier"
+                          data-tooltip="Ranger dans un dossier"
                         >
                           <span className="flex items-center gap-1 truncate">
                             <Folder className="w-3 h-3 text-teal-500 dark:text-teal-400 shrink-0" />
@@ -1174,7 +1177,7 @@ export const ImageProjectionModal: React.FC = memo(() => {
                                 ? 'bg-teal-600 text-white shadow-xs'
                                 : 'bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/60 dark:hover:bg-teal-900/80 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800/80'
                             }`}
-                            title="Définir comme fond d'écran de projection"
+                            data-tooltip="Définir comme fond d'écran de projection"
                           >
                             <Wallpaper className="w-3.5 h-3.5 shrink-0" />
                             <span className="whitespace-nowrap select-none">{isBg ? 'Fond actif' : 'Fond'}</span>
@@ -1191,7 +1194,7 @@ export const ImageProjectionModal: React.FC = memo(() => {
                                 ? 'bg-emerald-600 text-white shadow-xs animate-pulse'
                                 : 'bg-slate-100 hover:bg-slate-200 dark:bg-zinc-700 dark:hover:bg-zinc-650 text-slate-700 dark:text-zinc-200 border border-slate-200 dark:border-zinc-600'
                             }`}
-                            title="Projeter l'image en plein écran"
+                            data-tooltip="Projeter l'image en plein écran"
                           >
                             <MonitorPlay className="w-3.5 h-3.5 shrink-0" />
                             <span className="whitespace-nowrap select-none">{isLive ? 'Plein écran' : 'Plein écran'}</span>

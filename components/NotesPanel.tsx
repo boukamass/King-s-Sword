@@ -93,7 +93,7 @@ const NoteCard = memo(({
            )}
         </div>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-          <button data-tooltip="Supprimer" data-tooltip-icon="trash" onClick={e => { e.stopPropagation(); onDelete(n.id); }} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg text-zinc-400 hover:text-red-500 active:scale-95 transition-all tooltip-left"><Trash2 className="w-3.5 h-3.5" /></button>
+          <button data-tooltip="Supprimer" data-tooltip-icon="trash" onClick={e => { e.stopPropagation(); onDelete(n.id); }} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg text-zinc-400 hover:text-red-500 active:scale-95 transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
         </div>
       </div>
       
@@ -334,7 +334,7 @@ const NotesPanel: React.FC = () => {
       <div className="px-4 h-14 border-b border-zinc-100 dark:border-zinc-800/50 flex items-center justify-between shrink-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl z-50">
         <button 
           onClick={toggleNotes}
-          className="flex items-center gap-3 group tooltip-bottom"
+          className="flex items-center gap-3 group"
           data-tooltip={t.tooltip_close}
         >
           <div className="w-8 h-8 flex items-center justify-center bg-teal-600/5 text-teal-600 rounded-lg border border-teal-600/20 shadow-sm group-hover:border-teal-600/30 transition-all">
@@ -348,28 +348,28 @@ const NotesPanel: React.FC = () => {
           <button 
             data-tooltip="Sauvegarder / Exporter les notes" 
             onClick={handleExportBackup} 
-            className="w-8 h-8 flex items-center justify-center text-zinc-500 hover:text-teal-600 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-950/30 transition-all active:scale-90 tooltip-bottom"
+            className="w-8 h-8 flex items-center justify-center text-zinc-500 hover:text-teal-600 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-950/30 transition-all active:scale-90"
           >
             <Download className="w-4 h-4" />
           </button>
           <button 
             data-tooltip="Restaurer une sauvegarde" 
             onClick={() => fileInputRef.current?.click()} 
-            className="w-8 h-8 flex items-center justify-center text-zinc-500 hover:text-teal-600 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-950/30 transition-all active:scale-90 tooltip-bottom"
+            className="w-8 h-8 flex items-center justify-center text-zinc-500 hover:text-teal-600 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-950/30 transition-all active:scale-90"
           >
             <Upload className="w-4 h-4" />
           </button>
           <button 
             data-tooltip="Nouvelle note" 
             onClick={() => addNote({ title: "Nouvelle Note", content: "", citations: [] })} 
-            className="w-8 h-8 flex items-center justify-center bg-teal-600/5 text-teal-600 rounded-lg border border-teal-600/10 shadow-sm hover:bg-teal-600 hover:text-white hover:border-teal-600 transition-all active:scale-90 tooltip-bottom"
+            className="w-8 h-8 flex items-center justify-center bg-teal-600/5 text-teal-600 rounded-lg border border-teal-600/10 shadow-sm hover:bg-teal-600 hover:text-white hover:border-teal-600 transition-all active:scale-90"
           >
             <Plus className="w-4 h-4" />
           </button>
           <button 
             data-tooltip={t.tooltip_close} 
             onClick={toggleNotes} 
-            className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-red-500 rounded-lg transition-colors hover:bg-red-50 dark:hover:bg-red-900/20 active:scale-95 tooltip-left"
+            className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-red-500 rounded-lg transition-colors hover:bg-red-50 dark:hover:bg-red-900/20 active:scale-95"
           >
             <X className="w-4 h-4" />
           </button>

@@ -36,7 +36,7 @@ const ActionButton = ({ onClick, icon: Icon, tooltip }: { onClick: () => void; i
   <button 
     onClick={onClick} 
     data-tooltip={tooltip}
-    className="w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-95 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:bg-teal-50 dark:hover:bg-teal-900/20 text-zinc-500 hover:text-teal-600 dark:text-zinc-400 tooltip-bottom"
+    className="w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-95 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:bg-teal-50 dark:hover:bg-teal-900/20 text-zinc-500 hover:text-teal-600 dark:text-zinc-400"
   >
     <Icon className="w-4 h-4" />
   </button>
@@ -606,7 +606,7 @@ const NoteEditor: React.FC = () => {
                                                 <div 
                                                     onClick={() => setPreviewImageUrl(img.url)}
                                                     className="relative aspect-video w-full bg-black/10 cursor-pointer overflow-hidden flex items-center justify-center"
-                                                    title="Cliquer pour agrandir"
+                                                    data-tooltip="Cliquer pour agrandir"
                                                 >
                                                     <img 
                                                         src={img.url} 
@@ -620,14 +620,15 @@ const NoteEditor: React.FC = () => {
                                                 </div>
 
                                                 <div className="p-2.5 flex items-center justify-between gap-2 bg-white dark:bg-zinc-800 border-t border-zinc-100 dark:border-zinc-700/60">
-                                                    <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200 truncate flex-1" title={img.name || img.caption}>
+                                                    <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200 truncate flex-1" data-tooltip={img.caption || img.name || 'Image'}>
                                                         {img.caption || img.name || 'Image'}
                                                     </span>
                                                     <button
                                                         type="button"
                                                         onClick={() => removeImageFromNote(note.id, img.id)}
                                                         className="w-6 h-6 flex items-center justify-center text-zinc-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors shrink-0"
-                                                        title="Retirer cette image de la note"
+                                                        data-tooltip="Retirer cette image de la note"
+                                                        data-tooltip-icon="trash"
                                                     >
                                                         <Trash2 className="w-3.5 h-3.5" />
                                                     </button>
@@ -965,7 +966,7 @@ const NoteEditor: React.FC = () => {
                                                     )}
                                                 </div>
                                                 <div className="p-2.5 bg-white dark:bg-zinc-800 flex items-center justify-between">
-                                                    <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200 truncate" title={img.name}>
+                                                    <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200 truncate" data-tooltip={img.name}>
                                                         {img.name}
                                                     </span>
                                                     {!isAlreadyAttached && (

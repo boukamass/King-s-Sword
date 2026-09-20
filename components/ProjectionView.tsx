@@ -3,7 +3,7 @@ import { BookOpenCheck, Calendar, Clock, ChevronDown, ChevronUp, MapPin, Image a
 import html2canvas from 'html2canvas';
 import { Highlight, ProjectedImageMedia } from '../types';
 import { WordDefinition } from '../services/dictionaryService';
-import { getBroadcastChannel, CHANNEL_NAME, STORAGE_KEY } from '../services/projectionService';
+import { getBroadcastChannel, CHANNEL_NAME, STORAGE_KEY, SCROLL_STORAGE_KEY } from '../services/projectionService';
 import { executeProjectionCapture } from '../services/projectionCaptureService';
 import { detectImageMeta } from '../services/imageMediaService';
 import { useAppStore } from '../store';
@@ -338,6 +338,7 @@ const ProjectionViewInternal: React.FC = memo(() => {
   const isAnimatingScrollRef = useRef<boolean>(false);
   const smoothAnimFrameRef = useRef<number | null>(null);
   const targetScrollTopRef = useRef<number>(0);
+  const lastProcessedScrollTsRef = useRef<number>(0);
 
   const stepSmoothScroll = useCallback(() => {
     const el = scrollContainerRef.current;
@@ -357,8 +358,8 @@ const ProjectionViewInternal: React.FC = memo(() => {
       return;
     }
 
-    // Ultra-calm, silk-smooth 60/120 FPS momentum lerp (0.07): very gentle, calm & smooth flow
-    el.scrollTop = current + diff * 0.07;
+    // Ultra-calm, silk-smooth 60/120 FPS momentum lerp (0.12 for immediate responsiveness):
+    el.scrollTop = current + diff * 0.12;
     updateScrollState();
     smoothAnimFrameRef.current = requestAnimationFrame(stepSmoothScroll);
   }, [updateScrollState]);
@@ -371,11 +372,13 @@ const ProjectionViewInternal: React.FC = memo(() => {
 
     targetScrollTopRef.current = Math.max(0, Math.min(maxScroll, targetPos));
 
-    if (!isAnimatingScrollRef.current) {
-      isAnimatingScrollRef.current = true;
-      if (smoothAnimFrameRef.current) cancelAnimationFrame(smoothAnimFrameRef.current);
-      smoothAnimFrameRef.current = requestAnimationFrame(stepSmoothScroll);
+    // ALWAYS restart animation frame loop to recover from any browser tab throttling
+    if (smoothAnimFrameRef.current) {
+      cancelAnimationFrame(smoothAnimFrameRef.current);
+      smoothAnimFrameRef.current = null;
     }
+    isAnimatingScrollRef.current = true;
+    smoothAnimFrameRef.current = requestAnimationFrame(stepSmoothScroll);
   }, [stepSmoothScroll]);
 
   const smoothScrollBy = useCallback((amount: number) => {
@@ -384,29 +387,31 @@ const ProjectionViewInternal: React.FC = memo(() => {
     const maxScroll = el.scrollHeight - el.clientHeight;
     if (maxScroll <= 0) return;
 
-    if (!isAnimatingScrollRef.current) {
-      targetScrollTopRef.current = el.scrollTop;
+    // Resync targetScrollTopRef to actual current scrollTop if animation was idle or target diverged
+    const currentPos = el.scrollTop;
+    if (!isAnimatingScrollRef.current || Math.abs(targetScrollTopRef.current - currentPos) > el.clientHeight * 0.5) {
+      targetScrollTopRef.current = currentPos;
     }
 
     const nextTarget = Math.max(0, Math.min(maxScroll, targetScrollTopRef.current + amount));
     smoothScrollTo(nextTarget);
   }, [smoothScrollTo]);
 
-  const handleScrollDown = useCallback((amountMultiplier = 0.08) => {
+  const handleScrollDown = useCallback((amountMultiplier = 0.12) => {
     const el = scrollContainerRef.current;
     if (!el) return;
     const amount = typeof amountMultiplier === 'number' && amountMultiplier > 1
       ? amountMultiplier
-      : Math.round(el.clientHeight * (amountMultiplier || 0.08));
+      : Math.round(el.clientHeight * (amountMultiplier || 0.12));
     smoothScrollBy(amount);
   }, [smoothScrollBy]);
 
-  const handleScrollUp = useCallback((amountMultiplier = 0.08) => {
+  const handleScrollUp = useCallback((amountMultiplier = 0.12) => {
     const el = scrollContainerRef.current;
     if (!el) return;
     const amount = typeof amountMultiplier === 'number' && amountMultiplier > 1
       ? amountMultiplier
-      : Math.round(el.clientHeight * (amountMultiplier || 0.08));
+      : Math.round(el.clientHeight * (amountMultiplier || 0.12));
     smoothScrollBy(-amount);
   }, [smoothScrollBy]);
 
@@ -597,13 +602,23 @@ const ProjectionViewInternal: React.FC = memo(() => {
           currentResultIndex: typeof data.currentResultIndex === 'number' ? data.currentResultIndex : -1,
           activeDefinition: data.activeDefinition || null,
           isBible: Boolean(data.isBible),
+          isAnnouncement: Boolean(data.isAnnouncement),
+          announcementAlignment: data.announcementAlignment || 'center',
           projectedImage: data.projectedImage || null,
           projectionBgImage: data.projectionBgImage || null
         };
         setSyncData(payload);
       } else if (data.type === 'scroll') {
-        if (data.direction === 'down') handleScrollDown(data.amount || 0.08);
-        else if (data.direction === 'up') handleScrollUp(data.amount || 0.08);
+        const ts = typeof data.timestamp === 'number' ? data.timestamp : 0;
+        if (ts > 0 && ts === lastProcessedScrollTsRef.current) {
+          return; // Skip duplicate command if delivered simultaneously by BroadcastChannel and StorageEvent
+        }
+        if (ts > 0) {
+          lastProcessedScrollTsRef.current = ts;
+        }
+
+        if (data.direction === 'down') handleScrollDown(data.amount || 0.12);
+        else if (data.direction === 'up') handleScrollUp(data.amount || 0.12);
         else if (data.direction === 'top') {
           smoothScrollTo(0);
         } else if (data.direction === 'bottom' && scrollContainerRef.current) {
@@ -637,6 +652,13 @@ const ProjectionViewInternal: React.FC = memo(() => {
           const parsed = JSON.parse(e.newValue);
           if (parsed && typeof parsed === 'object') {
             handlePayload({ type: 'sync', ...parsed });
+          }
+        } catch (err) {}
+      } else if (e.key === SCROLL_STORAGE_KEY && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed && parsed.type === 'scroll') {
+            handlePayload(parsed);
           }
         } catch (err) {}
       }

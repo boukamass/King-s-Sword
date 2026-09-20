@@ -2179,7 +2179,7 @@ const Reader: React.FC = () => {
                   : 'bg-white/50 dark:bg-zinc-800/50 border border-zinc-200/50 dark:border-zinc-800/50'
               }`}
               style={isOSFullscreen ? { fontSize: `${fontSize * 0.6}px`, borderRadius: '0.5em', height: '1.5em' } : { borderRadius: '0.75rem' }}
-              title={isProjectionOpen ? "Ajuster la taille du texte PROJETÉ sur l'Écran 2" : "Ajuster la taille du texte en mode lecture"}
+              data-tooltip={isProjectionOpen ? "Ajuster la taille du texte PROJETÉ sur l'Écran 2" : "Ajuster la taille du texte en mode lecture"}
             >
               {isProjectionOpen && (
                 <span className="text-[9px] font-black uppercase text-teal-400 pl-1.5 pr-0.5 tracking-tighter select-none">
@@ -2190,7 +2190,7 @@ const Reader: React.FC = () => {
                 onClick={() => updateActiveFontSize(s => s - 2)} 
                 className={`flex items-center justify-center ${isProjectionOpen ? 'text-teal-300 hover:text-white' : 'text-zinc-400 hover:text-teal-600'} ${isOSFullscreen ? '' : 'w-8 h-9'}`} 
                 style={isOSFullscreen ? { width: '1.5em', height: '100%' } : {}}
-                title={isProjectionOpen ? "Réduire la taille sur l'Écran 2" : "Réduire la taille de lecture"}
+                data-tooltip={isProjectionOpen ? "Réduire la taille sur l'Écran 2" : "Réduire la taille de lecture"}
               >
                 <ZoomOut style={isOSFullscreen ? { width: '0.8em', height: '0.8em' } : { width: '1rem', height: '1rem' }} />
               </button>
@@ -2207,7 +2207,7 @@ const Reader: React.FC = () => {
                 onClick={() => updateActiveFontSize(s => s + 2)} 
                 className={`flex items-center justify-center ${isProjectionOpen ? 'text-teal-300 hover:text-white' : 'text-zinc-400 hover:text-teal-600'} ${isOSFullscreen ? '' : 'w-8 h-9'}`} 
                 style={isOSFullscreen ? { width: '1.5em', height: '100%' } : {}}
-                title={isProjectionOpen ? "Agrandir la taille sur l'Écran 2" : "Agrandir la taille de lecture"}
+                data-tooltip={isProjectionOpen ? "Agrandir la taille sur l'Écran 2" : "Agrandir la taille de lecture"}
               >
                 <ZoomIn style={isOSFullscreen ? { width: '0.8em', height: '0.8em' } : { width: '1rem', height: '1rem' }} />
               </button>
@@ -2238,28 +2238,6 @@ const Reader: React.FC = () => {
       {isProjectionOpen && (
         <div className="shrink-0 min-h-11 py-1.5 bg-teal-950 text-white border-b border-teal-800/80 flex items-center justify-between px-4 md:px-8 z-20 shadow-md flex-wrap gap-2 relative no-print">
           <div className="flex items-center gap-2 flex-wrap w-full justify-between sm:justify-end">
-            {/* Outil de défilement du texte projeté (Écran 2) */}
-            <div className="flex items-center bg-teal-900/90 border border-teal-700/80 rounded-lg overflow-hidden px-1 py-0.5 shadow-xs gap-0.5">
-              <span className="text-[10px] font-bold text-teal-300 px-1.5 uppercase tracking-wider select-none hidden sm:inline">Défiler Écran 2</span>
-              <button 
-                onClick={() => sendProjectionScrollCommand('up', 0.08)} 
-                className="p-1 text-teal-200 hover:text-white hover:bg-teal-800 rounded transition-colors flex items-center justify-center gap-0.5 text-xs font-bold"
-                title="Faire défiler le texte projeté vers le HAUT (Écran 2)"
-              >
-                <ChevronUp className="w-3.5 h-3.5" />
-                <span className="text-[10px] hidden md:inline">Haut</span>
-              </button>
-              <button 
-                onClick={() => sendProjectionScrollCommand('down', 0.08)} 
-                className="p-1 text-teal-200 hover:text-white hover:bg-teal-800 rounded transition-colors flex items-center justify-center gap-0.5 text-xs font-bold"
-                title="Faire défiler le texte projeté vers le BAS (Écran 2)"
-              >
-                <ChevronDown className="w-3.5 h-3.5" />
-                <span className="text-[10px] hidden md:inline">Bas</span>
-              </button>
-            </div>
-
-            <div className="h-4 w-px bg-teal-800/80 mx-0.5 hidden sm:block" />
             <button
               onClick={() => setProjectionBlackout(!projectionBlackout)}
               className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all shadow-sm ${
@@ -2868,28 +2846,37 @@ const Reader: React.FC = () => {
           }}
         />
       )}
-      {/* Outil flottant discret de défilement du texte projeté (Écran 2) */}
+      {/* Outil flottant de défilement du texte projeté (Écran 2) */}
       {isProjectionOpen && (
         <div 
-          className="fixed bottom-6 right-6 z-[10000] no-print flex flex-col items-center bg-teal-950/90 border border-teal-500/60 text-white rounded-2xl p-1 shadow-2xl backdrop-blur-md transition-all hover:scale-105"
-          title="Outil de défilement du texte projeté sur l'Écran 2"
+          className="fixed bottom-20 right-3 z-[10000] no-print flex flex-col items-center w-10 bg-teal-950/95 border border-teal-500/60 text-white rounded-xl py-1 shadow-2xl backdrop-blur-md transition-all hover:scale-105 hover:border-teal-400 group overflow-hidden"
+          data-tooltip="Défilement Écran 2"
         >
-          <span className="text-[8px] font-black uppercase text-teal-300 tracking-tighter px-1 pt-0.5 select-none">
-            PROJ
-          </span>
+          <div className="flex items-center justify-center w-full py-0.5 border-b border-teal-800/60">
+            <span className="text-[7.5px] font-black uppercase text-teal-300 tracking-tighter select-none">
+              PROJ
+            </span>
+          </div>
           <button
-            onClick={() => sendProjectionScrollCommand('up', 0.08)}
-            className="p-1.5 text-teal-200 hover:text-white hover:bg-teal-800/80 rounded-xl transition-all active:scale-90"
-            title="Faire défiler vers le HAUT (Écran 2)"
+            onClick={() => sendProjectionScrollCommand('up', 0.12)}
+            className="flex items-center justify-center w-full h-8 text-teal-200 hover:text-white hover:bg-teal-800/80 transition-all active:scale-90 cursor-pointer"
+            data-tooltip="Défiler vers le HAUT (Écran 2)"
           >
-            <ChevronUp className="w-4 h-4" />
+            <ChevronUp className="w-4 h-4 text-teal-300 group-hover:text-white" />
           </button>
           <button
-            onClick={() => sendProjectionScrollCommand('down', 0.08)}
-            className="p-1.5 text-teal-200 hover:text-white hover:bg-teal-800/80 rounded-xl transition-all active:scale-90"
-            title="Faire défiler vers le BAS (Écran 2)"
+            onClick={() => sendProjectionScrollCommand('top', 0)}
+            className="flex items-center justify-center w-full h-7 text-teal-300/80 hover:text-white hover:bg-teal-800/80 transition-all active:scale-90 cursor-pointer"
+            data-tooltip="Revenir tout en haut (Écran 2)"
           >
-            <ChevronDown className="w-4 h-4" />
+            <RotateCcw className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => sendProjectionScrollCommand('down', 0.12)}
+            className="flex items-center justify-center w-full h-8 text-teal-200 hover:text-white hover:bg-teal-800/80 transition-all active:scale-90 cursor-pointer"
+            data-tooltip="Défiler vers le BAS (Écran 2)"
+          >
+            <ChevronDown className="w-4 h-4 text-teal-300 group-hover:text-white" />
           </button>
         </div>
       )}

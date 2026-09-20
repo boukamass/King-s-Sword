@@ -28,30 +28,49 @@
   font-family: 'Newsreader', Charter, 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
 }
 
-/* Zero-lag smooth scrolling */
+/* Zero-lag smooth scrolling with visible contrast */
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgba(161, 161, 170, 0.25) transparent;
+  scrollbar-color: rgba(13, 148, 136, 0.45) rgba(0, 0, 0, 0.04);
   -webkit-overflow-scrolling: touch;
 }
 
+.dark .custom-scrollbar {
+  scrollbar-color: rgba(45, 212, 191, 0.5) rgba(255, 255, 255, 0.04);
+}
+
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 9999px;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(161, 161, 170, 0.25);
+  background: rgba(13, 148, 136, 0.45);
   border-radius: 9999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
   transition: background-color 0.2s ease;
 }
 
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(45, 212, 191, 0.5);
+}
+
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(161, 161, 170, 0.5);
+  background: rgba(13, 148, 136, 0.8);
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(45, 212, 191, 0.85);
 }
 
 /* GPU composite acceleration for floating bars and modals */

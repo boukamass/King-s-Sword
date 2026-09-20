@@ -108,6 +108,14 @@ export const projectAnnouncementPayload = (
 ): void => {
   setLastProjectedAnnouncement(announcement);
 
+  const bgImageObj = announcement.bgImageUrl ? {
+    id: 'announcement-bg-' + announcement.id,
+    name: announcement.title || 'Fond Annonce',
+    url: announcement.bgImageUrl,
+    orientation: 'landscape' as const,
+    aspectRatio: 1.77
+  } : null;
+
   // Broadcast payload
   broadcastProjectionPayload({
     type: 'sync',
@@ -126,6 +134,7 @@ export const projectAnnouncementPayload = (
     activeDefinition: null,
     isBible: false,
     isAnnouncement: true,
-    announcementAlignment: announcement.alignment || 'center'
+    announcementAlignment: announcement.alignment || 'center',
+    projectionBgImage: bgImageObj
   });
 };

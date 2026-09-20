@@ -28,6 +28,7 @@ export interface ProjectionSyncPayload {
 }
 
 export const STORAGE_KEY = 'kings_sword_last_projection_sync';
+export const SCROLL_STORAGE_KEY = 'kings_sword_projection_scroll_cmd';
 export const CHANNEL_NAME = 'kings_sword_projection';
 
 let projectionWindowRef: Window | null = null;
@@ -190,6 +191,11 @@ export const sendProjectionScrollCommand = (direction: 'up' | 'down' | 'top' | '
   }
   try {
     window.postMessage(msg, '*');
+  } catch (e) {}
+
+  // 4. LocalStorage Fallback (Fires storage event cross-window/tab infallibly)
+  try {
+    localStorage.setItem(SCROLL_STORAGE_KEY, JSON.stringify(msg));
   } catch (e) {}
 };
 

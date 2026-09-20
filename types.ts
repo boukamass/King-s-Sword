@@ -97,6 +97,7 @@ export interface Announcement {
   alignment?: 'center' | 'left';
   accentColor?: 'teal' | 'amber' | 'blue' | 'purple' | 'emerald' | 'rose';
   fontSize?: number;
+  bgImageUrl?: string;
   updatedAt?: string;
 }
 
