@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAppStore, sortNotesByRecency } from '../store';
 import { Sermon, Note } from '../types';
@@ -8,14 +7,12 @@ import {
   Check, 
   Plus, 
   Search, 
-  Notebook, 
+  NotebookPen, 
   Quote, 
-  Hash, 
-  ChevronRight, 
-  Calendar,
   FileText,
   Clock,
-  Sparkles
+  Sparkles,
+  ArrowLeft
 } from 'lucide-react';
 import { normalizeText } from '../utils/textUtils';
 
@@ -26,21 +23,40 @@ interface NoteSelectorModalProps {
   onClose: () => void;
 }
 
-const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({ selectionText, sermon, paragraphIndex, onClose }) => {
-  const { notes, addNote, addCitationToNote, addNotification, sermons } = useAppStore();
+const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({ 
+  selectionText, 
+  sermon, 
+  paragraphIndex, 
+  onClose 
+}) => {
+  const { notes, addNote, addCitationToNote, addNotification, sermons, setSidebarOpen, setNotesOpen, setAiOpen } = useAppStore();
   const [view, setView] = useState<'list' | 'new_note'>('list');
   const [newNoteTitle, setNewNoteTitle] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const titleInputRef = useRef<HTMLInputElement>(null);
 
-  const [modalSize, setModalSize] = useState<{ width: number; height: number | null }>({ width: 500, height: null });
-  const isResizingRef = useRef(false);
+  useEffect(() => {
+    setSidebarOpen(false);
+    setNotesOpen(false);
+    setAiOpen(false);
+  }, [setSidebarOpen, setNotesOpen, setAiOpen]);
 
   useEffect(() => {
     if (view === 'new_note' && titleInputRef.current) {
       titleInputRef.current.focus();
     }
   }, [view]);
+
+  // Handle escape key to close modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   const filteredNotes = useMemo(() => {
     const sorted = sortNotesByRecency(notes);
@@ -78,6 +94,17 @@ const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({ selectionText, se
   };
 
   const handleAddToExistingNote = (note: Note) => {
+    const isAlreadyPresent = note.citations && note.citations.some(c => 
+      (c.sermon_id === sermon.id && c.paragraph_index !== undefined && c.paragraph_index === paragraphIndex) ||
+      (c.quoted_text && selectionText && c.quoted_text.trim().toLowerCase() === selectionText.trim().toLowerCase())
+    );
+
+    if (isAlreadyPresent) {
+      addNotification(`Cette référence est déjà présente dans "${note.title}".`, 'info');
+      onClose();
+      return;
+    }
+
     addCitationToNote(note.id, {
       sermon_id: sermon.id,
       sermon_title_snapshot: sermon.title,
@@ -86,7 +113,7 @@ const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({ selectionText, se
       quoted_text: selectionText,
       paragraph_index: paragraphIndex
     });
-    addNotification(`Citation ajoutée à "${note.title}".`, 'success');
+    addNotification(`Extrait ajouté à "${note.title}".`, 'success');
     onClose();
   };
 
@@ -97,215 +124,219 @@ const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({ selectionText, se
     });
     return marked(formattedText, { breaks: true });
   };
-
-  const startResizing = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const modalElement = document.getElementById('note-selector-modal');
-    if (modalElement && modalSize.height === null) {
-        setModalSize({ width: modalSize.width, height: modalElement.offsetHeight });
-    }
-    isResizingRef.current = true;
-    document.addEventListener('mousemove', handleResizing);
-    document.addEventListener('mouseup', stopResizing);
-  };
-
-  const handleResizing = (e: MouseEvent) => {
-    if (!isResizingRef.current) return;
-    const modalElement = document.getElementById('note-selector-modal');
-    if (modalElement) {
-        const rect = modalElement.getBoundingClientRect();
-        const newWidth = Math.max(400, e.clientX - rect.left);
-        const newHeight = Math.max(350, e.clientY - rect.top);
-        setModalSize({ width: newWidth, height: newHeight });
-    }
-  };
-
-  const stopResizing = () => {
-    isResizingRef.current = false;
-    document.removeEventListener('mousemove', handleResizing);
-    document.removeEventListener('mouseup', stopResizing);
-  };
   
   return (
-    <div className="fixed inset-0 z-[100000] bg-zinc-950/40 dark:bg-black/60 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in duration-500" onClick={onClose}>
+    <div 
+      className="fixed inset-0 z-[100050] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
       <div 
-        id="note-selector-modal"
-        style={{ width: modalSize.width, height: modalSize.height || 'auto', maxHeight: '90vh' }}
-        className="bg-white dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800/50 rounded-[40px] shadow-[0_32px_128px_-16px_rgba(0,0,0,0.3)] overflow-hidden animate-in zoom-in-95 duration-400 flex flex-col relative group/modal" 
+        className="w-full max-w-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden animate-in zoom-in-95 duration-200"
         onClick={e => e.stopPropagation()}
       >
-        
-        {/* Header Section */}
-        <div className="px-10 pt-10 pb-6 flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-4">
-                <div className="w-12 h-12 flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-2xl border border-teal-600/20 shadow-sm animate-in slide-in-from-left-4 duration-500">
-                    {view === 'list' ? <Notebook className="w-6 h-6" /> : <Plus className="w-6 h-6" />}
+        {/* Modal Header */}
+        <div className="px-5 py-4 border-b border-slate-200/80 dark:border-zinc-800/80 flex items-center justify-between bg-slate-50/50 dark:bg-zinc-950/40 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-teal-600/10 dark:bg-teal-500/10 border border-teal-600/20 flex items-center justify-center text-teal-600 dark:text-teal-400 shadow-xs">
+              <NotebookPen className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-sm sm:text-base font-extrabold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                <span>{view === 'list' ? "Classer l'Étude dans un Journal" : "Créer un Nouveau Journal"}</span>
+                <span className="text-[10px] font-mono font-bold bg-zinc-200/70 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 px-2 py-0.5 rounded-full">
+                  {notes.length} note{notes.length > 1 ? 's' : ''}
+                </span>
+              </h2>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                {view === 'list'
+                  ? "Sélectionnez un journal existant ou créez-en un nouveau pour insérer cet extrait"
+                  : "Définissez le sujet du nouveau journal d'étude"}
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+            data-tooltip="Fermer la fenêtre"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Selected Excerpt Preview Card */}
+        <div className="px-5 py-3 border-b border-slate-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shrink-0">
+          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-850/60 border border-slate-200/80 dark:border-zinc-800 relative overflow-hidden group">
+            <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <Quote className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
+                <span className="text-[10px] font-black uppercase tracking-wider text-teal-700 dark:text-teal-400">
+                  Extrait sélectionné
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-[10px] text-zinc-500 dark:text-zinc-400 flex-wrap">
+                <span className="font-extrabold text-zinc-800 dark:text-zinc-200 truncate max-w-[220px]">
+                  {sermon.title}
+                </span>
+                {sermon.date && <span className="font-mono text-zinc-400">({sermon.date})</span>}
+                {paragraphIndex !== undefined && (
+                  <span className="font-mono font-bold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 px-1.5 py-0.2 rounded border border-teal-500/20">
+                    § {paragraphIndex}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div 
+              className="text-xs text-zinc-700 dark:text-zinc-300 line-clamp-3 italic leading-relaxed pl-2.5 border-l-2 border-teal-500/40"
+              dangerouslySetInnerHTML={{ __html: renderPreview(selectionText) as string }} 
+            />
+          </div>
+        </div>
+
+        {/* Search & Action Toolbar or Form View */}
+        {view === 'list' ? (
+          <div className="px-5 py-2.5 border-b border-slate-200/80 dark:border-zinc-800/80 flex items-center justify-between gap-3 bg-slate-50/50 dark:bg-zinc-950/30 shrink-0">
+            <div className="relative flex-1">
+              <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Rechercher dans vos notes existantes..."
+                className="w-full pl-8.5 pr-8 py-1.5 text-xs bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-teal-500 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400"
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery('')} 
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-0.5"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
+            <button
+              onClick={handleShowNewNoteView}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold transition-all active:scale-95 shadow-xs cursor-pointer shrink-0"
+              data-tooltip="Créer un nouveau journal"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Créer une note</span>
+            </button>
+          </div>
+        ) : null}
+
+        {/* Content Body */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-2.5 custom-scrollbar min-h-[240px]">
+          {view === 'list' ? (
+            filteredNotes.length === 0 ? (
+              <div className="h-56 flex flex-col items-center justify-center text-center p-6 space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800/80 flex items-center justify-center text-zinc-400">
+                  <NotebookPen className="w-6 h-6 text-teal-500/40" />
                 </div>
                 <div>
-                    <h2 className="text-xl font-black text-zinc-900 dark:text-white uppercase tracking-tight">
-                        {view === 'list' ? "Classer l'Étude" : "Nouvelle Chronique"}
-                    </h2>
-                    <p className="text-[10px] font-bold text-teal-600 dark:text-teal-400 uppercase tracking-widest mt-0.5 opacity-70">
-                        {view === 'list' ? `${notes.length} notes disponibles` : "Définir le sujet de recherche"}
-                    </p>
-                </div>
-            </div>
-            <button 
-              onClick={onClose} 
-              data-tooltip="Fermer"
-              className="w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-red-500 bg-zinc-50 dark:bg-zinc-800 rounded-xl transition-all border border-zinc-100 dark:border-zinc-700 hover:border-red-500/20 active:scale-90"
-            >
-                <X className="w-5 h-5" />
-            </button>
-        </div>
-
-        {/* Citation Preview Card */}
-        <div className="px-10 mb-8 shrink-0 animate-in fade-in slide-in-from-top-2 duration-700 delay-100">
-            <div className="p-6 bg-zinc-50/50 dark:bg-zinc-800/30 border border-zinc-100 dark:border-zinc-800 rounded-[32px] relative overflow-hidden group/preview">
-                <div className="absolute top-0 left-0 w-1.5 h-full bg-teal-600/20 group-hover/preview:bg-teal-600 transition-colors duration-500" />
-                <Quote className="absolute -right-4 -top-4 w-24 h-24 text-teal-600/5 -rotate-12 transition-transform duration-700 group-hover/preview:rotate-0" />
-                
-                <div className="flex items-center gap-2 mb-3">
-                   <div className="w-5 h-5 flex items-center justify-center bg-teal-600 text-white rounded-lg">
-                      <Sparkles className="w-3 h-3" />
-                   </div>
-                   <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Extrait sélectionné</span>
-                </div>
-
-                <div 
-                  className="prose-styles text-[14px] leading-relaxed text-zinc-700 dark:text-zinc-200 line-clamp-4 serif-text italic relative z-10 selection:bg-teal-600/20" 
-                  dangerouslySetInnerHTML={{ __html: renderPreview(selectionText) as string }} 
-                />
-                
-                <div className="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-700/50 flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                        <div className="flex flex-col">
-                            <span className="text-[10px] font-black text-zinc-800 dark:text-zinc-200 uppercase tracking-tight truncate max-w-[250px]">{sermon.title}</span>
-                            <div className="flex items-center gap-1.5 text-[8px] font-bold text-zinc-400">
-                                <Calendar className="w-2.5 h-2.5 text-teal-600/40" />
-                                <span className="font-mono">{sermon.date}</span>
-                            </div>
-                        </div>
-                        {paragraphIndex && (
-                          <div className="flex items-center gap-1.5 bg-white dark:bg-zinc-900 px-2.5 py-1 rounded-lg border border-zinc-200 dark:border-zinc-800 text-[9px] font-black text-teal-600 uppercase tracking-widest">
-                            <Hash className="w-2.5 h-2.5" />
-                            <span>PARA. {paragraphIndex}</span>
-                          </div>
-                        )}
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        {/* Search & Actions Container */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar px-10 pb-10 space-y-6">
-            {view === 'list' ? (
-              <div className="space-y-6 animate-in fade-in duration-500">
-                <div className="flex items-center gap-3">
-                    <div className="relative flex-1 group/search">
-                        <input 
-                            type="text" 
-                            placeholder="RECHERCHER UNE NOTE..." 
-                            className="w-full pl-10 pr-4 py-3 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl text-[11px] font-bold text-zinc-900 dark:text-white focus:ring-4 focus:ring-teal-600/5 focus:border-teal-600/40 outline-none transition-all" 
-                            value={searchQuery} 
-                            onChange={e => setSearchQuery(e.target.value)} 
-                        />
-                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 group-focus-within/search:text-teal-600 transition-colors" />
-                    </div>
-                    <button
-                        onClick={handleShowNewNoteView}
-                        className="w-12 h-12 flex items-center justify-center bg-teal-600 text-white rounded-2xl hover:bg-teal-700 shadow-xl shadow-teal-600/20 transition-all active:scale-90 group/add-btn"
-                        data-tooltip="Créer une nouvelle note"
-                        data-tooltip-icon="notes"
-                    >
-                        <Plus className="w-6 h-6 transition-transform group-hover/add-btn:rotate-90" />
-                    </button>
-                </div>
-
-                <div className="space-y-3">
-                    {filteredNotes.length > 0 ? filteredNotes.map((note, idx) => (
-                        <button 
-                          key={note.id}
-                          onClick={() => handleAddToExistingNote(note)}
-                          className="w-full text-left p-5 bg-white dark:bg-zinc-800/20 hover:bg-teal-50 dark:hover:bg-teal-900/10 border border-zinc-100 dark:border-zinc-800/50 hover:border-teal-600/30 rounded-[24px] transition-all group flex items-center justify-between animate-in slide-in-from-bottom-2 duration-500"
-                          style={{ animationDelay: `${idx * 50}ms` }}
-                        >
-                          <div className="flex items-center gap-4 min-w-0">
-                            <div className="w-10 h-10 flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 rounded-xl text-zinc-400 group-hover:bg-teal-600/10 group-hover:text-teal-600 transition-all">
-                                <FileText className="w-5 h-5" />
-                            </div>
-                            <div className="min-w-0">
-                                <span className="block font-black text-[13px] text-zinc-800 dark:text-zinc-100 group-hover:text-teal-600 truncate uppercase tracking-tight">
-                                    {note.title}
-                                </span>
-                                <div className="flex items-center gap-3 mt-1 opacity-50">
-                                    <div className="flex items-center gap-1 text-[8px] font-bold uppercase tracking-widest">
-                                        <Clock className="w-2.5 h-2.5" />
-                                        <span>{new Date(note.creationDate || note.date).toLocaleDateString()}</span>
-                                    </div>
-                                    <div className="w-1 h-1 bg-zinc-300 rounded-full" />
-                                    <span className="text-[8px] font-bold uppercase tracking-widest">{note.citations.length} Citations</span>
-                                </div>
-                            </div>
-                          </div>
-                          <ChevronRight className="w-5 h-5 text-zinc-300 group-hover:text-teal-600 transition-all transform group-hover:translate-x-1" />
-                        </button>
-                    )) : (
-                        <div className="py-12 flex flex-col items-center justify-center text-center opacity-30 space-y-4">
-                            <Search className="w-12 h-12 stroke-[1]" />
-                            <p className="text-[10px] font-black uppercase tracking-[0.3em]">Aucun résultat trouvé</p>
-                        </div>
-                    )}
+                  <p className="text-sm font-bold text-zinc-700 dark:text-zinc-200">
+                    {searchQuery.trim() ? "Aucune note trouvée pour votre recherche" : "Aucun journal de notes disponible"}
+                  </p>
+                  <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1 max-w-sm">
+                    {searchQuery.trim()
+                      ? "Essayez d'autres mots-clés ou cliquez sur 'Créer une note' pour créer un nouveau journal."
+                      : "Créez votre première note d'étude en cliquant sur le bouton ci-dessus pour y classer cet extrait."}
+                  </p>
                 </div>
               </div>
             ) : (
-              <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between px-1">
-                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Sujet de la Note</label>
-                      <span className="text-[8px] font-bold text-teal-600/50">Obligatoire</span>
+              filteredNotes.map(note => (
+                <div
+                  key={note.id}
+                  onClick={() => handleAddToExistingNote(note)}
+                  className="group flex items-center justify-between gap-3 p-3.5 rounded-xl bg-white dark:bg-zinc-850/60 hover:bg-teal-50/50 dark:hover:bg-teal-950/20 border border-slate-200/80 dark:border-zinc-800 hover:border-teal-500/40 transition-all cursor-pointer shadow-xs hover:shadow-md"
+                >
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-zinc-800 shrink-0 group-hover:bg-teal-600/10 group-hover:text-teal-600 transition-colors">
+                      <FileText className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-xs sm:text-sm font-extrabold text-zinc-900 dark:text-zinc-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors leading-snug line-clamp-1">
+                        {note.title}
+                      </h3>
+
+                      <div className="flex items-center gap-2 mt-1 text-[10px] text-zinc-400">
+                        <Clock className="w-3 h-3 text-zinc-400" />
+                        <span>{new Date(note.creationDate || note.date).toLocaleDateString()}</span>
+                        <span>•</span>
+                        <span>{note.citations.length} citation{note.citations.length > 1 ? 's' : ''}</span>
+                      </div>
+                    </div>
                   </div>
-                  <input
-                    ref={titleInputRef}
-                    type="text"
-                    value={newNoteTitle}
-                    onChange={(e) => setNewNoteTitle(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleConfirmNewNote()}
-                    className="w-full px-6 py-4 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-[20px] text-base font-black text-zinc-950 dark:text-white focus:ring-4 focus:ring-teal-600/5 focus:border-teal-600 outline-none transition-all shadow-sm"
-                    placeholder="EX: L'OUVERTURE DES SCEAUX..."
-                  />
-                  <p className="text-[9px] text-zinc-400 italic px-2">Un nouveau journal d'étude sera créé avec cette citation comme point de départ.</p>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    <div className="p-2 rounded-lg text-teal-600 bg-teal-50 dark:bg-teal-950/40 group-hover:bg-teal-600 group-hover:text-white transition-all shadow-2xs">
+                      <Plus className="w-4 h-4" />
+                    </div>
+                  </div>
                 </div>
-                <div className="flex gap-4 pt-4">
-                    <button 
-                        onClick={() => setView('list')} 
-                        className="flex-1 py-4 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all active:scale-95 border border-transparent"
-                    >
-                        Annuler
-                    </button>
-                    <button 
-                        onClick={handleConfirmNewNote} 
-                        className="flex-[2] py-4 bg-teal-600 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-teal-700 shadow-xl shadow-teal-600/20 transition-all active:scale-95 flex items-center justify-center gap-2"
-                    >
-                        <Check className="w-4 h-4" />
-                        Confirmer la création
-                    </button>
+              ))
+            )
+          ) : (
+            <div className="space-y-4 p-2 animate-in fade-in duration-200">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                    Sujet ou titre du nouveau journal
+                  </label>
+                  <span className="text-[10px] font-bold text-teal-600">Requis</span>
                 </div>
+                <input
+                  ref={titleInputRef}
+                  type="text"
+                  value={newNoteTitle}
+                  onChange={(e) => setNewNoteTitle(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleConfirmNewNote()}
+                  className="w-full px-3.5 py-2.5 text-xs bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-teal-500 font-extrabold text-zinc-900 dark:text-zinc-100 shadow-xs"
+                  placeholder="Ex: Étude sur l'Ouverture des Sceaux..."
+                />
+                <p className="text-[11px] text-zinc-400 dark:text-zinc-500 italic">
+                  Un nouveau journal d'étude sera créé avec cet extrait comme première citation.
+                </p>
               </div>
-            )}
+
+              <div className="flex items-center gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setView('list')}
+                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-zinc-800 text-xs font-bold text-zinc-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Retour à la liste</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmNewNote}
+                  className="flex-1 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Confirmer la création</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Resize Handler */}
-        <div 
-          onMouseDown={startResizing}
-          className="absolute bottom-0 right-0 w-10 h-10 cursor-nwse-resize flex items-end justify-end p-2 group/resize z-[100]"
-        >
-            <div className="grid grid-cols-2 gap-0.5 opacity-20 group-hover/resize:opacity-100 group-hover/modal:opacity-40 transition-opacity">
-               <div className="w-1 h-1 bg-zinc-400 dark:bg-zinc-500 rounded-full" />
-               <div className="w-1 h-1 bg-zinc-400 dark:bg-zinc-500 rounded-full" />
-               <div className="w-1 h-1 bg-zinc-400 dark:bg-zinc-500 rounded-full" />
-               <div className="w-1 h-1 bg-zinc-400 dark:bg-zinc-500 rounded-full" />
-            </div>
+        {/* Modal Footer */}
+        <div className="px-5 py-3 border-t border-slate-200/80 dark:border-zinc-800/80 bg-slate-50/50 dark:bg-zinc-950/40 flex items-center justify-between text-[11px] text-zinc-500 shrink-0">
+          <span className="flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+            Cliquez sur un journal pour y ajouter instantanément l'extrait
+          </span>
+          <button
+            onClick={onClose}
+            className="px-4 py-1.5 rounded-xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-bold hover:opacity-90 transition-opacity cursor-pointer"
+          >
+            Fermer
+          </button>
         </div>
       </div>
     </div>

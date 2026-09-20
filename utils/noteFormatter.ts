@@ -23,11 +23,13 @@ export interface ProcessedNoteData {
   cleanContent: string;
   contentParagraphs: string[];
   scriptureCitations: {
+    citationId: string;
     quote: string;
     reference: string;
     sourceIndex?: number;
   }[];
   teachingCitations: {
+    citationId: string;
     quote: string;
     sourceTitle: string;
     sourceMeta: string;
@@ -218,6 +220,8 @@ export function processNoteData(note: Note): ProcessedNoteData {
   const teachingCitations: ProcessedNoteData['teachingCitations'] = [];
 
   if (note.citations && note.citations.length > 0) {
+    const seenCitations = new Set<string>();
+
     for (const citation of note.citations) {
       const cleanQuote = cleanTextArtifacts(citation.quoted_text || '');
       if (!cleanQuote) continue;
@@ -227,6 +231,11 @@ export function processNoteData(note: Note): ProcessedNoteData {
       const versionSnap = cleanTextArtifacts(citation.sermon_version_snapshot || '');
       const paraRef = formatParagraphRef(citation.paragraph_index);
 
+      // Clé d'unicité pour filtrer les doublons historiques
+      const dedupKey = `${citation.sermon_id || ''}_${citation.paragraph_index ?? ''}_${cleanQuote.toLowerCase()}`;
+      if (seenCitations.has(dedupKey)) continue;
+      seenCitations.add(dedupKey);
+
       // Classification stricte : Si le titre de la source est une référence biblique ou si la version est une version biblique (LSG)
       const isScriptureSource = isBibleReference(titleSnap) || (!!versionSnap && /LSG|Louis Segond/i.test(versionSnap) && !isBibleReference(titleSnap));
 
@@ -234,6 +243,7 @@ export function processNoteData(note: Note): ProcessedNoteData {
         const version = versionSnap || 'LSG 1910';
         const srcIdx = getOrAddSource(titleSnap || 'Bible', 'scripture', version, paraRef);
         scriptureCitations.push({
+          citationId: citation.id,
           quote: cleanQuote,
           reference: `${titleSnap || 'Bible'}${version ? ` — ${version}` : ''}`,
           sourceIndex: srcIdx
@@ -245,6 +255,7 @@ export function processNoteData(note: Note): ProcessedNoteData {
 
         const srcIdx = getOrAddSource(titleSnap || 'Exposé / Enseignement', 'sermon', dateSnap, paraRef);
         teachingCitations.push({
+          citationId: citation.id,
           quote: cleanQuote,
           sourceTitle: titleSnap || 'Exposé / Enseignement',
           sourceMeta: metaParts.join(' — '),

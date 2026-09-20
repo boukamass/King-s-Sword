@@ -100,7 +100,7 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
             font: "Arial",
           }),
           new TextRun({
-            text: "  |  DOCUMENT D'ÉTUDE & NOTES CHRONIQUES",
+            text: `  |  ${processed.title}`,
             size: 16,
             color: mutedColor,
             font: "Arial",
@@ -126,42 +126,16 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
       })
     );
 
-    // Note Title
-    childrenElements.push(
-      new Paragraph({
-        heading: HeadingLevel.HEADING_1,
-        alignment: AlignmentType.LEFT,
-        spacing: { before: 120, after: 180 },
-        children: [
-          new TextRun({
-            text: processed.title,
-            bold: true,
-            size: 36, // 18pt
-            color: "0F172A",
-            font: "Georgia"
-          })
-        ]
-      })
-    );
-
-    // Metadata Bar
+    // Metadata Bar (Date uniquement)
     const formattedDate = note.date 
       ? new Date(note.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
       : new Date().toLocaleDateString('fr-FR');
 
-    const metaInfoParts = [`Date: ${formattedDate}`];
-    if (processed.sources.length > 0) {
-      metaInfoParts.push(`Sources référencées: ${processed.sources.length}`);
-    }
-    if (note.images && note.images.length > 0) {
-      metaInfoParts.push(`Images jointes: ${note.images.length}`);
-    }
-
     childrenElements.push(
       new Paragraph({
         children: [
           new TextRun({
-            text: metaInfoParts.join("   •   "),
+            text: `Date : ${formattedDate}`,
             size: 18, // 9pt
             italics: true,
             color: mutedColor,
@@ -440,7 +414,7 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
         new Paragraph({
           children: [
             new TextRun({
-              text: "SOURCES & RÉFÉRENCES",
+              text: `SOURCES & RÉFÉRENCES (${processed.sources.length})`,
               bold: true,
               size: 20,
               color: primaryColor,
@@ -495,7 +469,7 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
                 new Paragraph({
                   children: [
                     new TextRun({
-                      text: "King's Sword — Document d'Étude",
+                      text: `King's Sword — ${processed.title}`,
                       size: 16,
                       color: "94A3B8",
                       font: "Calibri"

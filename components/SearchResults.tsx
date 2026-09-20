@@ -170,13 +170,13 @@ const SearchResults: React.FC = () => {
   const [noteSelectorPayload, setNoteSelectorPayload] = useState<{ text: string; sermon: Sermon; paragraphIndex?: number } | null>(null);
   
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const lastPerformedSearchRef = useRef<string>("");
+  const lastPerformedSearchByModeRef = useRef<Record<string, string>>({});
 
   const performSearch = useCallback(async (q: string, m: SearchMode, off: number) => {
     if (!q || q.length < 2) return;
     
     const searchId = `${libraryMode}-${bibleVersion}-${bibleTestamentFilter}-${selectedExposeChapter}-${selectedExposeSection}-${songLanguageFilter}-${q}-${m}-${off}-${showOnlySynonyms}-${showOnlyQuery}-${includeSynonyms}-${selectedSynonym}-${yearFilter}-${monthFilter}-${dayFilter}-${cityFilter}-${versionFilter}-${audioFilter}`;
-    if (off === 0 && searchId === lastPerformedSearchRef.current && searchResults.length > 0) return;
+    if (off === 0 && searchId === lastPerformedSearchByModeRef.current[libraryMode] && searchResults.length > 0) return;
     
     setIsSearching(true);
     try {
@@ -210,7 +210,7 @@ const SearchResults: React.FC = () => {
       
       if (off === 0) {
         setSearchResults(results);
-        lastPerformedSearchRef.current = searchId;
+        lastPerformedSearchByModeRef.current[libraryMode] = searchId;
       } else {
         setSearchResults(prev => [...prev, ...results]);
       }
@@ -319,9 +319,11 @@ const SearchResults: React.FC = () => {
             <button 
                onClick={toggleSidebar} 
                data-tooltip="Ouvrir la bibliothèque" 
-               className="p-2 text-zinc-500 hover:text-teal-600 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:border-teal-500/30 shadow-sm transition-all shrink-0 active:scale-95 cursor-pointer mr-1"
+               className="flex items-center gap-2.5 min-w-0 cursor-pointer group hover:opacity-90 active:scale-95 transition-all shrink-0 mr-1"
             >
-              <PanelLeftOpen className="w-4 h-4 text-teal-600" />
+              <div className="w-8 h-8 flex items-center justify-center bg-teal-600/10 rounded-xl border border-teal-600/20 shadow-sm shrink-0 transition-transform group-hover:bg-teal-600/20 group-hover:border-teal-600/40 overflow-hidden">
+                <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Logo" className="w-6 h-6 object-cover rounded-full" />
+              </div>
             </button>
           )}
           <div className="flex items-center gap-4">

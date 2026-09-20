@@ -4,7 +4,7 @@ import { useAppStore } from '../store';
 import { translations } from '../translations';
 import { getDefinition, WordDefinition } from '../services/dictionaryService';
 import { getAccentInsensitiveRegex, getSearchHighlightRegex } from '../utils/textUtils';
-import { Sermon, Highlight, SearchMode } from '../types';
+import { Sermon, Highlight, SearchMode, QuickAccessItemType } from '../types';
 import { PALETTE_HIGHLIGHT_COLORS } from '../constants';
 import { formatSongContent } from '../services/songService';
 import NoteSelectorModal from './NoteSelectorModal';
@@ -71,9 +71,17 @@ import {
   Edit3,
   Library,
   BookText,
-  ListOrdered
+  ListOrdered,
+  Star,
+  Bookmark
 } from 'lucide-react';
 import SongModal from './SongModal';
+import { 
+  getFavorites, 
+  addRecent, 
+  toggleFavorite, 
+  QUICK_ACCESS_UPDATED_EVENT 
+} from '../services/quickAccessService';
 
 interface SimpleWord {
   text: string;
@@ -81,17 +89,19 @@ interface SimpleWord {
   globalIndex: number;
 }
 
-const ActionButton = memo(({ onClick, icon: Icon, tooltip, special = false, active = false, isFullscreen = false, baseFontSize = 20 }: any) => (
+const ActionButton = memo(({ onClick, icon: Icon, tooltip, special = false, active = false, isFullscreen = false, baseFontSize = 20, variant = 'teal' }: any) => (
   <div className="relative group/btn">
     <button 
       onClick={onClick} 
       data-tooltip={tooltip} 
       className={`flex items-center justify-center transition-all border active:scale-95 shadow-sm ${
-        special 
-          ? "bg-teal-600/10 text-teal-600 border-teal-600/20" 
-          : active 
-            ? "bg-teal-600 text-white border-teal-600" 
-            : "bg-white/50 dark:bg-zinc-800/50 border-zinc-200/50 dark:border-zinc-800/50 hover:bg-teal-600/5 hover:text-teal-600 hover:border-teal-600/20 text-zinc-400 dark:text-zinc-500"
+        variant === 'amber' && active
+          ? "bg-amber-500/15 text-amber-500 border-amber-500/40 fill-amber-500"
+          : special 
+            ? "bg-teal-600/10 text-teal-600 border-teal-600/20" 
+            : active 
+              ? "bg-teal-600 text-white border-teal-600" 
+              : "bg-white/50 dark:bg-zinc-800/50 border-zinc-200/50 dark:border-zinc-800/50 hover:bg-teal-600/5 hover:text-teal-600 hover:border-teal-600/20 text-zinc-400 dark:text-zinc-500"
       }`}
       style={isFullscreen ? { 
         width: '1.5em', 
@@ -104,7 +114,7 @@ const ActionButton = memo(({ onClick, icon: Icon, tooltip, special = false, acti
         borderRadius: '0.75rem'
       }}
     >
-      <Icon style={isFullscreen ? { width: '0.8em', height: '0.8em' } : { width: '1rem', height: '1rem' }} />
+      <Icon className={variant === 'amber' && active ? 'fill-amber-500' : ''} style={isFullscreen ? { width: '0.8em', height: '0.8em' } : { width: '1rem', height: '1rem' }} />
     </button>
   </div>
 ));
@@ -314,6 +324,8 @@ const Reader: React.FC = () => {
   const notesOpen = useAppStore(s => s.notesOpen);
   const toggleNotes = useAppStore(s => s.toggleNotes);
   const toggleAI = useAppStore(s => s.toggleAI);
+  const isProjectionOpen = useAppStore(s => s.isProjectionOpen);
+  const setIsProjectionOpen = useAppStore(s => s.setIsProjectionOpen);
   
   const lang = languageFilter === 'Anglais' ? 'en' : 'fr';
   const t = translations[lang];
@@ -412,6 +424,70 @@ const Reader: React.FC = () => {
   const [projectionCanScrollDown, setProjectionCanScrollDown] = useState(false);
   const [projectionLastVisibleIndices, setProjectionLastVisibleIndices] = useState<number[]>([]);
   const [projectionBottomVisibleIndex, setProjectionBottomVisibleIndex] = useState<number | null>(null);
+
+  // Quick Access (Favoris & Récents) State & Tracking
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(() => {
+    try {
+      return new Set(getFavorites().map(f => f.id));
+    } catch {
+      return new Set();
+    }
+  });
+
+  useEffect(() => {
+    const handleQuickAccessSync = () => {
+      try {
+        setFavoriteIds(new Set(getFavorites().map(f => f.id)));
+      } catch {}
+    };
+    window.addEventListener(QUICK_ACCESS_UPDATED_EVENT, handleQuickAccessSync);
+    return () => window.removeEventListener(QUICK_ACCESS_UPDATED_EVENT, handleQuickAccessSync);
+  }, []);
+
+  // Les éléments sont ajoutés aux récents UNIQUEMENT lorsqu'ils sont effectivement projetés (voir recordProjectedItem)
+
+  const isDocFav = Boolean(sermon?.id && favoriteIds.has(sermon.id));
+
+  const handleToggleDocFav = useCallback(() => {
+    if (!sermon?.id || !sermon?.title) return;
+    const type = isSong ? 'song' : isBible ? 'bible' : isExpose ? 'expose' : 'sermon';
+    const isNowFav = toggleFavorite({
+      id: sermon.id,
+      targetId: sermon.id,
+      type,
+      title: sermon.title,
+      subtitle: isBible ? 'Sainte Bible' : isSong ? 'Cantique' : isExpose ? 'Exposé des 7 Âges' : (sermon.city || sermon.date || undefined),
+      date: sermon.date,
+      snippet: sermon.text ? sermon.text.slice(0, 160).replace(/\s+/g, ' ').trim() : undefined
+    });
+    addNotification(
+      isNowFav ? "Document ajouté aux favoris" : "Document retiré des favoris",
+      "success"
+    );
+  }, [sermon, isSong, isBible, isExpose, addNotification]);
+
+  const handleToggleParagraphFav = useCallback((e: React.MouseEvent, segIdx: number, segText: string) => {
+    e.stopPropagation();
+    if (!sermon?.id || !sermon?.title) return;
+    const paraNum = segIdx + 1;
+    const label = isBibleChapter ? `Verset ${paraNum}` : isSong ? `Strophe ${paraNum}` : `§ ${paraNum}`;
+    const paraId = `${sermon.id}-p-${paraNum}`;
+    const type = isSong ? 'song' : isBible ? 'bible' : isExpose ? 'expose' : 'sermon';
+    const isNowFav = toggleFavorite({
+      id: paraId,
+      targetId: sermon.id,
+      type,
+      title: `${sermon.title} - ${label}`,
+      subtitle: label,
+      paragraphIndex: paraNum,
+      date: sermon.date,
+      snippet: segText.slice(0, 160).replace(/\s+/g, ' ').trim()
+    });
+    addNotification(
+      isNowFav ? `${label} ajouté aux favoris` : `${label} retiré des favoris`,
+      "success"
+    );
+  }, [sermon, isBibleChapter, isSong, isExpose, addNotification]);
   const updateProjectedSegmentIndex = useCallback((idx: number | null) => {
     projectedSegmentIndexRef.current = idx;
     setProjectedSegmentIndex(idx);
@@ -420,7 +496,52 @@ const Reader: React.FC = () => {
   const sendProjectionPayloadRef = useRef<((targetSegmentIdx?: number | null) => void) | null>(null);
   const handleNextSourceRef = useRef<(() => void) | null>(null);
   const handlePrevSourceRef = useRef<(() => void) | null>(null);
-  const [isProjectionOpen, setIsProjectionOpen] = useState(false);
+
+  // Enregistrement dans les récents UNIQUEMENT lorsque l'élément est effectivement projeté
+  const recordProjectedItem = useCallback((targetSegmentIdx?: number | null) => {
+    if (!sermon?.id || !sermon?.title) return;
+    const type: QuickAccessItemType = isSong ? 'song' : isBible ? 'bible' : isExpose ? 'expose' : 'sermon';
+    
+    const effectiveIdx = typeof targetSegmentIdx === 'number' 
+      ? targetSegmentIdx 
+      : (projectedSegmentIndexRef.current !== null ? projectedSegmentIndexRef.current : null);
+
+    if (effectiveIdx !== null && structuredSegments && structuredSegments[effectiveIdx]) {
+      const paraNum = effectiveIdx + 1;
+      const label = isBibleChapter ? `Verset ${paraNum}` : isSong ? `Strophe ${paraNum}` : `§ ${paraNum}`;
+      const paraId = `${sermon.id}-p-${paraNum}`;
+      const segText = structuredSegments[effectiveIdx]?.text;
+
+      addRecent({
+        id: paraId,
+        targetId: sermon.id,
+        type,
+        title: `${sermon.title} - ${label}`,
+        subtitle: label,
+        paragraphIndex: paraNum,
+        date: sermon.date,
+        snippet: segText ? segText.slice(0, 160).replace(/\s+/g, ' ').trim() : undefined
+      });
+    } else {
+      // Document entier effectivement projeté
+      addRecent({
+        id: sermon.id,
+        targetId: sermon.id,
+        type,
+        title: sermon.title,
+        subtitle: isBible ? 'Sainte Bible' : isSong ? 'Cantique' : isExpose ? 'Exposé des 7 Âges' : (sermon.city || sermon.date || undefined),
+        date: sermon.date,
+        snippet: sermon.text ? sermon.text.slice(0, 160).replace(/\s+/g, ' ').trim() : undefined
+      });
+    }
+  }, [sermon, isSong, isBible, isBibleChapter, isExpose, structuredSegments]);
+
+  // Seuls les éléments effectivement projetés sont ajoutés aux récents en cours de session active
+  useEffect(() => {
+    if ((isProjectionOpen || isProjectionWindowOpen()) && sermon?.id) {
+      recordProjectedItem(projectedSegmentIndex);
+    }
+  }, [sermon?.id, projectedSegmentIndex, isProjectionOpen, recordProjectedItem]);
   
   const [activeDefinition, setActiveDefinition] = useState<WordDefinition | null>(null);
   const [isDefining, setIsDefining] = useState(false);
@@ -1046,8 +1167,9 @@ const Reader: React.FC = () => {
     if (payload) {
       const win = openProjectionWindow(payload);
       projectionWindow = win;
+      recordProjectedItem(effectiveIdx);
     }
-  }, [updateProjectedSegmentIndex, getProjectionPayload, projectedImage, setProjectedImage, projectedAnnouncement, setProjectedAnnouncement]);
+  }, [updateProjectedSegmentIndex, getProjectionPayload, projectedImage, setProjectedImage, projectedAnnouncement, setProjectedAnnouncement, recordProjectedItem]);
 
   const reopenProjectionWindow = useCallback(() => {
     ensureProjectionWindow();
@@ -1749,10 +1871,19 @@ const Reader: React.FC = () => {
             <button 
               onClick={toggleSidebar} 
               data-tooltip="Ouvrir la bibliothèque"
-              className="flex items-center gap-2.5 text-zinc-600 dark:text-zinc-400 hover:text-teal-600 dark:hover:text-teal-400 transition-all p-1.5 rounded-xl hover:bg-slate-200/50 dark:hover:bg-zinc-900"
+              className="flex items-center gap-2.5 min-w-0 cursor-pointer group hover:opacity-90 active:scale-95 transition-all shrink-0"
             >
-              <PanelLeftOpen className="w-5 h-5 text-teal-600" />
-              <span className="text-[10px] font-black uppercase tracking-[0.2em]">{t.sidebar_subtitle}</span>
+              <div className="w-8 h-8 flex items-center justify-center bg-teal-600/10 rounded-xl border border-teal-600/20 shadow-sm shrink-0 transition-transform group-hover:bg-teal-600/20 group-hover:border-teal-600/40 overflow-hidden">
+                <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Logo" className="w-6 h-6 object-cover rounded-full" />
+              </div>
+              <div className="text-left truncate">
+                <h2 className="text-[9.5px] font-black uppercase tracking-[0.2em] text-slate-900 dark:text-zinc-50 leading-tight truncate">
+                  {t.sidebar_subtitle}
+                </h2>
+                <p className="text-[7.5px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-widest mt-0.5">
+                  Ouvrir le panneau
+                </p>
+              </div>
             </button>
           )}
         </div>
@@ -1876,9 +2007,11 @@ const Reader: React.FC = () => {
             <button 
               onClick={toggleSidebar} 
               data-tooltip="Ouvrir la bibliothèque"
-              className="p-2 text-zinc-500 hover:text-teal-600 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:border-teal-500/30 shadow-sm transition-all shrink-0 active:scale-95 cursor-pointer mr-1"
+              className="flex items-center gap-2.5 min-w-0 cursor-pointer group hover:opacity-90 active:scale-95 transition-all shrink-0 mr-1"
             >
-              <PanelLeftOpen className="w-4 h-4 text-teal-600" />
+              <div className="w-8 h-8 flex items-center justify-center bg-teal-600/10 rounded-xl border border-teal-600/20 shadow-sm shrink-0 transition-transform group-hover:bg-teal-600/20 group-hover:border-teal-600/40 overflow-hidden">
+                <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Logo" className="w-6 h-6 object-cover rounded-full" />
+              </div>
             </button>
           )}
           <div className="flex flex-col min-w-0 flex-1">
@@ -1956,6 +2089,24 @@ const Reader: React.FC = () => {
               tooltip={isCurrentInDock ? "Retirer ce document du dock IA" : "Ajouter ce document au dock IA"} 
               active={isCurrentInDock}
               special={isCurrentInDock}
+              isFullscreen={isOSFullscreen} 
+              baseFontSize={fontSize} 
+            />
+            {/* Bouton Favori Document */}
+            <ActionButton 
+              onClick={handleToggleDocFav} 
+              icon={Star} 
+              tooltip={isDocFav ? "Retirer ce document des favoris" : "Ajouter ce document aux favoris"} 
+              active={isDocFav}
+              variant="amber"
+              isFullscreen={isOSFullscreen} 
+              baseFontSize={fontSize} 
+            />
+            {/* Bouton Accès Rapide (Favoris & Récents) */}
+            <ActionButton 
+              onClick={() => useAppStore.getState().toggleQuickAccessModal('favorites')} 
+              icon={Bookmark} 
+              tooltip="Accès Rapide : Favoris et Récents" 
               isFullscreen={isOSFullscreen} 
               baseFontSize={fontSize} 
             />
@@ -2589,6 +2740,20 @@ const Reader: React.FC = () => {
                       >
                         <Sparkles className="w-3 h-3" />
                         <span>{isCurrentInDock ? "Dans le Dock IA" : "+ Dock IA"}</span>
+                      </button>
+                      {/* Bouton Favori Verset / Paragraphe */}
+                      <button
+                        type="button"
+                        onClick={(e) => handleToggleParagraphFav(e, segIdx, seg.text)}
+                        className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer border ${
+                          sermon?.id && favoriteIds.has(`${sermon.id}-p-${segIdx + 1}`)
+                            ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/40'
+                            : 'bg-white dark:bg-zinc-900 hover:bg-amber-500/10 text-zinc-600 dark:text-zinc-400 hover:text-amber-600 border-slate-200 dark:border-zinc-800'
+                        }`}
+                        data-tooltip={sermon?.id && favoriteIds.has(`${sermon.id}-p-${segIdx + 1}`) ? (isBibleChapter ? "Retirer ce verset des favoris" : "Retirer des favoris") : (isBibleChapter ? "Ajouter ce verset aux favoris" : "Ajouter aux favoris")}
+                      >
+                        <Star className={`w-3 h-3 ${sermon?.id && favoriteIds.has(`${sermon.id}-p-${segIdx + 1}`) ? 'fill-amber-500 text-amber-500' : ''}`} />
+                        <span>Favori</span>
                       </button>
                     </div>
                   </div>
