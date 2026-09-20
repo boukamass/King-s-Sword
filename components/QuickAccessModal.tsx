@@ -195,13 +195,13 @@ export const QuickAccessModal: React.FC<QuickAccessModalProps> = ({
       onClick={onClose}
     >
       <div 
-        className="w-full max-w-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden animate-in zoom-in-95 duration-200"
+        className="w-full max-w-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden animate-in zoom-in-95 duration-200"
         onClick={e => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="px-5 py-4 border-b border-slate-200/80 dark:border-zinc-800/80 flex items-center justify-between bg-slate-50/50 dark:bg-zinc-950/40 shrink-0">
+        <div className="px-5 sm:px-6 py-4 border-b border-slate-200 dark:border-zinc-800/80 flex items-center justify-between bg-slate-50/70 dark:bg-zinc-950/50 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-teal-600/10 dark:bg-teal-500/10 border border-teal-600/20 flex items-center justify-center text-teal-600 dark:text-teal-400 shadow-xs">
+            <div className="w-10 h-10 rounded-2xl bg-teal-600/10 dark:bg-teal-500/10 border border-teal-600/20 flex items-center justify-center text-teal-600 dark:text-teal-400 shadow-xs shrink-0">
               <Bookmark className="w-5 h-5" />
             </div>
             <div>

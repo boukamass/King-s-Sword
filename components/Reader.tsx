@@ -1912,90 +1912,95 @@ const Reader: React.FC = () => {
       {noteSelectorPayload && <NoteSelectorModal selectionText={noteSelectorPayload.text} sermon={noteSelectorPayload.sermon} paragraphIndex={noteSelectorPayload.paragraphIndex} onClose={() => setNoteSelectorPayload(null)} />}
       
       {activeDefinition && (
-        <div className="fixed inset-0 z-[100000] bg-black/40 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in duration-300" onClick={() => setActiveDefinition(null)}>
-          <div className="bg-slate-50 dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800/50 rounded-[40px] shadow-[0_32px_128px_-16px_rgba(0,0,0,0.3)] flex flex-col overflow-hidden max-w-md w-full max-h-[85vh]" onClick={e => e.stopPropagation()}>
-            <div className="px-10 pt-10 pb-6 flex items-center justify-between shrink-0 bg-white/5 dark:bg-zinc-900/5 backdrop-blur-sm border-b border-zinc-200/20 dark:border-zinc-800/20">
-              <div className="flex items-center gap-6">
-                <div className="w-16 h-16 flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-[28px] border border-teal-600/20 shadow-inner group transition-transform hover:scale-105">
-                  <BookOpenCheck className="w-8 h-8" />
+        <div className="fixed inset-0 z-[100000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200" onClick={() => setActiveDefinition(null)}>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl shadow-2xl flex flex-col overflow-hidden max-w-xl w-full max-h-[85vh] animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="px-5 sm:px-6 py-4 border-b border-slate-200 dark:border-zinc-800/80 flex items-center justify-between bg-slate-50/70 dark:bg-zinc-950/50 shrink-0">
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="w-10 h-10 rounded-2xl bg-teal-600/10 dark:bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center border border-teal-600/20 shadow-xs shrink-0">
+                  <BookOpenCheck className="w-5 h-5" />
                 </div>
-                <div>
-                  <h3 className="text-[11px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-[0.4em] mb-1">Dictionnaire</h3>
-                  <p className="text-3xl font-black text-zinc-900 dark:text-white leading-none tracking-tight">{activeDefinition?.word}</p>
+                <div className="min-w-0">
+                  <div className="text-[10px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-widest">Dictionnaire</div>
+                  <h3 className="text-xl sm:text-2xl font-black text-zinc-900 dark:text-white leading-tight truncate">{activeDefinition?.word}</h3>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 shrink-0">
                 <button 
                   onClick={handleAddDefinitionToNote}
-                  data-tooltip="Ajouter au journal"
-                  className="w-12 h-12 flex items-center justify-center text-zinc-500 hover:text-teal-600 bg-white dark:bg-zinc-800 rounded-2xl border border-zinc-200 dark:border-zinc-700 hover:border-teal-600/30 transition-all active:scale-90 shadow-sm"
+                  data-tooltip="Ajouter la définition au journal de notes"
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/50 border border-teal-200 dark:border-teal-800/80 hover:bg-teal-100 dark:hover:bg-teal-900/60 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
                 >
-                  <NotebookPen className="w-5 h-5" />
+                  <NotebookPen className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                  <span className="hidden sm:inline">Ajouter aux notes</span>
                 </button>
                 <button 
                   onClick={() => setActiveDefinition(null)} 
-                  className="w-12 h-12 flex items-center justify-center text-zinc-400 hover:text-red-500 bg-white dark:bg-zinc-800 rounded-2xl border border-zinc-200 dark:border-zinc-700 hover:border-red-500/20 transition-all active:scale-90 shadow-sm"
+                  data-tooltip="Fermer la fenêtre"
+                  className="w-8 h-8 rounded-xl flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800 transition-all cursor-pointer"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
             
-            <div className="flex-1 px-10 py-8 overflow-y-auto custom-scrollbar bg-slate-50/30 dark:bg-zinc-950/20">
-              <div className="space-y-10 pb-6">
-                <section className="animate-in slide-in-from-bottom-2 duration-500">
-                  <div className="flex items-center gap-2 mb-4">
-                    <div style={{ fontSize: 'inherit' }}><Info className="w-[1.2em] h-[1.2em] text-teal-600/50" /></div>
-                    <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Définition & Sens</h4>
+            {/* Modal Content Body */}
+            <div className="flex-1 px-5 sm:px-6 py-5 overflow-y-auto custom-scrollbar space-y-4 bg-white dark:bg-zinc-900">
+              {/* Definition Section */}
+              <section className="space-y-2">
+                <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+                  <Info className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                  <span>Définition & Sens</span>
+                </div>
+                <div className="p-4 sm:p-5 bg-slate-50/80 dark:bg-zinc-950/60 border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl relative overflow-hidden group shadow-2xs">
+                  <div className="absolute top-0 left-0 w-1.5 h-full bg-teal-600 dark:bg-teal-500 group-hover:bg-teal-500 transition-colors" />
+                  <p className="text-base sm:text-lg leading-relaxed text-zinc-900 dark:text-zinc-100 font-medium serif-text italic pl-2">
+                    {activeDefinition.definition}
+                  </p>
+                </div>
+              </section>
+
+              {/* Etymology & Synonyms Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <section className="p-4 bg-slate-50/80 dark:bg-zinc-950/60 border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl space-y-2 flex flex-col">
+                  <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+                    <History className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                    <span>Étymologie</span>
                   </div>
-                  <div className="p-8 bg-white dark:bg-zinc-800/40 border border-teal-600/10 dark:border-teal-600/5 rounded-[32px] shadow-sm relative overflow-hidden group">
-                    <div className="absolute top-0 left-0 w-1.5 h-full bg-teal-600/20 group-hover:bg-teal-600 transition-colors duration-500" />
-                    <p className="text-[18px] leading-relaxed text-zinc-800 dark:text-zinc-100 font-medium serif-text italic">{activeDefinition.definition}</p>
-                  </div>
+                  <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300 font-medium italic flex-1">
+                    {activeDefinition.etymology || "Détails historiques non répertoriés."}
+                  </p>
                 </section>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <section className="animate-in slide-in-from-bottom-2 duration-700">
-                    <div className="flex items-center gap-2 mb-4 px-2">
-                      <div style={{ fontSize: 'inherit' }}><History className="w-[1.2em] h-[1.2em] text-teal-600/50" /></div>
-                      <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Étymologie</h4>
-                    </div>
-                    <div className="p-6 bg-zinc-100/50 dark:bg-zinc-800/20 border border-zinc-200/50 dark:border-zinc-700/50 rounded-3xl min-h-[80px]">
-                      <p className="text-[14px] leading-relaxed text-zinc-600 dark:text-zinc-400 font-medium italic">
-                        {activeDefinition.etymology || "Détails historiques non répertoriés."}
-                      </p>
-                    </div>
-                  </section>
-
-                  <section className="animate-in slide-in-from-bottom-2 duration-700 delay-100">
-                    <div className="flex items-center gap-2 mb-4 px-2">
-                      <div style={{ fontSize: 'inherit' }}><Languages className="w-[1.2em] h-[1.2em] text-teal-600/50" /></div>
-                      <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Synonymes</h4>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {activeDefinition.synonyms.length > 0 ? (
-                        activeDefinition.synonyms.map((syn, idx) => (
-                          <span 
-                            key={idx} 
-                            className="px-4 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[12px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-tight shadow-sm transition-all hover:scale-105 hover:border-teal-600/30 cursor-default"
-                          >
-                            {syn}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-[12px] font-medium text-zinc-400 italic">Aucun synonyme trouvé.</span>
-                      )}
-                    </div>
-                  </section>
-                </div>
+                <section className="p-4 bg-slate-50/80 dark:bg-zinc-950/60 border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl space-y-2 flex flex-col">
+                  <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+                    <Languages className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                    <span>Synonymes</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 flex-1 items-start">
+                    {activeDefinition.synonyms.length > 0 ? (
+                      activeDefinition.synonyms.map((syn, idx) => (
+                        <span 
+                          key={idx} 
+                          className="px-2.5 py-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold text-teal-700 dark:text-teal-300 shadow-2xs hover:border-teal-500/50 transition-all cursor-default"
+                        >
+                          {syn}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs font-medium text-zinc-400 italic">Aucun synonyme répertorié.</span>
+                    )}
+                  </div>
+                </section>
               </div>
             </div>
             
-            <div className="px-10 py-6 shrink-0 bg-zinc-100/50 dark:bg-zinc-950/40 border-t border-zinc-200/20 dark:border-zinc-800/20 flex items-center justify-center">
-               <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-[0.4em] flex items-center gap-3">
-                 <Milestone className="w-2.5 h-2.5" />
-                 Source : King's Sword Dictionnaire IA
-               </p>
+            {/* Modal Footer */}
+            <div className="px-5 sm:px-6 py-3 border-t border-slate-200 dark:border-zinc-800/80 bg-slate-50/70 dark:bg-zinc-950/50 flex items-center justify-between shrink-0">
+              <p className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest flex items-center gap-1.5">
+                <Milestone className="w-3 h-3 text-teal-600 dark:text-teal-400" />
+                <span>King's Sword Dictionnaire IA</span>
+              </p>
             </div>
           </div>
         </div>
