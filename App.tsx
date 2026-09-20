@@ -11,6 +11,7 @@ import { Sparkles, NotebookPen, Info, Trash2, HelpCircle, BookOpen } from 'lucid
 import { ProjectionView, MaskView } from './components/ProjectionView';
 import { ImageProjectionModal } from './components/ImageProjectionModal';
 import { AnnouncementModal } from './components/AnnouncementModal';
+import { QuickAccessModal } from './components/QuickAccessModal';
 
 const GlobalTooltip = memo(() => {
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -133,7 +134,12 @@ const App: React.FC = () => {
   const isLoading = useAppStore(s => s.isLoading);
   const loadingMessage = useAppStore(s => s.loadingMessage);
   const loadingProgress = useAppStore(s => s.loadingProgress);
+  const isAnnouncementModalOpen = useAppStore(s => s.isAnnouncementModalOpen);
+  const isQuickAccessModalOpen = useAppStore(s => s.isQuickAccessModalOpen);
+  const quickAccessInitialTab = useAppStore(s => s.quickAccessInitialTab);
+  const setIsQuickAccessModalOpen = useAppStore(s => s.setIsQuickAccessModalOpen);
   const activeNoteId = useAppStore(s => s.activeNoteId);
+  const isProjectionOpen = useAppStore(s => s.isProjectionOpen);
   const theme = useAppStore(s => s.theme);
   const addNotification = useAppStore(s => s.addNotification);
 
@@ -184,11 +190,7 @@ const App: React.FC = () => {
     
     if (resizeRafId.current) cancelAnimationFrame(resizeRafId.current);
     resizeRafId.current = requestAnimationFrame(() => {
-      if (activeHandle.current === 'sidebar') {
-        const newWidth = Math.max(300, Math.min(800, clientX));
-        if (newWidth < 60) { if (sidebarOpen) setSidebarOpen(false); }
-        else { if (!sidebarOpen && newWidth > 80) setSidebarOpen(true); setSidebarWidth(newWidth); }
-      } else if (activeHandle.current === 'notes') {
+      if (activeHandle.current === 'notes') {
         const rightPadding = aiOpen ? aiWidth : 0;
         const w = Math.max(40, Math.min(800, window.innerWidth - clientX - rightPadding));
         if (w < 60) { if (notesOpen) setNotesOpen(false); }
@@ -199,7 +201,7 @@ const App: React.FC = () => {
         else { if (!aiOpen && w > 40) setAiWidth(w); }
       }
     });
-  }, [sidebarOpen, aiOpen, notesOpen, aiWidth, setSidebarWidth, setAiWidth, setNotesWidth, setSidebarOpen, setAiOpen, setNotesOpen]);
+  }, [aiOpen, notesOpen, aiWidth, setAiWidth, setNotesWidth, setAiOpen, setNotesOpen]);
 
   useEffect(() => {
     if (isResizing) { window.addEventListener('mousemove', handleResizingMove); window.addEventListener('mouseup', stopResizing); }
@@ -243,23 +245,23 @@ const App: React.FC = () => {
   }
 
   const transitionClass = isResizing ? "transition-none" : "transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1)";
-  const effectiveSidebarWidth = isFullscreen ? 0 : (sidebarOpen ? sidebarWidth : 0);
-  const effectiveNotesWidth = isFullscreen ? 0 : (notesOpen ? notesWidth : 0);
-  const effectiveAiWidth = isFullscreen ? 0 : (aiOpen ? aiWidth : 0);
+  const SIDEBAR_FIXED_WIDTH = 400;
+  const effectiveSidebarWidth = isFullscreen ? 0 : ((activeNoteId ? false : sidebarOpen) ? SIDEBAR_FIXED_WIDTH : 0);
+  const effectiveNotesWidth = isFullscreen ? 0 : ((activeNoteId ? false : notesOpen) ? notesWidth : 0);
+  const effectiveAiWidth = isFullscreen ? 0 : ((activeNoteId ? false : aiOpen) ? aiWidth : 0);
 
   return (
     <div className="flex h-screen w-full bg-slate-50 dark:bg-zinc-950 overflow-hidden app-container flex-col">
       <div className="flex flex-1 h-full overflow-hidden relative">
         <div style={{ width: effectiveSidebarWidth }} className={`flex-shrink-0 overflow-hidden h-full flex relative z-30 ${transitionClass} no-print`}>
-          <div className="w-full h-full"><Sidebar /></div>
-          {sidebarOpen && !isFullscreen && <div onMouseDown={startResizing('sidebar')} className="absolute right-0 top-0 w-1.5 h-full hover:bg-teal-600/40 cursor-col-resize z-50 transition-colors" />}
+          <div className="w-[400px] min-w-[400px] h-full"><Sidebar /></div>
         </div>
         <div className={`flex-1 flex flex-col min-w-[300px] relative z-10 border-x border-zinc-100 dark:border-zinc-900 shadow-sm ${transitionClass}`}>
           <MainContent activeNoteId={activeNoteId} />
 
           {/* Floating Side Buttons for Notes & AI */}
-          {!isFullscreen && (!notesOpen || !aiOpen) && (
-            <div className="absolute right-3 top-14 z-40 flex flex-col gap-2 pointer-events-auto no-print">
+          {!isFullscreen && !activeNoteId && (!notesOpen || !aiOpen) && (
+            <div className={`absolute right-3 z-40 flex flex-col gap-2 pointer-events-auto no-print transition-all duration-300 ${isProjectionOpen ? 'top-[116px]' : 'top-[68px]'}`}>
               {!notesOpen && (
                 <button
                   onClick={toggleNotes}
@@ -296,6 +298,11 @@ const App: React.FC = () => {
       <GlobalTooltip />
       <ImageProjectionModal />
       <AnnouncementModal />
+      <QuickAccessModal 
+        isOpen={isQuickAccessModalOpen} 
+        onClose={() => setIsQuickAccessModalOpen(false)} 
+        initialTab={quickAccessInitialTab}
+      />
     </div>
   );
 };

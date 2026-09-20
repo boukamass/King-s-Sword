@@ -120,6 +120,24 @@ export interface ProjectedImageMedia {
   folderId?: string;
 }
 
+export type QuickAccessItemType = 'sermon' | 'bible' | 'expose' | 'song';
+
+export interface QuickAccessItem {
+  id: string;
+  targetId: string;
+  type: QuickAccessItemType;
+  title: string;
+  subtitle?: string;
+  snippet?: string;
+  paragraphIndex?: number;
+  bibleBookId?: string;
+  bibleChapter?: number;
+  bibleVerse?: number;
+  date?: string;
+  timestamp: number;
+  isFavorite?: boolean;
+}
+
 export interface ElectronAPI {
   platform: string;
   onUpdateAvailable: (callback: () => void) => void;

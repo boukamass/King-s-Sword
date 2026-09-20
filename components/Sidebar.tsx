@@ -35,7 +35,9 @@ import {
   Trash2,
   Image as ImageIcon,
   Megaphone,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Star,
+  Bookmark
 } from 'lucide-react';
 
 import { Song } from '../types';
@@ -43,6 +45,7 @@ import { loadAllSongs, deleteSong, getSongLanguageLabel, getSongLanguageBadge } 
 import SongModal from './SongModal';
 import { TermsModal } from './TermsModal';
 import { getExposeTree, getExposePagesMeta, ExposeMetadataTree, ExposePage } from '../services/exposeService';
+import { getFavorites, getRecents, QUICK_ACCESS_UPDATED_EVENT } from '../services/quickAccessService';
 import { APP_VERSION } from '../utils/version';
 
 const ITEM_HEIGHT = 80; 
@@ -525,6 +528,24 @@ const Sidebar: React.FC = () => {
   const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
   const [songToEdit, setSongToEdit] = useState<Song | null>(null);
 
+  const [favoritesCount, setFavoritesCount] = useState<number>(() => {
+    try { return getFavorites().length; } catch { return 0; }
+  });
+  const [recentsCount, setRecentsCount] = useState<number>(() => {
+    try { return getRecents().length; } catch { return 0; }
+  });
+
+  useEffect(() => {
+    const handleQuickAccessUpdate = () => {
+      try {
+        setFavoritesCount(getFavorites().length);
+        setRecentsCount(getRecents().length);
+      } catch {}
+    };
+    window.addEventListener(QUICK_ACCESS_UPDATED_EVENT, handleQuickAccessUpdate);
+    return () => window.removeEventListener(QUICK_ACCESS_UPDATED_EVENT, handleQuickAccessUpdate);
+  }, []);
+
   useEffect(() => {
     try {
       const accepted = localStorage.getItem('kings_sword_terms_accepted');
@@ -635,6 +656,11 @@ const Sidebar: React.FC = () => {
 
   const [internalQuery, setInternalQuery] = useState(searchQuery);
   const deferredSearchQuery = useDeferredValue(searchQuery);
+
+  // Synchroniser le champ de recherche local dès que la source (libraryMode) ou searchQuery change
+  useEffect(() => {
+    setInternalQuery(searchQuery);
+  }, [libraryMode, searchQuery]);
   const [showFilters, setShowFilters] = useState(false);
   const [isFooterExpanded, setIsFooterExpanded] = useState(false);
   const [isSynonymFilterExpanded, setIsSynonymFilterExpanded] = useState(true);
@@ -675,7 +701,7 @@ const Sidebar: React.FC = () => {
   }, [
     yearFilter, monthFilter, dayFilter, cityFilter, versionFilter, audioFilter, triggerSearch, 
     isFullTextSearch, showOnlySynonyms, showOnlyQuery, selectedSynonym, includeSynonyms,
-    libraryMode, bibleTestamentFilter, bibleVersion
+    bibleTestamentFilter, bibleVersion
   ]);
 
   useEffect(() => {
@@ -1065,6 +1091,18 @@ const Sidebar: React.FC = () => {
 
         <div className="flex items-center gap-1 shrink-0">
           <button 
+            onClick={() => useAppStore.getState().toggleQuickAccessModal('favorites')} 
+            className="relative w-7 h-7 flex items-center justify-center text-slate-400 hover:text-amber-500 transition-all active:scale-95" 
+            data-tooltip="Favoris et Documents Récents"
+          >
+            <Star className={`w-3.5 h-3.5 ${favoritesCount > 0 ? 'text-amber-500 fill-amber-500/20' : ''}`} />
+            {favoritesCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] flex items-center justify-center bg-amber-500 text-black text-[8px] font-black rounded-full px-0.5 shadow-xs">
+                {favoritesCount > 99 ? '99+' : favoritesCount}
+              </span>
+            )}
+          </button>
+          <button 
             onClick={() => useAppStore.getState().toggleAnnouncementModal()} 
             className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-teal-600 transition-all active:scale-95" 
             data-tooltip="Écrire et Projeter des Annonces"
@@ -1085,77 +1123,86 @@ const Sidebar: React.FC = () => {
 
       {/* Library Mode Switcher */}
       <div className="px-3 pt-2 pb-2 bg-slate-50/80 dark:bg-zinc-950/80 border-b border-slate-200/50 dark:border-slate-800/40 space-y-2">
-        <div className="grid grid-cols-4 p-1 bg-slate-200/60 dark:bg-zinc-900 rounded-xl border border-slate-300/40 dark:border-zinc-800 gap-0.5">
+        <div className="grid grid-cols-4 p-1 bg-slate-200/60 dark:bg-zinc-900 rounded-xl border border-slate-300/40 dark:border-zinc-800 gap-1">
           <button
-            onClick={() => {
-              setLibraryMode('sermons');
-              if (isFullTextSearch && searchResults.length > 0) {
-                useAppStore.getState().setSearchResults([]);
-              }
-            }}
+            onClick={() => setLibraryMode('sermons')}
             data-tooltip="Bibliothèque des Sermons"
-            className={`inline-flex items-center justify-center gap-1.5 py-1.5 px-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200 min-w-0 ${
+            className={`inline-flex items-center justify-center gap-1.5 py-1.5 px-1.5 rounded-lg text-[9.5px] font-black uppercase tracking-wider transition-all duration-200 whitespace-nowrap ${
               libraryMode === 'sermons'
                 ? 'bg-teal-600 text-white shadow-md shadow-teal-600/20'
                 : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
             }`}
           >
             <Library className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate leading-none">Sermons</span>
+            <span className="whitespace-nowrap leading-none">Sermons</span>
           </button>
 
           <button
-            onClick={() => {
-              setLibraryMode('bible');
-              if (isFullTextSearch && searchResults.length > 0) {
-                useAppStore.getState().setSearchResults([]);
-              }
-            }}
+            onClick={() => setLibraryMode('bible')}
             data-tooltip="Sainte Bible (66 Livres)"
-            className={`inline-flex items-center justify-center gap-1.5 py-1.5 px-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200 min-w-0 ${
+            className={`inline-flex items-center justify-center gap-1.5 py-1.5 px-1.5 rounded-lg text-[9.5px] font-black uppercase tracking-wider transition-all duration-200 whitespace-nowrap ${
               libraryMode === 'bible'
                 ? 'bg-teal-600 text-white shadow-md shadow-teal-600/20'
                 : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
             }`}
           >
             <BookOpen className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate leading-none">Bible</span>
+            <span className="whitespace-nowrap leading-none">Bible</span>
           </button>
           
           <button
-            onClick={() => {
-              setLibraryMode('expose');
-              if (isFullTextSearch && searchResults.length > 0) {
-                useAppStore.getState().setSearchResults([]);
-              }
-            }}
+            onClick={() => setLibraryMode('expose')}
             data-tooltip="Exposé des 7 Âges de l'Église"
-            className={`inline-flex items-center justify-center gap-1.5 py-1.5 px-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200 min-w-0 ${
+            className={`inline-flex items-center justify-center gap-1.5 py-1.5 px-1.5 rounded-lg text-[9.5px] font-black uppercase tracking-wider transition-all duration-200 whitespace-nowrap ${
               libraryMode === 'expose'
                 ? 'bg-teal-600 text-white shadow-md shadow-teal-600/20'
                 : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
             }`}
           >
             <BookText className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate leading-none">Exposé</span>
+            <span className="whitespace-nowrap leading-none">Exposé</span>
           </button>
 
           <button
-            onClick={() => {
-              setLibraryMode('songs');
-              if (isFullTextSearch && searchResults.length > 0) {
-                useAppStore.getState().setSearchResults([]);
-              }
-            }}
+            onClick={() => setLibraryMode('songs')}
             data-tooltip="Recueil de Cantiques et Chants"
-            className={`inline-flex items-center justify-center gap-1.5 py-1.5 px-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200 min-w-0 ${
+            className={`inline-flex items-center justify-center gap-1.5 py-1.5 px-1.5 rounded-lg text-[9.5px] font-black uppercase tracking-wider transition-all duration-200 whitespace-nowrap ${
               libraryMode === 'songs'
                 ? 'bg-teal-600 text-white shadow-md shadow-teal-600/20'
                 : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
             }`}
           >
             <Music className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate leading-none">Chants</span>
+            <span className="whitespace-nowrap leading-none">Chants</span>
+          </button>
+        </div>
+
+        {/* Accès Rapide Direct (Favoris & Récents) */}
+        <div className="flex items-center gap-1.5 pt-0.5">
+          <button
+            type="button"
+            onClick={() => useAppStore.getState().toggleQuickAccessModal('favorites')}
+            className="flex-1 flex items-center justify-center gap-1.5 py-1 px-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/25 text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-2xs"
+            data-tooltip="Voir tous vos favoris (sermons, versets, cantiques)"
+          >
+            <Star className="w-3 h-3 fill-amber-500/30 text-amber-600 dark:text-amber-400" />
+            <span>Favoris</span>
+            <span className="bg-amber-500 text-black px-1.5 py-0.2 rounded-full text-[8px] font-black">
+              {favoritesCount}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => useAppStore.getState().toggleQuickAccessModal('recents')}
+            className="flex-1 flex items-center justify-center gap-1.5 py-1 px-2 rounded-lg bg-slate-200/70 dark:bg-zinc-900/90 hover:bg-slate-300/80 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-slate-300/50 dark:border-zinc-800 text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-2xs"
+            data-tooltip="Voir l'historique des éléments projetés"
+          >
+            <Clock className="w-3 h-3 text-teal-600 dark:text-teal-400" />
+            <span>Récents</span>
+            <span className="bg-zinc-400/30 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 px-1.5 py-0.2 rounded-full text-[8px] font-bold">
+              {recentsCount}
+            </span>
           </button>
         </div>
 

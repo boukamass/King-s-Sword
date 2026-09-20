@@ -62,6 +62,16 @@ export interface SearchResult {
   audio_url?: string;
 }
 
+export type LibraryMode = 'sermons' | 'bible' | 'expose' | 'songs';
+
+export interface SourceSearchState {
+  searchQuery: string;
+  searchResults: SearchResult[];
+  isFullTextSearch: boolean;
+  selectedSynonym: string | null;
+  activeSynonyms: string[];
+}
+
 interface AppState {
   sermons: Omit<Sermon, 'text'>[];
   sermonsMap: Map<string, Sermon | Omit<Sermon, 'text'>>;
@@ -71,7 +81,8 @@ interface AppState {
   activeNoteId: string | null;
   contextSermonIds: string[];
   manualContextIds: string[];
-  libraryMode: 'sermons' | 'bible' | 'expose' | 'songs';
+  libraryMode: LibraryMode;
+  sourceSearchStates: Record<LibraryMode, SourceSearchState>;
   songsSortOrder: 'number-asc' | 'number-desc' | 'title-asc' | 'title-desc';
   songLanguageFilter: string | null;
   bibleTestamentFilter: 'ALL' | 'OT' | 'NT';
@@ -112,11 +123,14 @@ interface AppState {
   pendingStudyRequest: string | null;
   jumpToText: string | null;
   jumpToParagraph: number | null;
+  isProjectionOpen: boolean;
   projectionBlackout: boolean;
   isExternalMaskOpen: boolean;
   isBibleModalOpen: boolean;
   isImageModalOpen: boolean;
   isAnnouncementModalOpen: boolean;
+  isQuickAccessModalOpen: boolean;
+  quickAccessInitialTab: 'favorites' | 'recents';
   projectedImage: ProjectedImageMedia | null;
   projectedAnnouncement: Announcement | null;
   projectionBgImage: ProjectedImageMedia | null;
@@ -167,6 +181,8 @@ interface AppState {
   setIsImageModalOpen: (v: boolean) => void;
   toggleAnnouncementModal: () => void;
   setIsAnnouncementModalOpen: (v: boolean) => void;
+  toggleQuickAccessModal: (tab?: 'favorites' | 'recents') => void;
+  setIsQuickAccessModalOpen: (v: boolean, tab?: 'favorites' | 'recents') => void;
   setProjectedAnnouncement: (a: Announcement | null) => void;
   setProjectedImage: (image: ProjectedImageMedia | null) => void;
   setProjectionBgImage: (image: ProjectedImageMedia | null) => void;
@@ -199,6 +215,7 @@ interface AppState {
   updateNote: (id: string, updates: Partial<Note>) => void;
   deleteNote: (id: string) => void;
   addCitationToNote: (noteId: string, citation: Partial<Citation>) => void;
+  removeCitationFromNote: (noteId: string, citationId: string) => void;
   addImageToNote: (noteId: string, image: { url: string; name?: string; caption?: string }) => void;
   removeImageFromNote: (noteId: string, imageId: string) => void;
   reorderNotes: (draggedId: string, targetId: string) => void;
@@ -206,6 +223,7 @@ interface AppState {
   setJumpToText: (text: string | null) => void;
   setJumpToParagraph: (num: number | null) => void;
   updateSermonHighlights: (id: string, highlights: Highlight[]) => void;
+  setIsProjectionOpen: (v: boolean) => void;
   setProjectionBlackout: (v: boolean) => void;
   setExternalMaskOpen: (v: boolean) => void;
   setSidebarWidth: (w: number) => void;
@@ -225,6 +243,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   contextSermonIds: [], 
   manualContextIds: [],
   libraryMode: 'sermons',
+  sourceSearchStates: {
+    sermons: { searchQuery: '', searchResults: [], isFullTextSearch: false, selectedSynonym: null, activeSynonyms: [] },
+    bible: { searchQuery: '', searchResults: [], isFullTextSearch: false, selectedSynonym: null, activeSynonyms: [] },
+    expose: { searchQuery: '', searchResults: [], isFullTextSearch: false, selectedSynonym: null, activeSynonyms: [] },
+    songs: { searchQuery: '', searchResults: [], isFullTextSearch: false, selectedSynonym: null, activeSynonyms: [] },
+  },
   songsSortOrder: 'number-asc',
   songLanguageFilter: null,
   bibleTestamentFilter: 'ALL',
@@ -265,17 +289,20 @@ export const useAppStore = create<AppState>((set, get) => ({
   pendingStudyRequest: null,
   jumpToText: null,
   jumpToParagraph: null,
+  isProjectionOpen: false,
   projectionBlackout: false,
   isExternalMaskOpen: false,
   isBibleModalOpen: false,
   isImageModalOpen: false,
   isAnnouncementModalOpen: false,
+  isQuickAccessModalOpen: false,
+  quickAccessInitialTab: 'favorites',
   projectedImage: null,
   projectedAnnouncement: null,
   projectionBgImage: null,
   mediaImages: [],
   mediaFolders: [],
-  sidebarWidth: 420,
+  sidebarWidth: 400,
   aiWidth: 400,
   notesWidth: 350,
   navigatedFromSearch: false,
@@ -471,7 +498,50 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  setLibraryMode: (mode) => set({ libraryMode: mode, searchResults: [], isSearching: false }),
+  setLibraryMode: (mode) => {
+    const { libraryMode: currentMode, searchQuery, searchResults, isFullTextSearch, selectedSynonym, activeSynonyms, sourceSearchStates } = get();
+    if (currentMode === mode) return;
+
+    // 1. Sauvegarder l'état actuel de recherche pour la source quittée
+    const updatedSourceStates: Record<LibraryMode, SourceSearchState> = {
+      ...sourceSearchStates,
+      [currentMode]: {
+        searchQuery,
+        searchResults,
+        isFullTextSearch,
+        selectedSynonym,
+        activeSynonyms: activeSynonyms || []
+      }
+    };
+
+    // 2. Restaurer l'état propre à la source cible (ou un état vierge par défaut)
+    const targetState: SourceSearchState = updatedSourceStates[mode] || {
+      searchQuery: '',
+      searchResults: [],
+      isFullTextSearch: false,
+      selectedSynonym: null,
+      activeSynonyms: []
+    };
+
+    set({
+      libraryMode: mode,
+      sourceSearchStates: updatedSourceStates,
+      searchQuery: targetState.searchQuery,
+      lastSearchQuery: targetState.searchQuery,
+      searchResults: targetState.searchResults,
+      isFullTextSearch: targetState.isFullTextSearch,
+      selectedSynonym: targetState.selectedSynonym,
+      activeSynonyms: targetState.activeSynonyms,
+      isSearching: false,
+      selectedSermonId: null,
+      activeSermon: null,
+      jumpToText: null,
+      jumpToParagraph: null,
+      selectedBibleVerse: null,
+      navigatedFromSearch: false,
+      navigatedFromNoteId: null
+    });
+  },
   setSongsSortOrder: (order) => set({ songsSortOrder: order }),
   setSongLanguageFilter: (lang) => set({ songLanguageFilter: lang }),
   setBibleTestamentFilter: (filter) => set({ bibleTestamentFilter: filter }),
@@ -501,11 +571,53 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSelectedExposeChapter: (chapter) => set({ selectedExposeChapter: chapter }),
   setSelectedExposeSection: (section) => set({ selectedExposeSection: section }),
 
-  setSearchQuery: (query) => set({ searchQuery: query, lastSearchQuery: query, selectedSynonym: null }),
+  setSearchQuery: (query) => set((state) => {
+    const currentMode = state.libraryMode;
+    const currentSource = state.sourceSearchStates?.[currentMode] || {
+      searchQuery: '',
+      searchResults: [],
+      isFullTextSearch: state.isFullTextSearch,
+      selectedSynonym: null,
+      activeSynonyms: []
+    };
+
+    return {
+      searchQuery: query,
+      lastSearchQuery: query,
+      selectedSynonym: null,
+      sourceSearchStates: {
+        ...state.sourceSearchStates,
+        [currentMode]: {
+          ...currentSource,
+          searchQuery: query,
+          selectedSynonym: null
+        }
+      }
+    };
+  }),
   setSearchMode: (mode) => set({ searchMode: mode, lastSearchMode: mode }),
-  setSearchResults: (results) => set((state) => ({ 
-    searchResults: typeof results === 'function' ? results(state.searchResults) : results 
-  })),
+  setSearchResults: (results) => set((state) => {
+    const currentMode = state.libraryMode;
+    const newResults = typeof results === 'function' ? results(state.searchResults) : results;
+    const currentSource = state.sourceSearchStates?.[currentMode] || {
+      searchQuery: state.searchQuery,
+      searchResults: [],
+      isFullTextSearch: state.isFullTextSearch,
+      selectedSynonym: null,
+      activeSynonyms: []
+    };
+
+    return {
+      searchResults: newResults,
+      sourceSearchStates: {
+        ...state.sourceSearchStates,
+        [currentMode]: {
+          ...currentSource,
+          searchResults: newResults
+        }
+      }
+    };
+  }),
   setIsSearching: (val) => set({ isSearching: val }),
   
   triggerSearch: async () => {
@@ -513,7 +625,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (isSearching || searchQuery.trim().length < 2) return;
     
     // Étape 1 : Mettre à jour l'état de chargement immédiatement pour que React l'affiche
-    set({ isSearching: true, searchResults: [] });
+    set(state => ({
+      isSearching: true,
+      searchResults: [],
+      sourceSearchStates: {
+        ...state.sourceSearchStates,
+        [state.libraryMode]: {
+          ...(state.sourceSearchStates?.[state.libraryMode] || {}),
+          searchResults: []
+        }
+      }
+    }));
 
     // Étape 2 : Micro-délai pour laisser le temps au thread UI de "peindre" le loader
     await new Promise(resolve => setTimeout(resolve, 50));
@@ -532,7 +654,17 @@ export const useAppStore = create<AppState>((set, get) => ({
           version: bibleVersion
         });
         
-        set({ searchResults: results, isSearching: false });
+        set(state => ({
+          searchResults: results,
+          isSearching: false,
+          sourceSearchStates: {
+            ...state.sourceSearchStates,
+            [state.libraryMode]: {
+              ...(state.sourceSearchStates?.[state.libraryMode] || {}),
+              searchResults: results
+            }
+          }
+        }));
         
         if (results.length > 0) {
           const first = results[0];
@@ -549,7 +681,17 @@ export const useAppStore = create<AppState>((set, get) => ({
             get().selectedExposeChapter, 
             get().selectedExposeSection
           );
-          set({ searchResults: results, isSearching: false });
+          set(state => ({
+            searchResults: results,
+            isSearching: false,
+            sourceSearchStates: {
+              ...state.sourceSearchStates,
+              [state.libraryMode]: {
+                ...(state.sourceSearchStates?.[state.libraryMode] || {}),
+                searchResults: results
+              }
+            }
+          }));
           
           if (results.length > 0) {
               const first = results[0];
@@ -565,7 +707,17 @@ export const useAppStore = create<AppState>((set, get) => ({
             searchMode, 
             get().songLanguageFilter
           );
-          set({ searchResults: results, isSearching: false });
+          set(state => ({
+            searchResults: results,
+            isSearching: false,
+            sourceSearchStates: {
+              ...state.sourceSearchStates,
+              [state.libraryMode]: {
+                ...(state.sourceSearchStates?.[state.libraryMode] || {}),
+                searchResults: results
+              }
+            }
+          }));
           
           if (results.length > 0) {
               const first = results[0];
@@ -582,7 +734,17 @@ export const useAppStore = create<AppState>((set, get) => ({
           offset: 0
         });
         
-        set({ searchResults: results, isSearching: false });
+        set(state => ({
+          searchResults: results,
+          isSearching: false,
+          sourceSearchStates: {
+            ...state.sourceSearchStates,
+            [state.libraryMode]: {
+              ...(state.sourceSearchStates?.[state.libraryMode] || {}),
+              searchResults: results
+            }
+          }
+        }));
         
         if (results.length > 0) {
           const first = results[0];
@@ -599,7 +761,31 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  setIsFullTextSearch: (active) => set({ isFullTextSearch: active, searchResults: [], selectedSynonym: null }),
+  setIsFullTextSearch: (active) => set((state) => {
+    const currentMode = state.libraryMode;
+    const currentSource = state.sourceSearchStates?.[currentMode] || {
+      searchQuery: state.searchQuery,
+      searchResults: [],
+      isFullTextSearch: false,
+      selectedSynonym: null,
+      activeSynonyms: []
+    };
+
+    return {
+      isFullTextSearch: active,
+      searchResults: [],
+      selectedSynonym: null,
+      sourceSearchStates: {
+        ...state.sourceSearchStates,
+        [currentMode]: {
+          ...currentSource,
+          isFullTextSearch: active,
+          searchResults: [],
+          selectedSynonym: null
+        }
+      }
+    };
+  }),
   setIncludeSynonyms: (active) => set({ includeSynonyms: active, showOnlySynonyms: false, showOnlyQuery: false, selectedSynonym: null }),
   setShowOnlySynonyms: (active) => set({ showOnlySynonyms: active, showOnlyQuery: active ? false : get().showOnlyQuery, selectedSynonym: null }),
   setShowOnlyQuery: (active) => set({ showOnlyQuery: active, showOnlySynonyms: active ? false : get().showOnlySynonyms, selectedSynonym: null }),
@@ -611,7 +797,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   removeNotification: (id) => set(state => ({
     notifications: state.notifications.filter(n => n.id !== id)
   })),
-  setActiveNoteId: (id) => set({ activeNoteId: id, ...(id ? { sidebarOpen: false } : {}) }),
+  setActiveNoteId: (id) => set({ activeNoteId: id, ...(id ? { sidebarOpen: false, notesOpen: false, aiOpen: false } : {}) }),
   toggleSidebar: () => set(s => ({ sidebarOpen: !s.sidebarOpen })),
   toggleAI: () => set(s => ({ aiOpen: !s.aiOpen })),
   toggleNotes: () => set(s => {
@@ -683,23 +869,36 @@ export const useAppStore = create<AppState>((set, get) => ({
     const randomColor = palette[Math.floor(Math.random() * palette.length)];
     const now = new Date().toISOString();
     
+    // Deduplicate initial citations if provided
+    let rawCitations: Citation[] = partial.citations || [];
+    const dedupedCitations: Citation[] = [];
+    const seenKeys = new Set<string>();
+    for (const c of rawCitations) {
+      const key = `${c.sermon_id || ''}_${c.paragraph_index ?? ''}_${(c.quoted_text || '').trim().toLowerCase()}`;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        dedupedCitations.push(c);
+      }
+    }
+
     const newNote: Note = {
       id: generateUUID(),
       title: partial.title || 'Nouvelle Note',
       content: partial.content || '',
-      citations: partial.citations || [],
       creationDate: now,
       date: now,
       updatedAt: now,
       order: 0,
       color: partial.color || randomColor,
-      ...partial
+      ...partial,
+      citations: dedupedCitations
     };
     set(state => ({ 
       notes: sortNotesByRecency([newNote, ...state.notes]), 
       activeNoteId: newNote.id,
-      notesOpen: true,
-      sidebarOpen: false
+      notesOpen: false,
+      sidebarOpen: false,
+      aiOpen: false
     }));
     await saveNoteToDB(newNote);
   },
@@ -729,6 +928,26 @@ export const useAppStore = create<AppState>((set, get) => ({
     const noteIndex = notes.findIndex(n => n.id === noteId);
     if (noteIndex === -1) return;
 
+    const targetNote = notes[noteIndex];
+    const existingCitations = targetNote.citations || [];
+
+    // Vérification de doublons stricte
+    const isDuplicate = existingCitations.some(c => {
+      const sameSermon = c.sermon_id && partialCitation.sermon_id && c.sermon_id === partialCitation.sermon_id;
+      const sameParagraph = c.paragraph_index !== undefined && partialCitation.paragraph_index !== undefined && c.paragraph_index === partialCitation.paragraph_index;
+      const sameText = c.quoted_text && partialCitation.quoted_text && c.quoted_text.trim().toLowerCase() === partialCitation.quoted_text.trim().toLowerCase();
+
+      if (sameSermon && sameParagraph) return true;
+      if (sameSermon && sameText) return true;
+      if (sameText) return true;
+      return false;
+    });
+
+    if (isDuplicate) {
+      get().addNotification("Cette référence existe déjà dans la note.", "info");
+      return;
+    }
+
     const now = new Date().toISOString();
     const citation: Citation = {
       id: generateUUID(),
@@ -744,13 +963,35 @@ export const useAppStore = create<AppState>((set, get) => ({
     updatedNotes[noteIndex] = {
       ...updatedNotes[noteIndex],
       updatedAt: now,
-      citations: [...updatedNotes[noteIndex].citations, citation]
+      citations: [...existingCitations, citation]
+    };
+
+    const sorted = sortNotesByRecency(updatedNotes);
+    set({ notes: sorted });
+    const updatedNote = sorted.find(n => n.id === noteId);
+    if (updatedNote) await saveNoteToDB(updatedNote);
+    get().addNotification("Référence ajoutée avec succès.", "success");
+  },
+
+  removeCitationFromNote: async (noteId, citationId) => {
+    const { notes } = get();
+    const noteIndex = notes.findIndex(n => n.id === noteId);
+    if (noteIndex === -1) return;
+
+    const now = new Date().toISOString();
+    const updatedNotes = [...notes];
+    const currentCitations = updatedNotes[noteIndex].citations || [];
+    updatedNotes[noteIndex] = {
+      ...updatedNotes[noteIndex],
+      updatedAt: now,
+      citations: currentCitations.filter(c => c.id !== citationId)
     };
 
     const sorted = sortNotesByRecency(updatedNotes);
     set({ notes: sorted });
     const targetNote = sorted.find(n => n.id === noteId);
     if (targetNote) await saveNoteToDB(targetNote);
+    get().addNotification("Référence supprimée de la note.", "success");
   },
 
   addImageToNote: async (noteId, imageObj) => {
@@ -841,12 +1082,21 @@ export const useAppStore = create<AppState>((set, get) => ({
     };
   }),
 
+  setIsProjectionOpen: (v) => set({ isProjectionOpen: v }),
   setProjectionBlackout: (v) => set({ projectionBlackout: v }),
   setExternalMaskOpen: (v) => set({ isExternalMaskOpen: v }),
   toggleImageModal: () => set(s => ({ isImageModalOpen: !s.isImageModalOpen })),
   setIsImageModalOpen: (v) => set({ isImageModalOpen: v }),
   toggleAnnouncementModal: () => set(s => ({ isAnnouncementModalOpen: !s.isAnnouncementModalOpen })),
   setIsAnnouncementModalOpen: (v) => set({ isAnnouncementModalOpen: v }),
+  toggleQuickAccessModal: (tab) => set(s => ({ 
+    isQuickAccessModalOpen: !s.isQuickAccessModalOpen,
+    quickAccessInitialTab: tab || s.quickAccessInitialTab 
+  })),
+  setIsQuickAccessModalOpen: (v, tab) => set(s => ({ 
+    isQuickAccessModalOpen: v,
+    quickAccessInitialTab: tab || s.quickAccessInitialTab 
+  })),
   setProjectedAnnouncement: (a) => set({ projectedAnnouncement: a }),
   setProjectedImage: (image) => set({ projectedImage: image }),
   setProjectionBgImage: (image) => set({ projectionBgImage: image }),

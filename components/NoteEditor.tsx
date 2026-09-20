@@ -62,6 +62,7 @@ const NoteEditor: React.FC = () => {
         addNotification,
         addImageToNote,
         removeImageFromNote,
+        removeCitationFromNote,
         setSidebarOpen,
     } = useAppStore();
 
@@ -223,33 +224,25 @@ const NoteEditor: React.FC = () => {
             let y = margin;
             
             // Header
+            const cleanTitle = cleanPdfText(processedNote.title);
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(10);
             doc.setTextColor(13, 148, 136);
-            doc.text("KING'S SWORD  |  JOURNAL D'ÉTUDE & NOTES CHRONIQUES", margin, y);
+            doc.text(`KING'S SWORD  |  ${cleanTitle}`, margin, y);
             y += 8;
 
             doc.setDrawColor(13, 148, 136);
             doc.line(margin, y, pageWidth - margin, y);
             y += 12;
 
-            // Title
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(18);
-            doc.setTextColor(15, 23, 42);
-            const cleanTitle = cleanPdfText(processedNote.title);
-            const titleLines = doc.splitTextToSize(cleanTitle, maxLineWidth);
-            doc.text(titleLines, margin, y);
-            y += titleLines.length * 9 + 6;
-
-            // Metadata
+            // Metadata (Date uniquement)
             doc.setFont('helvetica', 'italic');
             doc.setFontSize(9);
             doc.setTextColor(100, 116, 139);
             const formattedDate = note.date 
               ? new Date(note.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
               : new Date().toLocaleDateString('fr-FR');
-            doc.text(`Date : ${formattedDate}   •   Sources référencées : ${processedNote.sources.length}`, margin, y);
+            doc.text(`Date : ${formattedDate}`, margin, y);
             y += 14;
 
             // 1. Contenu principal
@@ -341,7 +334,7 @@ const NoteEditor: React.FC = () => {
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(12);
                 doc.setTextColor(13, 148, 136);
-                doc.text("SOURCES & RÉFÉRENCES", margin, y);
+                doc.text(`SOURCES & RÉFÉRENCES (${processedNote.sources.length})`, margin, y);
                 y += 8;
 
                 doc.setFont('helvetica', 'normal');
@@ -680,9 +673,19 @@ const NoteEditor: React.FC = () => {
                                   <span>Citations Bibliques</span>
                                 </h4>
                                 {processedNote.scriptureCitations.map((sc, idx) => (
-                                  <div key={idx} className="bg-white dark:bg-zinc-900 border border-teal-600/20 dark:border-teal-900/30 rounded-2xl p-6 shadow-xs relative">
+                                  <div key={idx} className="bg-white dark:bg-zinc-900 border border-teal-600/20 dark:border-teal-900/30 rounded-2xl p-6 shadow-xs relative group">
                                     <Quote className="absolute -left-1 -top-1 w-10 h-10 text-teal-600/10 rotate-12" />
-                                    <blockquote className="text-zinc-800 dark:text-zinc-200 italic serif-text text-base leading-relaxed mb-3">
+                                    {sc.citationId && (
+                                      <button
+                                        onClick={() => removeCitationFromNote(note.id, sc.citationId)}
+                                        data-tooltip="Supprimer cette référence"
+                                        data-tooltip-icon="trash"
+                                        className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-all cursor-pointer opacity-80 hover:opacity-100 z-10"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    )}
+                                    <blockquote className="text-zinc-800 dark:text-zinc-200 italic serif-text text-base leading-relaxed mb-3 pr-8">
                                       « {sc.quote} »
                                     </blockquote>
                                     <div className="flex justify-end items-center gap-2">
@@ -708,8 +711,18 @@ const NoteEditor: React.FC = () => {
                                   <span>Citations d'Enseignements</span>
                                 </h4>
                                 {processedNote.teachingCitations.map((tc, idx) => (
-                                  <div key={idx} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-xs relative">
-                                    <blockquote className="text-zinc-800 dark:text-zinc-200 italic serif-text text-base leading-relaxed mb-3">
+                                  <div key={idx} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-xs relative group">
+                                    {tc.citationId && (
+                                      <button
+                                        onClick={() => removeCitationFromNote(note.id, tc.citationId)}
+                                        data-tooltip="Supprimer cette référence"
+                                        data-tooltip-icon="trash"
+                                        className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-all cursor-pointer opacity-80 hover:opacity-100 z-10"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    )}
+                                    <blockquote className="text-zinc-800 dark:text-zinc-200 italic serif-text text-base leading-relaxed mb-3 pr-8">
                                       « {tc.quote} »
                                     </blockquote>
                                     <div className="flex justify-end items-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-400">
@@ -749,15 +762,14 @@ const NoteEditor: React.FC = () => {
 
             {/* Zone dédiée à l'impression (Imprimante / window.print) */}
             <div id="printable-note-container" className="hidden print:block p-8 bg-white text-black font-sans leading-relaxed">
-                <div className="border-b-2 border-teal-700 pb-3 mb-6 flex justify-between items-center">
-                    <div>
-                        <h1 className="text-xl font-bold uppercase text-teal-800">King's Sword</h1>
-                        <p className="text-xs text-slate-500 uppercase tracking-widest">Document d'Étude & Notes Chroniques</p>
-                    </div>
-                    <span className="text-xs text-slate-400">{new Date(note.date || note.creationDate).toLocaleDateString()}</span>
+                <div className="border-b-2 border-teal-700 pb-3 mb-6">
+                    <h1 className="text-xl font-bold uppercase text-teal-800">
+                        KING'S SWORD <span className="font-normal text-slate-400 mx-1.5">|</span> {processedNote.title}
+                    </h1>
+                    <p className="text-xs text-slate-500 italic mt-1">
+                        Date : {note.date ? new Date(note.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('fr-FR')}
+                    </p>
                 </div>
-
-                <h2 className="text-2xl font-bold mb-4 uppercase text-slate-900">{processedNote.title}</h2>
 
                 {processedNote.contentParagraphs.length > 0 && (
                     <div className="mb-8 space-y-3">
@@ -812,7 +824,7 @@ const NoteEditor: React.FC = () => {
 
                 {processedNote.sources.length > 0 && (
                     <div className="mt-8 pt-4 border-t border-slate-300 page-break-inside-avoid">
-                        <h3 className="text-sm font-bold uppercase text-slate-900 mb-2">Sources & Références</h3>
+                        <h3 className="text-sm font-bold uppercase text-slate-900 mb-2">Sources & Références ({processedNote.sources.length})</h3>
                         <ul className="space-y-1 text-xs text-slate-700">
                             {processedNote.sources.map((src) => (
                                 <li key={src.index}>
