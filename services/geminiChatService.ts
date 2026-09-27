@@ -25,7 +25,6 @@ export interface GeminiResponse {
 export interface AskGeminiChatOptions {
   mode?: 'auto-rag' | 'dock';
   retrievedParagraphs?: RetrievedParagraph[];
-  disableWebGrounding?: boolean;
 }
 
 /**
@@ -184,15 +183,17 @@ export const testGeminiApiKey = async (
   }
 };
 
-const callWithRetry = async (fn: () => Promise<any>, maxRetries = 2, delay = 2000) => {
+const callWithRetry = async (fn: () => Promise<any>, maxRetries = 1, delay = 1500) => {
   for (let i = 0; i <= maxRetries; i++) {
     try {
       return await fn();
     } catch (error: any) {
       const classified = classifyGeminiError(error);
-      if (classified.type === 'API_KEY_INVALID' || classified.type === 'QUOTA_EXHAUSTED' || classified.type === 'PERMISSION_DENIED' || classified.type === 'MODEL_UNAVAILABLE') {
+      // Erreurs permanentes ne nécessitant pas de retry
+      if (classified.type === 'API_KEY_INVALID' || classified.type === 'PERMISSION_DENIED' || classified.type === 'MODEL_UNAVAILABLE') {
         throw error;
       }
+      // Pour les erreurs de saturation temporaire (429 rate-limit ou 503 affluence), patienter brièvement et retenter 1 fois
       if (i < maxRetries) {
         await new Promise(resolve => setTimeout(resolve, delay));
         delay *= 2;
@@ -235,7 +236,7 @@ DIRECTIVES STRICTES DE RÉPONSE FONDÉE EXCLUSIVEMENT SUR LES SOURCES FOURNIES D
    « Les documents disponibles dans la base documentaire de l'application ne contiennent pas d'informations suffisantes pour répondre à cette question. »
 6. Regroupe toujours en fin de réponse une section "### Sources consultées" listant clairement les sermons et paragraphes cités.`;
 
-        userPromptWithContext = `${contextText.substring(0, 80000)}
+        userPromptWithContext = `${contextText.substring(0, 25000)}
 
 ============================================================
 QUESTION DU CHERCHEUR :
@@ -252,7 +253,7 @@ DIRECTIVES STRICTES DE RÉPONSE FONDÉE EXCLUSIVEMENT SUR LES SOURCES DE L'APPLI
 
         userPromptWithContext = `DOCUMENTS SOURCES FOURNIS DANS L'APPLICATION (Dock IA / Sermons actifs) :
 ============================================================
-${contextText.substring(0, 80000)}
+${contextText.substring(0, 25000)}
 ============================================================
 
 CONSIGNES :
@@ -264,11 +265,17 @@ QUESTION DU CHERCHEUR :
 "${prompt}"`;
       }
 
-      const contents = [
-        ...history.slice(-4).map(h => ({ 
+      // Nettoyer et alléger l'historique pour ne pas gaspiller de tokens
+      const cleanHistory = history
+        .filter(h => !h.content.startsWith('❌') && !h.content.startsWith('> ⏱️') && !h.content.startsWith('> ⚠️'))
+        .slice(-2)
+        .map(h => ({ 
           role: h.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: h.content }]
-        })),
+          parts: [{ text: h.content.substring(0, 500) }]
+        }));
+
+      const contents = [
+        ...cleanHistory,
         {
           role: 'user',
           parts: [{ text: userPromptWithContext }]
@@ -309,6 +316,38 @@ QUESTION DU CHERCHEUR :
       };
     } catch (error: any) {
       const classified = classifyGeminiError(error);
+
+      // Si le quota Google est temporairement saturé ou que les serveurs sont occupés,
+      // mais que le moteur RAG local a déjà trouvé les extraits exacts des sermons :
+      // On affiche directement ces extraits locaux à l'utilisateur pour ne pas bloquer son étude !
+      if ((classified.type === 'QUOTA_EXHAUSTED' || classified.type === 'SERVICE_UNAVAILABLE') && options.retrievedParagraphs && options.retrievedParagraphs.length > 0) {
+        let fallbackText = `> ⏱️ **Information Quota Google AI Studio** : *La limite de requêtes par minute de votre clé gratuite est temporairement atteinte. Pour ne pas interrompre votre étude, voici les extraits exacts sélectionnés directement dans vos sermons locaux pour votre question :*\n\n`;
+
+        options.retrievedParagraphs.forEach((p, idx) => {
+          fallbackText += `### Extrait ${idx + 1} : *${p.title}* (${p.date || 'Non daté'}) — §${p.paragraphIndex}\n`;
+          fallbackText += `> « ${p.content} » [Réf: ${p.sermonId}, Para. ${p.paragraphIndex}]\n\n`;
+        });
+
+        fallbackText += `\n---\n*💡 Astuce : Dès que la minute s'écoule, vous pouvez renvoyer votre question pour obtenir une exégèse rédigée complète par Gemini.*`;
+
+        const sources: GeminiSource[] = options.retrievedParagraphs.map(p => ({
+          title: `${p.title} (${p.date || 'Non daté'}) — §${p.paragraphIndex}`,
+          uri: `sermon://${p.sermonId}/${p.paragraphIndex}`,
+          sermonId: p.sermonId,
+          paragraphIndex: p.paragraphIndex
+        }));
+
+        return {
+          text: fallbackText,
+          sources,
+          retrievedParagraphs: options.retrievedParagraphs,
+          engineUsed: 'local_fallback',
+          errorDetails: {
+            type: classified.type,
+            message: classified.userMessage
+          }
+        };
+      }
 
       if (classified.type === 'API_KEY_INVALID' || classified.type === 'PERMISSION_DENIED' || classified.type === 'QUOTA_EXHAUSTED') {
         return {

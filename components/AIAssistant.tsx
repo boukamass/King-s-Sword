@@ -313,11 +313,10 @@ const AIAssistant: React.FC = () => {
 
         const formattedContext = formatRagContextForGemini(ragResult.paragraphs, msg);
 
-        // Appel à Gemini avec désactivation du web grounding pour ne pas mélanger des sources externes avec les sermons
+        // Appel direct RAG à Gemini basé exclusivement sur les sermons internes
         const { text, sources } = await askGeminiChat(msg, formattedContext, history, {
           mode: 'auto-rag',
-          retrievedParagraphs: ragResult.paragraphs,
-          disableWebGrounding: true
+          retrievedParagraphs: ragResult.paragraphs
         });
 
         const newMessage: ChatMessageWithSources = { 
