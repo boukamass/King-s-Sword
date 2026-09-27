@@ -96,6 +96,7 @@ interface AppState {
   selectedExposeSection: string | null;
   sidebarOpen: boolean;
   aiOpen: boolean;
+  assistantMode: 'auto-rag' | 'dock';
   notesOpen: boolean;
   isLoading: boolean;
   isSearching: boolean;
@@ -198,6 +199,7 @@ interface AppState {
   setImageFolder: (imageId: string, folderId: string | undefined) => Promise<void>;
   setSidebarOpen: (v: boolean) => void;
   setAiOpen: (v: boolean) => void;
+  setAssistantMode: (mode: 'auto-rag' | 'dock') => void;
   setNotesOpen: (v: boolean) => void;
   setCityFilter: (city: string | null) => void;
   setYearFilter: (year: string | null) => void;
@@ -262,6 +264,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectedExposeSection: null,
   sidebarOpen: true,
   aiOpen: false,
+  assistantMode: 'auto-rag',
   notesOpen: false,
   isLoading: true,
   isSearching: false,
@@ -287,7 +290,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   fontSize: 20,
   theme: 'light',
   notifications: [],
-  chatHistory: {},
+  chatHistory: (() => {
+    try {
+      const raw = localStorage.getItem('kings_sword_ai_chat_history_v1');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+    } catch {}
+    return {};
+  })(),
   pendingStudyRequest: null,
   jumpToText: null,
   jumpToParagraph: null,
@@ -818,6 +830,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setBibleModalOpen: (v) => set({ isBibleModalOpen: v }),
   setSidebarOpen: (v) => set({ sidebarOpen: v }),
   setAiOpen: (v) => set({ aiOpen: v }),
+  setAssistantMode: (mode) => set({ assistantMode: mode }),
   setNotesOpen: (v) => set({ notesOpen: v, ...(v ? { sidebarOpen: false } : {}) }),
   setCityFilter: (f) => set({ cityFilter: f }),
   setYearFilter: (f) => set({ yearFilter: f }),
@@ -843,11 +856,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   
   addChatMessage: (key, message) => set(state => {
     const history = state.chatHistory[key] || [];
+    const newChatHistory = {
+      ...state.chatHistory,
+      [key]: [...history, message]
+    };
+    try {
+      localStorage.setItem('kings_sword_ai_chat_history_v1', JSON.stringify(newChatHistory));
+    } catch {}
     return {
-      chatHistory: {
-        ...state.chatHistory,
-        [key]: [...history, message]
-      }
+      chatHistory: newChatHistory
     };
   }),
 
@@ -863,11 +880,23 @@ export const useAppStore = create<AppState>((set, get) => ({
       newManual = isManual ? [] : [id];
     }
     
-    return { manualContextIds: newManual, contextSermonIds: newManual };
+    const isAdding = !isManual;
+    return { 
+      manualContextIds: newManual, 
+      contextSermonIds: newManual,
+      // Ouvre automatiquement l'Assistant IA et bascule sur le Dock IA dès qu'une ressource est ajoutée
+      ...(isAdding ? { aiOpen: true, assistantMode: 'dock' } : {})
+    };
   }),
 
   setManualContextIds: (ids) => set(s => {
-    return { manualContextIds: ids, contextSermonIds: ids };
+    const isAdding = ids.length > s.manualContextIds.length;
+    return { 
+      manualContextIds: ids, 
+      contextSermonIds: ids,
+      // Ouvre automatiquement l'Assistant IA et bascule sur le Dock IA dès qu'une ressource est ajoutée
+      ...(isAdding ? { aiOpen: true, assistantMode: 'dock' } : {})
+    };
   }),
 
   clearContextSermons: () => set(s => {

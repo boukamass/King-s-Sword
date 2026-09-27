@@ -2076,27 +2076,6 @@ const Reader: React.FC = () => {
               isFullscreen={isOSFullscreen} 
               baseFontSize={fontSize} 
             />
-            <ActionButton 
-              onClick={() => {
-                if (!activeSermon?.id) {
-                  addNotification("Aucun document ouvert à ajouter au dock IA", "info");
-                  return;
-                }
-                toggleContextSermon(activeSermon.id, true);
-                addNotification(
-                  isCurrentInDock 
-                    ? "Document retiré du dock IA" 
-                    : "Document ajouté au dock IA", 
-                  "success"
-                );
-              }} 
-              icon={Sparkles} 
-              tooltip={isCurrentInDock ? "Retirer ce document du dock IA" : "Ajouter ce document au dock IA"} 
-              active={isCurrentInDock}
-              special={isCurrentInDock}
-              isFullscreen={isOSFullscreen} 
-              baseFontSize={fontSize} 
-            />
             {/* Bouton Favori Document */}
             <ActionButton 
               onClick={handleToggleDocFav} 
@@ -2127,6 +2106,28 @@ const Reader: React.FC = () => {
                 baseFontSize={fontSize} 
               />
             )}
+            {/* Bouton Assistant IA positionné juste avant l'icône Audio */}
+            <ActionButton 
+              onClick={() => {
+                if (!activeSermon?.id) {
+                  addNotification("Aucun document ouvert à ajouter à l'assistant IA", "info");
+                  return;
+                }
+                toggleContextSermon(activeSermon.id, true);
+                addNotification(
+                  isCurrentInDock 
+                    ? "Document retiré de l'assistant IA" 
+                    : "Document ajouté à l'assistant IA (Panneau ouvert)", 
+                  "success"
+                );
+              }} 
+              icon={Sparkles} 
+              tooltip={isCurrentInDock ? "Retirer ce document de l'assistant IA" : "Ajouter ce document à l'assistant IA"} 
+              active={isCurrentInDock}
+              special={isCurrentInDock}
+              isFullscreen={isOSFullscreen} 
+              baseFontSize={fontSize} 
+            />
             {sermon.audio_url && (
               <ActionButton 
                 onClick={togglePlay} 
