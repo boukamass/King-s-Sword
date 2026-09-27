@@ -181,6 +181,7 @@ const webSearchFallback = async (params: {
           sermonId: s.id,
           paragraphIndex: i + 1,
           snippet: snippetHighlighted,
+          content: content,
           title: s.title,
           date: s.date,
           city: s.city,

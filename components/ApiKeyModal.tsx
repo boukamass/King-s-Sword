@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Key, Sparkles, Check, ExternalLink, X, ShieldAlert, Cpu } from 'lucide-react';
-import { getGeminiApiKey, setGeminiApiKey } from '../utils/apiKeyHelper';
+import { Key, Sparkles, Check, ExternalLink, X, CheckCircle2, AlertCircle, Loader2, Wifi, WifiOff } from 'lucide-react';
+import { getGeminiApiKey, setGeminiApiKey, cleanApiKey } from '../utils/apiKeyHelper';
+import { testGeminiApiKey } from '../services/geminiChatService';
 
 interface ApiKeyModalProps {
   isOpen: boolean;
@@ -12,6 +13,8 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [isSaved, setIsSaved] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string; errorType?: string } | null>(null);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -29,23 +32,45 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
       const existing = getGeminiApiKey() || '';
       setApiKeyInput(existing);
       setIsSaved(false);
+      setTestResult(null);
+      setIsTesting(false);
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const handleSave = () => {
-    setGeminiApiKey(apiKeyInput);
-    setIsSaved(true);
-    if (onSaved) onSaved();
-    setTimeout(() => {
-      onClose();
-    }, 800);
+  // Déclenché STRICTEMENT sur clic utilisateur : aucun appel automatique
+  const handleTestConnection = async () => {
+    const cleaned = cleanApiKey(apiKeyInput);
+    if (!cleaned) {
+      setTestResult({
+        success: false,
+        message: "Veuillez coller votre clé API avant de lancer le test.",
+        errorType: "EMPTY"
+      });
+      return;
+    }
+
+    setIsTesting(true);
+    setTestResult(null);
+
+    try {
+      const result = await testGeminiApiKey(cleaned);
+      setTestResult(result);
+    } catch (e: any) {
+      setTestResult({
+        success: false,
+        message: "Une erreur inattendue est survenue lors du test de connexion.",
+        errorType: "UNKNOWN"
+      });
+    } finally {
+      setIsTesting(false);
+    }
   };
 
-  const handleClear = () => {
-    setApiKeyInput('');
-    setGeminiApiKey('');
+  const handleSave = async () => {
+    const cleaned = cleanApiKey(apiKeyInput);
+    await setGeminiApiKey(cleaned);
     setIsSaved(true);
     if (onSaved) onSaved();
     setTimeout(() => {
@@ -53,10 +78,21 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
     }, 600);
   };
 
+  const handleClear = async () => {
+    setApiKeyInput('');
+    await setGeminiApiKey('');
+    setTestResult(null);
+    setIsSaved(true);
+    if (onSaved) onSaved();
+    setTimeout(() => {
+      onClose();
+    }, 500);
+  };
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
       <div 
-        className="w-full max-w-md bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+        className="w-full max-w-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -73,39 +109,39 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
           <button 
             onClick={onClose}
             data-tooltip="Fermer la fenêtre"
-            className="w-8 h-8 rounded-xl flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-5">
+        <div className="p-6 space-y-4">
           {/* Status Network Badge */}
           <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800/50 text-xs">
-            <span className="text-zinc-600 dark:text-zinc-400 font-medium">État de la connexion :</span>
+            <span className="text-zinc-600 dark:text-zinc-400 font-medium">État de la machine :</span>
             {isOnline ? (
               <span className="inline-flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                En Ligne (Online)
+                <Wifi className="w-3.5 h-3.5" />
+                En Ligne (Prêt pour Gemini)
               </span>
             ) : (
               <span className="inline-flex items-center gap-1.5 font-bold text-amber-600 dark:text-amber-400">
-                <span className="w-2 h-2 rounded-full bg-amber-500" />
-                Hors-Ligne (Offline)
+                <WifiOff className="w-3.5 h-3.5" />
+                Hors-Ligne (Mode local)
               </span>
             )}
           </div>
 
           <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
-            Pour utiliser les fonctionnalités IA approfondies avec votre propre compte Google gratuit :
+            Pour activer la recherche intelligente et l'analyse exégétique avec votre compte gratuit Google AI Studio :
           </p>
 
           <a 
             href="https://aistudio.google.com/app/apikey" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="flex items-center justify-between px-4 py-3 bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800/60 rounded-2xl text-teal-800 dark:text-teal-200 hover:bg-teal-100/70 transition-all group"
+            className="flex items-center justify-between px-4 py-3 bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800/60 rounded-2xl text-teal-800 dark:text-teal-200 hover:bg-teal-100/70 transition-all group cursor-pointer"
           >
             <div className="flex items-center gap-2.5">
               <Key className="w-4 h-4 text-teal-600 dark:text-teal-400" />
@@ -118,35 +154,86 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
             <label className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">
               2. Collez votre clé API ici
             </label>
-            <input 
-              type="password"
-              placeholder="AIzaSy..."
-              value={apiKeyInput}
-              onChange={(e) => setApiKeyInput(e.target.value)}
-              className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-mono text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 transition-all"
-            />
+            <div className="relative">
+              <input 
+                type="password"
+                placeholder="AIzaSy..."
+                value={apiKeyInput}
+                onChange={(e) => {
+                  setApiKeyInput(e.target.value);
+                  setTestResult(null);
+                }}
+                className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-mono text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 transition-all"
+              />
+            </div>
             <p className="text-[10px] text-zinc-400">
-              🔒 Votre clé reste strictement enregistrée sur votre machine et n'est jamais transmise à des tiers.
+              🔒 Votre clé est stockée uniquement en local sur votre appareil (chiffrée sous Electron). Elle n'est jamais transmise à nos serveurs.
             </p>
           </div>
 
-          <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800/60 flex items-center justify-between gap-3">
+          {/* Bouton de test et Résultat du test */}
+          <div className="space-y-2 pt-1">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleTestConnection}
+                disabled={isTesting || !apiKeyInput.trim()}
+                className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700 disabled:opacity-40 transition-all cursor-pointer"
+              >
+                {isTesting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-teal-600" />
+                    <span>Vérification avec Google...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+                    <span>Tester la connexion</span>
+                  </>
+                )}
+              </button>
+              <span className="text-[10px] text-zinc-400">
+                (Envoie une micro-requête de test sans entamer votre quota)
+              </span>
+            </div>
+
+            {testResult && (
+              <div className={`p-3 rounded-2xl border text-xs flex items-start gap-2.5 animate-in fade-in duration-200 ${
+                testResult.success
+                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+                  : 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200'
+              }`}>
+                {testResult.success ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                )}
+                <div className="flex-1 text-[11px] leading-relaxed">
+                  <p className="font-bold">{testResult.success ? "Test Réussi" : "Échec du test"}</p>
+                  <p className="mt-0.5">{testResult.message}</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Footer Actions */}
+          <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/60 flex items-center justify-between gap-3">
             <button 
               onClick={handleClear}
-              className="px-4 py-2 rounded-xl text-xs font-bold text-zinc-500 hover:text-red-500 transition-colors"
+              className="px-4 py-2 rounded-xl text-xs font-bold text-zinc-500 hover:text-red-500 transition-colors cursor-pointer"
             >
-              Effacer
+              Effacer la clé
             </button>
             <div className="flex items-center gap-2">
               <button 
                 onClick={onClose}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
+                className="px-4 py-2 rounded-xl text-xs font-bold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all cursor-pointer"
               >
-                Annuler
+                Fermer
               </button>
               <button 
                 onClick={handleSave}
-                className="flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white shadow-lg shadow-teal-600/20 active:scale-95 transition-all"
+                className="flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white shadow-lg shadow-teal-600/20 active:scale-95 transition-all cursor-pointer"
               >
                 {isSaved ? (
                   <>

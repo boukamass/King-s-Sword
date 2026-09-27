@@ -1,8 +1,8 @@
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useAppStore } from '../store';
-import { askGeminiChat } from '../services/geminiChatService';
+import { askGeminiChat, GeminiSource } from '../services/geminiChatService';
 import { analyzeSelectionContext } from '../services/studyService';
+import { retrieveRelevantSermonPassages, formatRagContextForGemini, RetrievedParagraph } from '../services/sermonRagService';
 import { getSermonById } from '../services/db';
 import { getBibleChapterSermon, getBibleBookSermon } from '../services/bibleService';
 import { BIBLE_BOOKS_META } from '../services/bibleMetadata';
@@ -22,23 +22,24 @@ import {
   BookOpen,
   Trash2,
   Layers,
-  MinusCircle,
-  Hash,
   Library,
   BookText,
   Music,
-  Zap,
   Globe,
   ExternalLink,
-  ShieldCheck,
   Key,
   Wifi,
-  WifiOff
+  WifiOff,
+  Search,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 
 interface ChatMessageWithSources extends ChatMessage {
-  sources?: { title: string; uri: string }[];
+  sources?: GeminiSource[];
 }
+
+export type AssistantMode = 'auto-rag' | 'dock';
 
 const AIAssistant: React.FC = () => {
   const { 
@@ -65,8 +66,10 @@ const AIAssistant: React.FC = () => {
   const lang = languageFilter === 'Anglais' ? 'en' : 'fr';
   const t = translations[lang];
 
+  const [assistantMode, setAssistantMode] = useState<AssistantMode>('auto-rag');
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [typingStatus, setTypingStatus] = useState<string>("Recherche dans les sermons...");
   const [noteSelectorData, setNoteSelectorData] = useState<{ text: string; sermon: Sermon } | null>(null);
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -89,11 +92,13 @@ const AIAssistant: React.FC = () => {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   
-  const chatKey = contextSermonIds.join(',') || 'global';
+  // Clé d'historique distincte pour la recherche globale automatique vs le dock manuel
+  const chatKey = assistantMode === 'auto-rag' 
+    ? 'global-library-rag' 
+    : (contextSermonIds.join(',') || 'global');
+
   const history = (chatHistory[chatKey] || []) as ChatMessageWithSources[];
-
   const bibleVersion = useAppStore(s => s.bibleVersion);
-
   const [allLoadedSongs, setAllLoadedSongs] = useState<any[]>([]);
 
   useEffect(() => {
@@ -154,33 +159,42 @@ const AIAssistant: React.FC = () => {
     return Array.from(uniqueMap.values());
   }, [sermons, sermonsMap, contextSermonIds, bibleVersion, allLoadedSongs]);
 
+  // Transforme les balises de référence [Réf: ID_SERMON, Para. N] en liens interactifs cliquables
   const formatAIResponse = (text: string) => {
-    const formattedText = text.replace(/\[Réf:\s*([\w-]+),\s*Para\.\s*(\d+)\s*\]/gi, (match, sermonId, paraNum) => {
-      const sermon = selectedSermonsMetadata.find(s => s.id === sermonId) || sermons.find(s => s.id === sermonId);
-      if (sermon) {
-        return `<a href="#" data-sermon-id="${sermonId}" data-para-num="${paraNum}" class="sermon-ref inline-flex items-center gap-1.5 px-2 py-0.5 bg-teal-600/5 dark:bg-teal-400/10 text-teal-700 dark:text-teal-300 rounded-md text-[9px] font-black hover:bg-teal-600/20 transition-all border border-teal-600/10 mx-1 align-middle shadow-sm"><span>Para. ${paraNum} - ${sermon.title} (${sermon.date})</span></a>`;
-      }
-      return match;
+    const formattedText = text.replace(/\[Réf:\s*([a-zA-Z0-9_-]+)(?:,\s*Para\.?\s*(\d+))?\]/gi, (match, sermonId, paraNum) => {
+      const cleanId = (sermonId || '').trim();
+      const pNum = paraNum ? parseInt(paraNum, 10) : 1;
+      
+      // Recherche du sermon dans les métadonnées (exact ou avec préfixe de date/version)
+      const foundSermon = 
+        selectedSermonsMetadata.find(s => s.id === cleanId || s.id.startsWith(cleanId) || cleanId.startsWith(s.id)) ||
+        sermons.find(s => s.id === cleanId || s.id.startsWith(cleanId) || cleanId.startsWith(s.id));
+
+      const titleDisplay = foundSermon ? `${foundSermon.title} (${foundSermon.date})` : cleanId;
+      const targetId = foundSermon ? foundSermon.id : cleanId;
+
+      return `<a href="#" data-sermon-id="${targetId}" data-para-num="${pNum}" class="sermon-ref inline-flex items-center gap-1.5 px-2 py-0.5 bg-teal-600/10 dark:bg-teal-400/15 text-teal-800 dark:text-teal-200 rounded-md text-[9px] font-black hover:bg-teal-600/25 transition-all border border-teal-600/20 mx-1 align-middle shadow-xs cursor-pointer"><span>📖 §${pNum} — ${titleDisplay}</span></a>`;
     });
     return marked(formattedText, { breaks: true });
   };
   
+  // Gestion du clic sur une référence ou un lien interne vers un sermon
   const handleContentClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    const link = target.closest('a.sermon-ref');
-    if (link instanceof HTMLAnchorElement && link.dataset.sermonId) {
-        e.preventDefault();
-        const sermonId = link.dataset.sermonId;
-        const paraNumStr = link.dataset.paraNum;
-        
-        setSelectedSermonId(sermonId);
-        if (paraNumStr) {
-            const num = parseInt(paraNumStr);
-            if (!isNaN(num)) {
-                setJumpToParagraph(num);
-                return;
-            }
+    const link = target.closest('a.sermon-ref, [data-sermon-id]') as HTMLElement;
+    if (link && link.dataset.sermonId) {
+      e.preventDefault();
+      const sId = link.dataset.sermonId;
+      const paraNumStr = link.dataset.paraNum;
+      
+      setSelectedSermonId(sId);
+      if (paraNumStr) {
+        const num = parseInt(paraNumStr, 10);
+        if (!isNaN(num)) {
+          setJumpToParagraph(num);
+          return;
         }
+      }
     }
   };
 
@@ -223,6 +237,7 @@ const AIAssistant: React.FC = () => {
     return results.filter((s): s is Sermon => !!s && !!s.text);
   };
 
+  // Traitement d'une demande d'étude issue d'une sélection de texte dans le Reader
   useEffect(() => {
     if (pendingStudyRequest && activeSermon) {
       const textToStudy = pendingStudyRequest;
@@ -230,6 +245,7 @@ const AIAssistant: React.FC = () => {
 
       const performStudy = async () => {
         setIsTyping(true);
+        setTypingStatus("Analyse contextuelle approfondie...");
         addChatMessage(chatKey, { 
           role: 'user', 
           content: `${t.ai_deep_study} : "${textToStudy}"`, 
@@ -255,34 +271,109 @@ const AIAssistant: React.FC = () => {
     }
   }, [pendingStudyRequest, activeSermon, chatKey, t.ai_deep_study]);
 
+  // Envoi d'une question par l'utilisateur
   const handleSend = async () => {
-    if (!input.trim() || contextSermonIds.length === 0) return;
-    const msg = input;
+    if (!input.trim() || isTyping) return;
+    
+    // En mode Dock, vérifier qu'au moins une ressource a été sélectionnée
+    if (assistantMode === 'dock' && contextSermonIds.length === 0) {
+      addNotification("Veuillez sélectionner au moins un sermon ou une ressource dans le Dock IA.", "error");
+      return;
+    }
+
+    const msg = input.trim();
     setInput('');
     addChatMessage(chatKey, { role: 'user', content: msg, timestamp: new Date().toISOString() });
     setIsTyping(true);
+
     try {
-      const validSermons = await getFullSermons(contextSermonIds);
-      const ctx = validSermons.map(s => {
-        const numberedText = s.text.split(/\n\s*\n/)
-              .map((p, i) => `[Para. ${i + 1}] ${p.trim()}`)
-              .join('\n');
-        return `[DOC ID: ${s.id}] - TITRE: ${s.title} (${s.date})\nCONTENU:\n${numberedText.substring(0, 15000)}`;
-      }).join('\n\n---\n\n');
-      
-      const { text, sources } = await askGeminiChat(msg, ctx, history);
-      
-      const newMessage: ChatMessageWithSources = { 
-        role: 'assistant', 
-        content: text, 
-        timestamp: new Date().toISOString(),
-        sources: sources.length > 0 ? sources : undefined
-      };
-      
-      addChatMessage(chatKey, newMessage);
+      if (assistantMode === 'auto-rag') {
+        // ==============================================================
+        // MODE RAG AUTOMATIQUE SUR L'ENSEMBLE DES SERMONS
+        // ==============================================================
+        setTypingStatus("Recherche des passages pertinents dans les sermons...");
+        
+        const ragResult = await retrieveRelevantSermonPassages(msg, {
+          maxParagraphs: 8,
+          minScoreThreshold: 10
+        });
+
+        // Cas où aucun passage pertinent n'est identifié
+        if (!ragResult.hasResults || ragResult.paragraphs.length === 0) {
+          const noResultMsg: ChatMessageWithSources = {
+            role: 'assistant',
+            content: `🔍 **Aucun passage pertinent n'a été trouvé dans les sermons disponibles pour :** *"${msg}"*.\n\nLes termes doctrinaux analysés (*${ragResult.keywordsUsed.join(', ') || 'aucun'}*) ne correspondent à aucun extrait significatif dans la bibliothèque actuelle. Vous pouvez reformuler votre question avec des termes doctrinaux plus spécifiques ou ajouter manuellement des sermons dans le Dock IA.`,
+            timestamp: new Date().toISOString(),
+          };
+          addChatMessage(chatKey, noResultMsg);
+          return;
+        }
+
+        setTypingStatus(`Analyse théologique de ${ragResult.paragraphs.length} extrait(s) retrouvé(s)...`);
+
+        const formattedContext = formatRagContextForGemini(ragResult.paragraphs, msg);
+
+        // Appel à Gemini avec désactivation du web grounding pour ne pas mélanger des sources externes avec les sermons
+        const { text, sources } = await askGeminiChat(msg, formattedContext, history, {
+          mode: 'auto-rag',
+          retrievedParagraphs: ragResult.paragraphs,
+          disableWebGrounding: true
+        });
+
+        const newMessage: ChatMessageWithSources = { 
+          role: 'assistant', 
+          content: text, 
+          timestamp: new Date().toISOString(),
+          sources: sources.length > 0 ? sources : undefined
+        };
+        addChatMessage(chatKey, newMessage);
+
+      } else {
+        // ==============================================================
+        // MODE DOCK IA (DOCUMENTS CHOISIS MANUELLEMENT)
+        // ==============================================================
+        setTypingStatus("Lecture des ressources du Dock IA...");
+        const validSermons = await getFullSermons(contextSermonIds);
+        const ctx = validSermons.map(s => {
+          const numberedText = s.text.split(/\n\s*\n/)
+                .map((p, i) => `[Para. ${i + 1}] ${p.trim()}`)
+                .join('\n');
+          return `[DOC ID: ${s.id}] - TITRE: ${s.title} (${s.date})\nCONTENU:\n${numberedText.substring(0, 15000)}`;
+        }).join('\n\n---\n\n');
+        
+        setTypingStatus("Génération de l'exégèse...");
+        const { text, sources } = await askGeminiChat(msg, ctx, history, { mode: 'dock' });
+        
+        const newMessage: ChatMessageWithSources = { 
+          role: 'assistant', 
+          content: text, 
+          timestamp: new Date().toISOString(),
+          sources: sources.length > 0 ? sources : undefined
+        };
+        addChatMessage(chatKey, newMessage);
+      }
     } catch (e: any) {
-       addChatMessage(chatKey, { role: 'assistant', content: e.message || "Une erreur est survenue.", timestamp: new Date().toISOString() });
-    } finally { setIsTyping(false); }
+      let displayMessage = e?.message || "Une erreur est survenue lors de l'analyse.";
+      if (displayMessage.includes("Failed to call the Gemini API")) {
+        displayMessage = "❌ Impossible de joindre les serveurs Google Gemini. Veuillez vérifier votre connexion Internet ou votre clé API.";
+      }
+      addChatMessage(chatKey, { 
+        role: 'assistant', 
+        content: displayMessage, 
+        timestamp: new Date().toISOString() 
+      });
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  const handleClearChat = () => {
+    useAppStore.setState(state => ({
+      chatHistory: {
+        ...state.chatHistory,
+        [chatKey]: []
+      }
+    }));
   };
 
   return (
@@ -294,7 +385,8 @@ const AIAssistant: React.FC = () => {
         onSaved={refreshKeyState}
       />
       
-      <div className="px-6 h-14 border-b border-zinc-100 dark:border-zinc-800/50 flex items-center justify-between shrink-0 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-3xl z-50">
+      {/* Header */}
+      <div className="px-5 h-14 border-b border-zinc-100 dark:border-zinc-800/50 flex items-center justify-between shrink-0 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-3xl z-50">
         <div 
           onClick={toggleAI}
           className="flex items-center gap-3 cursor-pointer group/ai-title hover:opacity-80 transition-all active:scale-95"
@@ -305,7 +397,18 @@ const AIAssistant: React.FC = () => {
           <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-900 dark:text-zinc-50 leading-none group-hover/ai-title:text-teal-600 transition-colors">ASSISTANT IA</h2>
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
+          {history.length > 0 && (
+            <button 
+              onClick={handleClearChat}
+              data-tooltip="Effacer la discussion"
+              data-tooltip-icon="trash"
+              className="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-red-500 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 active:scale-90"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+
           <button 
             onClick={() => setIsApiKeyModalOpen(true)}
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-bold transition-all border ${
@@ -316,10 +419,10 @@ const AIAssistant: React.FC = () => {
             data-tooltip="Configurer ma clé Google Gemini"
           >
             <Key className="w-3 h-3" />
-            <span>{hasKey ? 'Clé IA Active' : 'Activer IA'}</span>
+            <span>{hasKey ? 'Clé Active' : 'Activer IA'}</span>
           </button>
 
-          <button onClick={toggleAI} data-tooltip="Fermer l'Assistant IA" className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-red-500 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 active:scale-90">
+          <button onClick={toggleAI} data-tooltip="Fermer l'Assistant IA" className="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-red-500 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 active:scale-90">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -341,7 +444,7 @@ const AIAssistant: React.FC = () => {
           )}
           <span className="text-zinc-300 dark:text-zinc-700">•</span>
           <span className="text-zinc-500 dark:text-zinc-400">
-            {isOnline && hasKey ? 'Moteur : Gemini Cloud' : 'Moteur : Index Local'}
+            {isOnline && hasKey ? 'Moteur : Gemini 2.5 Flash' : 'Moteur : Index Local'}
           </span>
         </div>
         <button 
@@ -353,143 +456,269 @@ const AIAssistant: React.FC = () => {
         </button>
       </div>
 
-      <div className="shrink-0 bg-zinc-50/50 dark:bg-zinc-900/40 border-b border-zinc-100 dark:border-zinc-800/50 px-5 py-3">
-         <div className="flex items-center justify-between mb-2 px-1">
-            <span className="text-[8px] font-black uppercase tracking-[0.2em] text-zinc-500">Ressources en Mémoire ({selectedSermonsMetadata.length})</span>
-            {contextSermonIds.length > 0 && (
-              <button onClick={clearContextSermons} data-tooltip="Vider toutes les ressources du dock IA" data-tooltip-icon="trash" className="text-[8px] font-black text-red-500 hover:text-red-600 uppercase tracking-widest transition-colors">Vider le dock</button>
-            )}
-         </div>
+      {/* Sélecteur de Mode : Bibliothèque Entière (Auto RAG) vs Dock IA (Manuel) */}
+      <div className="p-2 border-b border-zinc-200/60 dark:border-zinc-800/60 bg-white/40 dark:bg-zinc-900/40">
+        <div className="flex p-1 bg-zinc-200/70 dark:bg-zinc-800/70 rounded-xl gap-1">
+          <button
+            onClick={() => setAssistantMode('auto-rag')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+              assistantMode === 'auto-rag'
+                ? 'bg-white dark:bg-zinc-900 text-teal-700 dark:text-teal-300 shadow-sm'
+                : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+            }`}
+            data-tooltip="Recherche automatique dans tous les sermons de la bibliothèque"
+          >
+            <Library className="w-3.5 h-3.5 text-teal-600" />
+            <span>Tous les sermons (Auto RAG)</span>
+          </button>
+          
+          <button
+            onClick={() => setAssistantMode('dock')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+              assistantMode === 'dock'
+                ? 'bg-white dark:bg-zinc-900 text-teal-700 dark:text-teal-300 shadow-sm'
+                : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+            }`}
+            data-tooltip="Étude ciblée des documents sélectionnés manuellement"
+          >
+            <Layers className="w-3.5 h-3.5 text-amber-600" />
+            <span>Dock IA ({contextSermonIds.length})</span>
+          </button>
+        </div>
 
-         <div className="flex gap-2.5 overflow-x-auto pb-1.5 custom-scrollbar pr-2">
-            {selectedSermonsMetadata.map((s) => {
-              const isSong = s.id.startsWith('song-');
-              const isBible = s.id.startsWith('bible-');
-              const isExpose = s.id.startsWith('expose-');
-
-              return (
-                <div key={s.id} className="flex-shrink-0 w-[180px] bg-white/80 dark:bg-zinc-800/80 backdrop-blur-xl border border-zinc-200 dark:border-zinc-700 rounded-xl p-2.5 shadow-sm relative group">
-                   <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-lg border border-teal-600/10 shrink-0">
-                         {isSong ? (
-                           <Music className="w-3.5 h-3.5" />
-                         ) : isBible ? (
-                           <BookOpen className="w-3.5 h-3.5" />
-                         ) : isExpose ? (
-                           <BookText className="w-3.5 h-3.5" />
-                         ) : (
-                           <Library className="w-3.5 h-3.5" />
-                         )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                         <p className="text-[9px] font-black text-zinc-800 dark:text-zinc-100 truncate leading-tight tracking-tight">{s.title}</p>
-                         <p className="text-[7px] font-bold text-zinc-400 mt-0.5 uppercase tracking-tighter">{s.date}</p>
-                      </div>
-                   </div>
-                   <button
-                     onClick={(e) => { e.stopPropagation(); toggleContextSermon(s.id); }}
-                     data-tooltip={`Retirer "${s.title}"`}
-                     data-tooltip-icon="trash"
-                     className="absolute top-1.5 right-1.5 w-5 h-5 rounded-md bg-white dark:bg-zinc-800 text-zinc-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-xs"
-                   >
-                     <X className="w-3 h-3" />
-                   </button>
-                </div>
-              );
-            })}
-         </div>
-      </div>
-
-      <div 
-        ref={scrollRef} 
-        className="flex-1 overflow-y-auto px-6 py-8 space-y-10 custom-scrollbar bg-slate-50 dark:bg-zinc-950 flex flex-col scroll-smooth transition-colors duration-500"
-        onClick={handleContentClick}
-      >
-        {history.map((msg, i) => (
-          <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-3 duration-700 w-full`}>
-            <div className={`max-w-[94%] p-5 rounded-[28px] relative group transition-all duration-300 ${
-              msg.role === 'user' 
-                ? 'bg-teal-600 text-white rounded-tr-none shadow-xl shadow-teal-600/10 border border-teal-500/20' 
-                : 'bg-teal-50/50 dark:bg-teal-900/20 text-zinc-900 dark:text-zinc-100 border border-teal-100 dark:border-teal-800/50 rounded-tl-none'
-            }`}>
-              {msg.role === 'assistant' 
-                ? <div className="prose-styles text-[13px] leading-relaxed serif-text" dangerouslySetInnerHTML={{ __html: formatAIResponse(msg.content) as string }} />
-                : <p className="text-[13px] font-bold leading-relaxed tracking-tight break-words">{msg.content}</p>
-              }
-
-              {msg.role === 'assistant' && msg.sources && (
-                <div className="mt-4 pt-4 border-t border-teal-600/10 flex flex-wrap gap-2">
-                  <div className="flex items-center gap-1.5 w-full mb-1">
-                    <Globe className="w-2.5 h-2.5 text-teal-600" />
-                    <span className="text-[8px] font-black text-teal-600 uppercase tracking-widest">Sources consultées</span>
-                  </div>
-                  {msg.sources.map((source, sIdx) => (
-                    <a 
-                      key={sIdx}
-                      href={source.uri} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white dark:bg-zinc-800 rounded-lg border border-zinc-100 dark:border-zinc-700 hover:border-teal-600/30 transition-all text-[9px] font-bold text-zinc-500 hover:text-teal-600 shadow-sm"
-                    >
-                      <span className="max-w-[120px] truncate">{source.title}</span>
-                      <ExternalLink className="w-2.5 h-2.5 opacity-50" />
-                    </a>
-                  ))}
-                </div>
-              )}
-
-              {msg.role === 'assistant' && (
-                 <button 
-                  onClick={() => setNoteSelectorData({ text: msg.content, sermon: { id: `ia-${Date.now()}`, title: 'Réponse Assistant IA', date: new Date().toISOString().split('T')[0], city: 'Grounding Search', text: '' } })} 
-                  className="absolute -right-2 -bottom-2 w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-zinc-800 text-zinc-400 hover:text-teal-600 opacity-0 group-hover:opacity-100 transition-all shadow-xl border border-zinc-100 dark:border-zinc-700 z-10"
-                  data-tooltip="Ajouter cette réponse au journal de notes"
-                  data-tooltip-icon="notes"
-                 >
-                    <Notebook className="w-3.5 h-3.5" />
-                 </button>
-              )}
-            </div>
-            <div className="flex items-center gap-2 mt-2 px-3 opacity-30">
-              <span className="text-[7px] font-black uppercase tracking-[0.3em] text-zinc-500">
-                {msg.role === 'user' ? 'Étudiant' : 'Assistant IA'} • {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-              </span>
-            </div>
+        {assistantMode === 'auto-rag' ? (
+          <div className="mt-1.5 px-2 flex items-center justify-between text-[9px] text-zinc-500">
+            <span className="flex items-center gap-1">
+              <Search className="w-2.5 h-2.5 text-teal-600" />
+              Recherche FTS5 automatique sur l'ensemble des sermons
+            </span>
+            <span className="font-semibold text-teal-600 dark:text-teal-400">
+              {sermons.length} sermons indexés
+            </span>
           </div>
-        ))}
-
-        {isTyping && (
-          <div className="flex items-center gap-3 text-teal-600 animate-pulse ml-3">
-            <div className="flex gap-1">
-                <div className="w-1 h-1 bg-teal-600 rounded-full animate-bounce" style={{animationDelay: '0ms'}} />
-                <div className="w-1 h-1 bg-teal-600 rounded-full animate-bounce" style={{animationDelay: '200ms'}} />
-                <div className="w-1 h-1 bg-teal-600 rounded-full animate-bounce" style={{animationDelay: '400ms'}} />
+        ) : (
+          <div className="mt-2 shrink-0">
+            <div className="flex items-center justify-between mb-1.5 px-1">
+              <span className="text-[8px] font-black uppercase tracking-[0.2em] text-zinc-500">
+                Sources Dock ({selectedSermonsMetadata.length})
+              </span>
+              {contextSermonIds.length > 0 && (
+                <button 
+                  onClick={clearContextSermons} 
+                  data-tooltip="Vider toutes les ressources du dock IA" 
+                  data-tooltip-icon="trash" 
+                  className="text-[8px] font-black text-red-500 hover:text-red-600 uppercase tracking-widest transition-colors cursor-pointer"
+                >
+                  Vider le dock
+                </button>
+              )}
             </div>
-            <span className="text-[8px] font-black uppercase tracking-[0.4em] text-teal-600">Recherche bibliographique...</span>
+
+            <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
+              {selectedSermonsMetadata.length === 0 ? (
+                <div className="w-full py-2 px-3 bg-zinc-100/50 dark:bg-zinc-800/40 rounded-xl text-[10px] text-zinc-400 italic text-center">
+                  Aucun sermon dans le dock. Ajoutez-en un depuis la bibliothèque ou basculez sur "Tous les sermons".
+                </div>
+              ) : (
+                selectedSermonsMetadata.map((s) => {
+                  const isSong = s.id.startsWith('song-');
+                  const isBible = s.id.startsWith('bible-');
+                  const isExpose = s.id.startsWith('expose-');
+
+                  return (
+                    <div key={s.id} className="flex-shrink-0 w-[170px] bg-white/80 dark:bg-zinc-800/80 backdrop-blur-xl border border-zinc-200 dark:border-zinc-700 rounded-xl p-2 shadow-xs relative group">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-md border border-teal-600/10 shrink-0">
+                          {isSong ? (
+                            <Music className="w-3 h-3" />
+                          ) : isBible ? (
+                            <BookOpen className="w-3 h-3" />
+                          ) : isExpose ? (
+                            <BookText className="w-3 h-3" />
+                          ) : (
+                            <Library className="w-3 h-3" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[9px] font-black text-zinc-800 dark:text-zinc-100 truncate leading-tight tracking-tight">{s.title}</p>
+                          <p className="text-[7px] font-bold text-zinc-400 mt-0.5 uppercase tracking-tighter">{s.date}</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleContextSermon(s.id); }}
+                        data-tooltip={`Retirer "${s.title}"`}
+                        data-tooltip-icon="trash"
+                        className="absolute top-1 right-1 w-4 h-4 rounded-md bg-white dark:bg-zinc-800 text-zinc-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-xs cursor-pointer"
+                      >
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         )}
       </div>
 
-      <div className="p-4 bg-slate-50 dark:bg-zinc-950 border-t border-zinc-100 dark:border-zinc-800/50">
-        <div className="relative flex items-end gap-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-[24px] border border-zinc-200 dark:border-zinc-800 px-4 py-3 focus-within:ring-4 focus-within:ring-teal-600/5 focus-within:border-teal-600/40 transition-all duration-500">
+      {/* Conversation History */}
+      <div 
+        ref={scrollRef} 
+        className="flex-1 overflow-y-auto px-5 py-6 space-y-8 custom-scrollbar bg-slate-50 dark:bg-zinc-950 flex flex-col scroll-smooth transition-colors duration-500"
+        onClick={handleContentClick}
+      >
+        {history.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-4 my-auto opacity-70">
+            <div className="w-12 h-12 rounded-2xl bg-teal-600/10 text-teal-600 flex items-center justify-center border border-teal-600/20 shadow-inner">
+              <Sparkles className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-xs font-black uppercase tracking-wider text-zinc-800 dark:text-zinc-100">
+                {assistantMode === 'auto-rag' ? 'Recherche Globale Intelligente' : 'Étude Ciblée du Dock'}
+              </h3>
+              <p className="text-[11px] text-zinc-500 max-w-[260px] mt-1 leading-relaxed">
+                {assistantMode === 'auto-rag'
+                  ? 'Posez n’importe quelle question : les paragraphes correspondants seront extraits automatiquement des sermons pour construire la réponse.'
+                  : 'Posez des questions sur les sermons et livres préalablement ajoutés au Dock IA ci-dessus.'}
+              </p>
+            </div>
+          </div>
+        ) : (
+          history.map((msg, i) => (
+            <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-3 duration-500 w-full`}>
+              <div className={`max-w-[94%] p-4 rounded-[24px] relative group transition-all duration-300 ${
+                msg.role === 'user' 
+                  ? 'bg-teal-600 text-white rounded-tr-none shadow-xl shadow-teal-600/10 border border-teal-500/20' 
+                  : 'bg-teal-50/60 dark:bg-teal-900/20 text-zinc-900 dark:text-zinc-100 border border-teal-100 dark:border-teal-800/50 rounded-tl-none'
+              }`}>
+                {msg.role === 'assistant' 
+                  ? <div className="prose-styles text-[13px] leading-relaxed serif-text" dangerouslySetInnerHTML={{ __html: formatAIResponse(msg.content) as string }} />
+                  : <p className="text-[13px] font-bold leading-relaxed tracking-tight break-words">{msg.content}</p>
+                }
+
+                {/* Sources vérifiées consultées (cliquables vers le lecteur) */}
+                {msg.role === 'assistant' && msg.sources && msg.sources.length > 0 && (
+                  <div className="mt-3.5 pt-3 border-t border-teal-600/10 flex flex-wrap gap-1.5">
+                    <div className="flex items-center gap-1.5 w-full mb-1">
+                      <BookOpen className="w-2.5 h-2.5 text-teal-600 dark:text-teal-400" />
+                      <span className="text-[8px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-widest">
+                        Passages de sermons consultés ({msg.sources.length}) :
+                      </span>
+                    </div>
+                    {msg.sources.map((source, sIdx) => {
+                      const isSermonUri = source.uri && source.uri.startsWith('sermon://');
+                      if (isSermonUri || source.sermonId) {
+                        const targetSermonId = source.sermonId || source.uri.replace('sermon://', '').split('/')[0];
+                        const targetParaIndex = source.paragraphIndex || parseInt(source.uri.replace('sermon://', '').split('/')[1] || '1', 10);
+                        
+                        return (
+                          <button
+                            key={sIdx}
+                            onClick={() => {
+                              setSelectedSermonId(targetSermonId);
+                              if (targetParaIndex) setJumpToParagraph(targetParaIndex);
+                            }}
+                            data-tooltip={`Ouvrir "${source.title}" dans le lecteur`}
+                            className="flex items-center gap-1.5 px-2 py-1 bg-white/90 dark:bg-zinc-800/90 rounded-lg border border-teal-600/20 hover:border-teal-600/60 hover:bg-teal-50 dark:hover:bg-teal-950/40 transition-all text-[9px] font-bold text-teal-900 dark:text-teal-200 shadow-2xs cursor-pointer group/src"
+                          >
+                            <span className="max-w-[210px] truncate">{source.title}</span>
+                            <BookOpen className="w-2.5 h-2.5 opacity-60 group-hover/src:opacity-100 text-teal-600 shrink-0" />
+                          </button>
+                        );
+                      }
+
+                      return (
+                        <a 
+                          key={sIdx}
+                          href={source.uri} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 px-2 py-1 bg-white dark:bg-zinc-800 rounded-lg border border-zinc-100 dark:border-zinc-700 hover:border-teal-600/30 transition-all text-[9px] font-bold text-zinc-500 hover:text-teal-600 shadow-2xs"
+                        >
+                          <span className="max-w-[140px] truncate">{source.title}</span>
+                          <ExternalLink className="w-2.5 h-2.5 opacity-50" />
+                        </a>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Bouton d'export vers le journal de notes */}
+                {msg.role === 'assistant' && (
+                  <button 
+                    onClick={() => setNoteSelectorData({ 
+                      text: msg.content, 
+                      sermon: { 
+                        id: `ia-${Date.now()}`, 
+                        title: assistantMode === 'auto-rag' ? 'Étude IA — RAG Sermons' : 'Réponse Assistant IA', 
+                        date: new Date().toISOString().split('T')[0], 
+                        city: 'Recherche Exégétique', 
+                        text: '' 
+                      } 
+                    })} 
+                    className="absolute -right-2 -bottom-2 w-8 h-8 flex items-center justify-center rounded-xl bg-white dark:bg-zinc-800 text-zinc-400 hover:text-teal-600 opacity-0 group-hover:opacity-100 transition-all shadow-xl border border-zinc-100 dark:border-zinc-700 z-10 cursor-pointer"
+                    data-tooltip="Ajouter cette réponse au journal de notes"
+                    data-tooltip-icon="notes"
+                  >
+                    <Notebook className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2 mt-1.5 px-3 opacity-30">
+                <span className="text-[7px] font-black uppercase tracking-[0.3em] text-zinc-500">
+                  {msg.role === 'user' ? 'Étudiant' : 'Assistant IA'} • {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
+
+        {isTyping && (
+          <div className="flex items-center gap-3 text-teal-600 animate-pulse ml-2 py-2">
+            <div className="flex gap-1">
+              <div className="w-1.5 h-1.5 bg-teal-600 rounded-full animate-bounce" style={{animationDelay: '0ms'}} />
+              <div className="w-1.5 h-1.5 bg-teal-600 rounded-full animate-bounce" style={{animationDelay: '200ms'}} />
+              <div className="w-1.5 h-1.5 bg-teal-600 rounded-full animate-bounce" style={{animationDelay: '400ms'}} />
+            </div>
+            <span className="text-[9px] font-bold uppercase tracking-wider text-teal-600">
+              {typingStatus}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Input Form */}
+      <div className="p-3 bg-slate-50 dark:bg-zinc-950 border-t border-zinc-100 dark:border-zinc-800/50">
+        <div className="relative flex items-end gap-2.5 bg-zinc-50 dark:bg-zinc-900/60 rounded-[22px] border border-zinc-200 dark:border-zinc-800 px-3.5 py-2.5 focus-within:ring-4 focus-within:ring-teal-600/5 focus-within:border-teal-600/40 transition-all duration-300">
           <textarea
-            className="flex-1 bg-transparent border-none text-[13px] font-medium text-zinc-900 dark:text-zinc-100 resize-none outline-none py-1 max-h-40 placeholder:text-zinc-400 placeholder:text-[8px] placeholder:uppercase placeholder:tracking-[0.3em]"
-            placeholder={contextSermonIds.length > 0 ? "POSEZ VOTRE QUESTION..." : "SÉLECTIONNEZ DES SOURCES D'ABORD"}
+            className="flex-1 bg-transparent border-none text-[13px] font-medium text-zinc-900 dark:text-zinc-100 resize-none outline-none py-1 max-h-36 placeholder:text-zinc-400 placeholder:text-[9px] placeholder:uppercase placeholder:tracking-wider leading-relaxed"
+            placeholder={
+              assistantMode === 'auto-rag'
+                ? "POSEZ UNE QUESTION SUR TOUS LES SERMONS..."
+                : (contextSermonIds.length > 0 ? "POSEZ VOTRE QUESTION SUR LE DOCK..." : "SÉLECTIONNEZ DES SOURCES DANS LE DOCK")
+            }
             rows={1}
-            disabled={contextSermonIds.length === 0 || isTyping}
+            disabled={isTyping || (assistantMode === 'dock' && contextSermonIds.length === 0)}
             value={input}
             onChange={(e) => { 
               setInput(e.target.value); 
               e.target.style.height = 'auto'; 
               e.target.style.height = `${e.target.scrollHeight}px`; 
             }}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+            onKeyDown={(e) => { 
+              if (e.key === 'Enter' && !e.shiftKey) { 
+                e.preventDefault(); 
+                handleSend(); 
+              } 
+            }}
           />
           <button 
             onClick={handleSend}
-            disabled={!input.trim() || contextSermonIds.length === 0 || isTyping}
-            className="w-9 h-9 flex items-center justify-center bg-teal-600 text-white rounded-[18px] hover:bg-teal-700 disabled:opacity-20 transition-all shrink-0 shadow-lg active:scale-90"
+            disabled={!input.trim() || isTyping || (assistantMode === 'dock' && contextSermonIds.length === 0)}
+            className="w-8 h-8 flex items-center justify-center bg-teal-600 text-white rounded-[16px] hover:bg-teal-700 disabled:opacity-20 transition-all shrink-0 shadow-md active:scale-95 cursor-pointer"
+            data-tooltip="Envoyer la question"
           >
-            <Send className="w-4 h-4" />
+            <Send className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
