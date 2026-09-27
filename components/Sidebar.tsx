@@ -153,31 +153,35 @@ const SermonItem = memo(({
         className={`group w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-300 cursor-pointer h-[72px] ${
           isSelected 
             ? 'bg-teal-600/15 dark:bg-teal-600/25 ring-1 ring-teal-600/30 shadow-md' 
-            : 'hover:bg-teal-600/[0.08] dark:hover:bg-teal-400/[0.06] border border-transparent hover:border-teal-600/10 dark:hover:border-teal-400/10'
+            : isContextSelected
+              ? 'bg-teal-600/[0.08] dark:bg-teal-400/[0.08] border border-teal-600/30 dark:border-teal-400/30'
+              : 'hover:bg-teal-600/[0.08] dark:hover:bg-teal-400/[0.06] border border-transparent hover:border-teal-600/10 dark:hover:border-teal-400/10'
         }`}
         onClick={(e) => onSelect(e.ctrlKey || e.metaKey)}
       >
-        <div 
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleContext(e.ctrlKey || e.metaKey);
-          }}
-          data-tooltip={isContextSelected ? "Retirer du contexte IA" : "Ajouter au contexte IA"}
-          className={`w-4 h-4 rounded-md border transition-all flex items-center justify-center shrink-0 tooltip-right ${
-            isContextSelected
-              ? 'bg-teal-600 border-teal-600 text-white shadow-lg shadow-teal-600/20' 
-              : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 group-hover:border-teal-600/50'
-          }`}
-        >
-          {isContextSelected && <Sparkles className="w-2.5 h-2.5 stroke-[3]" />}
-        </div>
-
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-1 mb-1">
             <span className={`text-[12px] font-extrabold truncate transition-colors ${isSelected ? 'text-teal-700 dark:text-blue-400' : 'text-zinc-900 dark:text-zinc-100 group-hover:text-teal-700 dark:group-hover:text-teal-400'}`}>
               {sermon.title || "Sermon sans titre"}
             </span>
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0">
+              {/* Icône d'ajout à l'assistant IA placée juste avant l'icône audio */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleContext(e.ctrlKey || e.metaKey);
+                }}
+                data-tooltip={isContextSelected ? "Retirer de l'assistant IA" : "Ajouter à l'assistant IA"}
+                className={`w-5 h-5 rounded-md transition-all flex items-center justify-center shrink-0 cursor-pointer ${
+                  isContextSelected
+                    ? 'bg-teal-600 text-white shadow-xs scale-105' 
+                    : 'text-zinc-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/40'
+                }`}
+                title={isContextSelected ? "Retirer de l'assistant IA" : "Ajouter à l'assistant IA"}
+              >
+                <Sparkles className="w-3 h-3 stroke-[2.5]" />
+              </button>
               {sermon.audio_url && <Headphones className="w-2.5 h-2.5 text-teal-500 tooltip-right" data-tooltip="Audio disponible" />}
               {sermon.version && (
                 <span className="text-[7px] font-black bg-zinc-100 dark:bg-zinc-800 text-zinc-500 px-1.5 py-0.5 rounded-lg border border-zinc-200 dark:border-zinc-700 uppercase tracking-tighter">

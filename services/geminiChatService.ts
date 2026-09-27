@@ -123,6 +123,12 @@ export const classifyGeminiError = (error: any): { type: string; userMessage: st
   };
 };
 
+const CANDIDATE_MODELS = [
+  "gemini-2.5-flash",
+  "gemini-2.0-flash",
+  "gemini-1.5-flash"
+];
+
 /**
  * Test explicite de la clé API Gemini en envoyant une micro-requête minimale sans aucun outil externe.
  * Déclenché STRICTEMENT au clic de l'utilisateur sur le bouton "Tester la connexion".
@@ -152,22 +158,35 @@ export const testGeminiApiKey = async (
   try {
     const ai = new GoogleGenAI({ apiKey: cleanedKey });
     
-    // Requête minimale sans tools pour tester la validité réelle de la clé
-    const response = await ai.models.generateContent({
-      model: "gemini-3.8-flash",
-      contents: [{ role: "user", parts: [{ text: "ping" }] }],
-      config: {
-        maxOutputTokens: 2,
-        temperature: 0.1
-      }
-    });
+    // Essayer les modèles candidats
+    let lastError: any = null;
+    for (const model of CANDIDATE_MODELS) {
+      try {
+        const response = await ai.models.generateContent({
+          model: model,
+          contents: [{ role: "user", parts: [{ text: "ping" }] }],
+          config: {
+            maxOutputTokens: 2,
+            temperature: 0.1
+          }
+        });
 
-    if (response && (response.text || response.candidates?.length)) {
-      return {
-        success: true,
-        message: "Connexion réussie ! Votre clé Google Gemini (gemini-3.8-flash) est active et opérationnelle."
-      };
+        if (response && (response.text || response.candidates?.length)) {
+          return {
+            success: true,
+            message: `Connexion réussie ! Votre clé Google Gemini (${model}) est active et opérationnelle.`
+          };
+        }
+      } catch (err: any) {
+        lastError = err;
+        const cl = classifyGeminiError(err);
+        if (cl.type === 'API_KEY_INVALID' || cl.type === 'PERMISSION_DENIED') {
+          throw err;
+        }
+      }
     }
+
+    if (lastError) throw lastError;
 
     return {
       success: true,
@@ -288,13 +307,36 @@ QUESTION DU CHERCHEUR :
         temperature: isAutoRag ? 0.2 : 0.4
       };
 
-      const response = await callWithRetry(() => ai.models.generateContent({
-        model: "gemini-3.8-flash",
-        contents: contents,
-        config
-      }));
+      let response: any = null;
+      let lastModelError: any = null;
+
+      for (const model of CANDIDATE_MODELS) {
+        try {
+          response = await callWithRetry(() => ai.models.generateContent({
+            model: model,
+            contents: contents,
+            config
+          }));
+          if (response && (response.text || response.candidates?.length)) {
+            break;
+          }
+        } catch (err: any) {
+          lastModelError = err;
+          const cl = classifyGeminiError(err);
+          // Si l'erreur est liée au quota ou modèle temporairement inaccessible, essayer le modèle suivant
+          if (cl.type === 'QUOTA_EXHAUSTED' || cl.type === 'MODEL_UNAVAILABLE' || cl.type === 'SERVICE_UNAVAILABLE') {
+            continue;
+          }
+          // Pour les erreurs de clé invalide ou permissions, propager immédiatement
+          throw err;
+        }
+      }
+
+      if (!response && lastModelError) {
+        throw lastModelError;
+      }
       
-      const text = response.text || "Aucune réponse générée.";
+      const text = response?.text || "Aucune réponse générée.";
       const sources: GeminiSource[] = [];
 
       if (options.retrievedParagraphs && options.retrievedParagraphs.length > 0) {

@@ -32,7 +32,13 @@ import {
   WifiOff,
   Search,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Plus,
+  MessageSquare,
+  ChevronDown,
+  Pencil,
+  Check,
+  Undo2
 } from 'lucide-react';
 
 interface ChatMessageWithSources extends ChatMessage {
@@ -40,6 +46,17 @@ interface ChatMessageWithSources extends ChatMessage {
 }
 
 export type AssistantMode = 'auto-rag' | 'dock';
+
+export interface AIConversation {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  mode: AssistantMode;
+}
+
+const CONV_STORAGE_KEY = 'kings_sword_ai_conversations_v1';
+const ACTIVE_CONV_STORAGE_KEY = 'kings_sword_ai_active_conv_id_v1';
 
 const AIAssistant: React.FC = () => {
   const { 
@@ -56,6 +73,8 @@ const AIAssistant: React.FC = () => {
     toggleAI,
     pendingStudyRequest,
     triggerStudyRequest,
+    assistantMode,
+    setAssistantMode,
     languageFilter,
     setSelectedSermonId,
     setJumpToText,
@@ -66,7 +85,6 @@ const AIAssistant: React.FC = () => {
   const lang = languageFilter === 'Anglais' ? 'en' : 'fr';
   const t = translations[lang];
 
-  const [assistantMode, setAssistantMode] = useState<AssistantMode>('auto-rag');
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [typingStatus, setTypingStatus] = useState<string>("Recherche dans les sermons...");
@@ -90,14 +108,185 @@ const AIAssistant: React.FC = () => {
     setHasKey(hasValidGeminiApiKey());
   };
 
-  const scrollRef = useRef<HTMLDivElement>(null);
-  
-  // Clé d'historique distincte pour la recherche globale automatique vs le dock manuel
-  const chatKey = assistantMode === 'auto-rag' 
-    ? 'global-library-rag' 
-    : (contextSermonIds.join(',') || 'global');
+  // Gestion des conversations multiples
+  const [conversations, setConversations] = useState<AIConversation[]>(() => {
+    try {
+      const raw = localStorage.getItem(CONV_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    const legacyHistory = useAppStore.getState().chatHistory['global-library-rag'] || [];
+    const initialId = legacyHistory.length > 0 ? 'global-library-rag' : `conv_${Date.now()}`;
+    return [{
+      id: initialId,
+      title: legacyHistory.length > 0 ? 'Discussion principale' : 'Nouvelle discussion',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      mode: 'auto-rag'
+    }];
+  });
 
+  const [activeConvId, setActiveConvId] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem(ACTIVE_CONV_STORAGE_KEY);
+      if (saved) return saved;
+    } catch {}
+    return conversations[0]?.id || `conv_${Date.now()}`;
+  });
+
+  const [isConversationsDrawerOpen, setIsConversationsDrawerOpen] = useState(false);
+  const [searchConvQuery, setSearchConvQuery] = useState('');
+  const [editingConvId, setEditingConvId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
+
+  // Persistance dans localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(CONV_STORAGE_KEY, JSON.stringify(conversations));
+    } catch {}
+  }, [conversations]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(ACTIVE_CONV_STORAGE_KEY, activeConvId);
+    } catch {}
+  }, [activeConvId]);
+
+  // Démarrer le renommage d'une conversation
+  const startRenaming = (id: string, currentTitle: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setEditingConvId(id);
+    setEditingTitle(currentTitle);
+  };
+
+  // Valider et sauvegarder le nouveau titre
+  const saveRenaming = (id: string, e?: React.FormEvent | React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    const clean = editingTitle.trim();
+    if (!clean) {
+      setEditingConvId(null);
+      return;
+    }
+    setConversations(prev => prev.map(c => c.id === id ? { ...c, title: clean, updatedAt: new Date().toISOString() } : c));
+    setEditingConvId(null);
+    addNotification("Discussion renommée", "success");
+  };
+
+  // Annuler le renommage
+  const cancelRenaming = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setEditingConvId(null);
+    setEditingTitle('');
+  };
+
+  // Conversation courante
+  const currentConversation = useMemo(() => {
+    return conversations.find(c => c.id === activeConvId) || conversations[0] || {
+      id: activeConvId,
+      title: 'Nouvelle discussion',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      mode: assistantMode
+    };
+  }, [conversations, activeConvId, assistantMode]);
+
+  // Clé d'historique active (liée à la discussion en cours)
+  const chatKey = activeConvId;
   const history = (chatHistory[chatKey] || []) as ChatMessageWithSources[];
+
+  // Création d'une nouvelle discussion (+ button) tout en conservant les précédentes
+  const handleCreateNewChat = () => {
+    const newId = `conv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const newConv: AIConversation = {
+      id: newId,
+      title: 'Nouvelle discussion',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      mode: assistantMode
+    };
+    setConversations(prev => [newConv, ...prev]);
+    setActiveConvId(newId);
+    setIsConversationsDrawerOpen(false);
+    addNotification("Nouvelle discussion créée", "info");
+  };
+
+  // Suppression d'une conversation spécifique
+  const handleDeleteConversation = (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (conversations.length <= 1) {
+      handleClearChat(id);
+      setConversations(prev => prev.map(c => c.id === id ? { ...c, title: 'Nouvelle discussion', updatedAt: new Date().toISOString() } : c));
+      addNotification("Discussion réinitialisée", "info");
+      return;
+    }
+
+    const remaining = conversations.filter(c => c.id !== id);
+    setConversations(remaining);
+
+    useAppStore.setState(s => {
+      const nextHistory = { ...s.chatHistory };
+      delete nextHistory[id];
+      try {
+        localStorage.setItem('kings_sword_ai_chat_history_v1', JSON.stringify(nextHistory));
+      } catch {}
+      return { chatHistory: nextHistory };
+    });
+
+    if (activeConvId === id) {
+      setActiveConvId(remaining[0].id);
+    }
+    addNotification("Discussion supprimée", "info");
+  };
+
+  // Nettoyage complet de tout l'historique
+  const handleClearAllHistory = () => {
+    const newId = `conv_${Date.now()}`;
+    const freshConv: AIConversation = {
+      id: newId,
+      title: 'Nouvelle discussion',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      mode: assistantMode
+    };
+    setConversations([freshConv]);
+    setActiveConvId(newId);
+    try {
+      localStorage.removeItem('kings_sword_ai_chat_history_v1');
+    } catch {}
+    useAppStore.setState(() => ({
+      chatHistory: {}
+    }));
+    setIsConversationsDrawerOpen(false);
+    addNotification("Historique des discussions réinitialisé", "success");
+  };
+
+  // Nettoyage des messages de la discussion courante
+  const handleClearChat = (targetId = chatKey) => {
+    useAppStore.setState(state => {
+      const next = {
+        ...state.chatHistory,
+        [targetId]: []
+      };
+      try {
+        localStorage.setItem('kings_sword_ai_chat_history_v1', JSON.stringify(next));
+      } catch {}
+      return { chatHistory: next };
+    });
+    setConversations(prev => prev.map(c => c.id === targetId ? { ...c, title: 'Nouvelle discussion', updatedAt: new Date().toISOString() } : c));
+    addNotification("Discussion vidée", "info");
+  };
+
+  // Filtrage des conversations
+  const filteredConversations = useMemo(() => {
+    if (!searchConvQuery.trim()) return conversations;
+    const q = searchConvQuery.toLowerCase();
+    return conversations.filter(c => c.title.toLowerCase().includes(q));
+  }, [conversations, searchConvQuery]);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
   const bibleVersion = useAppStore(s => s.bibleVersion);
   const [allLoadedSongs, setAllLoadedSongs] = useState<any[]>([]);
 
@@ -283,6 +472,13 @@ const AIAssistant: React.FC = () => {
 
     const msg = input.trim();
     setInput('');
+
+    // Mise à jour automatique du titre de la conversation si c'est encore "Nouvelle discussion"
+    if (currentConversation.title === 'Nouvelle discussion') {
+      const cleanTitle = msg.length > 34 ? msg.slice(0, 34) + '...' : msg;
+      setConversations(prev => prev.map(c => c.id === activeConvId ? { ...c, title: cleanTitle, updatedAt: new Date().toISOString() } : c));
+    }
+
     addChatMessage(chatKey, { role: 'user', content: msg, timestamp: new Date().toISOString() });
     setIsTyping(true);
 
@@ -366,15 +562,6 @@ const AIAssistant: React.FC = () => {
     }
   };
 
-  const handleClearChat = () => {
-    useAppStore.setState(state => ({
-      chatHistory: {
-        ...state.chatHistory,
-        [chatKey]: []
-      }
-    }));
-  };
-
   return (
     <div className="w-full bg-slate-50 dark:bg-zinc-950 h-full flex flex-col min-0 border-l border-zinc-200 dark:border-zinc-800 transition-all duration-500 shadow-2xl relative">
       {noteSelectorData && <NoteSelectorModal selectionText={noteSelectorData.text} sermon={noteSelectorData.sermon} onClose={() => setNoteSelectorData(null)} />}
@@ -397,12 +584,35 @@ const AIAssistant: React.FC = () => {
         </div>
         
         <div className="flex items-center gap-1.5">
+          {/* Bouton Nouveau Chat (+) */}
+          <button 
+            onClick={handleCreateNewChat}
+            data-tooltip="Nouveau chat (+)"
+            className="w-7 h-7 flex items-center justify-center text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/50 hover:bg-teal-100 dark:hover:bg-teal-900/50 border border-teal-200 dark:border-teal-800 transition-all rounded-lg active:scale-95 cursor-pointer shadow-2xs"
+          >
+            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+          </button>
+
+          {/* Bouton Liste des discussions */}
+          <button 
+            onClick={() => setIsConversationsDrawerOpen(prev => !prev)}
+            data-tooltip="Toutes les discussions"
+            className={`w-7 h-7 flex items-center justify-center transition-all rounded-lg border active:scale-90 cursor-pointer ${
+              isConversationsDrawerOpen 
+                ? 'bg-teal-600 text-white border-teal-600 shadow-xs' 
+                : 'text-zinc-500 hover:text-teal-600 bg-zinc-100 dark:bg-zinc-800/80 border-zinc-200 dark:border-zinc-700'
+            }`}
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Bouton Effacer la discussion courante */}
           {history.length > 0 && (
             <button 
-              onClick={handleClearChat}
-              data-tooltip="Effacer la discussion"
+              onClick={() => handleClearChat(activeConvId)}
+              data-tooltip="Effacer cette discussion"
               data-tooltip-icon="trash"
-              className="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-red-500 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 active:scale-90"
+              className="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-red-500 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 active:scale-90 cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
@@ -427,6 +637,200 @@ const AIAssistant: React.FC = () => {
         </div>
       </div>
 
+      {/* Barre de sélection active de la discussion */}
+      <div className="px-3 py-1.5 bg-white/50 dark:bg-zinc-900/50 border-b border-zinc-200/50 dark:border-zinc-800/50 flex items-center justify-between gap-1.5">
+        {editingConvId === currentConversation.id ? (
+          <form 
+            onSubmit={(e) => saveRenaming(currentConversation.id, e)} 
+            className="flex-1 min-w-0 flex items-center gap-1"
+          >
+            <input
+              type="text"
+              value={editingTitle}
+              onChange={(e) => setEditingTitle(e.target.value)}
+              placeholder="Titre de la discussion..."
+              autoFocus
+              className="flex-1 min-w-0 px-2 py-1 text-xs font-bold rounded-lg bg-white dark:bg-zinc-950 border border-teal-500 focus:outline-none text-zinc-900 dark:text-zinc-100"
+            />
+            <button
+              type="submit"
+              data-tooltip="Enregistrer le titre"
+              className="w-6 h-6 flex items-center justify-center bg-teal-600 hover:bg-teal-500 text-white rounded-md cursor-pointer shrink-0 shadow-2xs"
+            >
+              <Check className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={cancelRenaming}
+              data-tooltip="Annuler"
+              className="w-6 h-6 flex items-center justify-center bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 rounded-md cursor-pointer shrink-0"
+            >
+              <Undo2 className="w-3.5 h-3.5" />
+            </button>
+          </form>
+        ) : (
+          <div className="flex-1 min-w-0 flex items-center gap-1 bg-zinc-100/80 dark:bg-zinc-800/80 rounded-lg p-0.5">
+            <button
+              onClick={() => setIsConversationsDrawerOpen(prev => !prev)}
+              className="flex-1 min-w-0 flex items-center gap-1.5 px-2 py-1 hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80 rounded-md transition-all text-left group cursor-pointer"
+              data-tooltip="Afficher les discussions enregistrées"
+            >
+              <MessageSquare className="w-3 h-3 text-teal-600 shrink-0" />
+              <span className="text-[11px] font-bold text-zinc-800 dark:text-zinc-200 truncate flex-1">
+                {currentConversation.title}
+              </span>
+              <span className="text-[9px] text-zinc-400 font-mono shrink-0">
+                ({history.length} msg)
+              </span>
+              <ChevronDown className={`w-3 h-3 text-zinc-400 transition-transform ${isConversationsDrawerOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            <button
+              type="button"
+              onClick={(e) => startRenaming(currentConversation.id, currentConversation.title, e)}
+              data-tooltip="Renommer cette discussion"
+              className="w-6 h-6 flex items-center justify-center text-zinc-400 hover:text-teal-600 hover:bg-white dark:hover:bg-zinc-900 rounded-md transition-colors cursor-pointer shrink-0"
+            >
+              <Pencil className="w-3 h-3" />
+            </button>
+          </div>
+        )}
+
+        <button
+          onClick={handleCreateNewChat}
+          data-tooltip="Créer un nouveau chat (+)"
+          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-[10px] font-bold shadow-xs active:scale-95 cursor-pointer shrink-0"
+        >
+          <Plus className="w-3 h-3 stroke-[2.5]" />
+          <span>Nouveau</span>
+        </button>
+      </div>
+
+      {/* Tiroir déroulant de gestion des conversations multiples */}
+      {isConversationsDrawerOpen && (
+        <div className="p-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xl space-y-2.5 z-30 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center justify-between pb-1 border-b border-zinc-100 dark:border-zinc-800">
+            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500">
+              Discussions sauvegardées ({conversations.length})
+            </span>
+            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              Disponible hors-ligne
+            </span>
+          </div>
+
+          {conversations.length > 3 && (
+            <input
+              type="text"
+              placeholder="Filtrer les discussions..."
+              value={searchConvQuery}
+              onChange={(e) => setSearchConvQuery(e.target.value)}
+              className="w-full px-2.5 py-1 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs"
+            />
+          )}
+
+          <div className="max-h-56 overflow-y-auto space-y-1 custom-scrollbar">
+            {filteredConversations.map(conv => {
+              const isActive = conv.id === activeConvId;
+              const msgCount = (chatHistory[conv.id] || []).length;
+              const isEditingThis = editingConvId === conv.id;
+
+              if (isEditingThis) {
+                return (
+                  <form
+                    key={conv.id}
+                    onSubmit={(e) => saveRenaming(conv.id, e)}
+                    className="flex items-center gap-1.5 p-1.5 rounded-xl bg-teal-50/50 dark:bg-teal-950/30 border border-teal-500/40"
+                  >
+                    <input
+                      type="text"
+                      value={editingTitle}
+                      onChange={(e) => setEditingTitle(e.target.value)}
+                      placeholder="Nom de la discussion..."
+                      autoFocus
+                      className="flex-1 min-w-0 px-2 py-1 text-xs font-bold rounded-lg bg-white dark:bg-zinc-950 border border-teal-500 focus:outline-none text-zinc-900 dark:text-zinc-100"
+                    />
+                    <button
+                      type="submit"
+                      data-tooltip="Enregistrer"
+                      className="w-6 h-6 flex items-center justify-center bg-teal-600 hover:bg-teal-500 text-white rounded-md cursor-pointer shrink-0"
+                    >
+                      <Check className="w-3 h-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelRenaming}
+                      data-tooltip="Annuler"
+                      className="w-6 h-6 flex items-center justify-center bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 rounded-md cursor-pointer shrink-0"
+                    >
+                      <Undo2 className="w-3 h-3" />
+                    </button>
+                  </form>
+                );
+              }
+
+              return (
+                <div
+                  key={conv.id}
+                  onClick={() => {
+                    setActiveConvId(conv.id);
+                    setIsConversationsDrawerOpen(false);
+                  }}
+                  className={`flex items-center justify-between p-2 rounded-xl text-xs transition-all cursor-pointer group ${
+                    isActive
+                      ? 'bg-teal-50 dark:bg-teal-950/40 text-teal-900 dark:text-teal-200 border border-teal-200 dark:border-teal-800 font-bold'
+                      : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <MessageSquare className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-teal-600' : 'text-zinc-400'}`} />
+                    <div className="min-w-0 flex-1">
+                      <span className="truncate block text-[11px]">{conv.title}</span>
+                      <span className="text-[9px] text-zinc-400 font-normal">
+                        {new Date(conv.updatedAt || conv.createdAt).toLocaleDateString()} • {msgCount} message{msgCount > 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0 opacity-80 group-hover:opacity-100">
+                    <button
+                      type="button"
+                      onClick={(e) => startRenaming(conv.id, conv.title, e)}
+                      data-tooltip="Renommer"
+                      className="p-1 rounded-md text-zinc-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/40 transition-colors cursor-pointer"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => handleDeleteConversation(conv.id, e)}
+                      data-tooltip="Supprimer cette discussion"
+                      className="p-1 rounded-md text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
+            <button
+              onClick={handleClearAllHistory}
+              className="text-[10px] text-red-500 hover:text-red-600 font-bold hover:underline cursor-pointer"
+            >
+              Nettoyer tout l'historique
+            </button>
+            <button
+              onClick={() => setIsConversationsDrawerOpen(false)}
+              className="text-[10px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 font-semibold cursor-pointer"
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Connection & Engine Status Banner */}
       <div className="px-5 py-2 bg-zinc-100/70 dark:bg-zinc-900/60 border-b border-zinc-200/50 dark:border-zinc-800/50 flex items-center justify-between text-[10px]">
         <div className="flex items-center gap-2">
@@ -443,7 +847,7 @@ const AIAssistant: React.FC = () => {
           )}
           <span className="text-zinc-300 dark:text-zinc-700">•</span>
           <span className="text-zinc-500 dark:text-zinc-400">
-            {isOnline && hasKey ? 'Moteur : Gemini 2.5 Flash' : 'Moteur : Index Local'}
+            {isOnline && hasKey ? 'Moteur : Gemini Flash' : 'Moteur : Index Local'}
           </span>
         </div>
         <button 

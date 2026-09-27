@@ -76,6 +76,23 @@ const SearchResultCard = memo(({
                             {result.sermonId?.startsWith('song-') ? 'Cantique ouvert' : result.sermonId?.startsWith('bible-') ? 'Passage ouvert' : result.sermonId?.startsWith('expose-') ? 'Page ouverte' : 'Sermon ouvert'}
                           </span>
                         )}
+                        {/* Bouton Assistant IA placé juste avant l'icône Audio */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            useAppStore.getState().toggleContextSermon(result.sermonId, true);
+                          }}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border whitespace-nowrap transition-all cursor-pointer ${
+                            useAppStore.getState().contextSermonIds.includes(result.sermonId)
+                              ? 'bg-teal-600 text-white border-teal-600 shadow-xs'
+                              : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:text-teal-600 hover:border-teal-500 border-zinc-200 dark:border-zinc-700'
+                          }`}
+                          title={useAppStore.getState().contextSermonIds.includes(result.sermonId) ? "Retirer de l'assistant IA" : "Ajouter à l'assistant IA"}
+                        >
+                          <Sparkles className="w-3 h-3 shrink-0" />
+                          Assistant IA
+                        </button>
                         {result.audio_url && (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-full text-[8px] font-black uppercase tracking-wider border border-amber-500/20 whitespace-nowrap">
                             <Headphones className="w-3 h-3 shrink-0" />
