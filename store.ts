@@ -220,6 +220,8 @@ interface AppState {
   deleteNote: (id: string) => void;
   addCitationToNote: (noteId: string, citation: Partial<Citation>) => void;
   removeCitationFromNote: (noteId: string, citationId: string) => void;
+  updateNoteCitations: (noteId: string, citations: Citation[]) => Promise<void>;
+  reorderCitationsInNote: (noteId: string, fromIndex: number, toIndex: number) => Promise<void>;
   addImageToNote: (noteId: string, image: { url: string; name?: string; caption?: string }) => void;
   removeImageFromNote: (noteId: string, imageId: string) => void;
   reorderNotes: (draggedId: string, targetId: string) => void;
@@ -1031,6 +1033,50 @@ export const useAppStore = create<AppState>((set, get) => ({
     const targetNote = sorted.find(n => n.id === noteId);
     if (targetNote) await saveNoteToDB(targetNote);
     get().addNotification("Référence supprimée de la note.", "success");
+  },
+
+  updateNoteCitations: async (noteId, citations) => {
+    const { notes } = get();
+    const noteIndex = notes.findIndex(n => n.id === noteId);
+    if (noteIndex === -1) return;
+
+    const now = new Date().toISOString();
+    const updatedNotes = [...notes];
+    updatedNotes[noteIndex] = {
+      ...updatedNotes[noteIndex],
+      updatedAt: now,
+      citations: [...citations]
+    };
+
+    const sorted = sortNotesByRecency(updatedNotes);
+    set({ notes: sorted });
+    const targetNote = sorted.find(n => n.id === noteId);
+    if (targetNote) await saveNoteToDB(targetNote);
+  },
+
+  reorderCitationsInNote: async (noteId, fromIndex, toIndex) => {
+    const { notes } = get();
+    const noteIndex = notes.findIndex(n => n.id === noteId);
+    if (noteIndex === -1) return;
+
+    const currentCitations = [...(notes[noteIndex].citations || [])];
+    if (fromIndex < 0 || fromIndex >= currentCitations.length || toIndex < 0 || toIndex >= currentCitations.length) return;
+
+    const [moved] = currentCitations.splice(fromIndex, 1);
+    currentCitations.splice(toIndex, 0, moved);
+
+    const now = new Date().toISOString();
+    const updatedNotes = [...notes];
+    updatedNotes[noteIndex] = {
+      ...updatedNotes[noteIndex],
+      updatedAt: now,
+      citations: currentCitations
+    };
+
+    const sorted = sortNotesByRecency(updatedNotes);
+    set({ notes: sorted });
+    const targetNote = sorted.find(n => n.id === noteId);
+    if (targetNote) await saveNoteToDB(targetNote);
   },
 
   addImageToNote: async (noteId, imageObj) => {

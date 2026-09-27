@@ -8,6 +8,7 @@ export interface FormattedSource {
   dateOrVersion?: string;
   paragraphOrVerse?: string;
   formattedLine: string;
+  citationIds?: string[];
 }
 
 export interface FormattedNoteSection {
@@ -152,11 +153,16 @@ export function processNoteData(note: Note): ProcessedNoteData {
     title: string,
     type: 'scripture' | 'sermon' | 'general',
     dateOrVersion?: string,
-    paragraphOrVerse?: string
+    paragraphOrVerse?: string,
+    citationId?: string
   ): number => {
     const key = `${type}_${title}_${dateOrVersion || ''}_${paragraphOrVerse || ''}`.toLowerCase();
     if (sourcesMap.has(key)) {
-      return sourcesMap.get(key)!.index;
+      const existing = sourcesMap.get(key)!;
+      if (citationId && (!existing.citationIds || !existing.citationIds.includes(citationId))) {
+        existing.citationIds = [...(existing.citationIds || []), citationId];
+      }
+      return existing.index;
     }
 
     const cleanT = cleanTextArtifacts(title);
@@ -185,7 +191,8 @@ export function processNoteData(note: Note): ProcessedNoteData {
       title: cleanT,
       dateOrVersion: cleanD,
       paragraphOrVerse: cleanP,
-      formattedLine
+      formattedLine,
+      citationIds: citationId ? [citationId] : []
     };
 
     sourcesMap.set(key, sourceObj);
@@ -193,27 +200,6 @@ export function processNoteData(note: Note): ProcessedNoteData {
     sourceCounter++;
     return sourceObj.index;
   };
-
-  // Traitement des paragraphes du contenu principal
-  const rawParagraphs = rawContent
-    .split(/\n+/)
-    .map(p => cleanTextArtifacts(p))
-    .filter(p => p.length > 0);
-
-  const contentParagraphs: string[] = [];
-
-  // Détecter si des citations ou sources bibliques sont incrustées dans le texte
-  for (const paragraph of rawParagraphs) {
-    let pText = paragraph;
-
-    // Remplacer les chaînes de type: — Genèse 2 (LSG 1910) — Para. 5
-    pText = pText.replace(/—\s*([A-Za-zÀ-ÿ0-9\s]+?)\s*\((LSG\s*1910|Louis Segond)\)\s*—\s*Para\.?\s*\d*/gi, (match, book) => {
-      const idx = getOrAddSource(book.trim(), 'scripture', 'LSG 1910');
-      return `(${book.trim()}, LSG 1910) [${idx}]`;
-    });
-
-    contentParagraphs.push(pText);
-  }
 
   // Traitement des citations rattachées (Citations)
   const scriptureCitations: ProcessedNoteData['scriptureCitations'] = [];
@@ -241,7 +227,7 @@ export function processNoteData(note: Note): ProcessedNoteData {
 
       if (isScriptureSource && !/Exposé|Expose|Sermon|Prédication|Brochure|Message/i.test(titleSnap)) {
         const version = versionSnap || 'LSG 1910';
-        const srcIdx = getOrAddSource(titleSnap || 'Bible', 'scripture', version, paraRef);
+        const srcIdx = getOrAddSource(titleSnap || 'Bible', 'scripture', version, paraRef, citation.id);
         scriptureCitations.push({
           citationId: citation.id,
           quote: cleanQuote,
@@ -253,7 +239,7 @@ export function processNoteData(note: Note): ProcessedNoteData {
         if (dateSnap) metaParts.push(dateSnap);
         if (paraRef) metaParts.push(paraRef);
 
-        const srcIdx = getOrAddSource(titleSnap || 'Exposé / Enseignement', 'sermon', dateSnap, paraRef);
+        const srcIdx = getOrAddSource(titleSnap || 'Exposé / Enseignement', 'sermon', dateSnap, paraRef, citation.id);
         teachingCitations.push({
           citationId: citation.id,
           quote: cleanQuote,
@@ -261,6 +247,59 @@ export function processNoteData(note: Note): ProcessedNoteData {
           sourceMeta: metaParts.join(' — '),
           sourceIndex: srcIdx
         });
+      }
+    }
+  }
+
+  // Traitement des paragraphes du contenu principal
+  const rawParagraphs = rawContent
+    .split(/\n+/)
+    .map(p => cleanTextArtifacts(p))
+    .filter(p => p.length > 0);
+
+  const contentParagraphs: string[] = [];
+
+  // Détecter si des citations ou sources bibliques sont incrustées dans le texte
+  for (const paragraph of rawParagraphs) {
+    let pText = paragraph;
+
+    // Remplacer les chaînes de type: — Genèse 2 (LSG 1910) — Para. 5
+    pText = pText.replace(/—\s*([A-Za-zÀ-ÿ0-9\s]+?)\s*\((LSG\s*1910|Louis Segond)\)\s*—\s*Para\.?\s*\d*/gi, (match, book) => {
+      const idx = getOrAddSource(book.trim(), 'scripture', 'LSG 1910');
+      return `(${book.trim()}, LSG 1910) [${idx}]`;
+    });
+
+    contentParagraphs.push(pText);
+  }
+
+  // Si un ordre personnalisé de sources (sourceOrder) est défini, réordonner la liste des sources
+  if (note.sourceOrder && note.sourceOrder.length > 0 && sourcesList.length > 1) {
+    const orderMap = new Map<string, number>();
+    note.sourceOrder.forEach((id, idx) => orderMap.set(id.toLowerCase(), idx));
+
+    sourcesList.sort((a, b) => {
+      const posA = orderMap.has(a.id.toLowerCase()) ? orderMap.get(a.id.toLowerCase())! : 9999;
+      const posB = orderMap.has(b.id.toLowerCase()) ? orderMap.get(b.id.toLowerCase())! : 9999;
+      return posA - posB;
+    });
+
+    // Réassigner les index finaux 1..N
+    const indexMapping = new Map<number, number>();
+    sourcesList.forEach((src, idx) => {
+      const newIndex = idx + 1;
+      indexMapping.set(src.index, newIndex);
+      src.index = newIndex;
+    });
+
+    // Mettre à jour les références d'index dans les citations
+    for (const sc of scriptureCitations) {
+      if (sc.sourceIndex && indexMapping.has(sc.sourceIndex)) {
+        sc.sourceIndex = indexMapping.get(sc.sourceIndex);
+      }
+    }
+    for (const tc of teachingCitations) {
+      if (tc.sourceIndex && indexMapping.has(tc.sourceIndex)) {
+        tc.sourceIndex = indexMapping.get(tc.sourceIndex);
       }
     }
   }

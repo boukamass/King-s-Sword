@@ -25,7 +25,10 @@ import {
   Check, 
   Eye, 
   Folder,
-  BookOpen
+  BookOpen,
+  GripVertical,
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react';
 import { Citation } from '../types';
 import { exportNoteToDocx } from '../services/docxExportService';
@@ -63,6 +66,7 @@ const NoteEditor: React.FC = () => {
         addImageToNote,
         removeImageFromNote,
         removeCitationFromNote,
+        updateNoteCitations,
         setSidebarOpen,
     } = useAppStore();
 
@@ -77,6 +81,13 @@ const NoteEditor: React.FC = () => {
     const [selectedFolderId, setSelectedFolderId] = useState<string>('ALL');
     const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
     const [isImportingDirect, setIsImportingDirect] = useState(false);
+
+    // États de Drag and Drop pour la réorganisation des sources et références
+    const [draggedSourceIdx, setDraggedSourceIdx] = useState<number | null>(null);
+    const [dragOverSourceIdx, setDragOverSourceIdx] = useState<number | null>(null);
+    const [draggedCitationId, setDraggedCitationId] = useState<string | null>(null);
+    const [dragOverCitationId, setDragOverCitationId] = useState<string | null>(null);
+
     const titleInputRef = useRef<HTMLInputElement>(null);
     const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
     const directFileInputRef = useRef<HTMLInputElement>(null);
@@ -123,6 +134,68 @@ const NoteEditor: React.FC = () => {
     if (!note) return null;
 
     const processedNote = processNoteData(note);
+
+    /**
+     * Réorganisation par Drag and Drop de l'ordre des sources & références
+     */
+    const handleReorderSources = async (fromIdx: number, toIdx: number) => {
+        if (!note || fromIdx === toIdx || fromIdx < 0 || toIdx < 0) return;
+        const currentSources = [...processedNote.sources];
+        if (fromIdx >= currentSources.length || toIdx >= currentSources.length) return;
+
+        const [movedSource] = currentSources.splice(fromIdx, 1);
+        currentSources.splice(toIdx, 0, movedSource);
+
+        const newSourceOrder = currentSources.map(s => s.id);
+
+        const existingCitations = note.citations || [];
+        const reorderedCitations: Citation[] = [];
+        const addedIds = new Set<string>();
+
+        for (const src of currentSources) {
+            if (src.citationIds && src.citationIds.length > 0) {
+                for (const cId of src.citationIds) {
+                    const found = existingCitations.find(c => c.id === cId);
+                    if (found && !addedIds.has(found.id)) {
+                        reorderedCitations.push(found);
+                        addedIds.add(found.id);
+                    }
+                }
+            }
+        }
+
+        // Ajouter les éventuelles citations restantes
+        for (const c of existingCitations) {
+            if (!addedIds.has(c.id)) {
+                reorderedCitations.push(c);
+            }
+        }
+
+        await updateNote(note.id, {
+            sourceOrder: newSourceOrder,
+            citations: reorderedCitations
+        });
+        addNotification("Ordre des sources et références mis à jour.", "info");
+    };
+
+    /**
+     * Réorganisation par Drag and Drop directe d'une citation
+     */
+    const handleReorderCitations = async (draggedId: string, targetId: string) => {
+        if (!note || draggedId === targetId) return;
+        const currentCitations = [...(note.citations || [])];
+        const fromIdx = currentCitations.findIndex(c => c.id === draggedId);
+        const toIdx = currentCitations.findIndex(c => c.id === targetId);
+        if (fromIdx === -1 || toIdx === -1) return;
+
+        const [moved] = currentCitations.splice(fromIdx, 1);
+        currentCitations.splice(toIdx, 0, moved);
+
+        await updateNote(note.id, {
+            citations: currentCitations
+        });
+        addNotification("Position de la citation mise à jour.", "info");
+    };
 
     const handleJumpToCitation = (sermonId: string, quotedText?: string, paragraphIndex?: number) => {
         if (sermonId.startsWith('ia-response') || sermonId.startsWith('definition-')) return; 
@@ -669,90 +742,291 @@ const NoteEditor: React.FC = () => {
                             {/* Citations bibliques */}
                             {processedNote.scriptureCitations.length > 0 && (
                               <div className="space-y-4">
-                                <h4 className="text-xs font-black uppercase tracking-wider text-teal-600 dark:text-teal-400 px-2 flex items-center gap-2">
-                                  <BookOpen className="w-4 h-4" />
-                                  <span>Citations Bibliques</span>
-                                </h4>
-                                {processedNote.scriptureCitations.map((sc, idx) => (
-                                  <div key={idx} className="bg-white dark:bg-zinc-900 border border-teal-600/20 dark:border-teal-900/30 rounded-2xl p-6 shadow-xs relative group">
-                                    <Quote className="absolute -left-1 -top-1 w-10 h-10 text-teal-600/10 rotate-12" />
-                                    {sc.citationId && (
-                                      <button
-                                        onClick={() => removeCitationFromNote(note.id, sc.citationId)}
-                                        data-tooltip="Supprimer cette référence"
-                                        data-tooltip-icon="trash"
-                                        className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-all cursor-pointer opacity-80 hover:opacity-100 z-10"
-                                      >
-                                        <Trash2 className="w-4 h-4" />
-                                      </button>
-                                    )}
-                                    <blockquote className="text-zinc-800 dark:text-zinc-200 italic serif-text text-base leading-relaxed mb-3 pr-8">
-                                      « {sc.quote} »
-                                    </blockquote>
-                                    <div className="flex justify-end items-center gap-2">
-                                      <span className="text-xs font-bold text-teal-700 dark:text-teal-300">
-                                        {sc.reference}
-                                      </span>
-                                      {sc.sourceIndex && (
-                                        <span className="text-[10px] font-black bg-teal-600/10 text-teal-600 dark:text-teal-400 px-2 py-0.5 rounded-full border border-teal-600/20">
-                                          [{sc.sourceIndex}]
-                                        </span>
+                                <div className="flex items-center justify-between px-2">
+                                  <h4 className="text-xs font-black uppercase tracking-wider text-teal-600 dark:text-teal-400 flex items-center gap-2">
+                                    <BookOpen className="w-4 h-4" />
+                                    <span>Citations Bibliques</span>
+                                  </h4>
+                                </div>
+                                {processedNote.scriptureCitations.map((sc, idx) => {
+                                  const isDragging = sc.citationId && draggedCitationId === sc.citationId;
+                                  const isDragOver = sc.citationId && dragOverCitationId === sc.citationId;
+
+                                  return (
+                                    <div 
+                                      key={sc.citationId || idx} 
+                                      draggable={Boolean(sc.citationId)}
+                                      onDragStart={(e) => {
+                                        if (!sc.citationId) return;
+                                        setDraggedCitationId(sc.citationId);
+                                        e.dataTransfer.effectAllowed = 'move';
+                                        e.dataTransfer.setData('text/plain', sc.citationId);
+                                      }}
+                                      onDragOver={(e) => {
+                                        if (!sc.citationId) return;
+                                        e.preventDefault();
+                                        e.dataTransfer.dropEffect = 'move';
+                                        if (dragOverCitationId !== sc.citationId) {
+                                          setDragOverCitationId(sc.citationId);
+                                        }
+                                      }}
+                                      onDragLeave={() => {
+                                        if (dragOverCitationId === sc.citationId) {
+                                          setDragOverCitationId(null);
+                                        }
+                                      }}
+                                      onDrop={(e) => {
+                                        e.preventDefault();
+                                        if (draggedCitationId && sc.citationId && draggedCitationId !== sc.citationId) {
+                                          handleReorderCitations(draggedCitationId, sc.citationId);
+                                        }
+                                        setDraggedCitationId(null);
+                                        setDragOverCitationId(null);
+                                      }}
+                                      onDragEnd={() => {
+                                        setDraggedCitationId(null);
+                                        setDragOverCitationId(null);
+                                      }}
+                                      className={`bg-white dark:bg-zinc-900 border rounded-2xl p-6 shadow-xs relative group transition-all ${
+                                        isDragging 
+                                          ? 'opacity-30 border-dashed border-teal-500' 
+                                          : isDragOver
+                                            ? 'border-teal-500 bg-teal-50/40 dark:bg-teal-950/30 ring-2 ring-teal-500/20'
+                                            : 'border-teal-600/20 dark:border-teal-900/30 hover:border-teal-500/50'
+                                      }`}
+                                    >
+                                      <Quote className="absolute -left-1 -top-1 w-10 h-10 text-teal-600/10 rotate-12 pointer-events-none" />
+                                      
+                                      {sc.citationId && (
+                                        <div className="absolute top-4 right-4 flex items-center gap-1 z-10">
+                                          <div 
+                                            className="p-1.5 text-zinc-300 hover:text-zinc-600 dark:text-zinc-600 dark:hover:text-zinc-300 rounded-lg cursor-grab active:cursor-grabbing hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                                            title="Glisser pour déplacer cette citation"
+                                          >
+                                            <GripVertical className="w-4 h-4" />
+                                          </div>
+                                          <button
+                                            onClick={() => removeCitationFromNote(note.id, sc.citationId)}
+                                            data-tooltip="Supprimer cette référence"
+                                            data-tooltip-icon="trash"
+                                            className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition-all cursor-pointer opacity-80 hover:opacity-100"
+                                          >
+                                            <Trash2 className="w-4 h-4" />
+                                          </button>
+                                        </div>
                                       )}
+
+                                      <blockquote className="text-zinc-800 dark:text-zinc-200 italic serif-text text-base leading-relaxed mb-3 pr-16">
+                                        « {sc.quote} »
+                                      </blockquote>
+                                      <div className="flex justify-end items-center gap-2">
+                                        <span className="text-xs font-bold text-teal-700 dark:text-teal-300">
+                                          {sc.reference}
+                                        </span>
+                                        {sc.sourceIndex && (
+                                          <span className="text-[10px] font-black bg-teal-600/10 text-teal-600 dark:text-teal-400 px-2 py-0.5 rounded-full border border-teal-600/20">
+                                            [{sc.sourceIndex}]
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             )}
 
                             {/* Citations d'enseignements / Sermons */}
                             {processedNote.teachingCitations.length > 0 && (
                               <div className="space-y-4">
-                                <h4 className="text-xs font-black uppercase tracking-wider text-teal-600 dark:text-teal-400 px-2 flex items-center gap-2">
-                                  <Quote className="w-4 h-4" />
-                                  <span>Citations d'Enseignements</span>
-                                </h4>
-                                {processedNote.teachingCitations.map((tc, idx) => (
-                                  <div key={idx} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-xs relative group">
-                                    {tc.citationId && (
-                                      <button
-                                        onClick={() => removeCitationFromNote(note.id, tc.citationId)}
-                                        data-tooltip="Supprimer cette référence"
-                                        data-tooltip-icon="trash"
-                                        className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-all cursor-pointer opacity-80 hover:opacity-100 z-10"
-                                      >
-                                        <Trash2 className="w-4 h-4" />
-                                      </button>
-                                    )}
-                                    <blockquote className="text-zinc-800 dark:text-zinc-200 italic serif-text text-base leading-relaxed mb-3 pr-8">
-                                      « {tc.quote} »
-                                    </blockquote>
-                                    <div className="flex justify-end items-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-400">
-                                      <span><strong className="text-teal-600 dark:text-teal-400">{tc.sourceTitle}</strong> {tc.sourceMeta ? `— ${tc.sourceMeta}` : ''}</span>
-                                      {tc.sourceIndex && (
-                                        <span className="text-[10px] font-black bg-teal-600/10 text-teal-600 dark:text-teal-400 px-2 py-0.5 rounded-full border border-teal-600/20">
-                                          [{tc.sourceIndex}]
-                                        </span>
+                                <div className="flex items-center justify-between px-2">
+                                  <h4 className="text-xs font-black uppercase tracking-wider text-teal-600 dark:text-teal-400 flex items-center gap-2">
+                                    <Quote className="w-4 h-4" />
+                                    <span>Citations d'Enseignements</span>
+                                  </h4>
+                                </div>
+                                {processedNote.teachingCitations.map((tc, idx) => {
+                                  const isDragging = tc.citationId && draggedCitationId === tc.citationId;
+                                  const isDragOver = tc.citationId && dragOverCitationId === tc.citationId;
+
+                                  return (
+                                    <div 
+                                      key={tc.citationId || idx} 
+                                      draggable={Boolean(tc.citationId)}
+                                      onDragStart={(e) => {
+                                        if (!tc.citationId) return;
+                                        setDraggedCitationId(tc.citationId);
+                                        e.dataTransfer.effectAllowed = 'move';
+                                        e.dataTransfer.setData('text/plain', tc.citationId);
+                                      }}
+                                      onDragOver={(e) => {
+                                        if (!tc.citationId) return;
+                                        e.preventDefault();
+                                        e.dataTransfer.dropEffect = 'move';
+                                        if (dragOverCitationId !== tc.citationId) {
+                                          setDragOverCitationId(tc.citationId);
+                                        }
+                                      }}
+                                      onDragLeave={() => {
+                                        if (dragOverCitationId === tc.citationId) {
+                                          setDragOverCitationId(null);
+                                        }
+                                      }}
+                                      onDrop={(e) => {
+                                        e.preventDefault();
+                                        if (draggedCitationId && tc.citationId && draggedCitationId !== tc.citationId) {
+                                          handleReorderCitations(draggedCitationId, tc.citationId);
+                                        }
+                                        setDraggedCitationId(null);
+                                        setDragOverCitationId(null);
+                                      }}
+                                      onDragEnd={() => {
+                                        setDraggedCitationId(null);
+                                        setDragOverCitationId(null);
+                                      }}
+                                      className={`bg-white dark:bg-zinc-900 border rounded-2xl p-6 shadow-xs relative group transition-all ${
+                                        isDragging 
+                                          ? 'opacity-30 border-dashed border-teal-500' 
+                                          : isDragOver
+                                            ? 'border-teal-500 bg-teal-50/40 dark:bg-teal-950/30 ring-2 ring-teal-500/20'
+                                            : 'border-zinc-200 dark:border-zinc-800 hover:border-teal-500/50'
+                                      }`}
+                                    >
+                                      {tc.citationId && (
+                                        <div className="absolute top-4 right-4 flex items-center gap-1 z-10">
+                                          <div 
+                                            className="p-1.5 text-zinc-300 hover:text-zinc-600 dark:text-zinc-600 dark:hover:text-zinc-300 rounded-lg cursor-grab active:cursor-grabbing hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                                            title="Glisser pour déplacer cette citation"
+                                          >
+                                            <GripVertical className="w-4 h-4" />
+                                          </div>
+                                          <button
+                                            onClick={() => removeCitationFromNote(note.id, tc.citationId)}
+                                            data-tooltip="Supprimer cette référence"
+                                            data-tooltip-icon="trash"
+                                            className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition-all cursor-pointer opacity-80 hover:opacity-100"
+                                          >
+                                            <Trash2 className="w-4 h-4" />
+                                          </button>
+                                        </div>
                                       )}
+
+                                      <blockquote className="text-zinc-800 dark:text-zinc-200 italic serif-text text-base leading-relaxed mb-3 pr-16">
+                                        « {tc.quote} »
+                                      </blockquote>
+                                      <div className="flex justify-end items-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-400">
+                                        <span><strong className="text-teal-600 dark:text-teal-400">{tc.sourceTitle}</strong> {tc.sourceMeta ? `— ${tc.sourceMeta}` : ''}</span>
+                                        {tc.sourceIndex && (
+                                          <span className="text-[10px] font-black bg-teal-600/10 text-teal-600 dark:text-teal-400 px-2 py-0.5 rounded-full border border-teal-600/20">
+                                            [{tc.sourceIndex}]
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             )}
 
-                            {/* Section Sources & Bibliographie */}
+                            {/* Section Sources & Bibliographie avec Drag & Drop pour réorganiser l'ordre */}
                             {processedNote.sources.length > 0 && (
                               <div className="mt-10 pt-8 border-t border-zinc-200 dark:border-zinc-800 space-y-4">
-                                <h4 className="text-xs font-black uppercase tracking-widest text-zinc-800 dark:text-zinc-200 flex items-center gap-2">
-                                  <Link2 className="w-4 h-4 text-teal-600" />
-                                  <span>Sources & Références</span>
-                                </h4>
-                                <div className="space-y-2 bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800">
-                                  {processedNote.sources.map((src) => (
-                                    <div key={src.index} className="flex items-start gap-2 text-xs text-zinc-700 dark:text-zinc-300">
-                                      <span className="font-bold text-teal-600 dark:text-teal-400 shrink-0">[{src.index}]</span>
-                                      <span>{src.formattedLine}</span>
-                                    </div>
-                                  ))}
+                                <div className="flex items-center justify-between">
+                                  <h4 className="text-xs font-black uppercase tracking-widest text-zinc-800 dark:text-zinc-200 flex items-center gap-2">
+                                    <Link2 className="w-4 h-4 text-teal-600" />
+                                    <span>Sources & Références</span>
+                                  </h4>
+                                  <span className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 flex items-center gap-1.5">
+                                    <GripVertical className="w-3.5 h-3.5" />
+                                    Glissez-déposez pour réorganiser l'ordre
+                                  </span>
+                                </div>
+
+                                <div className="space-y-2 bg-white dark:bg-zinc-900 p-4 sm:p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800">
+                                  {processedNote.sources.map((src, srcIdx) => {
+                                    const isDragging = draggedSourceIdx === srcIdx;
+                                    const isDragOver = dragOverSourceIdx === srcIdx;
+
+                                    return (
+                                      <div 
+                                        key={src.id || src.index}
+                                        draggable
+                                        onDragStart={(e) => {
+                                          setDraggedSourceIdx(srcIdx);
+                                          e.dataTransfer.effectAllowed = 'move';
+                                          e.dataTransfer.setData('text/plain', String(srcIdx));
+                                        }}
+                                        onDragOver={(e) => {
+                                          e.preventDefault();
+                                          e.dataTransfer.dropEffect = 'move';
+                                          if (dragOverSourceIdx !== srcIdx) {
+                                            setDragOverSourceIdx(srcIdx);
+                                          }
+                                        }}
+                                        onDragLeave={() => {
+                                          if (dragOverSourceIdx === srcIdx) {
+                                            setDragOverSourceIdx(null);
+                                          }
+                                        }}
+                                        onDrop={(e) => {
+                                          e.preventDefault();
+                                          if (draggedSourceIdx !== null && draggedSourceIdx !== srcIdx) {
+                                            handleReorderSources(draggedSourceIdx, srcIdx);
+                                          }
+                                          setDraggedSourceIdx(null);
+                                          setDragOverSourceIdx(null);
+                                        }}
+                                        onDragEnd={() => {
+                                          setDraggedSourceIdx(null);
+                                          setDragOverSourceIdx(null);
+                                        }}
+                                        className={`group/src flex items-center justify-between gap-3 p-2.5 rounded-xl border transition-all select-none ${
+                                          isDragging 
+                                            ? 'opacity-30 border-dashed border-teal-500 bg-teal-50/20 dark:bg-teal-950/20' 
+                                            : isDragOver
+                                              ? 'border-teal-500 bg-teal-50/60 dark:bg-teal-950/40 shadow-sm scale-[1.01]'
+                                              : 'border-zinc-100 dark:border-zinc-800/80 hover:border-zinc-300 dark:hover:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-950/30'
+                                        }`}
+                                      >
+                                        {/* Poignée et Numéro d'index */}
+                                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                                          <div 
+                                            className="cursor-grab active:cursor-grabbing text-zinc-300 hover:text-zinc-600 dark:text-zinc-600 dark:hover:text-zinc-300 p-1 rounded-md hover:bg-zinc-200/60 dark:hover:bg-zinc-800 transition-colors shrink-0"
+                                            title="Glisser pour changer la position"
+                                          >
+                                            <GripVertical className="w-4 h-4" />
+                                          </div>
+                                          <span className="font-black text-xs text-teal-600 dark:text-teal-400 bg-teal-600/10 dark:bg-teal-400/10 px-2 py-0.5 rounded-md border border-teal-600/20 shrink-0">
+                                            [{src.index}]
+                                          </span>
+                                          <span className="text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed truncate">
+                                            {src.formattedLine}
+                                          </span>
+                                        </div>
+
+                                        {/* Boutons d'action : Monter / Descendre d'un rang */}
+                                        <div className="flex items-center gap-1 opacity-0 group-hover/src:opacity-100 transition-opacity shrink-0">
+                                          <button
+                                            type="button"
+                                            onClick={() => handleReorderSources(srcIdx, srcIdx - 1)}
+                                            disabled={srcIdx === 0}
+                                            title="Monter d'une position"
+                                            className="p-1 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800 disabled:opacity-20 disabled:pointer-events-none transition-all cursor-pointer"
+                                          >
+                                            <ChevronUp className="w-3.5 h-3.5" />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleReorderSources(srcIdx, srcIdx + 1)}
+                                            disabled={srcIdx === processedNote.sources.length - 1}
+                                            title="Descendre d'une position"
+                                            className="p-1 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800 disabled:opacity-20 disabled:pointer-events-none transition-all cursor-pointer"
+                                          >
+                                            <ChevronDown className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             )}
