@@ -124,9 +124,10 @@ export const classifyGeminiError = (error: any): { type: string; userMessage: st
 };
 
 const CANDIDATE_MODELS = [
-  "gemini-2.5-flash",
-  "gemini-2.0-flash",
-  "gemini-1.5-flash"
+  "gemini-3.8-flash",
+  "gemini-3.1-flash-lite",
+  "gemini-flash-latest",
+  "gemini-3.1-pro-preview"
 ];
 
 /**
@@ -432,7 +433,12 @@ QUESTION DU CHERCHEUR :
     console.warn("Ollama non joignable:", ollamaErr);
   }
 
-  // 3. Fallback d'analyse locale textuelle 100% autonome (signalé explicitement)
+  // 3. Fallback d'analyse locale textuelle 100% autonome (signalé explicitement et avec précision)
+  let lastGeminiReason = "";
+  if (apiKey) {
+    lastGeminiReason = " (Serveurs Google occupés ou micro-coupure réseau temporaire)";
+  }
+
   const localAnalysis = offlineLocalSearchAnalysis(prompt, contextText);
   const fallbackSources: GeminiSource[] = options.retrievedParagraphs && options.retrievedParagraphs.length > 0
     ? options.retrievedParagraphs.map(p => ({
@@ -444,8 +450,8 @@ QUESTION DU CHERCHEUR :
     : (localAnalysis.sources || [{ title: 'Index Local Hors-Ligne', uri: 'local://search' }]);
 
   const notice = !apiKey 
-    ? `> ℹ️ **Mode Index Local** : *Aucune clé Google Gemini n'a été configurée. Cliquez sur "Activer IA" pour connecter votre clé Google AI Studio.*\n\n`
-    : `> ℹ️ **Mode Secours Local** : *Connexion à Google Gemini impossible. Analyse produite par le moteur de recherche local hors-ligne.*\n\n`;
+    ? `> ℹ️ **Mode Index Local** : *Aucune clé Google Gemini configurée. Analyse produite par l'index documentaire local.* (Cliquez sur "+ Clé Google" en haut pour connecter Gemini)\n\n`
+    : `> ℹ️ **Mode Secours Local** : *Connexion à Google Gemini indisponible${lastGeminiReason}. Analyse produite automatiquement par le moteur local pour ne pas bloquer votre recherche.*\n\n`;
 
   return {
     text: `${notice}${localAnalysis.text}`,
