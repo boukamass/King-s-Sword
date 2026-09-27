@@ -4,13 +4,13 @@ import { isOllamaAvailable, askOllamaChat } from './ollamaService';
 import { getGeminiApiKey } from '../utils/apiKeyHelper';
 import { classifyGeminiError } from './geminiChatService';
 
-const callWithRetry = async (fn: () => Promise<any>, maxRetries = 2, delay = 2000) => {
+const callWithRetry = async (fn: () => Promise<any>, maxRetries = 1, delay = 1500) => {
   for (let i = 0; i <= maxRetries; i++) {
     try {
       return await fn();
     } catch (error: any) {
       const classified = classifyGeminiError(error);
-      if (classified.type === 'API_KEY_INVALID' || classified.type === 'QUOTA_EXHAUSTED' || classified.type === 'PERMISSION_DENIED' || classified.type === 'MODEL_UNAVAILABLE') {
+      if (classified.type === 'API_KEY_INVALID' || classified.type === 'PERMISSION_DENIED' || classified.type === 'MODEL_UNAVAILABLE') {
         throw error;
       }
       if (i < maxRetries) {
@@ -33,8 +33,8 @@ export const analyzeSelectionContext = async (
 
   const otherSermonsContext = allContextSermons
     .filter(s => s.id !== currentSermon?.id)
-    .slice(0, 10)
-    .map(s => `=== DOCUMENT SOURCE : ${s.title} (${s.date || 'Non daté'}, ${s.city || ''}) [ID: ${s.id}] ===\nCONTENU :\n${(s.text || '').substring(0, 25000)}`)
+    .slice(0, 3)
+    .map(s => `=== DOCUMENT SOURCE : ${s.title} (${s.date || 'Non daté'}, ${s.city || ''}) [ID: ${s.id}] ===\nCONTENU :\n${(s.text || '').substring(0, 5000)}`)
     .join("\n\n---\n\n");
 
   const prompt = `
@@ -51,7 +51,7 @@ Titre : ${currentSermon?.title || 'Document'}
 Date / Lieu : ${currentSermon?.date || ''} - ${currentSermon?.city || ''}
 ID : ${currentSermon?.id || ''}
 TEXTE DU DOCUMENT :
-${currentText.substring(0, 50000)}
+${currentText.substring(0, 15000)}
 
 SOURCES ET RÉFÉRENCES CROISÉES DU CONTEXTE :
 ${otherSermonsContext || "Aucune source secondaire ajoutée au Dock IA."}
