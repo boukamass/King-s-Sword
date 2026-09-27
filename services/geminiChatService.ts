@@ -262,7 +262,7 @@ DIRECTIVES STRICTES DE RÉPONSE FONDÉE EXCLUSIVEMENT SUR LES SOURCES FOURNIES D
    « Les documents disponibles dans la base documentaire de l'application ne contiennent pas d'informations suffisantes pour répondre à cette question. »
 6. Regroupe toujours en fin de réponse une section "### Sources consultées" listant clairement les sermons et paragraphes cités.`;
 
-      userPromptWithContext = `${contextText.substring(0, 25000)}
+      userPromptWithContext = `${contextText.substring(0, 300000)}
 
 ============================================================
 QUESTION DU CHERCHEUR :
@@ -275,11 +275,12 @@ DIRECTIVES STRICTES DE RÉPONSE FONDÉE EXCLUSIVEMENT SUR LES SOURCES DE L'APPLI
 2. Séparation claire du contenu et des sources : Ne mélange jamais les références ou les numéros de paragraphe dans les phrases du corps du texte.
 3. Pour les passages bibliques cités : Présente la citation dans un bloc (> « ... ») suivi immédiatement de la référence exacte (ex : **Genèse 2:5 — LSG 1910**).
 4. Pour les enseignements/sermons cités : Présente la citation dans un bloc (> « ... ») suivi de **Source :** *Titre du Sermon* — Date, §N.
-5. Regroupe toujours en fin de réponse une section "### Sources" numérotée ([1], [2]...) listant clairement les références utilisées.`;
+5. Analyse et prends en compte l'ENSEMBLE de toutes les ressources fournies dans le contexte ci-dessous sans te limiter aux premières.
+6. Regroupe toujours en fin de réponse une section "### Sources" numérotée ([1], [2]...) listant clairement les références utilisées.`;
 
       userPromptWithContext = `DOCUMENTS SOURCES FOURNIS DANS L'APPLICATION (Dock IA / Sermons actifs) :
 ============================================================
-${contextText.substring(0, 25000)}
+${contextText.substring(0, 300000)}
 ============================================================
 
 CONSIGNES :

@@ -26,13 +26,18 @@ import {
   Eye, 
   Folder,
   BookOpen,
+  ScrollText,
   GripVertical,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  MessageSquare,
+  MessageSquarePlus,
+  Pencil,
+  Type
 } from 'lucide-react';
-import { Citation } from '../types';
+import { Citation, NoteSeparator } from '../types';
 import { exportNoteToDocx } from '../services/docxExportService';
-import { processNoteData, cleanTextArtifacts } from '../utils/noteFormatter';
+import { processNoteData, cleanTextArtifacts, NoteSectionItem } from '../utils/noteFormatter';
 import { detectImageMeta } from '../services/imageMediaService';
 
 const ActionButton = ({ onClick, icon: Icon, tooltip }: { onClick: () => void; icon: React.ElementType; tooltip: string }) => (
@@ -87,6 +92,15 @@ const NoteEditor: React.FC = () => {
     const [dragOverSourceIdx, setDragOverSourceIdx] = useState<number | null>(null);
     const [draggedCitationId, setDraggedCitationId] = useState<string | null>(null);
     const [dragOverCitationId, setDragOverCitationId] = useState<string | null>(null);
+
+    // États pour les séparateurs / sous-titres et commentaires indépendants
+    const [insertingSeparatorCategory, setInsertingSeparatorCategory] = useState<'scripture' | 'church_age' | 'teaching' | null>(null);
+    const [insertingSeparatorOrderIndex, setInsertingSeparatorOrderIndex] = useState<number>(0);
+    const [insertingSeparatorType, setInsertingSeparatorType] = useState<'subtitle' | 'comment'>('subtitle');
+    const [insertingSeparatorText, setInsertingSeparatorText] = useState<string>('');
+
+    const [editingSeparatorId, setEditingSeparatorId] = useState<string | null>(null);
+    const [editingSeparatorText, setEditingSeparatorText] = useState<string>('');
 
     const titleInputRef = useRef<HTMLInputElement>(null);
     const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -197,6 +211,190 @@ const NoteEditor: React.FC = () => {
         addNotification("Position de la citation mise à jour.", "info");
     };
 
+    /**
+     * Déplacement d'un cran (haut/bas) d'une citation via bouton flèche
+     */
+    const handleMoveCitation = async (
+        citationId: string, 
+        direction: 'up' | 'down',
+        list?: { citationId: string }[]
+    ) => {
+        if (!note || !citationId) return;
+        const currentCitations = [...(note.citations || [])];
+
+        if (list && list.length > 1) {
+            const listIdx = list.findIndex(item => item.citationId === citationId);
+            if (listIdx === -1) return;
+            const targetListIdx = direction === 'up' ? listIdx - 1 : listIdx + 1;
+            if (targetListIdx < 0 || targetListIdx >= list.length) return;
+
+            const targetCitationId = list[targetListIdx].citationId;
+            const fromIdx = currentCitations.findIndex(c => c.id === citationId);
+            const toIdx = currentCitations.findIndex(c => c.id === targetCitationId);
+            if (fromIdx === -1 || toIdx === -1) return;
+
+            const [moved] = currentCitations.splice(fromIdx, 1);
+            currentCitations.splice(toIdx, 0, moved);
+        } else {
+            const fromIdx = currentCitations.findIndex(c => c.id === citationId);
+            if (fromIdx === -1) return;
+            const toIdx = direction === 'up' ? fromIdx - 1 : fromIdx + 1;
+            if (toIdx < 0 || toIdx >= currentCitations.length) return;
+
+            const [moved] = currentCitations.splice(fromIdx, 1);
+            currentCitations.splice(toIdx, 0, moved);
+        }
+
+        await updateNote(note.id, {
+            citations: currentCitations
+        });
+        addNotification("Position de la citation mise à jour.", "info");
+    };
+
+    /**
+     * Déplacement unifié pour les items (citations ou séparateurs indépendants)
+     */
+    const handleMoveSectionItem = async (
+        itemId: string,
+        direction: 'up' | 'down',
+        items: NoteSectionItem[],
+        category: 'scripture' | 'church_age' | 'teaching'
+    ) => {
+        if (!note || !itemId || items.length <= 1) return;
+        const itemIndex = items.findIndex(it => it.id === itemId);
+        if (itemIndex === -1) return;
+        const targetIndex = direction === 'up' ? itemIndex - 1 : itemIndex + 1;
+        if (targetIndex < 0 || targetIndex >= items.length) return;
+
+        // Créer une copie réordonnée des items de cette section
+        const newItems = [...items];
+        const [movedItem] = newItems.splice(itemIndex, 1);
+        newItems.splice(targetIndex, 0, movedItem);
+
+        // Mettre à jour les orderIndex des séparateurs de cette catégorie
+        const existingSeparators = [...(note.separators || [])];
+        const otherCatSeparators = existingSeparators.filter(s => s.category !== category);
+        
+        const updatedCatSeparators: NoteSeparator[] = [];
+        const reorderedCitationIds: string[] = [];
+
+        newItems.forEach((it, idx) => {
+            const calculatedOrder = idx * 10;
+            if (it.kind === 'separator') {
+                const origSep = existingSeparators.find(s => s.id === it.id);
+                if (origSep) {
+                    updatedCatSeparators.push({
+                        ...origSep,
+                        orderIndex: calculatedOrder
+                    });
+                }
+            } else {
+                reorderedCitationIds.push(it.citationId);
+            }
+        });
+
+        // Mettre à jour l'ordre des citations dans note.citations
+        const currentCitations = [...(note.citations || [])];
+        if (reorderedCitationIds.length > 0) {
+            const catCitationsMap = new Map(currentCitations.map(c => [c.id, c]));
+            let citIdx = 0;
+            for (let i = 0; i < currentCitations.length; i++) {
+                if (reorderedCitationIds.includes(currentCitations[i].id)) {
+                    const targetId = reorderedCitationIds[citIdx];
+                    if (targetId && catCitationsMap.has(targetId)) {
+                        currentCitations[i] = catCitationsMap.get(targetId)!;
+                        citIdx++;
+                    }
+                }
+            }
+        }
+
+        await updateNote(note.id, {
+            citations: currentCitations,
+            separators: [...otherCatSeparators, ...updatedCatSeparators]
+        });
+        addNotification("Position mise à jour.", "info");
+    };
+
+    /**
+     * Gestion des séparateurs / sous-titres et commentaires indépendants
+     */
+    const handleOpenInsertSeparator = (
+        category: 'scripture' | 'church_age' | 'teaching',
+        orderIndex: number,
+        initialType: 'subtitle' | 'comment' = 'subtitle'
+    ) => {
+        setInsertingSeparatorCategory(category);
+        setInsertingSeparatorOrderIndex(orderIndex);
+        setInsertingSeparatorType(initialType);
+        setInsertingSeparatorText('');
+    };
+
+    const handleSaveNewSeparator = async () => {
+        if (!note || !insertingSeparatorCategory || !insertingSeparatorText.trim()) {
+            setInsertingSeparatorCategory(null);
+            return;
+        }
+
+        const newSep: NoteSeparator = {
+            id: `sep_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+            type: insertingSeparatorType,
+            text: insertingSeparatorText.trim(),
+            category: insertingSeparatorCategory,
+            orderIndex: insertingSeparatorOrderIndex,
+            createdAt: new Date().toISOString()
+        };
+
+        const currentSeparators = [...(note.separators || [])];
+        currentSeparators.push(newSep);
+
+        await updateNote(note.id, {
+            separators: currentSeparators
+        });
+
+        setInsertingSeparatorCategory(null);
+        setInsertingSeparatorText('');
+        addNotification(
+            insertingSeparatorType === 'subtitle' ? "Sous-titre séparateur ajouté." : "Commentaire autonome ajouté.",
+            "success"
+        );
+    };
+
+    const handleStartEditSeparator = (separatorId: string, currentText: string) => {
+        setEditingSeparatorId(separatorId);
+        setEditingSeparatorText(currentText);
+    };
+
+    const handleSaveEditSeparator = async (separatorId: string) => {
+        if (!note || !separatorId) return;
+        const currentSeparators = (note.separators || []).map(s => {
+            if (s.id === separatorId) {
+                return { ...s, text: editingSeparatorText.trim() || s.text };
+            }
+            return s;
+        });
+
+        await updateNote(note.id, {
+            separators: currentSeparators
+        });
+        setEditingSeparatorId(null);
+        setEditingSeparatorText('');
+        addNotification("Séparateur mis à jour.", "info");
+    };
+
+    const handleDeleteSeparator = async (separatorId: string) => {
+        if (!note || !separatorId) return;
+        const currentSeparators = (note.separators || []).filter(s => s.id !== separatorId);
+
+        await updateNote(note.id, {
+            separators: currentSeparators
+        });
+        if (editingSeparatorId === separatorId) {
+            setEditingSeparatorId(null);
+        }
+        addNotification("Séparateur supprimé.", "info");
+    };
+
     const handleJumpToCitation = (sermonId: string, quotedText?: string, paragraphIndex?: number) => {
         if (sermonId.startsWith('ia-response') || sermonId.startsWith('definition-')) return; 
         
@@ -279,7 +477,7 @@ const NoteEditor: React.FC = () => {
         return str
             .replace(/[«»]/g, '"')
             .replace(/[’‘`]/g, "'")
-            .replace(/[—–]/g, '-')
+            .replace(/[—–─━─]/g, '-')
             .replace(/…/g, '...')
             .replace(/\u00A0/g, ' ')
             .replace(/[\u200B-\u200D\uFEFF]/g, '')
@@ -292,10 +490,18 @@ const NoteEditor: React.FC = () => {
         try {
             const doc = new jsPDF();
             const pageWidth = doc.internal.pageSize.width;
+            const pageHeight = doc.internal.pageSize.height;
             const margin = 15;
             const maxLineWidth = pageWidth - margin * 2;
             let y = margin;
             
+            const checkPageBreak = (neededHeight: number) => {
+                if (y + neededHeight > pageHeight - 20) {
+                    doc.addPage();
+                    y = margin;
+                }
+            };
+
             // Header
             const cleanTitle = cleanPdfText(processedNote.title);
             doc.setFont('helvetica', 'bold');
@@ -305,6 +511,7 @@ const NoteEditor: React.FC = () => {
             y += 8;
 
             doc.setDrawColor(13, 148, 136);
+            doc.setLineWidth(0.5);
             doc.line(margin, y, pageWidth - margin, y);
             y += 12;
 
@@ -320,106 +527,166 @@ const NoteEditor: React.FC = () => {
 
             // 1. Contenu principal
             if (processedNote.contentParagraphs.length > 0) {
+                checkPageBreak(25);
                 doc.setFont('helvetica', 'bold');
-                doc.setFontSize(12);
+                doc.setFontSize(11);
                 doc.setTextColor(13, 148, 136);
                 doc.text("CONTENU PRINCIPAL", margin, y);
-                y += 8;
+                y += 7;
 
                 doc.setFont('times', 'normal');
-                doc.setFontSize(11);
+                doc.setFontSize(10.5);
                 doc.setTextColor(30, 41, 59);
 
                 for (const pText of processedNote.contentParagraphs) {
                     const cleanP = cleanPdfText(pText);
                     if (!cleanP) continue;
-                    if (y > doc.internal.pageSize.height - 25) { doc.addPage(); y = margin; }
                     const pLines = doc.splitTextToSize(cleanP, maxLineWidth);
+                    checkPageBreak(pLines.length * 5 + 6);
                     doc.text(pLines, margin, y);
-                    y += pLines.length * 5.5 + 6;
+                    y += pLines.length * 5 + 4;
                 }
                 y += 6;
             }
+
+            // Helper to render section items (Citations + Separators)
+            const renderPdfSection = (
+                sectionTitle: string, 
+                items: NoteSectionItem[], 
+                titleColor: [number, number, number] = [13, 148, 136],
+                subColor: [number, number, number] = [13, 148, 136]
+            ) => {
+                if (!items || items.length === 0) return;
+
+                checkPageBreak(30);
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(11);
+                doc.setTextColor(titleColor[0], titleColor[1], titleColor[2]);
+                doc.text(sectionTitle, margin, y);
+                y += 8;
+
+                for (const item of items) {
+                    if (item.kind === 'separator') {
+                        if (item.separatorType === 'subtitle') {
+                            const cleanSub = cleanPdfText(item.text);
+                            checkPageBreak(18);
+                            y += 4;
+                            doc.setFont('helvetica', 'bold');
+                            doc.setFontSize(10);
+                            doc.setTextColor(subColor[0], subColor[1], subColor[2]);
+                            
+                            const textW = doc.getTextWidth(cleanSub);
+                            const startX = Math.max(margin, (pageWidth - textW) / 2);
+                            doc.text(cleanSub, startX, y);
+                            y += 8;
+                        } else {
+                            // Commentaire autonome
+                            const cleanComment = cleanPdfText(item.text);
+                            const commentLines = doc.splitTextToSize(cleanComment, maxLineWidth - 12);
+                            const neededH = commentLines.length * 4.8 + 12;
+                            checkPageBreak(neededH);
+
+                            const startY = y;
+                            doc.setFont('helvetica', 'bold');
+                            doc.setFontSize(9);
+                            doc.setTextColor(titleColor[0], titleColor[1], titleColor[2]);
+                            doc.text("Remarque / Commentaire :", margin + 4, y);
+                            y += 5;
+
+                            doc.setFont('times', 'italic');
+                            doc.setFontSize(10);
+                            doc.setTextColor(71, 85, 105);
+                            doc.text(commentLines, margin + 4, y);
+                            y += commentLines.length * 4.8 + 3;
+
+                            // Left vertical bar for comment
+                            doc.setDrawColor(titleColor[0], titleColor[1], titleColor[2]);
+                            doc.setLineWidth(0.8);
+                            doc.line(margin, startY - 2, margin, y - 2);
+
+                            y += 5;
+                        }
+                    } else {
+                        // Citation
+                        const cleanQuote = cleanPdfText(item.quote);
+                        const qLines = doc.splitTextToSize(`« ${cleanQuote} »`, maxLineWidth - 12);
+                        const neededH = qLines.length * 4.8 + 14;
+                        checkPageBreak(neededH);
+
+                        const startQY = y;
+                        doc.setFont('times', 'italic');
+                        doc.setFontSize(10.5);
+                        doc.setTextColor(51, 65, 85);
+                        doc.text(qLines, margin + 4, y);
+                        y += qLines.length * 4.8 + 3;
+
+                        doc.setFont('helvetica', 'bold');
+                        doc.setFontSize(8.5);
+                        doc.setTextColor(titleColor[0], titleColor[1], titleColor[2]);
+
+                        let refLabel = item.reference || '';
+                        if (!refLabel) {
+                            const meta = item.sourceMeta ? ` - ${item.sourceMeta}` : '';
+                            refLabel = `${item.sourceTitle || 'Source'}${meta}`;
+                        }
+                        const fullRef = cleanPdfText(`${refLabel}${item.sourceIndex ? ` [${item.sourceIndex}]` : ''}`);
+                        doc.text(fullRef, pageWidth - margin, y, { align: 'right' });
+                        y += 4;
+
+                        // Left vertical accent line for quote
+                        doc.setDrawColor(203, 213, 225);
+                        doc.setLineWidth(0.6);
+                        doc.line(margin, startQY - 2, margin, y);
+
+                        y += 6;
+                    }
+                }
+                y += 4;
+            };
 
             // 2. Citations bibliques
-            if (processedNote.scriptureCitations.length > 0) {
-                if (y > doc.internal.pageSize.height - 35) { doc.addPage(); y = margin; }
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(12);
-                doc.setTextColor(13, 148, 136);
-                doc.text("CITATIONS BIBLIQUES", margin, y);
-                y += 8;
+            renderPdfSection(
+                "CITATIONS BIBLIQUES", 
+                processedNote.scriptureItems, 
+                [13, 148, 136], // Deep Teal
+                [13, 148, 136]
+            );
 
-                for (const sc of processedNote.scriptureCitations) {
-                    if (y > doc.internal.pageSize.height - 30) { doc.addPage(); y = margin; }
+            // 3. Citations de l'Exposé des Sept Âges
+            renderPdfSection(
+                "CITATIONS DE L'EXPOSÉ DES SEPT ÂGES", 
+                processedNote.churchAgeItems, 
+                [13, 148, 136], 
+                [180, 83, 9] // Warm Amber
+            );
 
-                    doc.setFont('times', 'italic');
-                    doc.setFontSize(10.5);
-                    doc.setTextColor(51, 65, 85);
-                    const cleanQuote = cleanPdfText(sc.quote);
-                    const qLines = doc.splitTextToSize(`"${cleanQuote}"`, maxLineWidth - 10);
-                    doc.text(qLines, margin + 5, y);
-                    y += qLines.length * 5 + 4;
+            // 4. Citations & Enseignements
+            renderPdfSection(
+                "CITATIONS & ENSEIGNEMENTS", 
+                processedNote.teachingItems, 
+                [13, 148, 136], 
+                [51, 65, 85] // Slate
+            );
 
-                    doc.setFont('helvetica', 'bold');
-                    doc.setFontSize(9);
-                    doc.setTextColor(13, 148, 136);
-                    const refText = cleanPdfText(`${sc.reference}${sc.sourceIndex ? ` [${sc.sourceIndex}]` : ''}`);
-                    doc.text(refText, pageWidth - margin, y, { align: 'right' });
-                    y += 10;
-                }
-                y += 6;
-            }
-
-            // 3. Citations & enseignements
-            if (processedNote.teachingCitations.length > 0) {
-                if (y > doc.internal.pageSize.height - 35) { doc.addPage(); y = margin; }
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(12);
-                doc.setTextColor(13, 148, 136);
-                doc.text("CITATIONS & ENSEIGNEMENTS", margin, y);
-                y += 8;
-
-                for (const tc of processedNote.teachingCitations) {
-                    if (y > doc.internal.pageSize.height - 30) { doc.addPage(); y = margin; }
-
-                    doc.setFont('times', 'italic');
-                    doc.setFontSize(10.5);
-                    doc.setTextColor(51, 65, 85);
-                    const cleanQuote = cleanPdfText(tc.quote);
-                    const qLines = doc.splitTextToSize(`"${cleanQuote}"`, maxLineWidth - 10);
-                    doc.text(qLines, margin + 5, y);
-                    y += qLines.length * 5 + 4;
-
-                    doc.setFont('helvetica', 'bold');
-                    doc.setFontSize(9);
-                    doc.setTextColor(13, 148, 136);
-                    const refText = cleanPdfText(`${tc.sourceTitle}${tc.sourceMeta ? ` - ${tc.sourceMeta}` : ''}${tc.sourceIndex ? ` [${tc.sourceIndex}]` : ''}`);
-                    doc.text(refText, pageWidth - margin, y, { align: 'right' });
-                    y += 10;
-                }
-                y += 6;
-            }
-
-            // 4. Sources & Références
+            // 5. Sources & Références (Bibliographie)
             if (processedNote.sources.length > 0) {
-                if (y > doc.internal.pageSize.height - 35) { doc.addPage(); y = margin; }
+                checkPageBreak(30);
                 doc.setFont('helvetica', 'bold');
-                doc.setFontSize(12);
+                doc.setFontSize(11);
                 doc.setTextColor(13, 148, 136);
                 doc.text(`SOURCES & RÉFÉRENCES (${processedNote.sources.length})`, margin, y);
                 y += 8;
 
                 doc.setFont('helvetica', 'normal');
-                doc.setFontSize(9.5);
+                doc.setFontSize(9);
                 doc.setTextColor(51, 65, 85);
 
                 for (const src of processedNote.sources) {
-                    if (y > doc.internal.pageSize.height - 25) { doc.addPage(); y = margin; }
                     const srcLine = cleanPdfText(`[${src.index}] ${src.formattedLine}`);
                     const sLines = doc.splitTextToSize(srcLine, maxLineWidth);
+                    checkPageBreak(sLines.length * 4.5 + 4);
                     doc.text(sLines, margin, y);
-                    y += sLines.length * 5 + 4;
+                    y += sLines.length * 4.5 + 3;
                 }
             }
 
@@ -463,11 +730,25 @@ const NoteEditor: React.FC = () => {
                         <head>
                             <title>${processedNote.title}</title>
                             <style>
-                                body { font-family: system-ui, -apple-system, sans-serif; padding: 30px; color: #000; background: #fff; line-height: 1.6; }
-                                h1 { font-size: 20px; color: #0f766e; text-transform: uppercase; border-bottom: 2px solid #0f766e; padding-bottom: 8px; }
-                                h2 { font-size: 22px; color: #0f172a; margin-top: 16px; text-transform: uppercase; }
-                                h3 { font-size: 13px; color: #0f766e; text-transform: uppercase; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; margin-top: 24px; }
-                                p { font-size: 13.5px; margin-bottom: 10px; color: #1e293b; }
+                                body { font-family: system-ui, -apple-system, sans-serif; padding: 30px; color: #1e293b; background: #fff; line-height: 1.6; }
+                                h1 { font-size: 20px; color: #0f766e; text-transform: uppercase; border-bottom: 2px solid #0f766e; padding-bottom: 8px; margin-bottom: 8px; }
+                                h2 { font-size: 16px; color: #0f172a; margin-top: 16px; text-transform: uppercase; }
+                                h3 { font-size: 13px; color: #0f766e; text-transform: uppercase; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; margin-top: 24px; margin-bottom: 12px; }
+                                p { font-size: 13.5px; margin-bottom: 8px; }
+                                .subtitle-separator { text-align: center; margin: 16px 0 12px; padding: 6px 0; border-top: 1px dashed #99f6e4; border-bottom: 1px dashed #99f6e4; background: #f0fdfa; }
+                                .subtitle-separator h4 { margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: #0f766e; }
+                                .subtitle-separator.amber { border-color: #fde68a; background: #fffbeb; }
+                                .subtitle-separator.amber h4 { color: #b45309; }
+                                .subtitle-separator.slate { border-color: #e2e8f0; background: #f8fafc; }
+                                .subtitle-separator.slate h4 { color: #334155; }
+                                .comment-box { margin: 12px 0; padding: 10px 14px; background: #f8fafc; border-left: 4px solid #0f766e; border-radius: 0 8px 8px 0; }
+                                .comment-box.amber { border-left-color: #d97706; background: #fffbeb; }
+                                .comment-box.slate { border-left-color: #94a3b8; }
+                                .comment-box .comment-title { font-size: 11px; font-weight: bold; color: #0f766e; margin-bottom: 4px; }
+                                .comment-box.amber .comment-title { color: #b45309; }
+                                .comment-box .comment-text { font-size: 12.5px; font-style: italic; color: #334155; margin: 0; }
+                                .citation-box { padding-left: 14px; border-left: 3px solid #cbd5e1; font-style: italic; font-size: 13px; color: #334155; margin: 12px 0; }
+                                .citation-ref { text-align: right; font-size: 11px; font-weight: bold; color: #0f766e; font-style: normal; margin-top: 4px; }
                                 .page-break-inside-avoid { page-break-inside: avoid; break-inside: avoid; }
                                 img { max-width: 100%; max-height: 250px; object-fit: contain; }
                             </style>
@@ -739,191 +1020,1184 @@ const NoteEditor: React.FC = () => {
                                 <div className="flex-1 h-0.5 bg-zinc-200 dark:bg-zinc-800 rounded-full" />
                             </div>
 
-                            {/* Citations bibliques */}
-                            {processedNote.scriptureCitations.length > 0 && (
-                              <div className="space-y-4">
+                            {/* Citations bibliques et Séparateurs indépendants */}
+                            {processedNote.scriptureItems && processedNote.scriptureItems.length > 0 && (
+                              <div className="space-y-3">
                                 <div className="flex items-center justify-between px-2">
                                   <h4 className="text-xs font-black uppercase tracking-wider text-teal-600 dark:text-teal-400 flex items-center gap-2">
                                     <BookOpen className="w-4 h-4" />
                                     <span>Citations Bibliques</span>
                                   </h4>
                                 </div>
-                                {processedNote.scriptureCitations.map((sc, idx) => {
-                                  const isDragging = sc.citationId && draggedCitationId === sc.citationId;
-                                  const isDragOver = sc.citationId && dragOverCitationId === sc.citationId;
+
+                                {processedNote.scriptureItems.map((item, idx) => {
+                                  const isDragging = item.kind === 'citation' && draggedCitationId === item.id;
+                                  const isDragOver = item.kind === 'citation' && dragOverCitationId === item.id;
 
                                   return (
-                                    <div 
-                                      key={sc.citationId || idx} 
-                                      draggable={Boolean(sc.citationId)}
-                                      onDragStart={(e) => {
-                                        if (!sc.citationId) return;
-                                        setDraggedCitationId(sc.citationId);
-                                        e.dataTransfer.effectAllowed = 'move';
-                                        e.dataTransfer.setData('text/plain', sc.citationId);
-                                      }}
-                                      onDragOver={(e) => {
-                                        if (!sc.citationId) return;
-                                        e.preventDefault();
-                                        e.dataTransfer.dropEffect = 'move';
-                                        if (dragOverCitationId !== sc.citationId) {
-                                          setDragOverCitationId(sc.citationId);
-                                        }
-                                      }}
-                                      onDragLeave={() => {
-                                        if (dragOverCitationId === sc.citationId) {
-                                          setDragOverCitationId(null);
-                                        }
-                                      }}
-                                      onDrop={(e) => {
-                                        e.preventDefault();
-                                        if (draggedCitationId && sc.citationId && draggedCitationId !== sc.citationId) {
-                                          handleReorderCitations(draggedCitationId, sc.citationId);
-                                        }
-                                        setDraggedCitationId(null);
-                                        setDragOverCitationId(null);
-                                      }}
-                                      onDragEnd={() => {
-                                        setDraggedCitationId(null);
-                                        setDragOverCitationId(null);
-                                      }}
-                                      className={`bg-white dark:bg-zinc-900 border rounded-2xl p-6 shadow-xs relative group transition-all ${
-                                        isDragging 
-                                          ? 'opacity-30 border-dashed border-teal-500' 
-                                          : isDragOver
-                                            ? 'border-teal-500 bg-teal-50/40 dark:bg-teal-950/30 ring-2 ring-teal-500/20'
-                                            : 'border-teal-600/20 dark:border-teal-900/30 hover:border-teal-500/50'
-                                      }`}
-                                    >
-                                      <Quote className="absolute -left-1 -top-1 w-10 h-10 text-teal-600/10 rotate-12 pointer-events-none" />
-                                      
-                                      {sc.citationId && (
-                                        <div className="absolute top-4 right-4 flex items-center gap-1 z-10">
-                                          <div 
-                                            className="p-1.5 text-zinc-300 hover:text-zinc-600 dark:text-zinc-600 dark:hover:text-zinc-300 rounded-lg cursor-grab active:cursor-grabbing hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-                                            title="Glisser pour déplacer cette citation"
-                                          >
-                                            <GripVertical className="w-4 h-4" />
+                                    <React.Fragment key={item.id || idx}>
+                                      {/* Bouton d'insertion non intrusif avant l'item */}
+                                      <div className="group/divider relative py-1 flex items-center justify-center">
+                                        <div className="absolute inset-0 flex items-center">
+                                          <div className="w-full border-t border-dashed border-zinc-200 dark:border-zinc-800 group-hover/divider:border-teal-500/40 transition-colors" />
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleOpenInsertSeparator('scripture', item.orderIndex - 5)}
+                                          data-tooltip="Insérer un sous-titre ou un commentaire séparateur"
+                                          data-tooltip-icon="plus"
+                                          className="relative z-10 w-6 h-6 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 group-hover/divider:border-teal-500 group-hover/divider:bg-teal-50 dark:group-hover/divider:bg-teal-950/40 text-zinc-400 group-hover/divider:text-teal-600 dark:group-hover/divider:text-teal-400 shadow-xs flex items-center justify-center transition-all scale-90 group-hover/divider:scale-110 cursor-pointer"
+                                        >
+                                          <Plus className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+
+                                      {/* Formulaire inline de création de séparateur si déclenché à cet endroit */}
+                                      {insertingSeparatorCategory === 'scripture' && insertingSeparatorOrderIndex === item.orderIndex - 5 && (
+                                        <div className="bg-white dark:bg-zinc-900 border-2 border-teal-500/70 rounded-2xl p-4 shadow-lg animate-in fade-in zoom-in-95 duration-150 my-2">
+                                          <div className="flex items-center justify-between mb-3 border-b border-zinc-100 dark:border-zinc-800 pb-2">
+                                            <div className="flex items-center gap-1.5 p-0.5 bg-zinc-100 dark:bg-zinc-800 rounded-lg">
+                                              <button
+                                                type="button"
+                                                onClick={() => setInsertingSeparatorType('subtitle')}
+                                                className={`flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
+                                                  insertingSeparatorType === 'subtitle'
+                                                    ? 'bg-white dark:bg-zinc-700 text-teal-700 dark:text-teal-300 shadow-xs'
+                                                    : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+                                                }`}
+                                              >
+                                                <Type className="w-3.5 h-3.5" />
+                                                <span>Sous-titre Séparateur</span>
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => setInsertingSeparatorType('comment')}
+                                                className={`flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
+                                                  insertingSeparatorType === 'comment'
+                                                    ? 'bg-white dark:bg-zinc-700 text-teal-700 dark:text-teal-300 shadow-xs'
+                                                    : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+                                                }`}
+                                              >
+                                                <MessageSquare className="w-3.5 h-3.5" />
+                                                <span>Commentaire Autonome</span>
+                                              </button>
+                                            </div>
+
+                                            <button
+                                              type="button"
+                                              onClick={() => setInsertingSeparatorCategory(null)}
+                                              className="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                                            >
+                                              <X className="w-4 h-4" />
+                                            </button>
                                           </div>
-                                          <button
-                                            onClick={() => removeCitationFromNote(note.id, sc.citationId)}
-                                            data-tooltip="Supprimer cette référence"
-                                            data-tooltip-icon="trash"
-                                            className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition-all cursor-pointer opacity-80 hover:opacity-100"
-                                          >
-                                            <Trash2 className="w-4 h-4" />
-                                          </button>
+
+                                          {insertingSeparatorType === 'subtitle' ? (
+                                            <input
+                                              type="text"
+                                              value={insertingSeparatorText}
+                                              onChange={(e) => setInsertingSeparatorText(e.target.value)}
+                                              placeholder="Ex: I. Le Fondement Apostolique..."
+                                              autoFocus
+                                              onKeyDown={(e) => {
+                                                if (e.key === 'Enter') handleSaveNewSeparator();
+                                                if (e.key === 'Escape') setInsertingSeparatorCategory(null);
+                                              }}
+                                              className="w-full text-xs font-semibold px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400"
+                                            />
+                                          ) : (
+                                            <textarea
+                                              value={insertingSeparatorText}
+                                              onChange={(e) => setInsertingSeparatorText(e.target.value)}
+                                              placeholder="Écrivez votre commentaire ou réflexion indépendante ici..."
+                                              autoFocus
+                                              rows={2}
+                                              className="w-full text-xs px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 resize-none"
+                                            />
+                                          )}
+
+                                          <div className="flex items-center justify-end gap-2 mt-3">
+                                            <button
+                                              type="button"
+                                              onClick={() => setInsertingSeparatorCategory(null)}
+                                              className="px-3 py-1 text-xs font-medium text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                                            >
+                                              Annuler
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={handleSaveNewSeparator}
+                                              className="flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 active:scale-95 rounded-lg shadow-xs transition-all cursor-pointer"
+                                            >
+                                              <Check className="w-3.5 h-3.5" />
+                                              <span>Insérer</span>
+                                            </button>
+                                          </div>
                                         </div>
                                       )}
 
-                                      <blockquote className="text-zinc-800 dark:text-zinc-200 italic serif-text text-base leading-relaxed mb-3 pr-16">
-                                        « {sc.quote} »
-                                      </blockquote>
-                                      <div className="flex justify-end items-center gap-2">
-                                        <span className="text-xs font-bold text-teal-700 dark:text-teal-300">
-                                          {sc.reference}
-                                        </span>
-                                        {sc.sourceIndex && (
-                                          <span className="text-[10px] font-black bg-teal-600/10 text-teal-600 dark:text-teal-400 px-2 py-0.5 rounded-full border border-teal-600/20">
-                                            [{sc.sourceIndex}]
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
+                                      {/* Rendu soit d'un séparateur indépendant, soit d'une citation */}
+                                      {item.kind === 'separator' ? (
+                                        item.separatorType === 'subtitle' ? (
+                                          /* ── SOUS-TITRE SÉPARATEUR INDÉPENDANT ── */
+                                          <div className="group/sep relative flex items-center gap-3 py-2 my-1">
+                                            <div className="flex-1 h-px bg-teal-500/20 dark:bg-teal-500/30" />
+                                            {editingSeparatorId === item.id ? (
+                                              <div className="flex items-center gap-2 flex-1 max-w-md bg-white dark:bg-zinc-900 p-2 rounded-xl border border-teal-500 shadow-sm">
+                                                <input
+                                                  type="text"
+                                                  value={editingSeparatorText}
+                                                  onChange={(e) => setEditingSeparatorText(e.target.value)}
+                                                  autoFocus
+                                                  onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') handleSaveEditSeparator(item.id);
+                                                    if (e.key === 'Escape') setEditingSeparatorId(null);
+                                                  }}
+                                                  className="flex-1 text-xs font-bold px-2 py-1 bg-zinc-50 dark:bg-zinc-800 border-none focus:outline-none text-teal-800 dark:text-teal-200"
+                                                />
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleSaveEditSeparator(item.id)}
+                                                  className="p-1 text-teal-600 hover:bg-teal-50 rounded"
+                                                >
+                                                  <Check className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => setEditingSeparatorId(null)}
+                                                  className="p-1 text-zinc-400 hover:bg-zinc-100 rounded"
+                                                >
+                                                  <X className="w-3.5 h-3.5" />
+                                                </button>
+                                              </div>
+                                            ) : (
+                                              <div className="flex items-center gap-2 bg-teal-50/80 dark:bg-teal-950/40 border border-teal-600/30 dark:border-teal-500/30 px-4 py-1.5 rounded-full shadow-xs">
+                                                <Type className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
+                                                <span className="text-xs font-black uppercase tracking-wider text-teal-900 dark:text-teal-200">
+                                                  {item.text}
+                                                </span>
+                                                <div className="flex items-center gap-1 opacity-0 group-hover/sep:opacity-100 transition-opacity ml-2 border-l border-teal-500/20 pl-2">
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleMoveSectionItem(item.id, 'up', processedNote.scriptureItems, 'scripture')}
+                                                    disabled={idx === 0}
+                                                    title="Monter"
+                                                    className="p-1 text-zinc-400 hover:text-teal-700 disabled:opacity-20"
+                                                  >
+                                                    <ChevronUp className="w-3 h-3" />
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleMoveSectionItem(item.id, 'down', processedNote.scriptureItems, 'scripture')}
+                                                    disabled={idx === processedNote.scriptureItems.length - 1}
+                                                    title="Descendre"
+                                                    className="p-1 text-zinc-400 hover:text-teal-700 disabled:opacity-20"
+                                                  >
+                                                    <ChevronDown className="w-3 h-3" />
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleStartEditSeparator(item.id, item.text)}
+                                                    title="Modifier"
+                                                    className="p-1 text-zinc-400 hover:text-teal-700"
+                                                  >
+                                                    <Pencil className="w-3 h-3" />
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleDeleteSeparator(item.id)}
+                                                    title="Supprimer"
+                                                    className="p-1 text-zinc-400 hover:text-red-500"
+                                                  >
+                                                    <Trash2 className="w-3 h-3" />
+                                                  </button>
+                                                </div>
+                                              </div>
+                                            )}
+                                            <div className="flex-1 h-px bg-teal-500/20 dark:bg-teal-500/30" />
+                                          </div>
+                                        ) : (
+                                          /* ── COMMENTAIRE / MÉDITATION SÉPARATEUR INDÉPENDANT ── */
+                                          <div className="group/sep bg-teal-50/40 dark:bg-teal-950/20 border border-teal-600/20 dark:border-teal-900/30 rounded-2xl p-4 my-1 relative transition-all">
+                                            <div className="flex items-start justify-between gap-3">
+                                              <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                                                <div className="w-6 h-6 rounded-lg bg-teal-600/10 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0 mt-0.5">
+                                                  <MessageSquare className="w-3.5 h-3.5" />
+                                                </div>
+                                                {editingSeparatorId === item.id ? (
+                                                  <div className="flex-1 space-y-2">
+                                                    <textarea
+                                                      value={editingSeparatorText}
+                                                      onChange={(e) => setEditingSeparatorText(e.target.value)}
+                                                      autoFocus
+                                                      rows={2}
+                                                      className="w-full text-xs px-3 py-2 bg-white dark:bg-zinc-800 border border-teal-500 rounded-xl focus:outline-none"
+                                                    />
+                                                    <div className="flex justify-end gap-2">
+                                                      <button
+                                                        type="button"
+                                                        onClick={() => setEditingSeparatorId(null)}
+                                                        className="px-2.5 py-1 text-xs text-zinc-500"
+                                                      >
+                                                        Annuler
+                                                      </button>
+                                                      <button
+                                                        type="button"
+                                                        onClick={() => handleSaveEditSeparator(item.id)}
+                                                        className="px-2.5 py-1 text-xs font-bold text-white bg-teal-600 rounded-lg"
+                                                      >
+                                                        Enregistrer
+                                                      </button>
+                                                    </div>
+                                                  </div>
+                                                ) : (
+                                                  <p className="text-xs text-zinc-700 dark:text-zinc-300 italic leading-relaxed">
+                                                    {item.text}
+                                                  </p>
+                                                )}
+                                              </div>
+
+                                              {editingSeparatorId !== item.id && (
+                                                <div className="flex items-center gap-1 opacity-0 group-hover/sep:opacity-100 transition-opacity shrink-0">
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleMoveSectionItem(item.id, 'up', processedNote.scriptureItems, 'scripture')}
+                                                    disabled={idx === 0}
+                                                    title="Monter"
+                                                    className="p-1 rounded text-zinc-400 hover:text-teal-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-20"
+                                                  >
+                                                    <ChevronUp className="w-3.5 h-3.5" />
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleMoveSectionItem(item.id, 'down', processedNote.scriptureItems, 'scripture')}
+                                                    disabled={idx === processedNote.scriptureItems.length - 1}
+                                                    title="Descendre"
+                                                    className="p-1 rounded text-zinc-400 hover:text-teal-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-20"
+                                                  >
+                                                    <ChevronDown className="w-3.5 h-3.5" />
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleStartEditSeparator(item.id, item.text)}
+                                                    title="Modifier"
+                                                    className="p-1 rounded text-zinc-400 hover:text-teal-600 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                                                  >
+                                                    <Pencil className="w-3.5 h-3.5" />
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleDeleteSeparator(item.id)}
+                                                    title="Supprimer"
+                                                    className="p-1 rounded text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
+                                                  >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                  </button>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        )
+                                      ) : (
+                                        /* ── CARTE DE CITATION BIBLIQUE ── */
+                                        <div 
+                                          draggable={Boolean(item.citationId)}
+                                          onDragStart={(e) => {
+                                            if (!item.citationId) return;
+                                            setDraggedCitationId(item.citationId);
+                                            e.dataTransfer.effectAllowed = 'move';
+                                            e.dataTransfer.setData('text/plain', item.citationId);
+                                          }}
+                                          onDragOver={(e) => {
+                                            if (!item.citationId) return;
+                                            e.preventDefault();
+                                            e.dataTransfer.dropEffect = 'move';
+                                            if (dragOverCitationId !== item.citationId) {
+                                              setDragOverCitationId(item.citationId);
+                                            }
+                                          }}
+                                          onDragLeave={() => {
+                                            if (dragOverCitationId === item.citationId) {
+                                              setDragOverCitationId(null);
+                                            }
+                                          }}
+                                          onDrop={(e) => {
+                                            e.preventDefault();
+                                            if (draggedCitationId && item.citationId && draggedCitationId !== item.citationId) {
+                                              handleReorderCitations(draggedCitationId, item.citationId);
+                                            }
+                                            setDraggedCitationId(null);
+                                            setDragOverCitationId(null);
+                                          }}
+                                          onDragEnd={() => {
+                                            setDraggedCitationId(null);
+                                            setDragOverCitationId(null);
+                                          }}
+                                          className={`bg-white dark:bg-zinc-900 border rounded-2xl p-6 shadow-xs relative group transition-all ${
+                                            isDragging 
+                                              ? 'opacity-30 border-dashed border-teal-500' 
+                                              : isDragOver
+                                                ? 'border-teal-500 bg-teal-50/40 dark:bg-teal-950/30 ring-2 ring-teal-500/20'
+                                                : 'border-teal-600/20 dark:border-teal-900/30 hover:border-teal-500/50'
+                                          }`}
+                                        >
+                                          <Quote className="absolute -left-1 -top-1 w-10 h-10 text-teal-600/10 rotate-12 pointer-events-none" />
+
+                                          {item.citationId && (
+                                            <div className="absolute top-4 right-4 flex items-center gap-1 z-10">
+                                              <div 
+                                                className="p-1.5 text-zinc-300 hover:text-zinc-600 dark:text-zinc-600 dark:hover:text-zinc-300 rounded-lg cursor-grab active:cursor-grabbing hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                                                title="Glisser pour déplacer cette citation"
+                                              >
+                                                <GripVertical className="w-4 h-4" />
+                                              </div>
+                                              <button
+                                                type="button"
+                                                onClick={() => handleMoveSectionItem(item.id, 'up', processedNote.scriptureItems, 'scripture')}
+                                                disabled={idx === 0}
+                                                title="Monter d'une position"
+                                                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-20 disabled:pointer-events-none transition-all cursor-pointer"
+                                              >
+                                                <ChevronUp className="w-3.5 h-3.5" />
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => handleMoveSectionItem(item.id, 'down', processedNote.scriptureItems, 'scripture')}
+                                                disabled={idx === processedNote.scriptureItems.length - 1}
+                                                title="Descendre d'une position"
+                                                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-20 disabled:pointer-events-none transition-all cursor-pointer"
+                                              >
+                                                <ChevronDown className="w-3.5 h-3.5" />
+                                              </button>
+                                              <button
+                                                onClick={() => removeCitationFromNote(note.id, item.citationId)}
+                                                data-tooltip="Supprimer cette référence"
+                                                data-tooltip-icon="trash"
+                                                className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition-all cursor-pointer opacity-80 hover:opacity-100"
+                                              >
+                                                <Trash2 className="w-4 h-4" />
+                                              </button>
+                                            </div>
+                                          )}
+
+                                          <blockquote className="text-zinc-800 dark:text-zinc-200 italic serif-text text-base leading-relaxed mb-3 pr-20">
+                                            « {item.quote} »
+                                          </blockquote>
+                                          <div className="flex justify-end items-center gap-2">
+                                            <span className="text-xs font-bold text-teal-700 dark:text-teal-300">
+                                              {item.reference || 'Bible'}
+                                            </span>
+                                            {item.sourceIndex && (
+                                              <span className="text-[10px] font-black bg-teal-600/10 text-teal-600 dark:text-teal-400 px-2 py-0.5 rounded-full border border-teal-600/20">
+                                                [{item.sourceIndex}]
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </React.Fragment>
                                   );
                                 })}
+
+                                {/* Bouton d'insertion final tout en bas de la section */}
+                                <div className="group/divider relative py-1 flex items-center justify-center">
+                                  <div className="absolute inset-0 flex items-center">
+                                    <div className="w-full border-t border-dashed border-zinc-200 dark:border-zinc-800 group-hover/divider:border-teal-500/40 transition-colors" />
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenInsertSeparator('scripture', 99999)}
+                                    data-tooltip="Ajouter un sous-titre ou un commentaire en fin de section"
+                                    data-tooltip-icon="plus"
+                                    className="relative z-10 w-6 h-6 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 group-hover/divider:border-teal-500 group-hover/divider:bg-teal-50 dark:group-hover/divider:bg-teal-950/40 text-zinc-400 group-hover/divider:text-teal-600 dark:group-hover/divider:text-teal-400 shadow-xs flex items-center justify-center transition-all scale-90 group-hover/divider:scale-110 cursor-pointer"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                               </div>
                             )}
 
-                            {/* Citations d'enseignements / Sermons */}
-                            {processedNote.teachingCitations.length > 0 && (
-                              <div className="space-y-4">
+                            {/* Citations de l'Exposé des Sept Âges et Séparateurs indépendants */}
+                            {processedNote.churchAgeItems && processedNote.churchAgeItems.length > 0 && (
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between px-2">
+                                  <h4 className="text-xs font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-2">
+                                    <ScrollText className="w-4 h-4" />
+                                    <span>Citations de l'Exposé des Sept Âges</span>
+                                  </h4>
+                                </div>
+                                {processedNote.churchAgeItems.map((item, idx) => {
+                                  const isDragging = item.kind === 'citation' && draggedCitationId === item.id;
+                                  const isDragOver = item.kind === 'citation' && dragOverCitationId === item.id;
+
+                                  return (
+                                    <React.Fragment key={item.id || idx}>
+                                      {/* Bouton d'insertion non intrusif avant l'item */}
+                                      <div className="group/divider relative py-1 flex items-center justify-center">
+                                        <div className="absolute inset-0 flex items-center">
+                                          <div className="w-full border-t border-dashed border-zinc-200 dark:border-zinc-800 group-hover/divider:border-amber-500/40 transition-colors" />
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleOpenInsertSeparator('church_age', item.orderIndex - 5)}
+                                          data-tooltip="Insérer un sous-titre ou un commentaire séparateur"
+                                          data-tooltip-icon="plus"
+                                          className="relative z-10 w-6 h-6 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 group-hover/divider:border-amber-500 group-hover/divider:bg-amber-50 dark:group-hover/divider:bg-amber-950/40 text-zinc-400 group-hover/divider:text-amber-600 dark:group-hover/divider:text-amber-400 shadow-xs flex items-center justify-center transition-all scale-90 group-hover/divider:scale-110 cursor-pointer"
+                                        >
+                                          <Plus className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+
+                                      {/* Formulaire inline de création de séparateur si déclenché à cet endroit */}
+                                      {insertingSeparatorCategory === 'church_age' && insertingSeparatorOrderIndex === item.orderIndex - 5 && (
+                                        <div className="bg-white dark:bg-zinc-900 border-2 border-amber-500/70 rounded-2xl p-4 shadow-lg animate-in fade-in zoom-in-95 duration-150 my-2">
+                                          <div className="flex items-center justify-between mb-3 border-b border-zinc-100 dark:border-zinc-800 pb-2">
+                                            <div className="flex items-center gap-1.5 p-0.5 bg-zinc-100 dark:bg-zinc-800 rounded-lg">
+                                              <button
+                                                type="button"
+                                                onClick={() => setInsertingSeparatorType('subtitle')}
+                                                className={`flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
+                                                  insertingSeparatorType === 'subtitle'
+                                                    ? 'bg-white dark:bg-zinc-700 text-amber-700 dark:text-amber-300 shadow-xs'
+                                                    : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+                                                }`}
+                                              >
+                                                <Type className="w-3.5 h-3.5" />
+                                                <span>Sous-titre Séparateur</span>
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => setInsertingSeparatorType('comment')}
+                                                className={`flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
+                                                  insertingSeparatorType === 'comment'
+                                                    ? 'bg-white dark:bg-zinc-700 text-amber-700 dark:text-amber-300 shadow-xs'
+                                                    : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+                                                }`}
+                                              >
+                                                <MessageSquare className="w-3.5 h-3.5" />
+                                                <span>Commentaire Autonome</span>
+                                              </button>
+                                            </div>
+
+                                            <button
+                                              type="button"
+                                              onClick={() => setInsertingSeparatorCategory(null)}
+                                              className="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                                            >
+                                              <X className="w-4 h-4" />
+                                            </button>
+                                          </div>
+
+                                          {insertingSeparatorType === 'subtitle' ? (
+                                            <input
+                                              type="text"
+                                              value={insertingSeparatorText}
+                                              onChange={(e) => setInsertingSeparatorText(e.target.value)}
+                                              placeholder="Ex: II. L'Âge d'Éphèse..."
+                                              autoFocus
+                                              onKeyDown={(e) => {
+                                                if (e.key === 'Enter') handleSaveNewSeparator();
+                                                if (e.key === 'Escape') setInsertingSeparatorCategory(null);
+                                              }}
+                                              className="w-full text-xs font-semibold px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400"
+                                            />
+                                          ) : (
+                                            <textarea
+                                              value={insertingSeparatorText}
+                                              onChange={(e) => setInsertingSeparatorText(e.target.value)}
+                                              placeholder="Écrivez votre commentaire ou réflexion sur l'Exposé ici..."
+                                              autoFocus
+                                              rows={2}
+                                              className="w-full text-xs px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 resize-none"
+                                            />
+                                          )}
+
+                                          <div className="flex items-center justify-end gap-2 mt-3">
+                                            <button
+                                              type="button"
+                                              onClick={() => setInsertingSeparatorCategory(null)}
+                                              className="px-3 py-1 text-xs font-medium text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                                            >
+                                              Annuler
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={handleSaveNewSeparator}
+                                              className="flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 active:scale-95 rounded-lg shadow-xs transition-all cursor-pointer"
+                                            >
+                                              <Check className="w-3.5 h-3.5" />
+                                              <span>Insérer</span>
+                                            </button>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* Rendu soit d'un séparateur indépendant, soit d'une citation de l'Exposé */}
+                                      {item.kind === 'separator' ? (
+                                        item.separatorType === 'subtitle' ? (
+                                          /* ── SOUS-TITRE SÉPARATEUR INDÉPENDANT ── */
+                                          <div className="group/sep relative flex items-center gap-3 py-2 my-1">
+                                            <div className="flex-1 h-px bg-amber-500/20 dark:bg-amber-500/30" />
+                                            {editingSeparatorId === item.id ? (
+                                              <div className="flex items-center gap-2 flex-1 max-w-md bg-white dark:bg-zinc-900 p-2 rounded-xl border border-amber-500 shadow-sm">
+                                                <input
+                                                  type="text"
+                                                  value={editingSeparatorText}
+                                                  onChange={(e) => setEditingSeparatorText(e.target.value)}
+                                                  autoFocus
+                                                  onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') handleSaveEditSeparator(item.id);
+                                                    if (e.key === 'Escape') setEditingSeparatorId(null);
+                                                  }}
+                                                  className="flex-1 text-xs font-bold px-2 py-1 bg-zinc-50 dark:bg-zinc-800 border-none focus:outline-none text-amber-800 dark:text-amber-200"
+                                                />
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleSaveEditSeparator(item.id)}
+                                                  className="p-1 text-amber-600 hover:bg-amber-50 rounded"
+                                                >
+                                                  <Check className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => setEditingSeparatorId(null)}
+                                                  className="p-1 text-zinc-400 hover:bg-zinc-100 rounded"
+                                                >
+                                                  <X className="w-3.5 h-3.5" />
+                                                </button>
+                                              </div>
+                                            ) : (
+                                              <div className="flex items-center gap-2 bg-amber-50/80 dark:bg-amber-950/40 border border-amber-600/30 dark:border-amber-500/30 px-4 py-1.5 rounded-full shadow-xs">
+                                                <Type className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                                                <span className="text-xs font-black uppercase tracking-wider text-amber-900 dark:text-amber-200">
+                                                  {item.text}
+                                                </span>
+                                                <div className="flex items-center gap-1 opacity-0 group-hover/sep:opacity-100 transition-opacity ml-2 border-l border-amber-500/20 pl-2">
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleMoveSectionItem(item.id, 'up', processedNote.churchAgeItems, 'church_age')}
+                                                    disabled={idx === 0}
+                                                    title="Monter"
+                                                    className="p-1 text-zinc-400 hover:text-amber-700 disabled:opacity-20"
+                                                  >
+                                                    <ChevronUp className="w-3 h-3" />
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleMoveSectionItem(item.id, 'down', processedNote.churchAgeItems, 'church_age')}
+                                                    disabled={idx === processedNote.churchAgeItems.length - 1}
+                                                    title="Descendre"
+                                                    className="p-1 text-zinc-400 hover:text-amber-700 disabled:opacity-20"
+                                                  >
+                                                    <ChevronDown className="w-3 h-3" />
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleStartEditSeparator(item.id, item.text)}
+                                                    title="Modifier"
+                                                    className="p-1 text-zinc-400 hover:text-amber-700"
+                                                  >
+                                                    <Pencil className="w-3 h-3" />
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleDeleteSeparator(item.id)}
+                                                    title="Supprimer"
+                                                    className="p-1 text-zinc-400 hover:text-red-500"
+                                                  >
+                                                    <Trash2 className="w-3 h-3" />
+                                                  </button>
+                                                </div>
+                                              </div>
+                                            )}
+                                            <div className="flex-1 h-px bg-amber-500/20 dark:bg-amber-500/30" />
+                                          </div>
+                                        ) : (
+                                          /* ── COMMENTAIRE / RÉFLEXION SÉPARATEUR INDÉPENDANT ── */
+                                          <div className="group/sep bg-amber-50/40 dark:bg-amber-950/20 border border-amber-600/20 dark:border-amber-900/30 rounded-2xl p-4 my-1 relative transition-all">
+                                            <div className="flex items-start justify-between gap-3">
+                                              <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                                                <div className="w-6 h-6 rounded-lg bg-amber-600/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+                                                  <MessageSquare className="w-3.5 h-3.5" />
+                                                </div>
+                                                {editingSeparatorId === item.id ? (
+                                                  <div className="flex-1 space-y-2">
+                                                    <textarea
+                                                      value={editingSeparatorText}
+                                                      onChange={(e) => setEditingSeparatorText(e.target.value)}
+                                                      autoFocus
+                                                      rows={2}
+                                                      className="w-full text-xs px-3 py-2 bg-white dark:bg-zinc-800 border border-amber-500 rounded-xl focus:outline-none"
+                                                    />
+                                                    <div className="flex justify-end gap-2">
+                                                      <button
+                                                        type="button"
+                                                        onClick={() => setEditingSeparatorId(null)}
+                                                        className="px-2.5 py-1 text-xs text-zinc-500"
+                                                      >
+                                                        Annuler
+                                                      </button>
+                                                      <button
+                                                        type="button"
+                                                        onClick={() => handleSaveEditSeparator(item.id)}
+                                                        className="px-2.5 py-1 text-xs font-bold text-white bg-amber-600 rounded-lg"
+                                                      >
+                                                        Enregistrer
+                                                      </button>
+                                                    </div>
+                                                  </div>
+                                                ) : (
+                                                  <p className="text-xs text-zinc-700 dark:text-zinc-300 italic leading-relaxed">
+                                                    {item.text}
+                                                  </p>
+                                                )}
+                                              </div>
+
+                                              {editingSeparatorId !== item.id && (
+                                                <div className="flex items-center gap-1 opacity-0 group-hover/sep:opacity-100 transition-opacity shrink-0">
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleMoveSectionItem(item.id, 'up', processedNote.churchAgeItems, 'church_age')}
+                                                    disabled={idx === 0}
+                                                    title="Monter"
+                                                    className="p-1 rounded text-zinc-400 hover:text-amber-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-20"
+                                                  >
+                                                    <ChevronUp className="w-3.5 h-3.5" />
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleMoveSectionItem(item.id, 'down', processedNote.churchAgeItems, 'church_age')}
+                                                    disabled={idx === processedNote.churchAgeItems.length - 1}
+                                                    title="Descendre"
+                                                    className="p-1 rounded text-zinc-400 hover:text-amber-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-20"
+                                                  >
+                                                    <ChevronDown className="w-3.5 h-3.5" />
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleStartEditSeparator(item.id, item.text)}
+                                                    title="Modifier"
+                                                    className="p-1 rounded text-zinc-400 hover:text-amber-600 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                                                  >
+                                                    <Pencil className="w-3.5 h-3.5" />
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleDeleteSeparator(item.id)}
+                                                    title="Supprimer"
+                                                    className="p-1 rounded text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
+                                                  >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                  </button>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        )
+                                      ) : (
+                                        /* ── CARTE DE CITATION DE L'EXPOSÉ ── */
+                                        <div 
+                                          draggable={Boolean(item.citationId)}
+                                          onDragStart={(e) => {
+                                            if (!item.citationId) return;
+                                            setDraggedCitationId(item.citationId);
+                                            e.dataTransfer.effectAllowed = 'move';
+                                            e.dataTransfer.setData('text/plain', item.citationId);
+                                          }}
+                                          onDragOver={(e) => {
+                                            if (!item.citationId) return;
+                                            e.preventDefault();
+                                            e.dataTransfer.dropEffect = 'move';
+                                            if (dragOverCitationId !== item.citationId) {
+                                              setDragOverCitationId(item.citationId);
+                                            }
+                                          }}
+                                          onDragLeave={() => {
+                                            if (dragOverCitationId === item.citationId) {
+                                              setDragOverCitationId(null);
+                                            }
+                                          }}
+                                          onDrop={(e) => {
+                                            e.preventDefault();
+                                            if (draggedCitationId && item.citationId && draggedCitationId !== item.citationId) {
+                                              handleReorderCitations(draggedCitationId, item.citationId);
+                                            }
+                                            setDraggedCitationId(null);
+                                            setDragOverCitationId(null);
+                                          }}
+                                          onDragEnd={() => {
+                                            setDraggedCitationId(null);
+                                            setDragOverCitationId(null);
+                                          }}
+                                          className={`bg-white dark:bg-zinc-900 border rounded-2xl p-6 shadow-xs relative group transition-all ${
+                                            isDragging 
+                                              ? 'opacity-30 border-dashed border-amber-500' 
+                                              : isDragOver
+                                                ? 'border-amber-500 bg-amber-50/40 dark:bg-amber-950/30 ring-2 ring-amber-500/20'
+                                                : 'border-amber-600/20 dark:border-amber-900/30 hover:border-amber-500/50'
+                                          }`}
+                                        >
+                                          {item.citationId && (
+                                            <div className="absolute top-4 right-4 flex items-center gap-1 z-10">
+                                              <div 
+                                                className="p-1.5 text-zinc-300 hover:text-zinc-600 dark:text-zinc-600 dark:hover:text-zinc-300 rounded-lg cursor-grab active:cursor-grabbing hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                                                title="Glisser pour déplacer cette citation"
+                                              >
+                                                <GripVertical className="w-4 h-4" />
+                                              </div>
+                                              <button
+                                                type="button"
+                                                onClick={() => handleMoveSectionItem(item.id, 'up', processedNote.churchAgeItems, 'church_age')}
+                                                disabled={idx === 0}
+                                                title="Monter d'une position"
+                                                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-20 disabled:pointer-events-none transition-all cursor-pointer"
+                                              >
+                                                <ChevronUp className="w-3.5 h-3.5" />
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => handleMoveSectionItem(item.id, 'down', processedNote.churchAgeItems, 'church_age')}
+                                                disabled={idx === processedNote.churchAgeItems.length - 1}
+                                                title="Descendre d'une position"
+                                                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-20 disabled:pointer-events-none transition-all cursor-pointer"
+                                              >
+                                                <ChevronDown className="w-3.5 h-3.5" />
+                                              </button>
+                                              <button
+                                                onClick={() => removeCitationFromNote(note.id, item.citationId)}
+                                                data-tooltip="Supprimer cette référence"
+                                                data-tooltip-icon="trash"
+                                                className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition-all cursor-pointer opacity-80 hover:opacity-100"
+                                              >
+                                                <Trash2 className="w-4 h-4" />
+                                              </button>
+                                            </div>
+                                          )}
+
+                                          <blockquote className="text-zinc-800 dark:text-zinc-200 italic serif-text text-base leading-relaxed mb-3 pr-20">
+                                            « {item.quote} »
+                                          </blockquote>
+                                          <div className="flex justify-end items-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-400">
+                                            <span><strong className="text-amber-600 dark:text-amber-400">{item.sourceTitle || 'Exposé des Sept Âges'}</strong> {item.sourceMeta ? `— ${item.sourceMeta}` : ''}</span>
+                                            {item.sourceIndex && (
+                                              <span className="text-[10px] font-black bg-amber-600/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full border border-amber-600/20">
+                                                [{item.sourceIndex}]
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </React.Fragment>
+                                  );
+                                })}
+
+                                {/* Bouton d'insertion final tout en bas de la section Exposé */}
+                                <div className="group/divider relative py-1 flex items-center justify-center">
+                                  <div className="absolute inset-0 flex items-center">
+                                    <div className="w-full border-t border-dashed border-zinc-200 dark:border-zinc-800 group-hover/divider:border-amber-500/40 transition-colors" />
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenInsertSeparator('church_age', 99999)}
+                                    data-tooltip="Ajouter un sous-titre ou un commentaire en fin de section"
+                                    data-tooltip-icon="plus"
+                                    className="relative z-10 w-6 h-6 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 group-hover/divider:border-amber-500 group-hover/divider:bg-amber-50 dark:group-hover/divider:bg-amber-950/40 text-zinc-400 group-hover/divider:text-amber-600 dark:group-hover/divider:text-amber-400 shadow-xs flex items-center justify-center transition-all scale-90 group-hover/divider:scale-110 cursor-pointer"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Citations d'enseignements / Sermons et Séparateurs indépendants */}
+                            {processedNote.teachingItems && processedNote.teachingItems.length > 0 && (
+                              <div className="space-y-3">
                                 <div className="flex items-center justify-between px-2">
                                   <h4 className="text-xs font-black uppercase tracking-wider text-teal-600 dark:text-teal-400 flex items-center gap-2">
                                     <Quote className="w-4 h-4" />
                                     <span>Citations d'Enseignements</span>
                                   </h4>
                                 </div>
-                                {processedNote.teachingCitations.map((tc, idx) => {
-                                  const isDragging = tc.citationId && draggedCitationId === tc.citationId;
-                                  const isDragOver = tc.citationId && dragOverCitationId === tc.citationId;
+                                {processedNote.teachingItems.map((item, idx) => {
+                                  const isDragging = item.kind === 'citation' && draggedCitationId === item.id;
+                                  const isDragOver = item.kind === 'citation' && dragOverCitationId === item.id;
 
                                   return (
-                                    <div 
-                                      key={tc.citationId || idx} 
-                                      draggable={Boolean(tc.citationId)}
-                                      onDragStart={(e) => {
-                                        if (!tc.citationId) return;
-                                        setDraggedCitationId(tc.citationId);
-                                        e.dataTransfer.effectAllowed = 'move';
-                                        e.dataTransfer.setData('text/plain', tc.citationId);
-                                      }}
-                                      onDragOver={(e) => {
-                                        if (!tc.citationId) return;
-                                        e.preventDefault();
-                                        e.dataTransfer.dropEffect = 'move';
-                                        if (dragOverCitationId !== tc.citationId) {
-                                          setDragOverCitationId(tc.citationId);
-                                        }
-                                      }}
-                                      onDragLeave={() => {
-                                        if (dragOverCitationId === tc.citationId) {
-                                          setDragOverCitationId(null);
-                                        }
-                                      }}
-                                      onDrop={(e) => {
-                                        e.preventDefault();
-                                        if (draggedCitationId && tc.citationId && draggedCitationId !== tc.citationId) {
-                                          handleReorderCitations(draggedCitationId, tc.citationId);
-                                        }
-                                        setDraggedCitationId(null);
-                                        setDragOverCitationId(null);
-                                      }}
-                                      onDragEnd={() => {
-                                        setDraggedCitationId(null);
-                                        setDragOverCitationId(null);
-                                      }}
-                                      className={`bg-white dark:bg-zinc-900 border rounded-2xl p-6 shadow-xs relative group transition-all ${
-                                        isDragging 
-                                          ? 'opacity-30 border-dashed border-teal-500' 
-                                          : isDragOver
-                                            ? 'border-teal-500 bg-teal-50/40 dark:bg-teal-950/30 ring-2 ring-teal-500/20'
-                                            : 'border-zinc-200 dark:border-zinc-800 hover:border-teal-500/50'
-                                      }`}
-                                    >
-                                      {tc.citationId && (
-                                        <div className="absolute top-4 right-4 flex items-center gap-1 z-10">
-                                          <div 
-                                            className="p-1.5 text-zinc-300 hover:text-zinc-600 dark:text-zinc-600 dark:hover:text-zinc-300 rounded-lg cursor-grab active:cursor-grabbing hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-                                            title="Glisser pour déplacer cette citation"
-                                          >
-                                            <GripVertical className="w-4 h-4" />
+                                    <React.Fragment key={item.id || idx}>
+                                      {/* Bouton d'insertion non intrusif avant la citation */}
+                                      <div className="group/divider relative py-1 flex items-center justify-center">
+                                        <div className="absolute inset-0 flex items-center">
+                                          <div className="w-full border-t border-dashed border-zinc-200 dark:border-zinc-800 group-hover/divider:border-teal-500/40 transition-colors" />
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleOpenInsertSeparator('teaching', item.orderIndex - 5)}
+                                          data-tooltip="Insérer un sous-titre ou un commentaire séparateur"
+                                          data-tooltip-icon="plus"
+                                          className="relative z-10 w-6 h-6 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 group-hover/divider:border-teal-500 group-hover/divider:bg-teal-50 dark:group-hover/divider:bg-teal-950/40 text-zinc-400 group-hover/divider:text-teal-600 dark:group-hover/divider:text-teal-400 shadow-xs flex items-center justify-center transition-all scale-90 group-hover/divider:scale-110 cursor-pointer"
+                                        >
+                                          <Plus className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+
+                                      {/* Formulaire inline de création de séparateur si déclenché à cet endroit */}
+                                      {insertingSeparatorCategory === 'teaching' && insertingSeparatorOrderIndex === item.orderIndex - 5 && (
+                                        <div className="bg-white dark:bg-zinc-900 border-2 border-teal-500/70 rounded-2xl p-4 shadow-lg animate-in fade-in zoom-in-95 duration-150 my-2">
+                                          <div className="flex items-center justify-between mb-3 border-b border-zinc-100 dark:border-zinc-800 pb-2">
+                                            <div className="flex items-center gap-1.5 p-0.5 bg-zinc-100 dark:bg-zinc-800 rounded-lg">
+                                              <button
+                                                type="button"
+                                                onClick={() => setInsertingSeparatorType('subtitle')}
+                                                className={`flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
+                                                  insertingSeparatorType === 'subtitle'
+                                                    ? 'bg-white dark:bg-zinc-700 text-teal-700 dark:text-teal-300 shadow-xs'
+                                                    : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+                                                }`}
+                                              >
+                                                <Type className="w-3.5 h-3.5" />
+                                                <span>Sous-titre Séparateur</span>
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => setInsertingSeparatorType('comment')}
+                                                className={`flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
+                                                  insertingSeparatorType === 'comment'
+                                                    ? 'bg-white dark:bg-zinc-700 text-teal-700 dark:text-teal-300 shadow-xs'
+                                                    : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+                                                }`}
+                                              >
+                                                <MessageSquare className="w-3.5 h-3.5" />
+                                                <span>Commentaire Autonome</span>
+                                              </button>
+                                            </div>
+
+                                            <button
+                                              type="button"
+                                              onClick={() => setInsertingSeparatorCategory(null)}
+                                              className="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                                            >
+                                              <X className="w-4 h-4" />
+                                            </button>
                                           </div>
-                                          <button
-                                            onClick={() => removeCitationFromNote(note.id, tc.citationId)}
-                                            data-tooltip="Supprimer cette référence"
-                                            data-tooltip-icon="trash"
-                                            className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition-all cursor-pointer opacity-80 hover:opacity-100"
-                                          >
-                                            <Trash2 className="w-4 h-4" />
-                                          </button>
+
+                                          {insertingSeparatorType === 'subtitle' ? (
+                                            <input
+                                              type="text"
+                                              value={insertingSeparatorText}
+                                              onChange={(e) => setInsertingSeparatorText(e.target.value)}
+                                              placeholder="Ex: III. Application Pratique..."
+                                              autoFocus
+                                              onKeyDown={(e) => {
+                                                if (e.key === 'Enter') handleSaveNewSeparator();
+                                                if (e.key === 'Escape') setInsertingSeparatorCategory(null);
+                                              }}
+                                              className="w-full text-xs font-semibold px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400"
+                                            />
+                                          ) : (
+                                            <textarea
+                                              value={insertingSeparatorText}
+                                              onChange={(e) => setInsertingSeparatorText(e.target.value)}
+                                              placeholder="Écrivez votre commentaire ou enseignement ici..."
+                                              autoFocus
+                                              rows={2}
+                                              className="w-full text-xs px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 resize-none"
+                                            />
+                                          )}
+
+                                          <div className="flex items-center justify-end gap-2 mt-3">
+                                            <button
+                                              type="button"
+                                              onClick={() => setInsertingSeparatorCategory(null)}
+                                              className="px-3 py-1 text-xs font-medium text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                                            >
+                                              Annuler
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={handleSaveNewSeparator}
+                                              className="flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 active:scale-95 rounded-lg shadow-xs transition-all cursor-pointer"
+                                            >
+                                              <Check className="w-3.5 h-3.5" />
+                                              <span>Insérer</span>
+                                            </button>
+                                          </div>
                                         </div>
                                       )}
 
-                                      <blockquote className="text-zinc-800 dark:text-zinc-200 italic serif-text text-base leading-relaxed mb-3 pr-16">
-                                        « {tc.quote} »
-                                      </blockquote>
-                                      <div className="flex justify-end items-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-400">
-                                        <span><strong className="text-teal-600 dark:text-teal-400">{tc.sourceTitle}</strong> {tc.sourceMeta ? `— ${tc.sourceMeta}` : ''}</span>
-                                        {tc.sourceIndex && (
-                                          <span className="text-[10px] font-black bg-teal-600/10 text-teal-600 dark:text-teal-400 px-2 py-0.5 rounded-full border border-teal-600/20">
-                                            [{tc.sourceIndex}]
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
+                                      {/* Rendu soit d'un séparateur indépendant, soit d'une citation d'enseignement */}
+                                      {item.kind === 'separator' ? (
+                                        item.separatorType === 'subtitle' ? (
+                                          /* ── SOUS-TITRE SÉPARATEUR INDÉPENDANT ── */
+                                          <div className="group/sep relative flex items-center gap-3 py-2 my-1">
+                                            <div className="flex-1 h-px bg-teal-500/20 dark:bg-teal-500/30" />
+                                            {editingSeparatorId === item.id ? (
+                                              <div className="flex items-center gap-2 flex-1 max-w-md bg-white dark:bg-zinc-900 p-2 rounded-xl border border-teal-500 shadow-sm">
+                                                <input
+                                                  type="text"
+                                                  value={editingSeparatorText}
+                                                  onChange={(e) => setEditingSeparatorText(e.target.value)}
+                                                  autoFocus
+                                                  onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') handleSaveEditSeparator(item.id);
+                                                    if (e.key === 'Escape') setEditingSeparatorId(null);
+                                                  }}
+                                                  className="flex-1 text-xs font-bold px-2 py-1 bg-zinc-50 dark:bg-zinc-800 border-none focus:outline-none text-teal-800 dark:text-teal-200"
+                                                />
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleSaveEditSeparator(item.id)}
+                                                  className="p-1 text-teal-600 hover:bg-teal-50 rounded"
+                                                >
+                                                  <Check className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => setEditingSeparatorId(null)}
+                                                  className="p-1 text-zinc-400 hover:bg-zinc-100 rounded"
+                                                >
+                                                  <X className="w-3.5 h-3.5" />
+                                                </button>
+                                              </div>
+                                            ) : (
+                                              <div className="flex items-center gap-2 bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 px-4 py-1.5 rounded-full shadow-xs">
+                                                <Type className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
+                                                <span className="text-xs font-black uppercase tracking-wider text-zinc-800 dark:text-zinc-200">
+                                                  {item.text}
+                                                </span>
+                                                <div className="flex items-center gap-1 opacity-0 group-hover/sep:opacity-100 transition-opacity ml-2 border-l border-zinc-200 dark:border-zinc-700 pl-2">
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleMoveSectionItem(item.id, 'up', processedNote.teachingItems, 'teaching')}
+                                                    disabled={idx === 0}
+                                                    title="Monter"
+                                                    className="p-1 text-zinc-400 hover:text-teal-700 disabled:opacity-20"
+                                                  >
+                                                    <ChevronUp className="w-3 h-3" />
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleMoveSectionItem(item.id, 'down', processedNote.teachingItems, 'teaching')}
+                                                    disabled={idx === processedNote.teachingItems.length - 1}
+                                                    title="Descendre"
+                                                    className="p-1 text-zinc-400 hover:text-teal-700 disabled:opacity-20"
+                                                  >
+                                                    <ChevronDown className="w-3 h-3" />
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleStartEditSeparator(item.id, item.text)}
+                                                    title="Modifier"
+                                                    className="p-1 text-zinc-400 hover:text-teal-700"
+                                                  >
+                                                    <Pencil className="w-3 h-3" />
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleDeleteSeparator(item.id)}
+                                                    title="Supprimer"
+                                                    className="p-1 text-zinc-400 hover:text-red-500"
+                                                  >
+                                                    <Trash2 className="w-3 h-3" />
+                                                  </button>
+                                                </div>
+                                              </div>
+                                            )}
+                                            <div className="flex-1 h-px bg-teal-500/20 dark:bg-teal-500/30" />
+                                          </div>
+                                        ) : (
+                                          /* ── COMMENTAIRE / RÉFLEXION SÉPARATEUR INDÉPENDANT ── */
+                                          <div className="group/sep bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700/60 rounded-2xl p-4 my-1 relative transition-all">
+                                            <div className="flex items-start justify-between gap-3">
+                                              <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                                                <div className="w-6 h-6 rounded-lg bg-teal-600/10 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0 mt-0.5">
+                                                  <MessageSquare className="w-3.5 h-3.5" />
+                                                </div>
+                                                {editingSeparatorId === item.id ? (
+                                                  <div className="flex-1 space-y-2">
+                                                    <textarea
+                                                      value={editingSeparatorText}
+                                                      onChange={(e) => setEditingSeparatorText(e.target.value)}
+                                                      autoFocus
+                                                      rows={2}
+                                                      className="w-full text-xs px-3 py-2 bg-white dark:bg-zinc-800 border border-teal-500 rounded-xl focus:outline-none"
+                                                    />
+                                                    <div className="flex justify-end gap-2">
+                                                      <button
+                                                        type="button"
+                                                        onClick={() => setEditingSeparatorId(null)}
+                                                        className="px-2.5 py-1 text-xs text-zinc-500"
+                                                      >
+                                                        Annuler
+                                                      </button>
+                                                      <button
+                                                        type="button"
+                                                        onClick={() => handleSaveEditSeparator(item.id)}
+                                                        className="px-2.5 py-1 text-xs font-bold text-white bg-teal-600 rounded-lg"
+                                                      >
+                                                        Enregistrer
+                                                      </button>
+                                                    </div>
+                                                  </div>
+                                                ) : (
+                                                  <p className="text-xs text-zinc-700 dark:text-zinc-300 italic leading-relaxed">
+                                                    {item.text}
+                                                  </p>
+                                                )}
+                                              </div>
+
+                                              {editingSeparatorId !== item.id && (
+                                                <div className="flex items-center gap-1 opacity-0 group-hover/sep:opacity-100 transition-opacity shrink-0">
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleMoveSectionItem(item.id, 'up', processedNote.teachingItems, 'teaching')}
+                                                    disabled={idx === 0}
+                                                    title="Monter"
+                                                    className="p-1 rounded text-zinc-400 hover:text-teal-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-20"
+                                                  >
+                                                    <ChevronUp className="w-3.5 h-3.5" />
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleMoveSectionItem(item.id, 'down', processedNote.teachingItems, 'teaching')}
+                                                    disabled={idx === processedNote.teachingItems.length - 1}
+                                                    title="Descendre"
+                                                    className="p-1 rounded text-zinc-400 hover:text-teal-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-20"
+                                                  >
+                                                    <ChevronDown className="w-3.5 h-3.5" />
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleStartEditSeparator(item.id, item.text)}
+                                                    title="Modifier"
+                                                    className="p-1 rounded text-zinc-400 hover:text-teal-600 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                                                  >
+                                                    <Pencil className="w-3.5 h-3.5" />
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleDeleteSeparator(item.id)}
+                                                    title="Supprimer"
+                                                    className="p-1 rounded text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
+                                                  >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                  </button>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        )
+                                      ) : (
+                                        /* ── CARTE DE CITATION D'ENSEIGNEMENT ── */
+                                        <div 
+                                          draggable={Boolean(item.citationId)}
+                                          onDragStart={(e) => {
+                                            if (!item.citationId) return;
+                                            setDraggedCitationId(item.citationId);
+                                            e.dataTransfer.effectAllowed = 'move';
+                                            e.dataTransfer.setData('text/plain', item.citationId);
+                                          }}
+                                          onDragOver={(e) => {
+                                            if (!item.citationId) return;
+                                            e.preventDefault();
+                                            e.dataTransfer.dropEffect = 'move';
+                                            if (dragOverCitationId !== item.citationId) {
+                                              setDragOverCitationId(item.citationId);
+                                            }
+                                          }}
+                                          onDragLeave={() => {
+                                            if (dragOverCitationId === item.citationId) {
+                                              setDragOverCitationId(null);
+                                            }
+                                          }}
+                                          onDrop={(e) => {
+                                            e.preventDefault();
+                                            if (draggedCitationId && item.citationId && draggedCitationId !== item.citationId) {
+                                              handleReorderCitations(draggedCitationId, item.citationId);
+                                            }
+                                            setDraggedCitationId(null);
+                                            setDragOverCitationId(null);
+                                          }}
+                                          onDragEnd={() => {
+                                            setDraggedCitationId(null);
+                                            setDragOverCitationId(null);
+                                          }}
+                                          className={`bg-white dark:bg-zinc-900 border rounded-2xl p-6 shadow-xs relative group transition-all ${
+                                            isDragging 
+                                              ? 'opacity-30 border-dashed border-teal-500' 
+                                              : isDragOver
+                                                ? 'border-teal-500 bg-teal-50/40 dark:bg-teal-950/30 ring-2 ring-teal-500/20'
+                                                : 'border-zinc-200 dark:border-zinc-800 hover:border-teal-500/50'
+                                          }`}
+                                        >
+                                          {item.citationId && (
+                                            <div className="absolute top-4 right-4 flex items-center gap-1 z-10">
+                                              <div 
+                                                className="p-1.5 text-zinc-300 hover:text-zinc-600 dark:text-zinc-600 dark:hover:text-zinc-300 rounded-lg cursor-grab active:cursor-grabbing hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                                                title="Glisser pour déplacer cette citation"
+                                              >
+                                                <GripVertical className="w-4 h-4" />
+                                              </div>
+                                              <button
+                                                type="button"
+                                                onClick={() => handleMoveSectionItem(item.id, 'up', processedNote.teachingItems, 'teaching')}
+                                                disabled={idx === 0}
+                                                title="Monter d'une position"
+                                                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-20 disabled:pointer-events-none transition-all cursor-pointer"
+                                              >
+                                                <ChevronUp className="w-3.5 h-3.5" />
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => handleMoveSectionItem(item.id, 'down', processedNote.teachingItems, 'teaching')}
+                                                disabled={idx === processedNote.teachingItems.length - 1}
+                                                title="Descendre d'une position"
+                                                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-20 disabled:pointer-events-none transition-all cursor-pointer"
+                                              >
+                                                <ChevronDown className="w-3.5 h-3.5" />
+                                              </button>
+                                              <button
+                                                onClick={() => removeCitationFromNote(note.id, item.citationId)}
+                                                data-tooltip="Supprimer cette référence"
+                                                data-tooltip-icon="trash"
+                                                className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition-all cursor-pointer opacity-80 hover:opacity-100"
+                                              >
+                                                <Trash2 className="w-4 h-4" />
+                                              </button>
+                                            </div>
+                                          )}
+
+                                          <blockquote className="text-zinc-800 dark:text-zinc-200 italic serif-text text-base leading-relaxed mb-3 pr-20">
+                                            « {item.quote} »
+                                          </blockquote>
+                                          <div className="flex justify-end items-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-400">
+                                            <span><strong className="text-teal-600 dark:text-teal-400">{item.sourceTitle || 'Sermon'}</strong> {item.sourceMeta ? `— ${item.sourceMeta}` : ''}</span>
+                                            {item.sourceIndex && (
+                                              <span className="text-[10px] font-black bg-teal-600/10 text-teal-600 dark:text-teal-400 px-2 py-0.5 rounded-full border border-teal-600/20">
+                                                [{item.sourceIndex}]
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </React.Fragment>
                                   );
                                 })}
+
+                                {/* Bouton d'insertion final tout en bas de la section Enseignements */}
+                                <div className="group/divider relative py-1 flex items-center justify-center">
+                                  <div className="absolute inset-0 flex items-center">
+                                    <div className="w-full border-t border-dashed border-zinc-200 dark:border-zinc-800 group-hover/divider:border-teal-500/40 transition-colors" />
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenInsertSeparator('teaching', 99999)}
+                                    data-tooltip="Ajouter un sous-titre ou un commentaire en fin de section"
+                                    data-tooltip-icon="plus"
+                                    className="relative z-10 w-6 h-6 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 group-hover/divider:border-teal-500 group-hover/divider:bg-teal-50 dark:group-hover/divider:bg-teal-950/40 text-zinc-400 group-hover/divider:text-teal-600 dark:group-hover/divider:text-teal-400 shadow-xs flex items-center justify-center transition-all scale-90 group-hover/divider:scale-110 cursor-pointer"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                               </div>
                             )}
 
@@ -1055,31 +2329,99 @@ const NoteEditor: React.FC = () => {
                     </div>
                 )}
 
-                {processedNote.scriptureCitations.length > 0 && (
+                {/* 1. Citations Bibliques */}
+                {processedNote.scriptureItems && processedNote.scriptureItems.length > 0 && (
                     <div className="mb-8 space-y-4">
                         <h3 className="text-sm font-bold uppercase text-teal-800 border-b border-teal-200 pb-1 mb-2">Citations Bibliques</h3>
-                        {processedNote.scriptureCitations.map((sc, i) => (
-                            <div key={i} className="pl-4 border-l-2 border-teal-600 italic text-sm text-slate-800 my-2 page-break-inside-avoid">
-                                <p>« {sc.quote} »</p>
-                                <p className="text-right text-xs font-bold text-teal-800 not-italic mt-1">
-                                    {sc.reference} {sc.sourceIndex ? `[${sc.sourceIndex}]` : ''}
-                                </p>
-                            </div>
-                        ))}
+                        {processedNote.scriptureItems.map((item, i) => {
+                            if (item.kind === 'separator') {
+                                if (item.separatorType === 'subtitle') {
+                                    return (
+                                        <div key={item.id || i} className="subtitle-separator page-break-inside-avoid">
+                                            <h4>{item.text}</h4>
+                                        </div>
+                                    );
+                                }
+                                return (
+                                    <div key={item.id || i} className="comment-box page-break-inside-avoid">
+                                        <div className="comment-title">Remarque / Commentaire :</div>
+                                        <div className="comment-text">{item.text}</div>
+                                    </div>
+                                );
+                            }
+                            return (
+                                <div key={item.id || i} className="citation-box page-break-inside-avoid">
+                                    <p>« {item.quote} »</p>
+                                    <p className="citation-ref">
+                                        {item.reference || 'Bible'} {item.sourceIndex ? `[${item.sourceIndex}]` : ''}
+                                    </p>
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
 
-                {processedNote.teachingCitations.length > 0 && (
+                {/* 2. Citations de l'Exposé des Sept Âges */}
+                {processedNote.churchAgeItems && processedNote.churchAgeItems.length > 0 && (
+                    <div className="mb-8 space-y-4">
+                        <h3 className="text-sm font-bold uppercase text-teal-800 border-b border-teal-200 pb-1 mb-2">Citations de l'Exposé des Sept Âges</h3>
+                        {processedNote.churchAgeItems.map((item, i) => {
+                            if (item.kind === 'separator') {
+                                if (item.separatorType === 'subtitle') {
+                                    return (
+                                        <div key={item.id || i} className="subtitle-separator amber page-break-inside-avoid">
+                                            <h4>{item.text}</h4>
+                                        </div>
+                                    );
+                                }
+                                return (
+                                    <div key={item.id || i} className="comment-box amber page-break-inside-avoid">
+                                        <div className="comment-title">Remarque / Commentaire :</div>
+                                        <div className="comment-text">{item.text}</div>
+                                    </div>
+                                );
+                            }
+                            return (
+                                <div key={item.id || i} className="citation-box page-break-inside-avoid">
+                                    <p>« {item.quote} »</p>
+                                    <p className="citation-ref">
+                                        {item.sourceTitle || "Exposé des Sept Âges"} {item.sourceMeta ? `— ${item.sourceMeta}` : ''} {item.sourceIndex ? `[${item.sourceIndex}]` : ''}
+                                    </p>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {/* 3. Citations & Enseignements */}
+                {processedNote.teachingItems && processedNote.teachingItems.length > 0 && (
                     <div className="mb-8 space-y-4">
                         <h3 className="text-sm font-bold uppercase text-teal-800 border-b border-teal-200 pb-1 mb-2">Citations & Enseignements</h3>
-                        {processedNote.teachingCitations.map((tc, i) => (
-                            <div key={i} className="pl-4 border-l-2 border-slate-400 italic text-sm text-slate-800 my-2 page-break-inside-avoid">
-                                <p>« {tc.quote} »</p>
-                                <p className="text-right text-xs font-bold text-slate-700 not-italic mt-1">
-                                    {tc.sourceTitle} {tc.sourceMeta ? `— ${tc.sourceMeta}` : ''} {tc.sourceIndex ? `[${tc.sourceIndex}]` : ''}
-                                </p>
-                            </div>
-                        ))}
+                        {processedNote.teachingItems.map((item, i) => {
+                            if (item.kind === 'separator') {
+                                if (item.separatorType === 'subtitle') {
+                                    return (
+                                        <div key={item.id || i} className="subtitle-separator slate page-break-inside-avoid">
+                                            <h4>{item.text}</h4>
+                                        </div>
+                                    );
+                                }
+                                return (
+                                    <div key={item.id || i} className="comment-box slate page-break-inside-avoid">
+                                        <div className="comment-title">Remarque / Commentaire :</div>
+                                        <div className="comment-text">{item.text}</div>
+                                    </div>
+                                );
+                            }
+                            return (
+                                <div key={item.id || i} className="citation-box page-break-inside-avoid">
+                                    <p>« {item.quote} »</p>
+                                    <p className="citation-ref">
+                                        {item.sourceTitle || 'Enseignement'} {item.sourceMeta ? `— ${item.sourceMeta}` : ''} {item.sourceIndex ? `[${item.sourceIndex}]` : ''}
+                                    </p>
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
 

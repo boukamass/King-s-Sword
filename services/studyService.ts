@@ -33,8 +33,7 @@ export const analyzeSelectionContext = async (
 
   const otherSermonsContext = allContextSermons
     .filter(s => s.id !== currentSermon?.id)
-    .slice(0, 3)
-    .map(s => `=== DOCUMENT SOURCE : ${s.title} (${s.date || 'Non daté'}, ${s.city || ''}) [ID: ${s.id}] ===\nCONTENU :\n${(s.text || '').substring(0, 5000)}`)
+    .map(s => `=== DOCUMENT SOURCE : ${s.title} (${s.date || 'Non daté'}, ${s.city || ''}) [ID: ${s.id}] ===\nCONTENU :\n${(s.text || '').substring(0, 10000)}`)
     .join("\n\n---\n\n");
 
   const prompt = `

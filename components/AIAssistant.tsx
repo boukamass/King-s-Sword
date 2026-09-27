@@ -525,18 +525,23 @@ const AIAssistant: React.FC = () => {
 
       } else {
         // ==============================================================
-        // MODE DOCK IA (DOCUMENTS CHOISIS MANUELLEMENT)
+        // MODE DOCK IA (DOCUMENTS CHOISIS MANUELLEMENT SANS LIMITATION)
         // ==============================================================
-        setTypingStatus("Lecture des ressources du Dock IA...");
+        setTypingStatus(`Lecture des ${contextSermonIds.length} ressource(s) du Dock IA...`);
         const validSermons = await getFullSermons(contextSermonIds);
+        
+        // Calculer l'allocation de caractères par document pour garantir que 100% des ressources sont transmises
+        const docCount = Math.max(1, validSermons.length);
+        const maxCharsPerDoc = docCount <= 5 ? 60000 : docCount <= 20 ? 25000 : Math.max(3000, Math.floor(300000 / docCount));
+
         const ctx = validSermons.map(s => {
           const numberedText = s.text.split(/\n\s*\n/)
                 .map((p, i) => `[Para. ${i + 1}] ${p.trim()}`)
                 .join('\n');
-          return `[DOC ID: ${s.id}] - TITRE: ${s.title} (${s.date})\nCONTENU:\n${numberedText.substring(0, 15000)}`;
+          return `[DOC ID: ${s.id}] - TITRE: ${s.title} (${s.date || 'Non daté'}, ${s.city || ''})\nCONTENU:\n${numberedText.substring(0, maxCharsPerDoc)}`;
         }).join('\n\n---\n\n');
         
-        setTypingStatus("Génération de l'exégèse...");
+        setTypingStatus(`Analyse théologique complète de ${validSermons.length} ressource(s)...`);
         const { text, sources } = await askGeminiChat(msg, ctx, history, { mode: 'dock' });
         
         const newMessage: ChatMessageWithSources = { 
