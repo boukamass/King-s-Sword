@@ -62,11 +62,26 @@
   <link rel="manifest" href="/manifest.json">
   <link rel="stylesheet" href="/fonts/fonts.css">
   <script>
-    if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
-      window.addEventListener('load', function() {
-        navigator.serviceWorker.register('/sw.js').catch(function() {});
-      });
-    }
+    (function() {
+      // En environnement de développement / dev-server, désenregistrer les Service Workers pour éviter le blocage de cache d'aperçu
+      var isDevHost = window.location.hostname === 'localhost' || 
+                      window.location.hostname === '127.0.0.1' || 
+                      window.location.port === '3000' || 
+                      window.location.hostname.includes('.run.app');
+      if ('serviceWorker' in navigator) {
+        if (isDevHost) {
+          navigator.serviceWorker.getRegistrations().then(function(regs) {
+            for (var i = 0; i < regs.length; i++) {
+              regs[i].unregister();
+            }
+          }).catch(function() {});
+        } else if (window.location.protocol.startsWith('http')) {
+          window.addEventListener('load', function() {
+            navigator.serviceWorker.register('/sw.js').catch(function() {});
+          });
+        }
+      }
+    })();
   </script>
   <style>
     html, body {

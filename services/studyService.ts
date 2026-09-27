@@ -1,19 +1,17 @@
 import { GoogleGenAI } from "@google/genai";
-import { Sermon } from "../types";
-import { isOllamaAvailable, askOllamaChat } from "./ollamaService";
-import { getGeminiApiKey } from "../utils/apiKeyHelper";
+import { Sermon } from '../types';
+import { isOllamaAvailable, askOllamaChat } from './ollamaService';
+import { getGeminiApiKey } from '../utils/apiKeyHelper';
+import { classifyGeminiError } from './geminiChatService';
 
 const callWithRetry = async (fn: () => Promise<any>, maxRetries = 2, delay = 2000) => {
   for (let i = 0; i <= maxRetries; i++) {
     try {
       return await fn();
     } catch (error: any) {
-      const errorMsg = error.message || "";
-      const isQuotaError = errorMsg.includes("429") || 
-                           errorMsg.includes("RESOURCE_EXHAUSTED") ||
-                           errorMsg.includes("QUOTA_EXHAUSTED");
-      if (isQuotaError) {
-        throw error; // Basculement immédiat vers le mode local pour éviter le blocage
+      const classified = classifyGeminiError(error);
+      if (classified.type === 'API_KEY_INVALID' || classified.type === 'QUOTA_EXHAUSTED' || classified.type === 'PERMISSION_DENIED' || classified.type === 'MODEL_UNAVAILABLE') {
+        throw error;
       }
       if (i < maxRetries) {
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -36,14 +34,14 @@ export const analyzeSelectionContext = async (
   const otherSermonsContext = allContextSermons
     .filter(s => s.id !== currentSermon?.id)
     .slice(0, 10)
-    .map(s => `=== DOCUMENT SOURCE : ${s.title} (${s.date || 'Non daté'}, ${s.city || ''}) [ID: ${s.id}] ===\nCONTENU :\n${(s.text || '').substring(0, 35000)}`)
+    .map(s => `=== DOCUMENT SOURCE : ${s.title} (${s.date || 'Non daté'}, ${s.city || ''}) [ID: ${s.id}] ===\nCONTENU :\n${(s.text || '').substring(0, 25000)}`)
     .join("\n\n---\n\n");
 
   const prompt = `
-Tu es un moteur d'analyse et de recherche théologique d'excellence (niveau Google NotebookLM / Chercheur Universitaire et Docteur des Écritures).
+Tu es un moteur d'analyse et de recherche théologique d'excellence.
 
-MISSION :
-Fournir une analyse théologique approfondie, exégétique, exhaustive et rigoureusement documentée de l'extrait sélectionné, en croisant le document principal et les sources du contexte.
+DIRECTIVE STRICTE :
+Tes analyses doivent être fondées EXCLUSIVEMENT sur les documents sources fournis dans cette application (le document principal et les sources du contexte). N'utilise aucune source web externe.
 
 EXTRAIT SÉLECTIONNÉ À ÉTUDIER :
 > "${selection}"
@@ -53,7 +51,7 @@ Titre : ${currentSermon?.title || 'Document'}
 Date / Lieu : ${currentSermon?.date || ''} - ${currentSermon?.city || ''}
 ID : ${currentSermon?.id || ''}
 TEXTE DU DOCUMENT :
-${currentText.substring(0, 60000)}
+${currentText.substring(0, 50000)}
 
 SOURCES ET RÉFÉRENCES CROISÉES DU CONTEXTE :
 ${otherSermonsContext || "Aucune source secondaire ajoutée au Dock IA."}
@@ -75,7 +73,7 @@ Chaque citation ou argument textuel DOIT obligatoirement être référencé sous
     try {
       const ai = new GoogleGenAI({ apiKey });
       const response = await callWithRetry(() => ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.8-flash",
         contents: prompt,
         config: { 
           temperature: 0.2,
@@ -84,7 +82,13 @@ Chaque citation ou argument textuel DOIT obligatoirement être référencé sous
 
       return response.text || "Analyse indisponible.";
     } catch (error: any) {
-      console.warn("Échec Gemini pour analyse contextuelle, passage au mode local:", error);
+      const classified = classifyGeminiError(error);
+      
+      if (classified.type === 'API_KEY_INVALID' || classified.type === 'PERMISSION_DENIED' || classified.type === 'QUOTA_EXHAUSTED') {
+        throw new Error(`Erreur Google Gemini : ${classified.userMessage}`);
+      }
+
+      console.warn("Échec temporaire Gemini, basculement vers analyse locale:", classified.type);
     }
   }
 
@@ -97,7 +101,7 @@ Chaque citation ou argument textuel DOIT obligatoirement être référencé sous
         currentSermon.text.substring(0, 10000),
         []
       );
-      return res.text;
+      return `> ℹ️ **Mode Local (Ollama)** : *Analyse contextuelle générée par Ollama.*\n\n${res.text}`;
     }
   } catch (ollamaErr) {
     console.warn("Ollama non joignable pour l'analyse:", ollamaErr);
@@ -106,10 +110,15 @@ Chaque citation ou argument textuel DOIT obligatoirement être référencé sous
   // 3. Synthèse locale offline de la sélection
   return `### Analyse Thématique (Mode Hors-Ligne)
 
+> ℹ️ **Mode Secours Local** : *Gemini indisponible ou hors-ligne. Analyse générée à partir du sermon local.*
+
 **Extrait ciblé :**
 > "${selection}"
 
-**Contexte du sermon :** *${currentSermon.title} (${currentSermon.date}, ${currentSermon.city})*
+**Document de référence :**
+*${currentSermon?.title || 'Sermon'}* (${currentSermon?.date || 'Date non renseignée'})
 
-Cet extrait s'inscrit au cœur du message délivré. Les thèmes de foi, de révélation de la Parole et de positionnement du croyant y sont abordés. Pour une étude approfondie assistée par modèle de langage en mode déconnecté, vous pouvez activer **Ollama** en arrière-plan sur votre machine.`;
+**Points clés repérés dans le texte :**
+- L'extrait se situe dans le contexte immédiat de l'enseignement sur *${currentSermon?.title}*.
+- Pour une analyse exégétique complète assistée par IA, activez votre clé Google Gemini en haut de l'écran.`;
 };

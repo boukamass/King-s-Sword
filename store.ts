@@ -17,6 +17,7 @@ import {
 import { getBibleChapterSermon, getBibleBookSermon, searchBibleVersesAdvanced } from './services/bibleService';
 import { fetchJsonSafe } from './utils/fetchHelper';
 import { getStoredMediaImages, saveStoredMediaImages, getStoredMediaFolders, saveStoredMediaFolders } from './services/imageMediaService';
+import { initGeminiApiKey } from './utils/apiKeyHelper';
 
 const generateUUID = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 9));
 
@@ -59,6 +60,7 @@ export interface SearchResult {
   city: string;
   paragraphIndex: number;
   snippet?: string;
+  content?: string;
   audio_url?: string;
 }
 
@@ -313,6 +315,14 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   initializeDB: async () => {
     set({ isLoading: true, loadingMessage: "Accès à la base...", loadingProgress: 10 });
+    
+    // Initialisation asynchrone sécurisée de la clé API (SQLite sous Electron / localStorage en Web)
+    try {
+      await initGeminiApiKey();
+    } catch (e) {
+      console.warn("[Init] Erreur chargement clé API initiale:", e);
+    }
+
     const hasSqlite = await isDatabaseReady();
     set({ isSqliteAvailable: hasSqlite, loadingProgress: 25 });
     

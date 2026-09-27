@@ -287,6 +287,7 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0, synon
         f.rowid as paragraphId, 
         f.sermon_id as sermonId, 
         f.paragraph_index as paragraphIndex, 
+        f.content as content,
         snippet(paragraphs_fts, 0, ?, ?, '...', 64) as snippet,
         s.title, s.date, s.city, s.audio_url
       FROM paragraphs_fts f
