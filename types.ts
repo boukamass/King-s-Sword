@@ -50,6 +50,7 @@ export interface Note {
   title: string;
   content: string;
   citations: Citation[];
+  sourceOrder?: string[];
   images?: NoteImage[];
   creationDate: string;
   date: string;
