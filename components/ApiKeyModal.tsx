@@ -151,23 +151,30 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
           </a>
 
           <div className="space-y-2">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">
-              2. Collez votre clé API ici
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">
+                2. Collez votre clé API (ou clés de secours)
+              </label>
+              {apiKeyInput.trim() && (
+                <span className="text-[10px] font-bold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/50 px-2 py-0.5 rounded-md">
+                  {apiKeyInput.split(/[\n,;]+/).filter(k => k.trim().length > 5).length} clé(s) détectée(s)
+                </span>
+              )}
+            </div>
             <div className="relative">
-              <input 
-                type="password"
-                placeholder="AIzaSy..."
+              <textarea 
+                rows={2}
+                placeholder="AIzaSy... (Vous pouvez coller plusieurs clés séparées par un retour à la ligne pour une rotation automatique)"
                 value={apiKeyInput}
                 onChange={(e) => {
                   setApiKeyInput(e.target.value);
                   setTestResult(null);
                 }}
-                className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-mono text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 transition-all"
+                className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-mono text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 transition-all resize-none"
               />
             </div>
-            <p className="text-[10px] text-zinc-400">
-              🔒 Votre clé est stockée uniquement en local sur votre appareil (chiffrée sous Electron). Elle n'est jamais transmise à nos serveurs.
+            <p className="text-[10px] text-zinc-400 leading-tight">
+              🔒 Stockage sécurisé 100% local sur votre appareil. Si votre projet gratuit Google atteint sa limite journalière, collez simplement une 2ᵉ clé d'un nouveau projet pour basculer dessus automatiquement.
             </p>
           </div>
 
