@@ -145,10 +145,23 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
           >
             <div className="flex items-center gap-2.5">
               <Key className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-              <span className="text-xs font-bold">1. Obtenir ma clé gratuite Google AI Studio</span>
+              <span className="text-xs font-bold">1. Ouvrir Google AI Studio (Gratuit)</span>
             </div>
             <ExternalLink className="w-4 h-4 text-teal-600 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
           </a>
+
+          {/* Guide multi-clés */}
+          <div className="p-3 bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-900/40 rounded-2xl text-[11px] space-y-1.5 text-amber-900 dark:text-amber-200">
+            <p className="font-bold flex items-center gap-1.5 text-amber-800 dark:text-amber-300">
+              💡 Astuce pour avoir des clés & quotas illimités :
+            </p>
+            <ol className="list-decimal list-inside space-y-1 text-[10.5px] leading-relaxed opacity-90 pl-0.5">
+              <li>Sur Google AI Studio, cliquez sur <strong>« Create API key »</strong>.</li>
+              <li>Choisissez <strong>« Create API key in new project »</strong> (Nouveau projet).</li>
+              <li>Répétez pour créer 2 ou 3 clés (chaque projet dispose de son propre quota quotidien séparé).</li>
+              <li>Collez-les toutes ci-dessous (une par ligne) : l'application alternera automatiquement !</li>
+            </ol>
+          </div>
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
