@@ -1,4 +1,4 @@
-import { Note, Citation } from '../types';
+import { Note, Citation, NoteSeparator } from '../types';
 
 export interface FormattedSource {
   index: number;
@@ -10,6 +10,27 @@ export interface FormattedSource {
   formattedLine: string;
   citationIds?: string[];
 }
+
+export type NoteSectionItem = 
+  | {
+      kind: 'citation';
+      id: string;
+      citationId: string;
+      quote: string;
+      reference?: string;
+      sourceTitle?: string;
+      sourceMeta?: string;
+      sourceIndex?: number;
+      orderIndex: number;
+    }
+  | {
+      kind: 'separator';
+      id: string;
+      separatorType: 'subtitle' | 'comment';
+      text: string;
+      category: 'scripture' | 'church_age' | 'teaching';
+      orderIndex: number;
+    };
 
 export interface FormattedNoteSection {
   title?: string;
@@ -23,10 +44,20 @@ export interface ProcessedNoteData {
   title: string;
   cleanContent: string;
   contentParagraphs: string[];
+  scriptureItems: NoteSectionItem[];
+  churchAgeItems: NoteSectionItem[];
+  teachingItems: NoteSectionItem[];
   scriptureCitations: {
     citationId: string;
     quote: string;
     reference: string;
+    sourceIndex?: number;
+  }[];
+  churchAgeCitations: {
+    citationId: string;
+    quote: string;
+    sourceTitle: string;
+    sourceMeta: string;
     sourceIndex?: number;
   }[];
   teachingCitations: {
@@ -203,6 +234,7 @@ export function processNoteData(note: Note): ProcessedNoteData {
 
   // Traitement des citations rattachées (Citations)
   const scriptureCitations: ProcessedNoteData['scriptureCitations'] = [];
+  const churchAgeCitations: ProcessedNoteData['churchAgeCitations'] = [];
   const teachingCitations: ProcessedNoteData['teachingCitations'] = [];
 
   if (note.citations && note.citations.length > 0) {
@@ -224,6 +256,7 @@ export function processNoteData(note: Note): ProcessedNoteData {
 
       // Classification stricte : Si le titre de la source est une référence biblique ou si la version est une version biblique (LSG)
       const isScriptureSource = isBibleReference(titleSnap) || (!!versionSnap && /LSG|Louis Segond/i.test(versionSnap) && !isBibleReference(titleSnap));
+      const isChurchAgeSource = /Exposé|Expose|Sept Âges|7 Âges|Church Ages|Âges de l'Église/i.test(titleSnap);
 
       if (isScriptureSource && !/Exposé|Expose|Sermon|Prédication|Brochure|Message/i.test(titleSnap)) {
         const version = versionSnap || 'LSG 1910';
@@ -232,6 +265,19 @@ export function processNoteData(note: Note): ProcessedNoteData {
           citationId: citation.id,
           quote: cleanQuote,
           reference: `${titleSnap || 'Bible'}${version ? ` — ${version}` : ''}`,
+          sourceIndex: srcIdx
+        });
+      } else if (isChurchAgeSource) {
+        const metaParts = [];
+        if (dateSnap) metaParts.push(dateSnap);
+        if (paraRef) metaParts.push(paraRef);
+
+        const srcIdx = getOrAddSource(titleSnap || "Exposé des Sept Âges", 'sermon', dateSnap, paraRef, citation.id);
+        churchAgeCitations.push({
+          citationId: citation.id,
+          quote: cleanQuote,
+          sourceTitle: titleSnap || "Exposé des Sept Âges",
+          sourceMeta: metaParts.join(' — '),
           sourceIndex: srcIdx
         });
       } else {
@@ -250,6 +296,52 @@ export function processNoteData(note: Note): ProcessedNoteData {
       }
     }
   }
+
+  // Construction des listes unifiées d'éléments (Citations + Séparateurs indépendants)
+  const noteSeparators: NoteSeparator[] = Array.isArray(note.separators) ? note.separators : [];
+
+  const buildSectionItems = (
+    category: 'scripture' | 'church_age' | 'teaching',
+    citations: Array<{ citationId: string; quote: string; reference?: string; sourceTitle?: string; sourceMeta?: string; sourceIndex?: number }>
+  ): NoteSectionItem[] => {
+    const items: NoteSectionItem[] = [];
+
+    // 1. Ajouter les citations avec des orderIndex entiers espacés (0, 10, 20...) pour permettre des insertions stables
+    citations.forEach((c, idx) => {
+      items.push({
+        kind: 'citation',
+        id: c.citationId,
+        citationId: c.citationId,
+        quote: c.quote,
+        reference: c.reference,
+        sourceTitle: c.sourceTitle,
+        sourceMeta: c.sourceMeta,
+        sourceIndex: c.sourceIndex,
+        orderIndex: idx * 10
+      });
+    });
+
+    // 2. Ajouter les séparateurs indépendants de cette catégorie
+    const catSeparators = noteSeparators.filter(s => s.category === category);
+    catSeparators.forEach(sep => {
+      items.push({
+        kind: 'separator',
+        id: sep.id,
+        separatorType: sep.type,
+        text: cleanTextArtifacts(sep.text),
+        category: sep.category,
+        orderIndex: sep.orderIndex
+      });
+    });
+
+    // 3. Trier par orderIndex
+    items.sort((a, b) => a.orderIndex - b.orderIndex);
+    return items;
+  };
+
+  const scriptureItems = buildSectionItems('scripture', scriptureCitations);
+  const churchAgeItems = buildSectionItems('church_age', churchAgeCitations);
+  const teachingItems = buildSectionItems('teaching', teachingCitations);
 
   // Traitement des paragraphes du contenu principal
   const rawParagraphs = rawContent
@@ -291,10 +383,30 @@ export function processNoteData(note: Note): ProcessedNoteData {
       src.index = newIndex;
     });
 
-    // Mettre à jour les références d'index dans les citations
+    // Mettre à jour les références d'index dans les citations et items
+    for (const item of scriptureItems) {
+      if (item.kind === 'citation' && item.sourceIndex && indexMapping.has(item.sourceIndex)) {
+        item.sourceIndex = indexMapping.get(item.sourceIndex);
+      }
+    }
+    for (const item of churchAgeItems) {
+      if (item.kind === 'citation' && item.sourceIndex && indexMapping.has(item.sourceIndex)) {
+        item.sourceIndex = indexMapping.get(item.sourceIndex);
+      }
+    }
+    for (const item of teachingItems) {
+      if (item.kind === 'citation' && item.sourceIndex && indexMapping.has(item.sourceIndex)) {
+        item.sourceIndex = indexMapping.get(item.sourceIndex);
+      }
+    }
     for (const sc of scriptureCitations) {
       if (sc.sourceIndex && indexMapping.has(sc.sourceIndex)) {
         sc.sourceIndex = indexMapping.get(sc.sourceIndex);
+      }
+    }
+    for (const cac of churchAgeCitations) {
+      if (cac.sourceIndex && indexMapping.has(cac.sourceIndex)) {
+        cac.sourceIndex = indexMapping.get(cac.sourceIndex);
       }
     }
     for (const tc of teachingCitations) {
@@ -312,19 +424,51 @@ export function processNoteData(note: Note): ProcessedNoteData {
     markdown += contentParagraphs.join('\n\n') + '\n\n';
   }
 
-  if (scriptureCitations.length > 0) {
-    markdown += `### Citation biblique\n\n`;
-    for (const sc of scriptureCitations) {
-      markdown += `> « ${sc.quote} »\n\n`;
-      markdown += `**${sc.reference}**${sc.sourceIndex ? ` **[${sc.sourceIndex}]**` : ''}\n\n`;
+  if (scriptureItems.length > 0) {
+    markdown += `### Citations bibliques\n\n`;
+    for (const item of scriptureItems) {
+      if (item.kind === 'separator') {
+        if (item.separatorType === 'subtitle') {
+          markdown += `#### ${item.text}\n\n`;
+        } else {
+          markdown += `> 💬 *${item.text}*\n\n`;
+        }
+      } else {
+        markdown += `> « ${item.quote} »\n\n`;
+        markdown += `**${item.reference}**${item.sourceIndex ? ` **[${item.sourceIndex}]**` : ''}\n\n`;
+      }
     }
   }
 
-  if (teachingCitations.length > 0) {
-    markdown += `### Citation / Enseignement\n\n`;
-    for (const tc of teachingCitations) {
-      markdown += `> « ${tc.quote} »\n\n`;
-      markdown += `*${tc.sourceTitle}*${tc.sourceMeta ? ` — ${tc.sourceMeta}` : ''}${tc.sourceIndex ? ` **[${tc.sourceIndex}]**` : ''}\n\n`;
+  if (churchAgeItems.length > 0) {
+    markdown += `### Citations de l'Exposé des Sept Âges\n\n`;
+    for (const item of churchAgeItems) {
+      if (item.kind === 'separator') {
+        if (item.separatorType === 'subtitle') {
+          markdown += `#### ${item.text}\n\n`;
+        } else {
+          markdown += `> 💬 *${item.text}*\n\n`;
+        }
+      } else {
+        markdown += `> « ${item.quote} »\n\n`;
+        markdown += `*${item.sourceTitle}*${item.sourceMeta ? ` — ${item.sourceMeta}` : ''}${item.sourceIndex ? ` **[${item.sourceIndex}]**` : ''}\n\n`;
+      }
+    }
+  }
+
+  if (teachingItems.length > 0) {
+    markdown += `### Citations d'Enseignements\n\n`;
+    for (const item of teachingItems) {
+      if (item.kind === 'separator') {
+        if (item.separatorType === 'subtitle') {
+          markdown += `#### ${item.text}\n\n`;
+        } else {
+          markdown += `> 💬 *${item.text}*\n\n`;
+        }
+      } else {
+        markdown += `> « ${item.quote} »\n\n`;
+        markdown += `*${item.sourceTitle}*${item.sourceMeta ? ` — ${item.sourceMeta}` : ''}${item.sourceIndex ? ` **[${item.sourceIndex}]**` : ''}\n\n`;
+      }
     }
   }
 
@@ -339,7 +483,11 @@ export function processNoteData(note: Note): ProcessedNoteData {
     title: cleanTitle,
     cleanContent: contentParagraphs.join('\n\n'),
     contentParagraphs,
+    scriptureItems,
+    churchAgeItems,
+    teachingItems,
     scriptureCitations,
+    churchAgeCitations,
     teachingCitations,
     sources: sourcesList,
     formattedMarkdown: markdown.trim()

@@ -181,7 +181,7 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
     }
 
     // 2. SECTION CITATIONS BIBLIQUES
-    if (processed.scriptureCitations.length > 0) {
+    if (processed.scriptureItems && processed.scriptureItems.length > 0) {
       childrenElements.push(
         new Paragraph({
           children: [
@@ -197,69 +197,342 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
         })
       );
 
-      for (const sc of processed.scriptureCitations) {
-        const quoteTable = new Table({
-          width: { size: 100, type: WidthType.PERCENTAGE },
-          rows: [
-            new TableRow({
-              children: [
-                new TableCell({
+      for (const item of processed.scriptureItems) {
+        if (item.kind === 'separator') {
+          if (item.separatorType === 'subtitle') {
+            const subtitleTable = new Table({
+              width: { size: 100, type: WidthType.PERCENTAGE },
+              rows: [
+                new TableRow({
                   children: [
-                    new Paragraph({
+                    new TableCell({
                       children: [
-                        new TextRun({
-                          text: `« ${sc.quote} »`,
-                          italics: true,
-                          size: 21,
-                          color: "334155",
-                          font: "Georgia"
+                        new Paragraph({
+                          alignment: AlignmentType.CENTER,
+                          children: [
+                            new TextRun({
+                              text: item.text,
+                              bold: true,
+                              size: 20,
+                              color: primaryColor,
+                              font: "Arial"
+                            })
+                          ],
+                          spacing: { before: 60, after: 60 }
                         })
                       ],
-                      spacing: { before: 120, after: 120, line: 260 }
-                    }),
-                    new Paragraph({
-                      alignment: AlignmentType.RIGHT,
-                      children: [
-                        new TextRun({
-                          text: `${sc.reference}${sc.sourceIndex ? ` [${sc.sourceIndex}]` : ''}`,
-                          bold: true,
-                          size: 19,
-                          color: primaryColor,
-                          font: "Calibri"
-                        })
-                      ],
-                      spacing: { after: 100 }
+                      shading: {
+                        type: ShadingType.CLEAR,
+                        fill: "F0FDFA", // Light Teal tint
+                        color: "auto"
+                      },
+                      borders: {
+                        top: { style: BorderStyle.SINGLE, size: 6, color: "99F6E4" },
+                        bottom: { style: BorderStyle.SINGLE, size: 6, color: "99F6E4" },
+                        left: { style: BorderStyle.NONE },
+                        right: { style: BorderStyle.NONE }
+                      },
+                      margins: { top: 60, bottom: 60, left: 120, right: 120 }
                     })
-                  ],
-                  shading: {
-                    type: ShadingType.CLEAR,
-                    fill: lightBg,
-                    color: "auto"
-                  },
-                  borders: {
-                    left: {
-                      style: BorderStyle.SINGLE,
-                      size: 24,
-                      color: primaryColor
-                    },
-                    top: { style: BorderStyle.NONE },
-                    right: { style: BorderStyle.NONE },
-                    bottom: { style: BorderStyle.NONE }
-                  },
-                  margins: { top: 140, bottom: 140, left: 200, right: 200 }
+                  ]
                 })
               ]
-            })
-          ]
-        });
+            });
+            childrenElements.push(new Paragraph({ spacing: { before: 180 } }));
+            childrenElements.push(subtitleTable);
+            childrenElements.push(new Paragraph({ spacing: { after: 140 } }));
+          } else {
+            // Commentaire / Réflexion séparateur autonome
+            const commentTable = new Table({
+              width: { size: 100, type: WidthType.PERCENTAGE },
+              rows: [
+                new TableRow({
+                  children: [
+                    new TableCell({
+                      children: [
+                        new Paragraph({
+                          children: [
+                            new TextRun({
+                              text: "Remarque / Commentaire : ",
+                              bold: true,
+                              size: 19,
+                              color: primaryColor,
+                              font: "Calibri"
+                            }),
+                            new TextRun({
+                              text: item.text,
+                              italics: true,
+                              size: 19,
+                              color: "334155",
+                              font: "Calibri"
+                            })
+                          ],
+                          spacing: { before: 80, after: 80, line: 260 }
+                        })
+                      ],
+                      shading: {
+                        type: ShadingType.CLEAR,
+                        fill: "F8FAFC",
+                        color: "auto"
+                      },
+                      borders: {
+                        left: {
+                          style: BorderStyle.SINGLE,
+                          size: 20,
+                          color: primaryColor
+                        },
+                        top: { style: BorderStyle.NONE },
+                        right: { style: BorderStyle.NONE },
+                        bottom: { style: BorderStyle.NONE }
+                      },
+                      margins: { top: 100, bottom: 100, left: 160, right: 160 }
+                    })
+                  ]
+                })
+              ]
+            });
+            childrenElements.push(commentTable);
+            childrenElements.push(new Paragraph({ spacing: { after: 140 } }));
+          }
+        } else {
+          const quoteTable = new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({
+                    children: [
+                      new Paragraph({
+                        children: [
+                          new TextRun({
+                            text: `« ${item.quote} »`,
+                            italics: true,
+                            size: 21,
+                            color: "334155",
+                            font: "Georgia"
+                          })
+                        ],
+                        spacing: { before: 120, after: 120, line: 260 }
+                      }),
+                      new Paragraph({
+                        alignment: AlignmentType.RIGHT,
+                        children: [
+                          new TextRun({
+                            text: `${item.reference || 'Bible'}${item.sourceIndex ? ` [${item.sourceIndex}]` : ''}`,
+                            bold: true,
+                            size: 19,
+                            color: primaryColor,
+                            font: "Calibri"
+                          })
+                        ],
+                        spacing: { after: 100 }
+                      })
+                    ],
+                    shading: {
+                      type: ShadingType.CLEAR,
+                      fill: lightBg,
+                      color: "auto"
+                    },
+                    borders: {
+                      left: {
+                        style: BorderStyle.SINGLE,
+                        size: 24,
+                        color: primaryColor
+                      },
+                      top: { style: BorderStyle.NONE },
+                      right: { style: BorderStyle.NONE },
+                      bottom: { style: BorderStyle.NONE }
+                    },
+                    margins: { top: 140, bottom: 140, left: 200, right: 200 }
+                  })
+                ]
+              })
+            ]
+          });
 
-        childrenElements.push(quoteTable);
-        childrenElements.push(new Paragraph({ spacing: { after: 180 } }));
+          childrenElements.push(quoteTable);
+          childrenElements.push(new Paragraph({ spacing: { after: 180 } }));
+        }
       }
     }
 
-    // 3. SECTION CITATIONS & ENSEIGNEMENTS
-    if (processed.teachingCitations.length > 0) {
+    // 3. SECTION CITATIONS DE L'EXPOSÉ DES SEPT ÂGES
+    if (processed.churchAgeItems && processed.churchAgeItems.length > 0) {
+      childrenElements.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: "CITATIONS DE L'EXPOSÉ DES SEPT ÂGES",
+              bold: true,
+              size: 20,
+              color: primaryColor,
+              font: "Arial"
+            })
+          ],
+          spacing: { before: 360, after: 180 }
+        })
+      );
+
+      for (const item of processed.churchAgeItems) {
+        if (item.kind === 'separator') {
+          if (item.separatorType === 'subtitle') {
+            const subtitleTable = new Table({
+              width: { size: 100, type: WidthType.PERCENTAGE },
+              rows: [
+                new TableRow({
+                  children: [
+                    new TableCell({
+                      children: [
+                        new Paragraph({
+                          alignment: AlignmentType.CENTER,
+                          children: [
+                            new TextRun({
+                              text: item.text,
+                              bold: true,
+                              size: 20,
+                              color: "B45309", // Warm Amber Dark
+                              font: "Arial"
+                            })
+                          ],
+                          spacing: { before: 60, after: 60 }
+                        })
+                      ],
+                      shading: {
+                        type: ShadingType.CLEAR,
+                        fill: "FFFBEB", // Light Amber tint
+                        color: "auto"
+                      },
+                      borders: {
+                        top: { style: BorderStyle.SINGLE, size: 6, color: "FDE68A" },
+                        bottom: { style: BorderStyle.SINGLE, size: 6, color: "FDE68A" },
+                        left: { style: BorderStyle.NONE },
+                        right: { style: BorderStyle.NONE }
+                      },
+                      margins: { top: 60, bottom: 60, left: 120, right: 120 }
+                    })
+                  ]
+                })
+              ]
+            });
+            childrenElements.push(new Paragraph({ spacing: { before: 180 } }));
+            childrenElements.push(subtitleTable);
+            childrenElements.push(new Paragraph({ spacing: { after: 140 } }));
+          } else {
+            const commentTable = new Table({
+              width: { size: 100, type: WidthType.PERCENTAGE },
+              rows: [
+                new TableRow({
+                  children: [
+                    new TableCell({
+                      children: [
+                        new Paragraph({
+                          children: [
+                            new TextRun({
+                              text: "Remarque / Commentaire : ",
+                              bold: true,
+                              size: 19,
+                              color: "B45309",
+                              font: "Calibri"
+                            }),
+                            new TextRun({
+                              text: item.text,
+                              italics: true,
+                              size: 19,
+                              color: "334155",
+                              font: "Calibri"
+                            })
+                          ],
+                          spacing: { before: 80, after: 80, line: 260 }
+                        })
+                      ],
+                      shading: {
+                        type: ShadingType.CLEAR,
+                        fill: "FEF3C7", // Amber light
+                        color: "auto"
+                      },
+                      borders: {
+                        left: {
+                          style: BorderStyle.SINGLE,
+                          size: 20,
+                          color: "D97706"
+                        },
+                        top: { style: BorderStyle.NONE },
+                        right: { style: BorderStyle.NONE },
+                        bottom: { style: BorderStyle.NONE }
+                      },
+                      margins: { top: 100, bottom: 100, left: 160, right: 160 }
+                    })
+                  ]
+                })
+              ]
+            });
+            childrenElements.push(commentTable);
+            childrenElements.push(new Paragraph({ spacing: { after: 140 } }));
+          }
+        } else {
+          const quoteTable = new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({
+                    children: [
+                      new Paragraph({
+                        children: [
+                          new TextRun({
+                            text: `« ${item.quote} »`,
+                            italics: true,
+                            size: 21,
+                            color: "334155",
+                            font: "Georgia"
+                          })
+                        ],
+                        spacing: { before: 120, after: 120, line: 260 }
+                      }),
+                      new Paragraph({
+                        alignment: AlignmentType.RIGHT,
+                        children: [
+                          new TextRun({
+                            text: `${item.sourceTitle || "Exposé des Sept Âges"}${item.sourceMeta ? ` — ${item.sourceMeta}` : ''}${item.sourceIndex ? ` [${item.sourceIndex}]` : ''}`,
+                            bold: true,
+                            size: 19,
+                            color: primaryColor,
+                            font: "Calibri"
+                          })
+                        ],
+                        spacing: { after: 100 }
+                      })
+                    ],
+                    shading: {
+                      type: ShadingType.CLEAR,
+                      fill: lightBg,
+                      color: "auto"
+                    },
+                    borders: {
+                      left: {
+                        style: BorderStyle.SINGLE,
+                        size: 24,
+                        color: primaryColor
+                      },
+                      top: { style: BorderStyle.NONE },
+                      right: { style: BorderStyle.NONE },
+                      bottom: { style: BorderStyle.NONE }
+                    },
+                    margins: { top: 140, bottom: 140, left: 200, right: 200 }
+                  })
+                ]
+              })
+            ]
+          });
+
+          childrenElements.push(quoteTable);
+          childrenElements.push(new Paragraph({ spacing: { after: 180 } }));
+        }
+      }
+    }
+
+    // 4. SECTION CITATIONS & ENSEIGNEMENTS
+    if (processed.teachingItems && processed.teachingItems.length > 0) {
       childrenElements.push(
         new Paragraph({
           children: [
@@ -275,64 +548,161 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
         })
       );
 
-      for (const tc of processed.teachingCitations) {
-        const quoteTable = new Table({
-          width: { size: 100, type: WidthType.PERCENTAGE },
-          rows: [
-            new TableRow({
-              children: [
-                new TableCell({
+      for (const item of processed.teachingItems) {
+        if (item.kind === 'separator') {
+          if (item.separatorType === 'subtitle') {
+            const subtitleTable = new Table({
+              width: { size: 100, type: WidthType.PERCENTAGE },
+              rows: [
+                new TableRow({
                   children: [
-                    new Paragraph({
+                    new TableCell({
                       children: [
-                        new TextRun({
-                          text: `« ${tc.quote} »`,
-                          italics: true,
-                          size: 21,
-                          color: "334155",
-                          font: "Georgia"
+                        new Paragraph({
+                          alignment: AlignmentType.CENTER,
+                          children: [
+                            new TextRun({
+                              text: item.text,
+                              bold: true,
+                              size: 20,
+                              color: secondaryColor,
+                              font: "Arial"
+                            })
+                          ],
+                          spacing: { before: 60, after: 60 }
                         })
                       ],
-                      spacing: { before: 120, after: 120, line: 260 }
-                    }),
-                    new Paragraph({
-                      alignment: AlignmentType.RIGHT,
-                      children: [
-                        new TextRun({
-                          text: `${tc.sourceTitle}${tc.sourceMeta ? ` — ${tc.sourceMeta}` : ''}${tc.sourceIndex ? ` [${tc.sourceIndex}]` : ''}`,
-                          bold: true,
-                          size: 19,
-                          color: primaryColor,
-                          font: "Calibri"
-                        })
-                      ],
-                      spacing: { after: 100 }
+                      shading: {
+                        type: ShadingType.CLEAR,
+                        fill: "F1F5F9", // Slate tint
+                        color: "auto"
+                      },
+                      borders: {
+                        top: { style: BorderStyle.SINGLE, size: 6, color: "CBD5E1" },
+                        bottom: { style: BorderStyle.SINGLE, size: 6, color: "CBD5E1" },
+                        left: { style: BorderStyle.NONE },
+                        right: { style: BorderStyle.NONE }
+                      },
+                      margins: { top: 60, bottom: 60, left: 120, right: 120 }
                     })
-                  ],
-                  shading: {
-                    type: ShadingType.CLEAR,
-                    fill: lightBg,
-                    color: "auto"
-                  },
-                  borders: {
-                    left: {
-                      style: BorderStyle.SINGLE,
-                      size: 24,
-                      color: primaryColor
-                    },
-                    top: { style: BorderStyle.NONE },
-                    right: { style: BorderStyle.NONE },
-                    bottom: { style: BorderStyle.NONE }
-                  },
-                  margins: { top: 140, bottom: 140, left: 200, right: 200 }
+                  ]
                 })
               ]
-            })
-          ]
-        });
+            });
+            childrenElements.push(new Paragraph({ spacing: { before: 180 } }));
+            childrenElements.push(subtitleTable);
+            childrenElements.push(new Paragraph({ spacing: { after: 140 } }));
+          } else {
+            const commentTable = new Table({
+              width: { size: 100, type: WidthType.PERCENTAGE },
+              rows: [
+                new TableRow({
+                  children: [
+                    new TableCell({
+                      children: [
+                        new Paragraph({
+                          children: [
+                            new TextRun({
+                              text: "Remarque / Commentaire : ",
+                              bold: true,
+                              size: 19,
+                              color: primaryColor,
+                              font: "Calibri"
+                            }),
+                            new TextRun({
+                              text: item.text,
+                              italics: true,
+                              size: 19,
+                              color: "334155",
+                              font: "Calibri"
+                            })
+                          ],
+                          spacing: { before: 80, after: 80, line: 260 }
+                        })
+                      ],
+                      shading: {
+                        type: ShadingType.CLEAR,
+                        fill: "F8FAFC",
+                        color: "auto"
+                      },
+                      borders: {
+                        left: {
+                          style: BorderStyle.SINGLE,
+                          size: 20,
+                          color: "94A3B8"
+                        },
+                        top: { style: BorderStyle.NONE },
+                        right: { style: BorderStyle.NONE },
+                        bottom: { style: BorderStyle.NONE }
+                      },
+                      margins: { top: 100, bottom: 100, left: 160, right: 160 }
+                    })
+                  ]
+                })
+              ]
+            });
+            childrenElements.push(commentTable);
+            childrenElements.push(new Paragraph({ spacing: { after: 140 } }));
+          }
+        } else {
+          const quoteTable = new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({
+                    children: [
+                      new Paragraph({
+                        children: [
+                          new TextRun({
+                            text: `« ${item.quote} »`,
+                            italics: true,
+                            size: 21,
+                            color: "334155",
+                            font: "Georgia"
+                          })
+                        ],
+                        spacing: { before: 120, after: 120, line: 260 }
+                      }),
+                      new Paragraph({
+                        alignment: AlignmentType.RIGHT,
+                        children: [
+                          new TextRun({
+                            text: `${item.sourceTitle || 'Exposé / Enseignement'}${item.sourceMeta ? ` — ${item.sourceMeta}` : ''}${item.sourceIndex ? ` [${item.sourceIndex}]` : ''}`,
+                            bold: true,
+                            size: 19,
+                            color: primaryColor,
+                            font: "Calibri"
+                          })
+                        ],
+                        spacing: { after: 100 }
+                      })
+                    ],
+                    shading: {
+                      type: ShadingType.CLEAR,
+                      fill: lightBg,
+                      color: "auto"
+                    },
+                    borders: {
+                      left: {
+                        style: BorderStyle.SINGLE,
+                        size: 24,
+                        color: primaryColor
+                      },
+                      top: { style: BorderStyle.NONE },
+                      right: { style: BorderStyle.NONE },
+                      bottom: { style: BorderStyle.NONE }
+                    },
+                    margins: { top: 140, bottom: 140, left: 200, right: 200 }
+                  })
+                ]
+              })
+            ]
+          });
 
-        childrenElements.push(quoteTable);
-        childrenElements.push(new Paragraph({ spacing: { after: 180 } }));
+          childrenElements.push(quoteTable);
+          childrenElements.push(new Paragraph({ spacing: { after: 180 } }));
+        }
       }
     }
 

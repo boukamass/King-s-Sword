@@ -37,6 +37,15 @@ export interface Citation {
   paragraph_index?: number;
 }
 
+export interface NoteSeparator {
+  id: string;
+  type: 'subtitle' | 'comment';
+  text: string;
+  category: 'scripture' | 'church_age' | 'teaching';
+  orderIndex: number;
+  createdAt?: string;
+}
+
 export interface NoteImage {
   id: string;
   url: string;
@@ -50,6 +59,7 @@ export interface Note {
   title: string;
   content: string;
   citations: Citation[];
+  separators?: NoteSeparator[];
   sourceOrder?: string[];
   images?: NoteImage[];
   creationDate: string;
