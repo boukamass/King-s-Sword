@@ -139,9 +139,30 @@ export const setGeminiApiKey = async (key: string): Promise<void> => {
 };
 
 /**
+ * Nettoie et extrait une liste de clés API valides saisies par l'utilisateur
+ * (supporte plusieurs clés séparées par une virgule, un point-virgule ou un retour à la ligne)
+ */
+export const extractAllApiKeys = (raw: string | undefined | null): string[] => {
+  if (!raw || typeof raw !== 'string') return [];
+  return raw
+    .split(/[\n,;]+/)
+    .map(k => cleanApiKey(k))
+    .filter(k => k.length > 5);
+};
+
+/**
+ * Récupère la liste ordonnée de toutes les clés API disponibles
+ */
+export const getAllGeminiApiKeys = (): string[] => {
+  const rawKey = getGeminiApiKey();
+  const keys = extractAllApiKeys(rawKey);
+  return keys.length > 0 ? keys : (rawKey ? [rawKey] : []);
+};
+
+/**
  * Vérifie si une clé API d'au moins 6 caractères est configurée
  */
 export const hasValidGeminiApiKey = (): boolean => {
-  const key = getGeminiApiKey();
-  return Boolean(key && key.length > 5);
+  const keys = getAllGeminiApiKeys();
+  return keys.length > 0;
 };

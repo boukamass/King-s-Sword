@@ -1,7 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { ChatMessage } from '../types';
 import { isOllamaAvailable, askOllamaChat, offlineLocalSearchAnalysis } from './ollamaService';
-import { getGeminiApiKey, cleanApiKey } from '../utils/apiKeyHelper';
+import { getGeminiApiKey, getAllGeminiApiKeys, extractAllApiKeys, cleanApiKey } from '../utils/apiKeyHelper';
 import { RetrievedParagraph } from './sermonRagService';
 
 export interface GeminiSource {
@@ -62,11 +62,15 @@ export const classifyGeminiError = (error: any): { type: string; userMessage: st
     rawMsg.includes('429') || 
     rawMsg.includes('RESOURCE_EXHAUSTED') || 
     rawMsg.includes('QUOTA_EXHAUSTED') ||
-    rawMsg.includes('quota')
+    rawMsg.includes('quota') ||
+    rawMsg.includes('limit')
   ) {
+    const isDaily = rawMsg.includes('PerDay') || rawMsg.includes('per day') || rawMsg.includes('daily') || rawMsg.includes('Day');
     return {
       type: 'QUOTA_EXHAUSTED',
-      userMessage: 'Le quota de requêtes de votre clé Google Gemini est temporairement saturé. Veuillez patienter une minute avant de réessayer.'
+      userMessage: isDaily 
+        ? "Le quota journalier gratuit de ce projet Google Cloud a été atteint pour aujourd'hui. Solution immédiate : Cliquez sur 'Obtenir ma clé gratuite' ci-dessus, créez un nouveau projet dans Google AI Studio et collez la nouvelle clé (ou ajoutez-la en clé de secours)."
+        : "Le quota de requêtes de cette clé Google Gemini est temporairement saturé. Si le message persiste, le quota journalier du projet Google est atteint : créez simplement un nouveau projet gratuit dans Google AI Studio pour obtenir une clé fraîche."
     };
   }
 
@@ -138,9 +142,9 @@ const CANDIDATE_MODELS = [
 export const testGeminiApiKey = async (
   apiKeyToTest: string
 ): Promise<{ success: boolean; message: string; errorType?: string }> => {
-  const cleanedKey = cleanApiKey(apiKeyToTest);
+  const keys = extractAllApiKeys(apiKeyToTest);
 
-  if (!cleanedKey || cleanedKey.length < 8) {
+  if (keys.length === 0) {
     return {
       success: false,
       message: "La clé saisie semble vide ou trop courte (une clé Google commence généralement par 'AIzaSy...').",
@@ -156,51 +160,53 @@ export const testGeminiApiKey = async (
     };
   }
 
-  try {
-    const ai = new GoogleGenAI({ apiKey: cleanedKey });
-    
-    // Essayer les modèles candidats
-    let lastError: any = null;
-    for (const model of CANDIDATE_MODELS) {
-      try {
-        const response = await ai.models.generateContent({
-          model: model,
-          contents: [{ role: "user", parts: [{ text: "ping" }] }],
-          config: {
-            maxOutputTokens: 2,
-            temperature: 0.1
-          }
-        });
+  let lastError: any = null;
+  let validatedKeyCount = 0;
 
-        if (response && (response.text || response.candidates?.length)) {
-          return {
-            success: true,
-            message: `Connexion réussie ! Votre clé Google Gemini (${model}) est active et opérationnelle.`
-          };
-        }
-      } catch (err: any) {
-        lastError = err;
-        const cl = classifyGeminiError(err);
-        if (cl.type === 'API_KEY_INVALID' || cl.type === 'PERMISSION_DENIED') {
-          throw err;
+  for (let keyIdx = 0; keyIdx < keys.length; keyIdx++) {
+    const key = keys[keyIdx];
+    try {
+      const ai = new GoogleGenAI({ apiKey: key });
+      
+      for (const model of CANDIDATE_MODELS) {
+        try {
+          const response = await ai.models.generateContent({
+            model: model,
+            contents: [{ role: "user", parts: [{ text: "ping" }] }],
+            config: {
+              maxOutputTokens: 2,
+              temperature: 0.1
+            }
+          });
+
+          if (response && (response.text || response.candidates?.length)) {
+            validatedKeyCount++;
+            return {
+              success: true,
+              message: keys.length > 1 
+                ? `Connexion réussie ! ${keys.length} clé(s) active(s) configurée(s) (modèle opérationnel : ${model}).`
+                : `Connexion réussie ! Votre clé Google Gemini (${model}) est active et opérationnelle.`
+            };
+          }
+        } catch (modelErr: any) {
+          lastError = modelErr;
+          const cl = classifyGeminiError(modelErr);
+          if (cl.type === 'API_KEY_INVALID' || cl.type === 'PERMISSION_DENIED') {
+            break;
+          }
         }
       }
+    } catch (err: any) {
+      lastError = err;
     }
-
-    if (lastError) throw lastError;
-
-    return {
-      success: true,
-      message: "Connexion établie avec succès avec Google AI Studio."
-    };
-  } catch (error: any) {
-    const classified = classifyGeminiError(error);
-    return {
-      success: false,
-      message: classified.userMessage,
-      errorType: classified.type
-    };
   }
+
+  const classified = classifyGeminiError(lastError);
+  return {
+    success: false,
+    message: classified.userMessage,
+    errorType: classified.type
+  };
 };
 
 const callWithRetry = async (fn: () => Promise<any>, maxRetries = 1, delay = 1500) => {
@@ -230,20 +236,20 @@ export const askGeminiChat = async (
   history: ChatMessage[],
   options: AskGeminiChatOptions = {}
 ): Promise<GeminiResponse> => {
-  const apiKey = getGeminiApiKey();
+  const availableKeys = getAllGeminiApiKeys();
+  const apiKey = availableKeys[0];
   const isAutoRag = options.mode === 'auto-rag' || (options.retrievedParagraphs && options.retrievedParagraphs.length > 0);
 
-  // 1. Si une clé est présente et que nous sommes en ligne : tentative prioritaire avec Gemini Cloud
+  // 1. Si au moins une clé est présente et que nous sommes en ligne : tentative prioritaire avec Gemini Cloud
   // RÈGLE STRICTE : AUCUNE RECHERCHE WEB GOOGLE (googleSearch désactivé). Réponses fondées exclusivement sur les sources internes.
-  if (apiKey && navigator.onLine) {
-    try {
-      const ai = new GoogleGenAI({ apiKey });
-      
-      let systemInstruction = '';
-      let userPromptWithContext = '';
+  if (availableKeys.length > 0 && navigator.onLine) {
+    let lastKeyError: any = null;
 
-      if (isAutoRag) {
-        systemInstruction = `Tu es l'assistant d'étude théologique de King's Sword, expert des sermons de William Marrion Branham.
+    let systemInstruction = '';
+    let userPromptWithContext = '';
+
+    if (isAutoRag) {
+      systemInstruction = `Tu es l'assistant d'étude théologique de King's Sword, expert des sermons de William Marrion Branham.
 
 DIRECTIVES STRICTES DE RÉPONSE FONDÉE EXCLUSIVEMENT SUR LES SOURCES FOURNIES DANS L'APPLICATION :
 1. Réponds à la question posée en te basant EXCLUSIVEMENT sur les extraits de sermons et documents fournis ci-dessous.
@@ -256,14 +262,14 @@ DIRECTIVES STRICTES DE RÉPONSE FONDÉE EXCLUSIVEMENT SUR LES SOURCES FOURNIES D
    « Les documents disponibles dans la base documentaire de l'application ne contiennent pas d'informations suffisantes pour répondre à cette question. »
 6. Regroupe toujours en fin de réponse une section "### Sources consultées" listant clairement les sermons et paragraphes cités.`;
 
-        userPromptWithContext = `${contextText.substring(0, 25000)}
+      userPromptWithContext = `${contextText.substring(0, 25000)}
 
 ============================================================
 QUESTION DU CHERCHEUR :
 "${prompt}"`;
-      } else {
-        systemInstruction = `Tu es l'assistant d'étude et de recherche théologique de King's Sword, doté d'une rigueur d'analyse et d'une profondeur comparables aux meilleurs outils de recherche exégétique.
-      
+    } else {
+      systemInstruction = `Tu es l'assistant d'étude et de recherche théologique de King's Sword, doté d'une rigueur d'analyse et d'une profondeur comparables aux meilleurs outils de recherche exégétique.
+    
 DIRECTIVES STRICTES DE RÉPONSE FONDÉE EXCLUSIVEMENT SUR LES SOURCES DE L'APPLICATION :
 1. Tes réponses doivent provenir EXCLUSIVEMENT des documents sources fournis dans le contexte ci-dessous (sermons, passages bibliques, Dock IA). N'utilise aucune source web externe.
 2. Séparation claire du contenu et des sources : Ne mélange jamais les références ou les numéros de paragraphe dans les phrases du corps du texte.
@@ -271,7 +277,7 @@ DIRECTIVES STRICTES DE RÉPONSE FONDÉE EXCLUSIVEMENT SUR LES SOURCES DE L'APPLI
 4. Pour les enseignements/sermons cités : Présente la citation dans un bloc (> « ... ») suivi de **Source :** *Titre du Sermon* — Date, §N.
 5. Regroupe toujours en fin de réponse une section "### Sources" numérotée ([1], [2]...) listant clairement les références utilisées.`;
 
-        userPromptWithContext = `DOCUMENTS SOURCES FOURNIS DANS L'APPLICATION (Dock IA / Sermons actifs) :
+      userPromptWithContext = `DOCUMENTS SOURCES FOURNIS DANS L'APPLICATION (Dock IA / Sermons actifs) :
 ============================================================
 ${contextText.substring(0, 25000)}
 ============================================================
@@ -283,61 +289,70 @@ CONSIGNES :
 
 QUESTION DU CHERCHEUR :
 "${prompt}"`;
+    }
+
+    // Nettoyer et alléger l'historique pour ne pas gaspiller de tokens
+    const cleanHistory = history
+      .filter(h => !h.content.startsWith('❌') && !h.content.startsWith('> ⏱️') && !h.content.startsWith('> ⚠️') && !h.content.startsWith('> ℹ️'))
+      .slice(-2)
+      .map(h => ({ 
+        role: h.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: h.content.substring(0, 500) }]
+      }));
+
+    const contents = [
+      ...cleanHistory,
+      {
+        role: 'user',
+        parts: [{ text: userPromptWithContext }]
       }
+    ];
 
-      // Nettoyer et alléger l'historique pour ne pas gaspiller de tokens
-      const cleanHistory = history
-        .filter(h => !h.content.startsWith('❌') && !h.content.startsWith('> ⏱️') && !h.content.startsWith('> ⚠️'))
-        .slice(-2)
-        .map(h => ({ 
-          role: h.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: h.content.substring(0, 500) }]
-        }));
+    // Configuration pure sans aucun outil externe (aucun googleSearch)
+    const config: any = { 
+      systemInstruction,
+      temperature: isAutoRag ? 0.2 : 0.4
+    };
 
-      const contents = [
-        ...cleanHistory,
-        {
-          role: 'user',
-          parts: [{ text: userPromptWithContext }]
-        }
-      ];
+    let successfulResponse: any = null;
 
-      // Configuration pure sans aucun outil externe (aucun googleSearch)
-      const config: any = { 
-        systemInstruction,
-        temperature: isAutoRag ? 0.2 : 0.4
-      };
-
-      let response: any = null;
-      let lastModelError: any = null;
-
-      for (const model of CANDIDATE_MODELS) {
-        try {
-          response = await callWithRetry(() => ai.models.generateContent({
-            model: model,
-            contents: contents,
-            config
-          }));
-          if (response && (response.text || response.candidates?.length)) {
+    for (let keyIdx = 0; keyIdx < availableKeys.length; keyIdx++) {
+      const currentKey = availableKeys[keyIdx];
+      try {
+        const ai = new GoogleGenAI({ apiKey: currentKey });
+        
+        for (const model of CANDIDATE_MODELS) {
+          try {
+            successfulResponse = await callWithRetry(() => ai.models.generateContent({
+              model: model,
+              contents: contents,
+              config
+            }));
+            if (successfulResponse && (successfulResponse.text || successfulResponse.candidates?.length)) {
+              break;
+            }
+          } catch (err: any) {
+            lastKeyError = err;
+            const cl = classifyGeminiError(err);
+            // Si l'erreur est liée au quota ou modèle temporairement inaccessible, essayer le modèle suivant
+            if (cl.type === 'QUOTA_EXHAUSTED' || cl.type === 'MODEL_UNAVAILABLE' || cl.type === 'SERVICE_UNAVAILABLE') {
+              continue;
+            }
+            // Pour les erreurs de clé invalide ou permissions, passer à la clé suivante
             break;
           }
-        } catch (err: any) {
-          lastModelError = err;
-          const cl = classifyGeminiError(err);
-          // Si l'erreur est liée au quota ou modèle temporairement inaccessible, essayer le modèle suivant
-          if (cl.type === 'QUOTA_EXHAUSTED' || cl.type === 'MODEL_UNAVAILABLE' || cl.type === 'SERVICE_UNAVAILABLE') {
-            continue;
-          }
-          // Pour les erreurs de clé invalide ou permissions, propager immédiatement
-          throw err;
         }
-      }
 
-      if (!response && lastModelError) {
-        throw lastModelError;
+        if (successfulResponse && (successfulResponse.text || successfulResponse.candidates?.length)) {
+          break;
+        }
+      } catch (err: any) {
+        lastKeyError = err;
       }
-      
-      const text = response?.text || "Aucune réponse générée.";
+    }
+
+    if (successfulResponse && (successfulResponse.text || successfulResponse.candidates?.length)) {
+      const text = successfulResponse.text || "Aucune réponse générée.";
       const sources: GeminiSource[] = [];
 
       if (options.retrievedParagraphs && options.retrievedParagraphs.length > 0) {
@@ -357,21 +372,23 @@ QUESTION DU CHERCHEUR :
         retrievedParagraphs: options.retrievedParagraphs,
         engineUsed: 'gemini'
       };
-    } catch (error: any) {
-      const classified = classifyGeminiError(error);
+    }
+
+    if (lastKeyError) {
+      const classified = classifyGeminiError(lastKeyError);
 
       // Si le quota Google est temporairement saturé ou que les serveurs sont occupés,
       // mais que le moteur RAG local a déjà trouvé les extraits exacts des sermons :
       // On affiche directement ces extraits locaux à l'utilisateur pour ne pas bloquer son étude !
       if ((classified.type === 'QUOTA_EXHAUSTED' || classified.type === 'SERVICE_UNAVAILABLE') && options.retrievedParagraphs && options.retrievedParagraphs.length > 0) {
-        let fallbackText = `> ⏱️ **Information Quota Google AI Studio** : *La limite de requêtes par minute de votre clé gratuite est temporairement atteinte. Pour ne pas interrompre votre étude, voici les extraits exacts sélectionnés directement dans vos sermons locaux pour votre question :*\n\n`;
+        let fallbackText = `> ⏱️ **Information Quota Google AI Studio** : *${classified.userMessage}*\n\n*Voici les extraits exacts sélectionnés directement dans vos sermons locaux pour votre question :*\n\n`;
 
         options.retrievedParagraphs.forEach((p, idx) => {
           fallbackText += `### Extrait ${idx + 1} : *${p.title}* (${p.date || 'Non daté'}) — §${p.paragraphIndex}\n`;
           fallbackText += `> « ${p.content} » [Réf: ${p.sermonId}, Para. ${p.paragraphIndex}]\n\n`;
         });
 
-        fallbackText += `\n---\n*💡 Astuce : Dès que la minute s'écoule, vous pouvez renvoyer votre question pour obtenir une exégèse rédigée complète par Gemini.*`;
+        fallbackText += `\n---\n*💡 Astuce : Vous pouvez ajouter une seconde clé gratuite dans la fenêtre "+ Clé Google" pour basculer dessus automatiquement en cas de saturation de quota.*`;
 
         const sources: GeminiSource[] = options.retrievedParagraphs.map(p => ({
           title: `${p.title} (${p.date || 'Non daté'}) — §${p.paragraphIndex}`,
@@ -392,7 +409,7 @@ QUESTION DU CHERCHEUR :
         };
       }
 
-      if (classified.type === 'API_KEY_INVALID' || classified.type === 'PERMISSION_DENIED' || classified.type === 'QUOTA_EXHAUSTED') {
+      if (classified.type === 'API_KEY_INVALID' || classified.type === 'PERMISSION_DENIED') {
         return {
           text: `❌ **Erreur d'accès à Google Gemini**\n\n${classified.userMessage}\n\n*Pour vérifier votre clé, cliquez sur l'icône de clé en haut de l'Assistant IA.*`,
           sources: [],
@@ -404,7 +421,7 @@ QUESTION DU CHERCHEUR :
         };
       }
 
-      console.warn("Panne réseau ou indisponibilité temporaire Gemini, passage au secours local:", classified.type);
+      console.warn("Panne réseau ou saturation quota Gemini, passage au secours local:", classified.type);
     }
   }
 
