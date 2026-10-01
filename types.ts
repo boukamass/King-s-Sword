@@ -26,6 +26,13 @@ export interface Sermon {
   _normalizedTitle?: string;
 }
 
+export interface CitationHighlight {
+  start: number;
+  end: number;
+  color?: string;
+  text?: string;
+}
+
 export interface Citation {
   id: string;
   sermon_id: string;
@@ -35,6 +42,7 @@ export interface Citation {
   quoted_text: string;
   date_added: string;
   paragraph_index?: number;
+  highlights?: CitationHighlight[];
 }
 
 export interface NoteSeparator {

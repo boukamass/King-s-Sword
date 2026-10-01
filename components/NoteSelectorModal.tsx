@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAppStore, sortNotesByRecency } from '../store';
-import { Sermon, Note } from '../types';
+import { Sermon, Note, Citation } from '../types';
 import { marked } from 'marked';
 import { 
   X, 
@@ -15,11 +15,15 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import { normalizeText } from '../utils/textUtils';
+import { CitationHighlight } from '../types';
+import { extractHighlightsFromSermon } from '../utils/highlightUtils';
+import { HighlightedQuote } from './HighlightedQuote';
 
 interface NoteSelectorModalProps {
   selectionText: string;
   sermon: Sermon;
   paragraphIndex?: number;
+  highlights?: CitationHighlight[];
   onClose: () => void;
 }
 
@@ -27,6 +31,7 @@ const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({
   selectionText, 
   sermon, 
   paragraphIndex, 
+  highlights,
   onClose 
 }) => {
   const { notes, addNote, addCitationToNote, addNotification, sermons, setSidebarOpen, setNotesOpen, setAiOpen } = useAppStore();
@@ -34,6 +39,11 @@ const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({
   const [newNoteTitle, setNewNoteTitle] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const titleInputRef = useRef<HTMLInputElement>(null);
+
+  const effectiveHighlights = useMemo(() => {
+    if (highlights && highlights.length > 0) return highlights;
+    return extractHighlightsFromSermon(sermon, selectionText, paragraphIndex);
+  }, [highlights, sermon, selectionText, paragraphIndex]);
 
   useEffect(() => {
     setSidebarOpen(false);
@@ -75,13 +85,16 @@ const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({
       addNotification('Le titre de la note ne peut pas être vide.', 'error');
       return;
     }
-    const newCitation: any = {
+    const newCitation: Citation = {
+      id: crypto.randomUUID(),
       sermon_id: sermon.id,
       sermon_title_snapshot: sermon.title,
       sermon_date_snapshot: sermon.date,
       sermon_version_snapshot: sermon.version,
       quoted_text: selectionText,
-      paragraph_index: paragraphIndex
+      paragraph_index: paragraphIndex,
+      date_added: new Date().toISOString(),
+      highlights: effectiveHighlights && effectiveHighlights.length > 0 ? effectiveHighlights : undefined
     };
 
     addNote({
@@ -111,7 +124,8 @@ const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({
       sermon_date_snapshot: sermon.date,
       sermon_version_snapshot: sermon.version,
       quoted_text: selectionText,
-      paragraph_index: paragraphIndex
+      paragraph_index: paragraphIndex,
+      highlights: effectiveHighlights && effectiveHighlights.length > 0 ? effectiveHighlights : undefined
     });
     addNotification(`Extrait ajouté à "${note.title}".`, 'success');
     onClose();
@@ -187,10 +201,13 @@ const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({
               </div>
             </div>
 
-            <div 
-              className="text-xs text-zinc-700 dark:text-zinc-300 line-clamp-3 italic leading-relaxed pl-2.5 border-l-2 border-teal-500/40"
-              dangerouslySetInnerHTML={{ __html: renderPreview(selectionText) as string }} 
-            />
+            <div className="text-xs text-zinc-700 dark:text-zinc-300 line-clamp-3 italic leading-relaxed pl-2.5 border-l-2 border-teal-500/40">
+              {effectiveHighlights && effectiveHighlights.length > 0 ? (
+                <HighlightedQuote quote={selectionText} highlights={effectiveHighlights} />
+              ) : (
+                <div dangerouslySetInnerHTML={{ __html: renderPreview(selectionText) as string }} />
+              )}
+            </div>
           </div>
         </div>
 

@@ -134,4 +134,9 @@
     page-break-inside: avoid;
     break-inside: avoid;
   }
+  mark, .print-highlight {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
 }

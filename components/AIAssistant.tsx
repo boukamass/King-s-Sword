@@ -14,6 +14,7 @@ import NoteSelectorModal from './NoteSelectorModal';
 import { ApiKeyModal } from './ApiKeyModal';
 import { hasValidGeminiApiKey } from '../utils/apiKeyHelper';
 import { Sermon, ChatMessage } from '../types';
+import { splitSermonIntoParagraphs, extractLeadingParagraphNumber } from '../utils/textUtils';
 import { 
   Sparkles, 
   X, 
@@ -535,8 +536,12 @@ const AIAssistant: React.FC = () => {
         const maxCharsPerDoc = docCount <= 5 ? 60000 : docCount <= 20 ? 25000 : Math.max(3000, Math.floor(300000 / docCount));
 
         const ctx = validSermons.map(s => {
-          const numberedText = s.text.split(/\n\s*\n/)
-                .map((p, i) => `[Para. ${i + 1}] ${p.trim()}`)
+          const numberedText = splitSermonIntoParagraphs(s.text)
+                .map((p, i) => {
+                  const explicitNum = extractLeadingParagraphNumber(p);
+                  const pNum = explicitNum !== null ? explicitNum : i + 1;
+                  return `[Para. ${pNum}] ${p.trim()}`;
+                })
                 .join('\n');
           return `[DOC ID: ${s.id}] - TITRE: ${s.title} (${s.date || 'Non daté'}, ${s.city || ''})\nCONTENU:\n${numberedText.substring(0, maxCharsPerDoc)}`;
         }).join('\n\n---\n\n');
@@ -1000,7 +1005,7 @@ const AIAssistant: React.FC = () => {
                   : 'bg-teal-50/60 dark:bg-teal-900/20 text-zinc-900 dark:text-zinc-100 border border-teal-100 dark:border-teal-800/50 rounded-tl-none'
               }`}>
                 {msg.role === 'assistant' 
-                  ? <div className="prose-styles text-[13px] leading-relaxed serif-text" dangerouslySetInnerHTML={{ __html: formatAIResponse(msg.content) as string }} />
+                  ? <div className="prose-styles text-[13px] leading-[1.75] serif-text [&_p]:my-2.5 [&_p]:leading-[1.75] [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2.5 [&_ul]:space-y-1.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2.5 [&_ol]:space-y-1.5 [&_li]:my-1 [&_li]:leading-relaxed [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:font-black [&_h2]:mt-3.5 [&_h2]:mb-2 [&_h2]:font-bold [&_h3]:mt-3 [&_h3]:mb-1.5 [&_h3]:font-bold [&_strong]:font-black text-zinc-900 dark:text-zinc-100" dangerouslySetInnerHTML={{ __html: formatAIResponse(msg.content) as string }} />
                   : <p className="text-[13px] font-bold leading-relaxed tracking-tight break-words">{msg.content}</p>
                 }
 

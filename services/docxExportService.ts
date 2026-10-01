@@ -17,8 +17,81 @@ import {
   Header
 } from 'docx';
 import saveAs from 'file-saver';
-import { Note } from '../types';
+import { Note, CitationHighlight } from '../types';
 import { processNoteData } from '../utils/noteFormatter';
+import { splitQuoteIntoHighlightedSegments, HIGHLIGHT_HEX_MAP } from '../utils/highlightUtils';
+
+/**
+ * Génère les TextRuns pour une citation Word en reflétant les surlignages éventuels.
+ */
+function createDocxQuoteRuns(quote: string, highlights?: CitationHighlight[]): TextRun[] {
+  if (!highlights || highlights.length === 0) {
+    return [
+      new TextRun({
+        text: `« ${quote} »`,
+        italics: true,
+        size: 21,
+        color: "334155",
+        font: "Georgia"
+      })
+    ];
+  }
+
+  const segments = splitQuoteIntoHighlightedSegments(quote, highlights);
+  const runs: TextRun[] = [];
+
+  runs.push(
+    new TextRun({
+      text: '« ',
+      italics: true,
+      size: 21,
+      color: "334155",
+      font: "Georgia"
+    })
+  );
+
+  segments.forEach(seg => {
+    if (seg.isHighlighted) {
+      const hex = HIGHLIGHT_HEX_MAP[seg.color || 'amber']?.hex || 'FEF08A';
+      runs.push(
+        new TextRun({
+          text: seg.text,
+          italics: true,
+          size: 21,
+          color: "1E293B",
+          font: "Georgia",
+          shading: {
+            type: ShadingType.CLEAR,
+            fill: hex,
+            color: "auto"
+          }
+        })
+      );
+    } else {
+      runs.push(
+        new TextRun({
+          text: seg.text,
+          italics: true,
+          size: 21,
+          color: "334155",
+          font: "Georgia"
+        })
+      );
+    }
+  });
+
+  runs.push(
+    new TextRun({
+      text: ' »',
+      italics: true,
+      size: 21,
+      color: "334155",
+      font: "Georgia"
+    })
+  );
+
+  return runs;
+}
 
 /**
  * Safely fetches an image (Data URL, blob or web URL) and converts it to ArrayBuffer + dimensions
@@ -303,15 +376,7 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
                   new TableCell({
                     children: [
                       new Paragraph({
-                        children: [
-                          new TextRun({
-                            text: `« ${item.quote} »`,
-                            italics: true,
-                            size: 21,
-                            color: "334155",
-                            font: "Georgia"
-                          })
-                        ],
+                        children: createDocxQuoteRuns(item.quote, item.highlights),
                         spacing: { before: 120, after: 120, line: 260 }
                       }),
                       new Paragraph({
@@ -478,15 +543,7 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
                   new TableCell({
                     children: [
                       new Paragraph({
-                        children: [
-                          new TextRun({
-                            text: `« ${item.quote} »`,
-                            italics: true,
-                            size: 21,
-                            color: "334155",
-                            font: "Georgia"
-                          })
-                        ],
+                        children: createDocxQuoteRuns(item.quote, item.highlights),
                         spacing: { before: 120, after: 120, line: 260 }
                       }),
                       new Paragraph({
@@ -653,15 +710,7 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
                   new TableCell({
                     children: [
                       new Paragraph({
-                        children: [
-                          new TextRun({
-                            text: `« ${item.quote} »`,
-                            italics: true,
-                            size: 21,
-                            color: "334155",
-                            font: "Georgia"
-                          })
-                        ],
+                        children: createDocxQuoteRuns(item.quote, item.highlights),
                         spacing: { before: 120, after: 120, line: 260 }
                       }),
                       new Paragraph({
@@ -703,6 +752,123 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
           childrenElements.push(quoteTable);
           childrenElements.push(new Paragraph({ spacing: { after: 180 } }));
         }
+      }
+    }
+
+    // 5. SECTION DICTIONNAIRE & LEXIQUE BIBLIQUE
+    if (processed.definitionItems && processed.definitionItems.length > 0) {
+      childrenElements.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: "DICTIONNAIRE & LEXIQUE BIBLIQUE",
+              bold: true,
+              size: 20,
+              color: primaryColor,
+              font: "Arial"
+            })
+          ],
+          spacing: { before: 360, after: 180 }
+        })
+      );
+
+      for (const item of processed.definitionItems) {
+        const defTable = new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          rows: [
+            new TableRow({
+              children: [
+                new TableCell({
+                  children: [
+                    new Paragraph({
+                      children: [
+                        new TextRun({
+                          text: item.word,
+                          bold: true,
+                          size: 22,
+                          color: "0F172A",
+                          font: "Arial"
+                        })
+                      ],
+                      spacing: { before: 60, after: 60 }
+                    }),
+                    new Paragraph({
+                      children: [
+                        new TextRun({
+                          text: item.definition,
+                          size: 21,
+                          color: "334155",
+                          font: "Georgia"
+                        })
+                      ],
+                      spacing: { before: 60, after: 60 }
+                    }),
+                    ...(item.etymology ? [
+                      new Paragraph({
+                        children: [
+                          new TextRun({
+                            text: `Étymologie : ${item.etymology}`,
+                            italics: true,
+                            size: 19,
+                            color: "64748B",
+                            font: "Georgia"
+                          })
+                        ],
+                        spacing: { before: 40, after: 40 }
+                      })
+                    ] : []),
+                    ...(item.synonyms && item.synonyms.length > 0 ? [
+                      new Paragraph({
+                        children: [
+                          new TextRun({
+                            text: `Synonymes : ${item.synonyms.join(', ')}`,
+                            bold: true,
+                            size: 19,
+                            color: primaryColor,
+                            font: "Arial"
+                          })
+                        ],
+                        spacing: { before: 40, after: 40 }
+                      })
+                    ] : []),
+                    new Paragraph({
+                      alignment: AlignmentType.RIGHT,
+                      children: [
+                        new TextRun({
+                          text: `Dictionnaire Biblique${item.sourceIndex ? ` [${item.sourceIndex}]` : ''}`,
+                          bold: true,
+                          size: 18,
+                          color: primaryColor,
+                          font: "Arial"
+                        })
+                      ],
+                      spacing: { before: 60, after: 60 }
+                    })
+                  ],
+                  shading: {
+                    type: ShadingType.CLEAR,
+                    fill: "F8FAFC",
+                    color: "auto"
+                  },
+                  borders: {
+                    left: {
+                      style: BorderStyle.SINGLE,
+                      size: 24,
+                      color: primaryColor
+                    },
+                    top: { style: BorderStyle.NONE },
+                    right: { style: BorderStyle.NONE },
+                    bottom: { style: BorderStyle.NONE }
+                  },
+                  margins: { top: 140, bottom: 140, left: 200, right: 200 }
+                })
+              ]
+            })
+          ]
+        });
+
+        childrenElements.push(defTable);
+        childrenElements.push(new Paragraph({ spacing: { after: 180 } }));
       }
     }
 
