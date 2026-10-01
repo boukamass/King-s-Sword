@@ -11,7 +11,7 @@ import NoteSelectorModal from './NoteSelectorModal';
 
 const RESULTS_PER_PAGE = 50;
 
-let savedSearchScrollTopFull = 0;
+const savedSearchScrollTopFullByMode: Record<string, number> = { sermons: 0, bible: 0, expose: 0, songs: 0 };
 let lastSearchContext = "";
 
 const SkeletonCard = () => (
@@ -151,6 +151,9 @@ const SearchResults: React.FC = () => {
     setIsSearching,
     selectedSermonId,
     setSelectedSermonId, 
+    selectedSearchParagraphId,
+    setSelectedSearchParagraphId,
+    jumpToParagraph,
     languageFilter,
     setSearchQuery,
     setJumpToParagraph,
@@ -243,7 +246,7 @@ const SearchResults: React.FC = () => {
   useEffect(() => {
     const currentSearchId = `${libraryMode}-${bibleVersion}-${bibleTestamentFilter}-${selectedExposeChapter}-${selectedExposeSection}-${songLanguageFilter}-${searchQuery}-${searchMode}-${showOnlySynonyms}-${showOnlyQuery}-${includeSynonyms}-${selectedSynonym}-${yearFilter}-${monthFilter}-${dayFilter}-${cityFilter}-${versionFilter}-${audioFilter}`;
     if (currentSearchId !== lastSearchContext) {
-      savedSearchScrollTopFull = 0;
+      savedSearchScrollTopFullByMode[libraryMode] = 0;
       lastSearchContext = currentSearchId;
     }
 
@@ -253,14 +256,15 @@ const SearchResults: React.FC = () => {
   }, [searchQuery, searchMode, performSearch, showOnlySynonyms, showOnlyQuery, includeSynonyms, selectedSynonym, yearFilter, monthFilter, dayFilter, cityFilter, versionFilter, audioFilter, libraryMode, bibleVersion, bibleTestamentFilter, selectedExposeChapter, selectedExposeSection, songLanguageFilter]);
 
   useEffect(() => {
-    if (scrollContainerRef.current && savedSearchScrollTopFull > 0 && searchResults.length > 0) {
+    const savedTop = savedSearchScrollTopFullByMode[libraryMode] || 0;
+    if (scrollContainerRef.current && savedTop > 0 && searchResults.length > 0) {
       requestAnimationFrame(() => {
         if (scrollContainerRef.current) {
-          scrollContainerRef.current.scrollTop = savedSearchScrollTopFull;
+          scrollContainerRef.current.scrollTop = savedTop;
         }
       });
     }
-  }, [searchResults]);
+  }, [searchResults, libraryMode]);
 
   const loadMore = () => {
     const nextOffset = offset + RESULTS_PER_PAGE;
@@ -270,9 +274,10 @@ const SearchResults: React.FC = () => {
 
   const handleResultClick = async (res: SearchResult) => {
     if (scrollContainerRef.current) {
-      savedSearchScrollTopFull = scrollContainerRef.current.scrollTop;
+      savedSearchScrollTopFullByMode[libraryMode] = scrollContainerRef.current.scrollTop;
     }
     setNavigatedFromSearch(true);
+    setSelectedSearchParagraphId(res.paragraphId);
     await setSelectedSermonId(res.sermonId);
     setJumpToParagraph(res.paragraphIndex);
     setIsFullTextSearch(false);
@@ -458,7 +463,11 @@ const SearchResults: React.FC = () => {
                     key={result.paragraphId} 
                     result={result} 
                     index={idx} 
-                    isOpen={selectedSermonId === result.sermonId}
+                    isOpen={
+                      selectedSearchParagraphId 
+                        ? selectedSearchParagraphId === result.paragraphId 
+                        : (selectedSermonId === result.sermonId && jumpToParagraph === result.paragraphIndex)
+                    }
                     onClick={() => handleResultClick(result)}
                     onAddToNotes={(e) => handleAddToNotes(e, result)}
                 />

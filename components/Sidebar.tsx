@@ -190,23 +190,23 @@ const SermonItem = memo(({
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2 text-[8px] text-zinc-400 font-bold uppercase tracking-widest group-hover:text-zinc-500 transition-colors">
-            <span className="inline-flex items-center gap-1">
-              <Calendar className="w-2.5 h-2.5 text-teal-600/60 group-hover:text-teal-600 shrink-0" />
-              <span className="font-mono">{sermon.date}</span>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold text-zinc-700 dark:text-zinc-200 bg-zinc-200/60 dark:bg-zinc-800/80 px-1.5 py-0.5 rounded border border-zinc-300/50 dark:border-zinc-700/50 shrink-0">
+              <Calendar className="w-2.5 h-2.5 text-teal-600 dark:text-teal-400 shrink-0" />
+              <span>{sermon.date}</span>
             </span>
             {sermon.time && (
               <React.Fragment>
-                <span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-0.5" />
-                <span className="inline-flex items-center gap-1">
-                  <Clock className="w-2.5 h-2.5 text-teal-600/60 group-hover:text-teal-600 shrink-0" />
+                <span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full shrink-0" />
+                <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider shrink-0">
+                  <Clock className="w-2.5 h-2.5 text-teal-600/70 dark:text-teal-400/70 shrink-0" />
                   <span>{sermon.time}</span>
                 </span>
               </React.Fragment>
             )}
-            <span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-0.5" />
-            <span className="inline-flex items-center gap-1 min-w-0 truncate">
-              <MapPin className="w-2.5 h-2.5 text-teal-600/60 group-hover:text-teal-600 shrink-0" />
+            <span className="w-1 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full shrink-0" />
+            <span className="inline-flex items-center gap-1 min-w-0 truncate text-[9px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+              <MapPin className="w-2.5 h-2.5 text-teal-600/70 dark:text-teal-400/70 shrink-0" />
               <span className="truncate">{sermon.city}</span>
             </span>
           </div>
@@ -300,7 +300,7 @@ const BibleBookItem = memo(({
               Chapitres (1 à {book.chaptersCount}) :
             </span>
           </div>
-          <div className="grid grid-cols-6 sm:grid-cols-8 gap-1 max-h-48 overflow-y-auto custom-scrollbar p-0.5">
+          <div className="grid grid-cols-6 sm:grid-cols-8 gap-1 p-0.5">
             {Array.from({ length: book.chaptersCount }, (_, i) => i + 1).map((ch) => {
               const isSelected = isThisBookActive && selectedChapter === ch;
               return (
@@ -342,21 +342,32 @@ const SearchResultItem = memo(({
       className="px-3 flex items-center relative border-b border-slate-200/60 dark:border-slate-800/40 last:border-0"
     >
       <div 
-        className={`group w-full flex flex-col gap-2 p-3 rounded-xl transition-all duration-300 cursor-pointer h-[115px] overflow-hidden ${
+        className={`group w-full flex flex-col gap-2 p-3 rounded-xl transition-all duration-300 cursor-pointer h-[115px] overflow-hidden relative ${
           isSelected 
             ? 'bg-teal-600/15 dark:bg-teal-600/25 ring-1 ring-teal-600/30 shadow-md' 
             : 'hover:bg-teal-600/[0.08] dark:hover:bg-teal-400/[0.06] border border-transparent hover:border-teal-600/10 dark:hover:border-teal-400/10'
         }`}
         onClick={onSelect}
       >
-        <div className="flex items-start justify-between gap-1">
+        <div className="flex items-start justify-between gap-1 pl-1">
           <div className="min-w-0 flex-1">
-             <span className="text-[10px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-tight truncate block mb-1">
-                {result.title}
-             </span>
+             <div className="flex items-center gap-2 mb-1">
+               <span className={`text-[11px] font-extrabold uppercase tracking-tight truncate block transition-colors ${
+                 isSelected 
+                   ? 'text-teal-700 dark:text-blue-400' 
+                   : 'text-zinc-900 dark:text-zinc-100 group-hover:text-teal-700 dark:group-hover:text-teal-400'
+               }`}>
+                  {result.title}
+               </span>
+               {isSelected && (
+                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-teal-600 text-white rounded text-[7px] font-black uppercase tracking-wider shrink-0 shadow-2xs">
+                   Ouvert
+                 </span>
+               )}
+             </div>
              <div className="flex items-center gap-1.5 overflow-hidden">
                 {result.audio_url && <Headphones className="w-2.5 h-2.5 text-teal-500 shrink-0" />}
-                <span className="text-[7px] font-mono text-zinc-400 font-bold shrink-0">{result.date}</span>
+                <span className="text-[8px] font-mono text-zinc-700 dark:text-zinc-200 bg-zinc-200/50 dark:bg-zinc-800/80 px-1 py-0.5 rounded border border-zinc-300/40 dark:border-zinc-700/50 font-bold shrink-0">{result.date}</span>
                 <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-[7px] font-black text-zinc-500 shrink-0">
                    <Hash className="w-2 h-2 text-teal-500/50" />
                    <span>{result.paragraphIndex}</span>
@@ -374,7 +385,9 @@ const SearchResultItem = memo(({
 
         <div className="flex-1 overflow-hidden">
           <p 
-            className="text-[11.5px] leading-[1.45] text-zinc-600 dark:text-zinc-300 serif-text italic line-clamp-4 border-l-2 border-teal-600/20 pl-2.5 py-0.5" 
+            className={`text-[11.5px] leading-[1.45] serif-text italic line-clamp-4 border-l-2 pl-2.5 py-0.5 transition-colors ${
+              isSelected ? 'text-zinc-800 dark:text-zinc-200 border-teal-600/50' : 'text-zinc-600 dark:text-zinc-300 border-teal-600/20'
+            }`}
             dangerouslySetInnerHTML={{ __html: result.snippet || '' }} 
           />
         </div>
@@ -500,6 +513,9 @@ const Sidebar: React.FC = () => {
   const searchResults = useAppStore(s => s.searchResults);
   const selectedSermonId = useAppStore(s => s.selectedSermonId);
   const setSelectedSermonId = useAppStore(s => s.setSelectedSermonId);
+  const selectedSearchParagraphId = useAppStore(s => s.selectedSearchParagraphId);
+  const setSelectedSearchParagraphId = useAppStore(s => s.setSelectedSearchParagraphId);
+  const jumpToParagraph = useAppStore(s => s.jumpToParagraph);
   const manualContextIds = useAppStore(s => s.manualContextIds);
   const toggleContextSermon = useAppStore(s => s.toggleContextSermon);
   const setManualContextIds = useAppStore(s => s.setManualContextIds);
@@ -698,11 +714,19 @@ const Sidebar: React.FC = () => {
 
   const currentItemHeight = (isFullTextSearch && searchResults.length > 0) ? SEARCH_ITEM_HEIGHT : ITEM_HEIGHT;
 
+  const prevLibraryModeRef = useRef(libraryMode);
   useEffect(() => {
+    // Si la rubrique a changé (changement d'onglet), ne pas relancer la recherche automatique :
+    // l'état complet et les résultats sont restaurés fidèlement depuis sourceSearchStates
+    if (prevLibraryModeRef.current !== libraryMode) {
+      prevLibraryModeRef.current = libraryMode;
+      return;
+    }
     if (isFullTextSearch && searchQuery.trim().length >= 2) {
       triggerSearch();
     }
   }, [
+    libraryMode,
     yearFilter, monthFilter, dayFilter, cityFilter, versionFilter, audioFilter, triggerSearch, 
     isFullTextSearch, showOnlySynonyms, showOnlyQuery, selectedSynonym, includeSynonyms,
     bibleTestamentFilter, bibleVersion
@@ -717,6 +741,34 @@ const Sidebar: React.FC = () => {
     setContainerHeight(scrollContainerRef.current.clientHeight);
     return () => resizeObserver.disconnect();
   }, [sidebarOpen]);
+
+  // Restauration de la position et de l'élément sélectionné lors d'un changement de rubrique
+  useEffect(() => {
+    if (!scrollContainerRef.current) return;
+    if (isFullTextSearch && searchResults.length > 0) {
+      if (selectedSearchParagraphId) {
+        const idx = searchResults.findIndex(r => r.paragraphId === selectedSearchParagraphId);
+        if (idx >= 0) {
+          requestAnimationFrame(() => {
+            if (scrollContainerRef.current) {
+              const targetScroll = Math.max(0, (idx * SEARCH_ITEM_HEIGHT) - 150);
+              scrollContainerRef.current.scrollTop = targetScroll;
+              setScrollTop(targetScroll);
+            }
+          });
+          return;
+        }
+      }
+
+      const savedTop = savedSearchScrollTopByMode[libraryMode] || 0;
+      requestAnimationFrame(() => {
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTop = savedTop;
+          setScrollTop(savedTop);
+        }
+      });
+    }
+  }, [libraryMode, isFullTextSearch, searchResults.length, selectedSearchParagraphId]);
 
   const updateSearchQuery = useCallback((q: string) => {
     startTransition(() => {
@@ -939,13 +991,13 @@ const Sidebar: React.FC = () => {
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const top = e.currentTarget.scrollTop;
     if (isFullTextSearch) {
-      savedSearchScrollTop = top;
+      savedSearchScrollTopByMode[libraryMode] = top;
     }
     if (scrollRafId.current) cancelAnimationFrame(scrollRafId.current);
     scrollRafId.current = requestAnimationFrame(() => {
       setScrollTop(top);
     });
-  }, [isFullTextSearch]);
+  }, [isFullTextSearch, libraryMode]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -986,9 +1038,11 @@ const Sidebar: React.FC = () => {
   }, [libraryMode, bibleTestamentFilter, bibleCategoryFilter, yearFilter, monthFilter, dayFilter, cityFilter, versionFilter, audioFilter]);
 
   const handleResultClick = (result: SearchResult) => {
+    setSelectedSearchParagraphId(result.paragraphId);
     setSelectedSermonId(result.sermonId);
     setJumpToParagraph(result.paragraphIndex);
     useAppStore.getState().setJumpToText(null);
+    useAppStore.getState().setNavigatedFromSearch(true);
   };
 
   const handleAddToNotes = (e: React.MouseEvent, res: SearchResult) => {
@@ -1615,11 +1669,14 @@ const Sidebar: React.FC = () => {
               <div style={{ transform: `translateY(${offsetY}px)`, position: 'absolute', top: 0, left: 0, right: 0 }}>
                 {visibleItems.map((item) => {
                   const res = item as SearchResult;
+                  const isSelected = selectedSearchParagraphId 
+                    ? selectedSearchParagraphId === res.paragraphId
+                    : (selectedSermonId === res.sermonId && jumpToParagraph === res.paragraphIndex);
                   return (
                     <SearchResultItem 
                       key={res.paragraphId} 
                       result={res} 
-                      isSelected={selectedSermonId === res.sermonId && useAppStore.getState().jumpToParagraph === res.paragraphIndex} 
+                      isSelected={isSelected} 
                       onSelect={() => handleResultClick(res)} 
                       onAddToNotes={(e) => handleAddToNotes(e, res)} 
                     />
@@ -1857,6 +1914,6 @@ const Sidebar: React.FC = () => {
   );
 };
 
-let savedSearchScrollTop = 0;
+const savedSearchScrollTopByMode: Record<string, number> = { sermons: 0, bible: 0, expose: 0, songs: 0 };
 
 export default Sidebar;

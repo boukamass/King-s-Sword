@@ -1,6 +1,6 @@
 
 import { Sermon, Note, Song, SearchMode } from '../types';
-import { normalizeText, getAccentInsensitiveRegex, getMultiWordHighlightRegex, getSearchHighlightRegex, mergeAdjacentMarks } from '../utils/textUtils';
+import { normalizeText, getAccentInsensitiveRegex, getMultiWordHighlightRegex, getSearchHighlightRegex, mergeAdjacentMarks, splitSermonIntoParagraphs, extractLeadingParagraphNumber } from '../utils/textUtils';
 import { useAppStore } from '../store';
 import { getDefinition } from './dictionaryService';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
@@ -123,10 +123,12 @@ const webSearchFallback = async (params: {
       if (audio && !s.audio_url) continue;
     }
 
-    const paragraphs = s.text.split(/\n\s*\n/);
+    const paragraphs = splitSermonIntoParagraphs(s.text);
     paragraphs.forEach((p, i) => {
       const content = p.trim();
       if (!content) return;
+      const explicitNum = extractLeadingParagraphNumber(content);
+      const paragraphNum = explicitNum !== null ? explicitNum : i + 1;
       
       const normalizedContent = normalizeText(content);
       let matchFound = false;
@@ -177,9 +179,9 @@ const webSearchFallback = async (params: {
         );
         
         results.push({
-          paragraphId: `${s.id}-${i}`,
+          paragraphId: `${s.id}-${paragraphNum}`,
           sermonId: s.id,
-          paragraphIndex: i + 1,
+          paragraphIndex: paragraphNum,
           snippet: snippetHighlighted,
           content: content,
           title: s.title,

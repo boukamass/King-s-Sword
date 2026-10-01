@@ -12,7 +12,11 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     resolve: {
-      dedupe: ['react', 'react-dom']
+      dedupe: ['react', 'react-dom', 'zustand', 'lucide-react'],
+      alias: {
+        'react': path.resolve(__dirname, './node_modules/react'),
+        'react-dom': path.resolve(__dirname, './node_modules/react-dom')
+      }
     },
     server: {
       port: 3000,
@@ -43,7 +47,7 @@ export default defineConfig(({ mode }) => {
     },
     optimizeDeps: {
       // Force l'inclusion de certaines dépendances qui pourraient poser problème en ESM direct
-      include: ['react', 'react-dom', 'zustand', 'lucide-react', 'marked']
+      include: ['react', 'react-dom', 'zustand', 'lucide-react', 'marked', '@tanstack/react-virtual', '@google/genai']
     }
   };
 });

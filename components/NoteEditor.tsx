@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useAppStore } from '../store';
 import { translations } from '../translations';
 import { marked } from 'marked';
@@ -28,17 +28,31 @@ import {
   BookOpen,
   ScrollText,
   GripVertical,
+  ChevronLeft,
   ChevronUp,
   ChevronDown,
   MessageSquare,
   MessageSquarePlus,
   Pencil,
-  Type
+  Type,
+  ZoomIn,
+  ZoomOut,
+  Highlighter,
+  Copy,
+  BookOpenCheck,
+  Info,
+  History,
+  Languages,
+  Milestone
 } from 'lucide-react';
+import { getDefinition, WordDefinition } from '../services/dictionaryService';
+import NoteSelectorModal from './NoteSelectorModal';
 import { Citation, NoteSeparator } from '../types';
 import { exportNoteToDocx } from '../services/docxExportService';
 import { processNoteData, cleanTextArtifacts, NoteSectionItem } from '../utils/noteFormatter';
 import { detectImageMeta } from '../services/imageMediaService';
+import { HighlightedQuote } from './HighlightedQuote';
+import { splitQuoteIntoHighlightedSegments, HIGHLIGHT_HEX_MAP } from '../utils/highlightUtils';
 
 const ActionButton = ({ onClick, icon: Icon, tooltip }: { onClick: () => void; icon: React.ElementType; tooltip: string }) => (
   <button 
@@ -46,7 +60,7 @@ const ActionButton = ({ onClick, icon: Icon, tooltip }: { onClick: () => void; i
     data-tooltip={tooltip}
     className="w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-95 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:bg-teal-50 dark:hover:bg-teal-900/20 text-zinc-500 hover:text-teal-600 dark:text-zinc-400"
   >
-    <Icon className="w-4 h-4" />
+    {Icon && <Icon className="w-4 h-4" />}
   </button>
 );
 
@@ -68,11 +82,13 @@ const NoteEditor: React.FC = () => {
         setNavigatedFromNoteId,
         languageFilter,
         addNotification,
+        addCitationToNote,
         addImageToNote,
         removeImageFromNote,
         removeCitationFromNote,
         updateNoteCitations,
         setSidebarOpen,
+        triggerStudyRequest,
     } = useAppStore();
 
     const note = notes.find(n => n.id === activeNoteId);
@@ -101,6 +117,240 @@ const NoteEditor: React.FC = () => {
 
     const [editingSeparatorId, setEditingSeparatorId] = useState<string | null>(null);
     const [editingSeparatorText, setEditingSeparatorText] = useState<string>('');
+
+    // Référence du conteneur de défilement de la note pour le positionnement du menu contextuel
+    const noteScrollContainerRef = useRef<HTMLDivElement>(null);
+
+    // Menu contextuel de sélection identique au lecteur (Surligner, Copier, Définir, Étudier, Note)
+    const [selection, setSelection] = useState<{ text: string; x: number; y: number; citationId?: string } | null>(null);
+    const [activeDefinition, setActiveDefinition] = useState<WordDefinition | null>(null);
+    const [isDefining, setIsDefining] = useState(false);
+    const [noteSelectorPayload, setNoteSelectorPayload] = useState<{ text: string; sermon: any; paragraphIndex?: number; highlights?: any[] } | null>(null);
+
+    const handleTextSelection = useCallback((e?: any) => {
+        if (e && (e.target as HTMLElement)?.closest && (e.target as HTMLElement).closest('.selection-menu-container')) {
+            return;
+        }
+
+        const sel = window.getSelection();
+        if (sel && !sel.isCollapsed && sel.toString().trim().length > 0 && noteScrollContainerRef.current) {
+            if (sel.rangeCount === 0) return;
+            const range = sel.getRangeAt(0);
+
+            if (!noteScrollContainerRef.current.contains(range.commonAncestorContainer)) {
+                return;
+            }
+
+            const rect = range.getBoundingClientRect();
+            if (rect.width === 0 && rect.height === 0) return;
+
+            const scrollContainer = noteScrollContainerRef.current;
+            const scrollRect = scrollContainer.getBoundingClientRect();
+
+            const menuHeight = 60;
+            const spaceAbove = rect.top - scrollRect.top;
+
+            let x = (rect.left + rect.width / 2) - scrollRect.left;
+            let y: number;
+
+            if (spaceAbove > menuHeight + 16) {
+                y = (rect.top - scrollRect.top) + scrollContainer.scrollTop - menuHeight - 12;
+            } else {
+                y = (rect.bottom - scrollRect.top) + scrollContainer.scrollTop + 14;
+            }
+
+            x = Math.max(180, Math.min(scrollContainer.clientWidth - 180, x));
+
+            const commonNode = range.commonAncestorContainer;
+            const cardEl = (commonNode.nodeType === 1 ? (commonNode as HTMLElement) : commonNode.parentElement)?.closest('[data-citation-id]');
+            const citationId = cardEl ? cardEl.getAttribute('data-citation-id') || undefined : undefined;
+
+            setSelection({
+                text: sel.toString().trim(),
+                x,
+                y,
+                citationId
+            });
+        } else {
+            if (!e || !(e.target as HTMLElement)?.closest?.('.selection-menu-container')) {
+                setSelection(null);
+            }
+        }
+    }, []);
+
+    useEffect(() => {
+        const handleDocumentSelectionTrigger = () => {
+            setTimeout(() => {
+                handleTextSelection();
+            }, 10);
+        };
+
+        const handleSelectionChange = () => {
+            const sel = window.getSelection();
+            if (!sel || sel.isCollapsed || sel.toString().trim().length === 0) {
+                setSelection(prev => (prev !== null ? null : prev));
+            }
+        };
+
+        document.addEventListener('selectionchange', handleSelectionChange);
+        document.addEventListener('mouseup', handleDocumentSelectionTrigger);
+        document.addEventListener('touchend', handleDocumentSelectionTrigger);
+
+        return () => {
+            document.removeEventListener('selectionchange', handleSelectionChange);
+            document.removeEventListener('mouseup', handleDocumentSelectionTrigger);
+            document.removeEventListener('touchend', handleDocumentSelectionTrigger);
+        };
+    }, [handleTextSelection]);
+
+    const handleHighlight = (color: string = 'amber') => {
+        if (!selection) return;
+
+        if (selection.citationId && note) {
+            const updatedCitations = (note.citations || []).map(c => {
+                if (c.id === selection.citationId) {
+                    const existingHighlights = [...(c.highlights || [])];
+                    const quoteText = c.quoted_text;
+                    const selText = selection.text;
+                    const matchIdx = quoteText.indexOf(selText);
+                    const start = matchIdx !== -1 ? matchIdx : 0;
+                    const end = matchIdx !== -1 ? matchIdx + selText.length : selText.length;
+
+                    existingHighlights.push({
+                        start,
+                        end,
+                        color,
+                        text: selText
+                    });
+
+                    return {
+                        ...c,
+                        highlights: existingHighlights
+                    };
+                }
+                return c;
+            });
+
+            updateNoteCitations(note.id, updatedCitations);
+            addNotification(`Citation surlignée en ${color === 'amber' ? 'jaune' : color === 'teal' ? 'turquoise' : color === 'sky' ? 'bleu ciel' : color === 'rose' ? 'rose' : 'violet'}.`, "success");
+        } else {
+            addNotification(`Surlignage (${color}) appliqué à la sélection.`, "info");
+        }
+
+        setSelection(null);
+        window.getSelection()?.removeAllRanges();
+    };
+
+    const handleCopy = () => {
+        if (selection) {
+            navigator.clipboard.writeText(selection.text);
+            addNotification(t.copy_success, "success");
+        }
+    };
+
+    const handleAddDefinitionToNote = async () => {
+        if (!activeDefinition || !note) return;
+
+        const cleanEtymology = activeDefinition.etymology && activeDefinition.etymology.trim() && activeDefinition.etymology !== 'Non spécifiée' && !activeDefinition.etymology.includes('non répertoriés')
+          ? activeDefinition.etymology.trim()
+          : null;
+        const cleanSynonyms = activeDefinition.synonyms && activeDefinition.synonyms.length > 0
+          ? activeDefinition.synonyms.join(', ')
+          : null;
+
+        let defText = `${activeDefinition.word}${activeDefinition.grammarNote ? ` (${activeDefinition.grammarNote})` : ''}\n\nDéfinition : ${activeDefinition.definition}`;
+        if (cleanEtymology) {
+          defText += `\n\nÉtymologie : ${cleanEtymology}`;
+        }
+        if (cleanSynonyms) {
+          defText += `\n\nSynonymes : ${cleanSynonyms}`;
+        }
+
+        addCitationToNote(note.id, {
+          sermon_id: `definition-${activeDefinition.word.toLowerCase()}`,
+          sermon_title_snapshot: `Dictionnaire : ${activeDefinition.word}`,
+          sermon_date_snapshot: 'Lexique',
+          sermon_version_snapshot: activeDefinition.source || 'Dictionnaire Webster & Français',
+          quoted_text: defText
+        });
+
+        setActiveDefinition(null);
+        addNotification(`Définition de "${activeDefinition.word}" ajoutée à vos notes.`, "success");
+    };
+
+    const handleDefine = async () => {
+        if (!selection) return;
+        const rawText = selection.text.trim();
+        const word = rawText.split(/\s+/).length <= 4 && rawText.length <= 45 ? rawText : rawText.split(/\s+/)[0];
+        setIsDefining(true);
+        setSelection(null);
+        try {
+            const def = await getDefinition(word);
+            setActiveDefinition(def);
+        } catch (err: any) {
+            addNotification(err.message || "Erreur lors de la recherche de définition", "error");
+        } finally {
+            setIsDefining(false);
+        }
+    };
+
+    // Zoom fluide du texte du journal (75% à 200%)
+    const [zoomLevel, setZoomLevel] = useState<number>(() => {
+        try {
+            const saved = localStorage.getItem('kings_sword_journal_zoom');
+            if (saved) {
+                const parsed = parseInt(saved, 10);
+                if (!isNaN(parsed) && parsed >= 75 && parsed <= 200) {
+                    return parsed;
+                }
+            }
+        } catch {
+            // ignore
+        }
+        return 100;
+    });
+
+    const handleZoomIn = () => {
+        setZoomLevel(prev => {
+            const next = Math.min(200, prev + 10);
+            try { localStorage.setItem('kings_sword_journal_zoom', next.toString()); } catch {}
+            return next;
+        });
+    };
+
+    const handleZoomOut = () => {
+        setZoomLevel(prev => {
+            const next = Math.max(75, prev - 10);
+            try { localStorage.setItem('kings_sword_journal_zoom', next.toString()); } catch {}
+            return next;
+        });
+    };
+
+    const handleResetZoom = () => {
+        setZoomLevel(100);
+        try { localStorage.setItem('kings_sword_journal_zoom', '100'); } catch {}
+    };
+
+    // Raccourcis clavier pour le zoom (Ctrl/Cmd +/-, Ctrl/Cmd 0)
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+                return;
+            }
+            if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '=')) {
+                e.preventDefault();
+                handleZoomIn();
+            } else if ((e.ctrlKey || e.metaKey) && (e.key === '-' || e.key === '_')) {
+                e.preventDefault();
+                handleZoomOut();
+            } else if ((e.ctrlKey || e.metaKey) && e.key === '0') {
+                e.preventDefault();
+                handleResetZoom();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     const titleInputRef = useRef<HTMLInputElement>(null);
     const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -147,7 +397,7 @@ const NoteEditor: React.FC = () => {
 
     if (!note) return null;
 
-    const processedNote = processNoteData(note);
+    const processedNote = processNoteData(note, sermons);
 
     /**
      * Réorganisation par Drag and Drop de l'ordre des sources & références
@@ -396,14 +646,15 @@ const NoteEditor: React.FC = () => {
     };
 
     const handleJumpToCitation = (sermonId: string, quotedText?: string, paragraphIndex?: number) => {
-        if (sermonId.startsWith('ia-response') || sermonId.startsWith('definition-')) return; 
+        if (!sermonId || sermonId.startsWith('ia-response') || sermonId.startsWith('definition-')) return; 
         
         setNavigatedFromNoteId(activeNoteId);
         setSelectedSermonId(sermonId);
-        if (paragraphIndex) {
+        if (typeof paragraphIndex === 'number' && paragraphIndex > 0) {
             setJumpToParagraph(paragraphIndex);
-        } else if (quotedText) {
-            setJumpToText(quotedText);
+        }
+        if (quotedText && quotedText.trim().length > 0) {
+            setJumpToText(quotedText.trim());
         }
         setActiveNoteId(null);
     };
@@ -607,18 +858,103 @@ const NoteEditor: React.FC = () => {
                             y += 5;
                         }
                     } else {
-                        // Citation
+                        // Citation avec préservation intégrale des surlignages
                         const cleanQuote = cleanPdfText(item.quote);
-                        const qLines = doc.splitTextToSize(`« ${cleanQuote} »`, maxLineWidth - 12);
-                        const neededH = qLines.length * 4.8 + 14;
-                        checkPageBreak(neededH);
-
                         const startQY = y;
-                        doc.setFont('times', 'italic');
-                        doc.setFontSize(10.5);
-                        doc.setTextColor(51, 65, 85);
-                        doc.text(qLines, margin + 4, y);
-                        y += qLines.length * 4.8 + 3;
+
+                        if (item.highlights && item.highlights.length > 0) {
+                            const segments = splitQuoteIntoHighlightedSegments(cleanQuote, item.highlights);
+                            if (segments.length > 0) {
+                                segments[0].text = `« ${segments[0].text}`;
+                                segments[segments.length - 1].text = `${segments[segments.length - 1].text} »`;
+                            }
+
+                            interface PdfToken {
+                                text: string;
+                                isHighlighted: boolean;
+                                color?: string;
+                                width: number;
+                            }
+                            doc.setFont('times', 'italic');
+                            doc.setFontSize(10.5);
+
+                            const tokens: PdfToken[] = [];
+                            for (const seg of segments) {
+                                const words = seg.text.split(/(\s+)/);
+                                for (const w of words) {
+                                    if (w.length > 0) {
+                                        tokens.push({
+                                            text: w,
+                                            isHighlighted: !!seg.isHighlighted,
+                                            color: seg.color,
+                                            width: doc.getTextWidth(w)
+                                        });
+                                    }
+                                }
+                            }
+
+                            const quoteMaxWidth = maxLineWidth - 12;
+                            const lines: PdfToken[][] = [];
+                            let currentLine: PdfToken[] = [];
+                            let currentLineWidth = 0;
+
+                            for (const token of tokens) {
+                                if (token.text === '\n') {
+                                    lines.push(currentLine);
+                                    currentLine = [];
+                                    currentLineWidth = 0;
+                                    continue;
+                                }
+                                if (currentLine.length > 0 && currentLineWidth + token.width > quoteMaxWidth && token.text.trim().length > 0) {
+                                    lines.push(currentLine);
+                                    currentLine = [];
+                                    currentLineWidth = 0;
+                                }
+                                if (currentLine.length === 0 && token.text.trim().length === 0) {
+                                    continue;
+                                }
+                                currentLine.push(token);
+                                currentLineWidth += token.width;
+                            }
+                            if (currentLine.length > 0) {
+                                lines.push(currentLine);
+                            }
+
+                            const quoteLineHeight = 4.8;
+                            const neededH = lines.length * quoteLineHeight + 14;
+                            checkPageBreak(neededH);
+
+                            for (const lineTokens of lines) {
+                                let curX = margin + 4;
+                                for (const t of lineTokens) {
+                                    if (t.isHighlighted) {
+                                        const hex = HIGHLIGHT_HEX_MAP[t.color || 'amber']?.hex || 'FEF08A';
+                                        const r = parseInt(hex.substring(0, 2), 16);
+                                        const g = parseInt(hex.substring(2, 4), 16);
+                                        const b = parseInt(hex.substring(4, 6), 16);
+                                        doc.setFillColor(r, g, b);
+                                        doc.rect(curX - 0.2, y - 3.2, t.width + 0.4, 4.3, 'F');
+                                        doc.setTextColor(30, 41, 59);
+                                    } else {
+                                        doc.setTextColor(51, 65, 85);
+                                    }
+                                    doc.text(t.text, curX, y);
+                                    curX += t.width;
+                                }
+                                y += quoteLineHeight;
+                            }
+                            y += 3;
+                        } else {
+                            const qLines = doc.splitTextToSize(`« ${cleanQuote} »`, maxLineWidth - 12);
+                            const neededH = qLines.length * 4.8 + 14;
+                            checkPageBreak(neededH);
+
+                            doc.setFont('times', 'italic');
+                            doc.setFontSize(10.5);
+                            doc.setTextColor(51, 65, 85);
+                            doc.text(qLines, margin + 4, y);
+                            y += qLines.length * 4.8 + 3;
+                        }
 
                         doc.setFont('helvetica', 'bold');
                         doc.setFontSize(8.5);
@@ -667,6 +1003,57 @@ const NoteEditor: React.FC = () => {
                 [13, 148, 136], 
                 [51, 65, 85] // Slate
             );
+
+            // 5. Dictionnaire & Lexique Biblique
+            if (processedNote.definitionItems && processedNote.definitionItems.length > 0) {
+                checkPageBreak(30);
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(11);
+                doc.setTextColor(13, 148, 136);
+                doc.text(`DICTIONNAIRE & LEXIQUE BIBLIQUE (${processedNote.definitionItems.length})`, margin, y);
+                y += 8;
+
+                for (const item of processedNote.definitionItems) {
+                    checkPageBreak(25);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(10);
+                    doc.setTextColor(15, 23, 42);
+                    doc.text(cleanPdfText(item.word.toUpperCase()), margin, y);
+                    y += 5;
+
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(9.5);
+                    doc.setTextColor(51, 65, 85);
+                    const defLines = doc.splitTextToSize(cleanPdfText(item.definition).replace(/\*\*/g, '').replace(/\*/g, ''), maxLineWidth);
+                    checkPageBreak(defLines.length * 4.5 + 4);
+                    doc.text(defLines, margin, y);
+                    y += defLines.length * 4.5 + 2;
+
+                    if (item.etymology) {
+                        doc.setFont('helvetica', 'italic');
+                        doc.setFontSize(8.5);
+                        doc.setTextColor(100, 116, 139);
+                        const etyLine = cleanPdfText(`Étymologie : ${item.etymology}`).replace(/\*\*/g, '').replace(/\*/g, '');
+                        const eLines = doc.splitTextToSize(etyLine, maxLineWidth);
+                        checkPageBreak(eLines.length * 4 + 3);
+                        doc.text(eLines, margin, y);
+                        y += eLines.length * 4 + 2;
+                    }
+
+                    if (item.synonyms && item.synonyms.length > 0) {
+                        doc.setFont('helvetica', 'normal');
+                        doc.setFontSize(8.5);
+                        doc.setTextColor(13, 148, 136);
+                        const synLine = cleanPdfText(`Synonymes : ${item.synonyms.join(', ')}`);
+                        const sLines = doc.splitTextToSize(synLine, maxLineWidth);
+                        checkPageBreak(sLines.length * 4 + 3);
+                        doc.text(sLines, margin, y);
+                        y += sLines.length * 4 + 2;
+                    }
+
+                    y += 4;
+                }
+            }
 
             // 5. Sources & Références (Bibliographie)
             if (processedNote.sources.length > 0) {
@@ -749,6 +1136,7 @@ const NoteEditor: React.FC = () => {
                                 .comment-box .comment-text { font-size: 12.5px; font-style: italic; color: #334155; margin: 0; }
                                 .citation-box { padding-left: 14px; border-left: 3px solid #cbd5e1; font-style: italic; font-size: 13px; color: #334155; margin: 12px 0; }
                                 .citation-ref { text-align: right; font-size: 11px; font-weight: bold; color: #0f766e; font-style: normal; margin-top: 4px; }
+                                mark, .print-highlight { -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 1px 3px; border-radius: 2px; }
                                 .page-break-inside-avoid { page-break-inside: avoid; break-inside: avoid; }
                                 img { max-width: 100%; max-height: 250px; object-fit: contain; }
                             </style>
@@ -848,18 +1236,56 @@ const NoteEditor: React.FC = () => {
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
+                        {/* Contrôles de Zoom In / Zoom Out fluide */}
+                        <div className="flex items-center bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/80 rounded-xl p-0.5 gap-0.5 shadow-2xs">
+                            <button
+                                type="button"
+                                onClick={handleZoomOut}
+                                disabled={zoomLevel <= 75}
+                                data-tooltip="Réduire le texte (Ctrl -)"
+                                className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
+                            >
+                                <ZoomOut className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleResetZoom}
+                                data-tooltip="Réinitialiser la taille (100% - Ctrl 0)"
+                                className="px-2 h-8 flex items-center justify-center rounded-lg text-[11px] font-bold text-zinc-700 dark:text-zinc-300 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-white dark:hover:bg-zinc-700 transition-all cursor-pointer select-none"
+                            >
+                                {zoomLevel}%
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleZoomIn}
+                                disabled={zoomLevel >= 200}
+                                data-tooltip="Agrandir le texte (Ctrl +)"
+                                className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
+                            >
+                                <ZoomIn className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+
+                        <div className="w-px h-5 bg-zinc-200 dark:bg-zinc-800 mx-1" />
+
                         <ActionButton icon={Printer} tooltip={t.print} onClick={handlePrint} />
                         <ActionButton icon={FileText} tooltip={t.export_pdf} onClick={handleExportPdf} />
                         <ActionButton icon={FileDown} tooltip="Exporter au format Word (.docx)" onClick={handleExportDocx} />
                         <div className="w-px h-5 bg-zinc-200 dark:bg-zinc-800 mx-2" />
-                        <button onClick={() => setActiveNoteId(null)} data-tooltip="Fermer et retourner au lecteur" className="px-5 py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-red-500 hover:text-white dark:hover:bg-red-600 text-[9px] font-black uppercase tracking-[0.2em] rounded-lg transition-all active:scale-95 text-zinc-600 dark:text-zinc-300 shadow-sm">
-                            {t.reader_exit}
+                        <button onClick={() => setActiveNoteId(null)} data-tooltip="Fermer et retourner au lecteur" className="px-4 py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-red-500 hover:text-white dark:hover:bg-red-600 text-[9px] font-black uppercase tracking-[0.2em] rounded-lg transition-all active:scale-95 text-zinc-600 dark:text-zinc-300 shadow-sm flex items-center gap-1.5 cursor-pointer">
+                            <ChevronLeft className="w-3.5 h-3.5" />
+                            <span>{t.reader_exit}</span>
                         </button>
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto custom-scrollbar bg-zinc-50/50 dark:bg-zinc-950/20">
-                    <div className="max-w-4xl mx-auto p-10 space-y-10 pb-40">
+                <div ref={noteScrollContainerRef} className="flex-1 overflow-y-auto custom-scrollbar bg-zinc-50/50 dark:bg-zinc-950/20 relative">
+                    <div 
+                        className="max-w-4xl mx-auto p-10 space-y-10 pb-40 transition-all duration-200 origin-top"
+                        style={{
+                            zoom: zoomLevel !== 100 ? `${zoomLevel}%` : undefined
+                        }}
+                    >
                         {/* Bloc Titre et Contenu Principal */}
                         <div className="group bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60 rounded-[40px] p-10 shadow-sm hover:shadow-xl transition-all duration-500">
                             <div className="flex items-center gap-4 mb-8">
@@ -902,7 +1328,11 @@ const NoteEditor: React.FC = () => {
                                         {processedNote.contentParagraphs.length > 0 ? (
                                           <div className="space-y-4">
                                             {processedNote.contentParagraphs.map((p, idx) => (
-                                              <p key={idx} className="font-medium leading-relaxed">{p}</p>
+                                              <div 
+                                                key={idx} 
+                                                className="font-medium leading-[1.8] select-text [&_p]:my-3.5 [&_p]:leading-[1.8] [&_strong]:font-black [&_strong]:text-zinc-900 dark:[&_strong]:text-white [&_em]:italic [&_em]:text-zinc-600 dark:[&_em]:text-zinc-300 [&_h1]:mt-6 [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-black [&_h1]:text-zinc-900 dark:[&_h1]:text-white [&_h2]:mt-5 [&_h2]:mb-2.5 [&_h2]:text-xl [&_h2]:font-extrabold [&_h2]:text-teal-700 dark:[&_h2]:text-teal-300 [&_h3]:mt-4 [&_h3]:mb-2 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-teal-600 dark:[&_h3]:text-teal-400 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:my-3.5 [&_ul]:space-y-2 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:my-3.5 [&_ol]:space-y-2 [&_li]:my-1.5 [&_li]:leading-relaxed"
+                                                dangerouslySetInnerHTML={{ __html: renderRichContent(p) }} 
+                                              />
                                             ))}
                                           </div>
                                         ) : (
@@ -1301,13 +1731,7 @@ const NoteEditor: React.FC = () => {
                                       ) : (
                                         /* ── CARTE DE CITATION BIBLIQUE ── */
                                         <div 
-                                          draggable={Boolean(item.citationId)}
-                                          onDragStart={(e) => {
-                                            if (!item.citationId) return;
-                                            setDraggedCitationId(item.citationId);
-                                            e.dataTransfer.effectAllowed = 'move';
-                                            e.dataTransfer.setData('text/plain', item.citationId);
-                                          }}
+                                          data-citation-id={item.citationId}
                                           onDragOver={(e) => {
                                             if (!item.citationId) return;
                                             e.preventDefault();
@@ -1333,7 +1757,7 @@ const NoteEditor: React.FC = () => {
                                             setDraggedCitationId(null);
                                             setDragOverCitationId(null);
                                           }}
-                                          className={`bg-white dark:bg-zinc-900 border rounded-2xl p-6 shadow-xs relative group transition-all ${
+                                          className={`bg-white dark:bg-zinc-900 border rounded-2xl p-5 shadow-xs relative group transition-all ${
                                             isDragging 
                                               ? 'opacity-30 border-dashed border-teal-500' 
                                               : isDragOver
@@ -1341,58 +1765,82 @@ const NoteEditor: React.FC = () => {
                                                 : 'border-teal-600/20 dark:border-teal-900/30 hover:border-teal-500/50'
                                           }`}
                                         >
-                                          <Quote className="absolute -left-1 -top-1 w-10 h-10 text-teal-600/10 rotate-12 pointer-events-none" />
-
-                                          {item.citationId && (
-                                            <div className="absolute top-4 right-4 flex items-center gap-1 z-10">
-                                              <div 
-                                                className="p-1.5 text-zinc-300 hover:text-zinc-600 dark:text-zinc-600 dark:hover:text-zinc-300 rounded-lg cursor-grab active:cursor-grabbing hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-                                                title="Glisser pour déplacer cette citation"
-                                              >
-                                                <GripVertical className="w-4 h-4" />
-                                              </div>
-                                              <button
-                                                type="button"
-                                                onClick={() => handleMoveSectionItem(item.id, 'up', processedNote.scriptureItems, 'scripture')}
-                                                disabled={idx === 0}
-                                                title="Monter d'une position"
-                                                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-20 disabled:pointer-events-none transition-all cursor-pointer"
-                                              >
-                                                <ChevronUp className="w-3.5 h-3.5" />
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={() => handleMoveSectionItem(item.id, 'down', processedNote.scriptureItems, 'scripture')}
-                                                disabled={idx === processedNote.scriptureItems.length - 1}
-                                                title="Descendre d'une position"
-                                                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-20 disabled:pointer-events-none transition-all cursor-pointer"
-                                              >
-                                                <ChevronDown className="w-3.5 h-3.5" />
-                                              </button>
-                                              <button
-                                                onClick={() => removeCitationFromNote(note.id, item.citationId)}
-                                                data-tooltip="Supprimer cette référence"
-                                                data-tooltip-icon="trash"
-                                                className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition-all cursor-pointer opacity-80 hover:opacity-100"
-                                              >
-                                                <Trash2 className="w-4 h-4" />
-                                              </button>
-                                            </div>
-                                          )}
-
-                                          <blockquote className="text-zinc-800 dark:text-zinc-200 italic serif-text text-base leading-relaxed mb-3 pr-20">
-                                            « {item.quote} »
-                                          </blockquote>
-                                          <div className="flex justify-end items-center gap-2">
-                                            <span className="text-xs font-bold text-teal-700 dark:text-teal-300">
-                                              {item.reference || 'Bible'}
-                                            </span>
-                                            {item.sourceIndex && (
-                                              <span className="text-[10px] font-black bg-teal-600/10 text-teal-600 dark:text-teal-400 px-2 py-0.5 rounded-full border border-teal-600/20">
-                                                [{item.sourceIndex}]
+                                          {/* Barre d'en-tête séparée au-dessus du texte */}
+                                          <div className="flex items-center justify-between gap-3 mb-3 border-b border-zinc-100 dark:border-zinc-800/80 pb-2.5">
+                                            <div className="flex items-center gap-2 min-w-0">
+                                              <Quote className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
+                                              <span className="text-xs font-bold text-teal-700 dark:text-teal-300 truncate">
+                                                {item.reference || 'Bible'}
                                               </span>
+                                              {item.sourceIndex && (
+                                                <span className="text-[10px] font-black bg-teal-600/10 text-teal-600 dark:text-teal-400 px-2 py-0.5 rounded-full border border-teal-600/20 shrink-0">
+                                                  [{item.sourceIndex}]
+                                                </span>
+                                              )}
+                                            </div>
+
+                                            {item.citationId && (
+                                              <div className="flex items-center gap-1 shrink-0">
+                                                {item.sermonId && (
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleJumpToCitation(item.sermonId!, item.quote, item.paragraphIndex)}
+                                                    title="Ouvrir dans la prédication à l'endroit exact"
+                                                    className="p-1 px-2 rounded-lg text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/40 hover:text-teal-700 dark:hover:text-teal-300 transition-all cursor-pointer flex items-center gap-1 text-xs font-semibold"
+                                                  >
+                                                    <BookOpen className="w-3.5 h-3.5" />
+                                                    <span className="hidden sm:inline text-[11px]">Ouvrir</span>
+                                                  </button>
+                                                )}
+                                                <div 
+                                                  draggable={Boolean(item.citationId)}
+                                                  onDragStart={(e) => {
+                                                    if (!item.citationId) return;
+                                                    setDraggedCitationId(item.citationId);
+                                                    e.dataTransfer.effectAllowed = 'move';
+                                                    e.dataTransfer.setData('text/plain', item.citationId);
+                                                  }}
+                                                  className="p-1.5 text-zinc-400 hover:text-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-200 rounded-lg cursor-grab active:cursor-grabbing hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                                                  title="Glisser pour déplacer cette citation"
+                                                >
+                                                  <GripVertical className="w-4 h-4" />
+                                                </div>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleMoveSectionItem(item.id, 'up', processedNote.scriptureItems, 'scripture')}
+                                                  disabled={idx === 0}
+                                                  title="Monter d'une position"
+                                                  className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-20 disabled:pointer-events-none transition-all cursor-pointer"
+                                                >
+                                                  <ChevronUp className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleMoveSectionItem(item.id, 'down', processedNote.scriptureItems, 'scripture')}
+                                                  disabled={idx === processedNote.scriptureItems.length - 1}
+                                                  title="Descendre d'une position"
+                                                  className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-20 disabled:pointer-events-none transition-all cursor-pointer"
+                                                >
+                                                  <ChevronDown className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button
+                                                  onClick={() => removeCitationFromNote(note.id, item.citationId)}
+                                                  data-tooltip="Supprimer cette référence"
+                                                  data-tooltip-icon="trash"
+                                                  className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition-all cursor-pointer opacity-80 hover:opacity-100"
+                                                >
+                                                  <Trash2 className="w-4 h-4" />
+                                                </button>
+                                              </div>
                                             )}
                                           </div>
+
+                                          {/* Texte de la citation avec 100% de largeur sans interférence */}
+                                          <blockquote 
+                                            className="text-zinc-800 dark:text-zinc-200 italic serif-text text-base leading-[1.8] select-text"
+                                          >
+                                            « <HighlightedQuote quote={item.quote} highlights={item.highlights} /> »
+                                          </blockquote>
                                         </div>
                                       )}
                                     </React.Fragment>
@@ -1697,13 +2145,7 @@ const NoteEditor: React.FC = () => {
                                       ) : (
                                         /* ── CARTE DE CITATION DE L'EXPOSÉ ── */
                                         <div 
-                                          draggable={Boolean(item.citationId)}
-                                          onDragStart={(e) => {
-                                            if (!item.citationId) return;
-                                            setDraggedCitationId(item.citationId);
-                                            e.dataTransfer.effectAllowed = 'move';
-                                            e.dataTransfer.setData('text/plain', item.citationId);
-                                          }}
+                                          data-citation-id={item.citationId}
                                           onDragOver={(e) => {
                                             if (!item.citationId) return;
                                             e.preventDefault();
@@ -1729,7 +2171,7 @@ const NoteEditor: React.FC = () => {
                                             setDraggedCitationId(null);
                                             setDragOverCitationId(null);
                                           }}
-                                          className={`bg-white dark:bg-zinc-900 border rounded-2xl p-6 shadow-xs relative group transition-all ${
+                                          className={`bg-white dark:bg-zinc-900 border rounded-2xl p-5 shadow-xs relative group transition-all ${
                                             isDragging 
                                               ? 'opacity-30 border-dashed border-amber-500' 
                                               : isDragOver
@@ -1737,54 +2179,86 @@ const NoteEditor: React.FC = () => {
                                                 : 'border-amber-600/20 dark:border-amber-900/30 hover:border-amber-500/50'
                                           }`}
                                         >
-                                          {item.citationId && (
-                                            <div className="absolute top-4 right-4 flex items-center gap-1 z-10">
-                                              <div 
-                                                className="p-1.5 text-zinc-300 hover:text-zinc-600 dark:text-zinc-600 dark:hover:text-zinc-300 rounded-lg cursor-grab active:cursor-grabbing hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-                                                title="Glisser pour déplacer cette citation"
-                                              >
-                                                <GripVertical className="w-4 h-4" />
-                                              </div>
-                                              <button
-                                                type="button"
-                                                onClick={() => handleMoveSectionItem(item.id, 'up', processedNote.churchAgeItems, 'church_age')}
-                                                disabled={idx === 0}
-                                                title="Monter d'une position"
-                                                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-20 disabled:pointer-events-none transition-all cursor-pointer"
-                                              >
-                                                <ChevronUp className="w-3.5 h-3.5" />
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={() => handleMoveSectionItem(item.id, 'down', processedNote.churchAgeItems, 'church_age')}
-                                                disabled={idx === processedNote.churchAgeItems.length - 1}
-                                                title="Descendre d'une position"
-                                                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-20 disabled:pointer-events-none transition-all cursor-pointer"
-                                              >
-                                                <ChevronDown className="w-3.5 h-3.5" />
-                                              </button>
-                                              <button
-                                                onClick={() => removeCitationFromNote(note.id, item.citationId)}
-                                                data-tooltip="Supprimer cette référence"
-                                                data-tooltip-icon="trash"
-                                                className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition-all cursor-pointer opacity-80 hover:opacity-100"
-                                              >
-                                                <Trash2 className="w-4 h-4" />
-                                              </button>
-                                            </div>
-                                          )}
-
-                                          <blockquote className="text-zinc-800 dark:text-zinc-200 italic serif-text text-base leading-relaxed mb-3 pr-20">
-                                            « {item.quote} »
-                                          </blockquote>
-                                          <div className="flex justify-end items-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-400">
-                                            <span><strong className="text-amber-600 dark:text-amber-400">{item.sourceTitle || 'Exposé des Sept Âges'}</strong> {item.sourceMeta ? `— ${item.sourceMeta}` : ''}</span>
-                                            {item.sourceIndex && (
-                                              <span className="text-[10px] font-black bg-amber-600/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full border border-amber-600/20">
-                                                [{item.sourceIndex}]
+                                          {/* Barre d'en-tête séparée au-dessus du texte */}
+                                          <div className="flex items-center justify-between gap-3 mb-3 border-b border-zinc-100 dark:border-zinc-800/80 pb-2.5">
+                                            <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                                              <span className="text-xs font-bold text-amber-700 dark:text-amber-300 truncate">
+                                                {item.sourceTitle || "Exposé des Sept Âges"}
                                               </span>
+                                              {item.sourceMeta && (
+                                                <span className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                                                  — {item.sourceMeta}
+                                                </span>
+                                              )}
+                                              {item.sourceIndex && (
+                                                <span className="text-[10px] font-black bg-amber-600/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full border border-amber-600/20 shrink-0">
+                                                  [{item.sourceIndex}]
+                                                </span>
+                                              )}
+                                            </div>
+
+                                            {item.citationId && (
+                                              <div className="flex items-center gap-1 shrink-0">
+                                                {item.sermonId && (
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleJumpToCitation(item.sermonId!, item.quote, item.paragraphIndex)}
+                                                    title="Ouvrir dans la prédication à l'endroit exact"
+                                                    className="p-1 px-2 rounded-lg text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:text-amber-800 dark:hover:text-amber-200 transition-all cursor-pointer flex items-center gap-1 text-xs font-semibold"
+                                                  >
+                                                    <BookOpen className="w-3.5 h-3.5" />
+                                                    <span className="hidden sm:inline text-[11px]">Ouvrir</span>
+                                                  </button>
+                                                )}
+                                                <div 
+                                                  draggable={Boolean(item.citationId)}
+                                                  onDragStart={(e) => {
+                                                    if (!item.citationId) return;
+                                                    setDraggedCitationId(item.citationId);
+                                                    e.dataTransfer.effectAllowed = 'move';
+                                                    e.dataTransfer.setData('text/plain', item.citationId);
+                                                  }}
+                                                  className="p-1.5 text-zinc-400 hover:text-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-200 rounded-lg cursor-grab active:cursor-grabbing hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                                                  title="Glisser pour déplacer cette citation"
+                                                >
+                                                  <GripVertical className="w-4 h-4" />
+                                                </div>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleMoveSectionItem(item.id, 'up', processedNote.churchAgeItems, 'church_age')}
+                                                  disabled={idx === 0}
+                                                  title="Monter d'une position"
+                                                  className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-20 disabled:pointer-events-none transition-all cursor-pointer"
+                                                >
+                                                  <ChevronUp className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleMoveSectionItem(item.id, 'down', processedNote.churchAgeItems, 'church_age')}
+                                                  disabled={idx === processedNote.churchAgeItems.length - 1}
+                                                  title="Descendre d'une position"
+                                                  className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-20 disabled:pointer-events-none transition-all cursor-pointer"
+                                                >
+                                                  <ChevronDown className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button
+                                                  onClick={() => removeCitationFromNote(note.id, item.citationId)}
+                                                  data-tooltip="Supprimer cette référence"
+                                                  data-tooltip-icon="trash"
+                                                  className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition-all cursor-pointer opacity-80 hover:opacity-100"
+                                                >
+                                                  <Trash2 className="w-4 h-4" />
+                                                </button>
+                                              </div>
                                             )}
                                           </div>
+
+                                          {/* Texte de la citation avec 100% de largeur sans interférence */}
+                                          <blockquote 
+                                            className="text-zinc-800 dark:text-zinc-200 italic serif-text text-base leading-[1.8] select-text"
+                                          >
+                                            « <HighlightedQuote quote={item.quote} highlights={item.highlights} /> »
+                                          </blockquote>
                                         </div>
                                       )}
                                     </React.Fragment>
@@ -2089,13 +2563,7 @@ const NoteEditor: React.FC = () => {
                                       ) : (
                                         /* ── CARTE DE CITATION D'ENSEIGNEMENT ── */
                                         <div 
-                                          draggable={Boolean(item.citationId)}
-                                          onDragStart={(e) => {
-                                            if (!item.citationId) return;
-                                            setDraggedCitationId(item.citationId);
-                                            e.dataTransfer.effectAllowed = 'move';
-                                            e.dataTransfer.setData('text/plain', item.citationId);
-                                          }}
+                                          data-citation-id={item.citationId}
                                           onDragOver={(e) => {
                                             if (!item.citationId) return;
                                             e.preventDefault();
@@ -2121,7 +2589,7 @@ const NoteEditor: React.FC = () => {
                                             setDraggedCitationId(null);
                                             setDragOverCitationId(null);
                                           }}
-                                          className={`bg-white dark:bg-zinc-900 border rounded-2xl p-6 shadow-xs relative group transition-all ${
+                                          className={`bg-white dark:bg-zinc-900 border rounded-2xl p-5 shadow-xs relative group transition-all ${
                                             isDragging 
                                               ? 'opacity-30 border-dashed border-teal-500' 
                                               : isDragOver
@@ -2129,54 +2597,86 @@ const NoteEditor: React.FC = () => {
                                                 : 'border-zinc-200 dark:border-zinc-800 hover:border-teal-500/50'
                                           }`}
                                         >
-                                          {item.citationId && (
-                                            <div className="absolute top-4 right-4 flex items-center gap-1 z-10">
-                                              <div 
-                                                className="p-1.5 text-zinc-300 hover:text-zinc-600 dark:text-zinc-600 dark:hover:text-zinc-300 rounded-lg cursor-grab active:cursor-grabbing hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-                                                title="Glisser pour déplacer cette citation"
-                                              >
-                                                <GripVertical className="w-4 h-4" />
-                                              </div>
-                                              <button
-                                                type="button"
-                                                onClick={() => handleMoveSectionItem(item.id, 'up', processedNote.teachingItems, 'teaching')}
-                                                disabled={idx === 0}
-                                                title="Monter d'une position"
-                                                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-20 disabled:pointer-events-none transition-all cursor-pointer"
-                                              >
-                                                <ChevronUp className="w-3.5 h-3.5" />
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={() => handleMoveSectionItem(item.id, 'down', processedNote.teachingItems, 'teaching')}
-                                                disabled={idx === processedNote.teachingItems.length - 1}
-                                                title="Descendre d'une position"
-                                                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-20 disabled:pointer-events-none transition-all cursor-pointer"
-                                              >
-                                                <ChevronDown className="w-3.5 h-3.5" />
-                                              </button>
-                                              <button
-                                                onClick={() => removeCitationFromNote(note.id, item.citationId)}
-                                                data-tooltip="Supprimer cette référence"
-                                                data-tooltip-icon="trash"
-                                                className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition-all cursor-pointer opacity-80 hover:opacity-100"
-                                              >
-                                                <Trash2 className="w-4 h-4" />
-                                              </button>
-                                            </div>
-                                          )}
-
-                                          <blockquote className="text-zinc-800 dark:text-zinc-200 italic serif-text text-base leading-relaxed mb-3 pr-20">
-                                            « {item.quote} »
-                                          </blockquote>
-                                          <div className="flex justify-end items-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-400">
-                                            <span><strong className="text-teal-600 dark:text-teal-400">{item.sourceTitle || 'Sermon'}</strong> {item.sourceMeta ? `— ${item.sourceMeta}` : ''}</span>
-                                            {item.sourceIndex && (
-                                              <span className="text-[10px] font-black bg-teal-600/10 text-teal-600 dark:text-teal-400 px-2 py-0.5 rounded-full border border-teal-600/20">
-                                                [{item.sourceIndex}]
+                                          {/* Barre d'en-tête séparée au-dessus du texte */}
+                                          <div className="flex items-center justify-between gap-3 mb-3 border-b border-zinc-100 dark:border-zinc-800/80 pb-2.5">
+                                            <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                                              <span className="text-xs font-bold text-teal-700 dark:text-teal-300 truncate">
+                                                {item.sourceTitle || 'Sermon'}
                                               </span>
+                                              {item.sourceMeta && (
+                                                <span className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                                                  — {item.sourceMeta}
+                                                </span>
+                                              )}
+                                              {item.sourceIndex && (
+                                                <span className="text-[10px] font-black bg-teal-600/10 text-teal-600 dark:text-teal-400 px-2 py-0.5 rounded-full border border-teal-600/20 shrink-0">
+                                                  [{item.sourceIndex}]
+                                                </span>
+                                              )}
+                                            </div>
+
+                                            {item.citationId && (
+                                              <div className="flex items-center gap-1 shrink-0">
+                                                {item.sermonId && (
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleJumpToCitation(item.sermonId!, item.quote, item.paragraphIndex)}
+                                                    title="Ouvrir dans la prédication à l'endroit exact"
+                                                    className="p-1 px-2 rounded-lg text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/40 hover:text-teal-700 dark:hover:text-teal-300 transition-all cursor-pointer flex items-center gap-1 text-xs font-semibold"
+                                                  >
+                                                    <BookOpen className="w-3.5 h-3.5" />
+                                                    <span className="hidden sm:inline text-[11px]">Ouvrir</span>
+                                                  </button>
+                                                )}
+                                                <div 
+                                                  draggable={Boolean(item.citationId)}
+                                                  onDragStart={(e) => {
+                                                    if (!item.citationId) return;
+                                                    setDraggedCitationId(item.citationId);
+                                                    e.dataTransfer.effectAllowed = 'move';
+                                                    e.dataTransfer.setData('text/plain', item.citationId);
+                                                  }}
+                                                  className="p-1.5 text-zinc-400 hover:text-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-200 rounded-lg cursor-grab active:cursor-grabbing hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                                                  title="Glisser pour déplacer cette citation"
+                                                >
+                                                  <GripVertical className="w-4 h-4" />
+                                                </div>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleMoveSectionItem(item.id, 'up', processedNote.teachingItems, 'teaching')}
+                                                  disabled={idx === 0}
+                                                  title="Monter d'une position"
+                                                  className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-20 disabled:pointer-events-none transition-all cursor-pointer"
+                                                >
+                                                  <ChevronUp className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleMoveSectionItem(item.id, 'down', processedNote.teachingItems, 'teaching')}
+                                                  disabled={idx === processedNote.teachingItems.length - 1}
+                                                  title="Descendre d'une position"
+                                                  className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-20 disabled:pointer-events-none transition-all cursor-pointer"
+                                                >
+                                                  <ChevronDown className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button
+                                                  onClick={() => removeCitationFromNote(note.id, item.citationId)}
+                                                  data-tooltip="Supprimer cette référence"
+                                                  data-tooltip-icon="trash"
+                                                  className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition-all cursor-pointer opacity-80 hover:opacity-100"
+                                                >
+                                                  <Trash2 className="w-4 h-4" />
+                                                </button>
+                                              </div>
                                             )}
                                           </div>
+
+                                          {/* Texte de la citation avec 100% de largeur sans interférence */}
+                                          <blockquote 
+                                            className="text-zinc-800 dark:text-zinc-200 serif-text text-base leading-[1.8] select-text"
+                                          >
+                                            <HighlightedQuote quote={item.quote} highlights={item.highlights} />
+                                          </blockquote>
                                         </div>
                                       )}
                                     </React.Fragment>
@@ -2198,6 +2698,168 @@ const NoteEditor: React.FC = () => {
                                     <Plus className="w-3.5 h-3.5" />
                                   </button>
                                 </div>
+                              </div>
+                            )}
+
+                            {/* Section Dictionnaire & Lexique Biblique */}
+                            {processedNote.definitionItems && processedNote.definitionItems.length > 0 && (
+                              <div className="space-y-4">
+                                <div className="flex items-center justify-between px-2">
+                                  <h4 className="text-xs font-black uppercase tracking-wider text-teal-600 dark:text-teal-400 flex items-center gap-2">
+                                    <BookOpenCheck className="w-4 h-4" />
+                                    <span>Dictionnaire & Lexique Biblique ({processedNote.definitionItems.length})</span>
+                                  </h4>
+                                </div>
+
+                                {processedNote.definitionItems.map((item, idx) => {
+                                  const isDragging = draggedCitationId === item.citationId;
+                                  const isDragOver = dragOverCitationId === item.citationId;
+
+                                  return (
+                                    <div 
+                                      key={item.citationId || idx}
+                                      data-citation-id={item.citationId}
+                                      onDragOver={(e) => {
+                                        e.preventDefault();
+                                        if (dragOverCitationId !== item.citationId) {
+                                          setDragOverCitationId(item.citationId);
+                                        }
+                                      }}
+                                      onDragLeave={() => {
+                                        if (dragOverCitationId === item.citationId) {
+                                          setDragOverCitationId(null);
+                                        }
+                                      }}
+                                      onDrop={(e) => {
+                                        e.preventDefault();
+                                        setDragOverCitationId(null);
+                                        if (draggedCitationId && item.citationId && draggedCitationId !== item.citationId) {
+                                          handleReorderCitations(draggedCitationId, item.citationId);
+                                        }
+                                      }}
+                                      className={`p-5 rounded-2xl border transition-all duration-300 relative group/card ${
+                                        isDragOver 
+                                          ? 'border-teal-500 bg-teal-500/10 ring-2 ring-teal-500/30' 
+                                          : isDragging 
+                                            ? 'opacity-40 border-dashed border-teal-500' 
+                                            : 'border-zinc-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 hover:border-teal-500/40 shadow-xs hover:shadow-md'
+                                      }`}
+                                    >
+                                      {/* Header of Definition Card */}
+                                      <div className="flex items-start justify-between gap-4 mb-3 border-b border-zinc-100 dark:border-zinc-800/80 pb-3">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                          <div className="w-9 h-9 rounded-xl bg-teal-600/10 text-teal-600 dark:text-teal-400 flex items-center justify-center border border-teal-600/20 shrink-0">
+                                            <BookOpenCheck className="w-4 h-4" />
+                                          </div>
+                                          <div className="min-w-0">
+                                            <span className="text-[9px] font-black uppercase tracking-wider text-teal-600 dark:text-teal-400 block mb-0.5">
+                                              Dictionnaire Biblique & Théologique
+                                            </span>
+                                            <h5 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white uppercase tracking-tight truncate">
+                                              {item.word}
+                                            </h5>
+                                          </div>
+                                        </div>
+
+                                        {/* Action buttons */}
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          {/* Drag Handle */}
+                                          <div 
+                                            draggable={Boolean(item.citationId)}
+                                            onDragStart={(e) => {
+                                              setDraggedCitationId(item.citationId);
+                                              e.dataTransfer.setData('text/plain', item.citationId);
+                                            }}
+                                            onDragEnd={() => {
+                                              setDraggedCitationId(null);
+                                              setDragOverCitationId(null);
+                                            }}
+                                            className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-grab active:cursor-grabbing transition-colors"
+                                            title="Glisser pour déplacer cette définition"
+                                          >
+                                            <GripVertical className="w-4 h-4" />
+                                          </div>
+
+                                          {/* Move Up */}
+                                          <button
+                                            type="button"
+                                            onClick={() => handleMoveCitation(item.citationId, 'up', processedNote.definitionItems)}
+                                            disabled={idx === 0}
+                                            className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 disabled:opacity-20 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                                            title="Monter"
+                                          >
+                                            <ChevronUp className="w-4 h-4" />
+                                          </button>
+
+                                          {/* Move Down */}
+                                          <button
+                                            type="button"
+                                            onClick={() => handleMoveCitation(item.citationId, 'down', processedNote.definitionItems)}
+                                            disabled={idx === processedNote.definitionItems.length - 1}
+                                            className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 disabled:opacity-20 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                                            title="Descendre"
+                                          >
+                                            <ChevronDown className="w-4 h-4" />
+                                          </button>
+
+                                          {/* Copy */}
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              const copyText = `${item.word} : ${item.definition}${item.etymology ? `\nÉtymologie : ${item.etymology}` : ''}${item.synonyms?.length ? `\nSynonymes : ${item.synonyms.join(', ')}` : ''}`;
+                                              navigator.clipboard.writeText(copyText);
+                                              addNotification("Définition copiée dans le presse-papiers.", "success");
+                                            }}
+                                            className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-teal-600 dark:hover:text-teal-400 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-950/30 transition-colors"
+                                            title="Copier la définition"
+                                          >
+                                            <Copy className="w-4 h-4" />
+                                          </button>
+
+                                          {/* Delete */}
+                                          <button
+                                            type="button"
+                                            onClick={() => removeCitationFromNote(note.id, item.citationId)}
+                                            className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                                            title="Supprimer cette définition de la note"
+                                          >
+                                            <Trash2 className="w-4 h-4" />
+                                          </button>
+                                        </div>
+                                      </div>
+
+                                      {/* Definition Body */}
+                                      <div className="serif-text text-base leading-relaxed text-zinc-800 dark:text-zinc-200 select-text pl-1 py-1">
+                                        {item.definition}
+                                      </div>
+
+                                      {/* Etymology */}
+                                      {item.etymology && (
+                                        <div className="flex items-start gap-2.5 text-xs text-zinc-600 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-800/50 p-3 rounded-xl border border-zinc-100 dark:border-zinc-800 mt-3 select-text">
+                                          <History className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 shrink-0 mt-0.5" />
+                                          <div className="leading-relaxed">
+                                            <span className="font-bold text-zinc-700 dark:text-zinc-300">Étymologie :</span> {item.etymology}
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* Synonyms */}
+                                      {item.synonyms && item.synonyms.length > 0 && (
+                                        <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-2.5 border-t border-zinc-100 dark:border-zinc-800/80">
+                                          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mr-1">Synonymes :</span>
+                                          {item.synonyms.map((syn, synIdx) => (
+                                            <span 
+                                              key={synIdx} 
+                                              className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-teal-600/10 text-teal-700 dark:text-teal-300 border border-teal-600/20"
+                                            >
+                                              {syn}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
                               </div>
                             )}
 
@@ -2223,12 +2885,6 @@ const NoteEditor: React.FC = () => {
                                     return (
                                       <div 
                                         key={src.id || src.index}
-                                        draggable
-                                        onDragStart={(e) => {
-                                          setDraggedSourceIdx(srcIdx);
-                                          e.dataTransfer.effectAllowed = 'move';
-                                          e.dataTransfer.setData('text/plain', String(srcIdx));
-                                        }}
                                         onDragOver={(e) => {
                                           e.preventDefault();
                                           e.dataTransfer.dropEffect = 'move';
@@ -2264,7 +2920,13 @@ const NoteEditor: React.FC = () => {
                                         {/* Poignée et Numéro d'index */}
                                         <div className="flex items-center gap-2 flex-1 min-w-0">
                                           <div 
-                                            className="cursor-grab active:cursor-grabbing text-zinc-300 hover:text-zinc-600 dark:text-zinc-600 dark:hover:text-zinc-300 p-1 rounded-md hover:bg-zinc-200/60 dark:hover:bg-zinc-800 transition-colors shrink-0"
+                                            draggable
+                                            onDragStart={(e) => {
+                                              setDraggedSourceIdx(srcIdx);
+                                              e.dataTransfer.effectAllowed = 'move';
+                                              e.dataTransfer.setData('text/plain', String(srcIdx));
+                                            }}
+                                            className="cursor-grab active:cursor-grabbing text-zinc-400 hover:text-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-200 p-1 rounded-md hover:bg-zinc-200/60 dark:hover:bg-zinc-800 transition-colors shrink-0"
                                             title="Glisser pour changer la position"
                                           >
                                             <GripVertical className="w-4 h-4" />
@@ -2279,6 +2941,17 @@ const NoteEditor: React.FC = () => {
 
                                         {/* Boutons d'action : Monter / Descendre d'un rang */}
                                         <div className="flex items-center gap-1 opacity-0 group-hover/src:opacity-100 transition-opacity shrink-0">
+                                          {src.sermonId && (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleJumpToCitation(src.sermonId!, src.quotedText, src.paragraphIndex)}
+                                              title="Ouvrir cette source dans le lecteur à l'endroit exact"
+                                              className="p-1 px-2 rounded-lg text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/40 hover:text-teal-700 dark:hover:text-teal-300 transition-all cursor-pointer flex items-center gap-1 text-[11px] font-semibold shrink-0"
+                                            >
+                                              <BookOpen className="w-3.5 h-3.5" />
+                                              <span className="hidden sm:inline">Consulter</span>
+                                            </button>
+                                          )}
                                           <button
                                             type="button"
                                             onClick={() => handleReorderSources(srcIdx, srcIdx - 1)}
@@ -2306,6 +2979,76 @@ const NoteEditor: React.FC = () => {
                             )}
                         </div>
                     </div>
+
+                    {/* Menu contextuel flottant de sélection de texte identique au lecteur */}
+                    {selection && (
+                      <div 
+                        className="absolute z-[200000] no-print selection-menu-container animate-in fade-in zoom-in-95 duration-200 ease-out antialiased" 
+                        style={{ 
+                          left: Math.round(selection.x), 
+                          top: Math.round(selection.y), 
+                          transform: 'translateX(-50%) translateZ(0)' 
+                        }}
+                      >
+                        <div className="flex items-center bg-white/95 dark:bg-zinc-900/95 backdrop-blur-3xl p-1.5 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.35),0_0_0_1px_rgba(255,255,255,0.1)] pointer-events-auto border border-white/40 dark:border-zinc-800 overflow-hidden transform-gpu">
+                          <div className="flex items-center">
+                            <button 
+                              onClick={() => handleHighlight('amber')} 
+                              className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-amber-500/15 text-zinc-800 dark:text-zinc-200 hover:text-amber-700 dark:hover:text-amber-400 rounded-xl active:scale-95 group transition-colors cursor-pointer"
+                              data-tooltip="Surligner en jaune"
+                            >
+                              <Highlighter className="w-4 h-4 text-amber-500" />
+                              <span className="text-[8px] font-bold uppercase tracking-tight">Surligner</span>
+                            </button>
+                            <div className="flex items-center gap-1.5 px-2 py-1">
+                              {[
+                                { key: 'amber', bg: 'bg-amber-400 dark:bg-amber-500', label: 'Jaune' },
+                                { key: 'teal', bg: 'bg-teal-400 dark:bg-teal-500', label: 'Turquoise' },
+                                { key: 'sky', bg: 'bg-sky-400 dark:bg-sky-500', label: 'Bleu ciel' },
+                                { key: 'rose', bg: 'bg-rose-400 dark:bg-rose-500', label: 'Rose' },
+                                { key: 'violet', bg: 'bg-violet-400 dark:bg-violet-500', label: 'Violet' }
+                              ].map(c => (
+                                <button
+                                  key={c.key}
+                                  onClick={(e) => { e.stopPropagation(); handleHighlight(c.key); }}
+                                  className={`w-4 h-4 rounded-full ${c.bg} hover:scale-130 active:scale-90 transition-transform shadow-xs border border-black/15 dark:border-white/20 cursor-pointer`}
+                                  data-tooltip={`Surligner en ${c.label}`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="w-px h-6 bg-zinc-200/80 dark:bg-zinc-700/80 my-auto mx-1" />
+                          <button onClick={() => { handleCopy(); setSelection(null); }} data-tooltip="Copier le texte sélectionné" className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-zinc-500/10 text-zinc-800 dark:text-zinc-200 rounded-xl active:scale-95 transition-colors cursor-pointer"><Copy className="w-4 h-4 text-zinc-500" /><span className="text-[8px] font-bold uppercase tracking-tight">Copier</span></button>
+                          <div className="w-px h-6 bg-zinc-200/80 dark:bg-zinc-700/80 my-auto mx-1" />
+                          <button onClick={() => { handleDefine(); setSelection(null); }} data-tooltip="Définir ce mot dans le dictionnaire" data-tooltip-icon="book" className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-sky-500/15 text-zinc-800 dark:text-zinc-200 rounded-xl active:scale-95 transition-colors cursor-pointer"><BookOpen className="w-4 h-4 text-sky-500" /><span className="text-[8px] font-bold uppercase tracking-tight">Définir</span></button>
+                          <button onClick={() => { triggerStudyRequest(selection.text); setSelection(null); }} data-tooltip="Étudier avec l'assistant IA" data-tooltip-icon="sparkles" className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-teal-600/15 text-zinc-800 dark:text-zinc-200 rounded-xl active:scale-95 transition-colors cursor-pointer"><Sparkles className="w-4 h-4 text-teal-600 animate-pulse" /><span className="text-[8px] font-bold uppercase tracking-tight">Étudier</span></button>
+                          <div className="w-px h-6 bg-zinc-200/80 dark:bg-zinc-700/80 my-auto mx-1" />
+                          <button 
+                            onClick={() => { 
+                              setNoteSelectorPayload({ 
+                                text: selection.text, 
+                                sermon: {
+                                  id: 'journal-selection',
+                                  title: note?.title || "Extrait du Journal d'étude",
+                                  date: note?.date || new Date().toISOString(),
+                                  paragraphs: [selection.text]
+                                }, 
+                                paragraphIndex: undefined,
+                                highlights: undefined 
+                              }); 
+                              setSelection(null); 
+                            }} 
+                            data-tooltip="Ajouter cet extrait au journal de notes" 
+                            data-tooltip-icon="notes" 
+                            className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-emerald-500/15 text-zinc-800 dark:text-zinc-200 rounded-xl active:scale-95 transition-colors cursor-pointer"
+                          >
+                            <NotebookPen className="w-4 h-4 text-emerald-500" />
+                            <span className="text-[8px] font-bold uppercase tracking-tight">Note</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
                 </div>
             </div>
 
@@ -2351,7 +3094,7 @@ const NoteEditor: React.FC = () => {
                             }
                             return (
                                 <div key={item.id || i} className="citation-box page-break-inside-avoid">
-                                    <p>« {item.quote} »</p>
+                                    <p>« <HighlightedQuote quote={item.quote} highlights={item.highlights} isPrint /> »</p>
                                     <p className="citation-ref">
                                         {item.reference || 'Bible'} {item.sourceIndex ? `[${item.sourceIndex}]` : ''}
                                     </p>
@@ -2383,7 +3126,7 @@ const NoteEditor: React.FC = () => {
                             }
                             return (
                                 <div key={item.id || i} className="citation-box page-break-inside-avoid">
-                                    <p>« {item.quote} »</p>
+                                    <p>« <HighlightedQuote quote={item.quote} highlights={item.highlights} isPrint /> »</p>
                                     <p className="citation-ref">
                                         {item.sourceTitle || "Exposé des Sept Âges"} {item.sourceMeta ? `— ${item.sourceMeta}` : ''} {item.sourceIndex ? `[${item.sourceIndex}]` : ''}
                                     </p>
@@ -2415,13 +3158,32 @@ const NoteEditor: React.FC = () => {
                             }
                             return (
                                 <div key={item.id || i} className="citation-box page-break-inside-avoid">
-                                    <p>« {item.quote} »</p>
+                                    <p>« <HighlightedQuote quote={item.quote} highlights={item.highlights} isPrint /> »</p>
                                     <p className="citation-ref">
                                         {item.sourceTitle || 'Enseignement'} {item.sourceMeta ? `— ${item.sourceMeta}` : ''} {item.sourceIndex ? `[${item.sourceIndex}]` : ''}
                                     </p>
                                 </div>
                             );
                         })}
+                    </div>
+                )}
+
+                {processedNote.definitionItems && processedNote.definitionItems.length > 0 && (
+                    <div className="mb-8 space-y-4">
+                        <h3 className="text-sm font-bold uppercase text-teal-800 border-b border-teal-200 pb-1 mb-2">Dictionnaire & Lexique Biblique</h3>
+                        {processedNote.definitionItems.map((item, i) => (
+                            <div key={item.citationId || i} className="citation-box page-break-inside-avoid">
+                                <p className="font-bold text-slate-900 not-italic text-sm">{item.word}</p>
+                                <p className="mt-1 text-slate-800">{item.definition}</p>
+                                {item.etymology && (
+                                    <p className="text-xs italic text-slate-500 mt-1">Étymologie : {item.etymology}</p>
+                                )}
+                                {item.synonyms && item.synonyms.length > 0 && (
+                                    <p className="text-xs text-teal-700 mt-1 font-semibold">Synonymes : {item.synonyms.join(', ')}</p>
+                                )}
+                                <p className="citation-ref">Dictionnaire Biblique {item.sourceIndex ? `[${item.sourceIndex}]` : ''}</p>
+                            </div>
+                        ))}
                     </div>
                 )}
 
@@ -2607,6 +3369,115 @@ const NoteEditor: React.FC = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Modal Dictionnaire IA pour les définitions */}
+            {activeDefinition && (
+              <div className="fixed inset-0 z-[100000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200" onClick={() => setActiveDefinition(null)}>
+                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl shadow-2xl flex flex-col overflow-hidden max-w-xl w-full max-h-[85vh] animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                  <div className="px-5 sm:px-6 py-4 border-b border-slate-200 dark:border-zinc-800/80 flex items-center justify-between bg-slate-50/70 dark:bg-zinc-950/50 shrink-0">
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div className="w-10 h-10 rounded-2xl bg-teal-600/10 dark:bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center border border-teal-600/20 shadow-xs shrink-0">
+                        <BookOpenCheck className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[10px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-widest">{activeDefinition?.source || "Dictionnaire Webster & Français"}</div>
+                        <h3 className="text-xl sm:text-2xl font-black text-zinc-900 dark:text-white leading-tight truncate">{activeDefinition?.word}</h3>
+                        {activeDefinition?.grammarNote && (
+                          <div className="text-[11px] font-semibold text-teal-700 dark:text-teal-300 mt-0.5">{activeDefinition.grammarNote}</div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button 
+                        onClick={handleAddDefinitionToNote}
+                        data-tooltip="Ajouter la définition à vos notes"
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/50 border border-teal-200 dark:border-teal-800/80 hover:bg-teal-100 dark:hover:bg-teal-900/60 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                      >
+                        <NotebookPen className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                        <span className="hidden sm:inline">Ajouter aux notes</span>
+                      </button>
+                      <button 
+                        onClick={() => setActiveDefinition(null)} 
+                        data-tooltip="Fermer la fenêtre"
+                        className="w-8 h-8 rounded-xl flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800 transition-all cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="flex-1 px-5 sm:px-6 py-5 overflow-y-auto custom-scrollbar space-y-4 bg-white dark:bg-zinc-900">
+                    <section className="space-y-2">
+                      <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+                        <Info className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                        <span>Définition & Sens</span>
+                      </div>
+                      <div className="p-4 sm:p-5 bg-slate-50/80 dark:bg-zinc-950/60 border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl relative overflow-hidden group shadow-2xs">
+                        <div className="absolute top-0 left-0 w-1.5 h-full bg-teal-600 dark:bg-teal-500 group-hover:bg-teal-500 transition-colors" />
+                        <p className="text-base sm:text-lg leading-relaxed text-zinc-900 dark:text-zinc-100 font-medium serif-text italic pl-2">
+                          {activeDefinition.definition}
+                        </p>
+                      </div>
+                    </section>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      <section className="p-4 bg-slate-50/80 dark:bg-zinc-950/60 border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl space-y-2 flex flex-col">
+                        <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+                          <History className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                          <span>Étymologie</span>
+                        </div>
+                        <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300 font-medium italic flex-1">
+                          {activeDefinition.etymology || "Détails historiques non répertoriés."}
+                        </p>
+                      </section>
+
+                      <section className="p-4 bg-slate-50/80 dark:bg-zinc-950/60 border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl space-y-2 flex flex-col">
+                        <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+                          <Languages className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                          <span>Synonymes</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 flex-1 items-start">
+                          {activeDefinition.synonyms.length > 0 ? (
+                            activeDefinition.synonyms.map((syn, idx) => (
+                              <span 
+                                key={idx} 
+                                className="px-2.5 py-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold text-teal-700 dark:text-teal-300 shadow-2xs hover:border-teal-500/50 transition-all cursor-default"
+                              >
+                                {syn}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-xs font-medium text-zinc-400 italic">Aucun synonyme répertorié.</span>
+                          )}
+                        </div>
+                      </section>
+                    </div>
+                  </div>
+                  
+                  <div className="px-5 sm:px-6 py-3 border-t border-slate-200 dark:border-zinc-800/80 bg-slate-50/70 dark:bg-zinc-950/50 flex items-center justify-between shrink-0">
+                    <p className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest flex items-center gap-1.5">
+                      <Milestone className="w-3 h-3 text-teal-600 dark:text-teal-400" />
+                      <span>{activeDefinition?.source || "Dictionnaire Webster & Français"}</span>
+                    </p>
+                    <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Dictionnaire hors-ligne actif
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Modal de sélection de note si demandé depuis le journal */}
+            {noteSelectorPayload && (
+              <NoteSelectorModal
+                selectionText={noteSelectorPayload.text}
+                sermon={noteSelectorPayload.sermon}
+                paragraphIndex={noteSelectorPayload.paragraphIndex}
+                highlights={noteSelectorPayload.highlights}
+                onClose={() => setNoteSelectorPayload(null)}
+              />
             )}
 
             {/* Modal Aperçu Plein Écran de l'Image */}

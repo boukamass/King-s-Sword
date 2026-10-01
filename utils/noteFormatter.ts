@@ -1,4 +1,5 @@
-import { Note, Citation, NoteSeparator } from '../types';
+import { Note, Citation, NoteSeparator, CitationHighlight, Sermon } from '../types';
+import { extractHighlightsFromSermon } from './highlightUtils';
 
 export interface FormattedSource {
   index: number;
@@ -9,6 +10,9 @@ export interface FormattedSource {
   paragraphOrVerse?: string;
   formattedLine: string;
   citationIds?: string[];
+  sermonId?: string;
+  paragraphIndex?: number;
+  quotedText?: string;
 }
 
 export type NoteSectionItem = 
@@ -16,12 +20,15 @@ export type NoteSectionItem =
       kind: 'citation';
       id: string;
       citationId: string;
+      sermonId?: string;
+      paragraphIndex?: number;
       quote: string;
       reference?: string;
       sourceTitle?: string;
       sourceMeta?: string;
       sourceIndex?: number;
       orderIndex: number;
+      highlights?: CitationHighlight[];
     }
   | {
       kind: 'separator';
@@ -31,6 +38,18 @@ export type NoteSectionItem =
       category: 'scripture' | 'church_age' | 'teaching';
       orderIndex: number;
     };
+
+export interface ProcessedDefinitionItem {
+  id: string;
+  citationId: string;
+  word: string;
+  definition: string;
+  etymology?: string;
+  synonyms?: string[];
+  rawText: string;
+  sourceIndex?: number;
+  orderIndex: number;
+}
 
 export interface FormattedNoteSection {
   title?: string;
@@ -47,25 +66,35 @@ export interface ProcessedNoteData {
   scriptureItems: NoteSectionItem[];
   churchAgeItems: NoteSectionItem[];
   teachingItems: NoteSectionItem[];
+  definitionItems: ProcessedDefinitionItem[];
   scriptureCitations: {
     citationId: string;
+    sermonId?: string;
+    paragraphIndex?: number;
     quote: string;
     reference: string;
     sourceIndex?: number;
+    highlights?: CitationHighlight[];
   }[];
   churchAgeCitations: {
     citationId: string;
+    sermonId?: string;
+    paragraphIndex?: number;
     quote: string;
     sourceTitle: string;
     sourceMeta: string;
     sourceIndex?: number;
+    highlights?: CitationHighlight[];
   }[];
   teachingCitations: {
     citationId: string;
+    sermonId?: string;
+    paragraphIndex?: number;
     quote: string;
     sourceTitle: string;
     sourceMeta: string;
     sourceIndex?: number;
+    highlights?: CitationHighlight[];
   }[];
   sources: FormattedSource[];
   formattedMarkdown: string;
@@ -87,6 +116,77 @@ const BIBLE_BOOKS = [
   'Hébreux', 'Hebreux', 'Jacques', '1 Pierre', '2 Pierre', '1 Jean', '2 Jean', '3 Jean',
   'Jude', 'Apocalypse'
 ];
+
+/**
+ * Parse et structure proprement un texte de définition de dictionnaire
+ * en extrayant le terme, le sens, l'étymologie et les synonymes sans aucun artéfact markdown (*)
+ */
+export function parseDefinitionText(rawQuote: string, title?: string): {
+  word: string;
+  definition: string;
+  etymology?: string;
+  synonyms?: string[];
+} {
+  const clean = (rawQuote || '')
+    .replace(/\*\*/g, '')
+    .replace(/\*/g, '')
+    .trim();
+
+  let word = '';
+  if (title && /Dictionnaire\s*:\s*(.+)/i.test(title)) {
+    word = title.match(/Dictionnaire\s*:\s*(.+)/i)![1].trim();
+  }
+
+  let definition = '';
+  let etymology: string | undefined = undefined;
+  let synonyms: string[] | undefined = undefined;
+
+  const lines = clean.split('\n').map(l => l.trim()).filter(Boolean);
+
+  if (lines.length > 0) {
+    const firstLine = lines[0];
+    const colonMatch = firstLine.match(/^([A-Za-zÀ-ÿ0-9'\s-]+?)\s*:\s*(.+)$/);
+    if (colonMatch && !firstLine.toLowerCase().startsWith('définition') && !firstLine.toLowerCase().startsWith('étymologie') && !firstLine.toLowerCase().startsWith('synonymes')) {
+      if (!word) word = colonMatch[1].trim();
+      definition = colonMatch[2].trim();
+    } else if (!word && !firstLine.includes(':')) {
+      word = firstLine.trim();
+    }
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (i === 0 && (line === word || line.startsWith(word + ' :'))) continue;
+
+    if (/^définition\s*:\s*(.+)/i.test(line)) {
+      const defMatch = line.match(/^définition\s*:\s*(.+)/i);
+      if (defMatch) definition = (definition ? definition + ' ' : '') + defMatch[1].trim();
+    } else if (/^étymologie\s*:\s*(.+)/i.test(line)) {
+      const etyMatch = line.match(/^étymologie\s*:\s*(.+)/i);
+      if (etyMatch) etymology = etyMatch[1].trim();
+    } else if (/^synonymes?\s*:\s*(.+)/i.test(line)) {
+      const synMatch = line.match(/^synonymes?\s*:\s*(.+)/i);
+      if (synMatch) {
+        synonyms = synMatch[1].split(',').map(s => s.trim()).filter(Boolean);
+      }
+    } else if (!definition) {
+      definition = line;
+    } else {
+      definition += '\n' + line;
+    }
+  }
+
+  if (!word) {
+    word = title ? title.replace(/Dictionnaire\s*:?/i, '').replace(/Définition\s*:?/i, '').trim() : 'Terme';
+  }
+
+  return {
+    word: word ? word.charAt(0).toUpperCase() + word.slice(1) : 'Terme',
+    definition: definition || clean,
+    etymology: etymology && etymology !== 'Non spécifiée' && !etymology.includes('non répertoriés') ? etymology : undefined,
+    synonyms: synonyms && synonyms.length > 0 ? synonyms : undefined
+  };
+}
 
 /**
  * Nettoie une chaîne de texte de tous les artefacts de génération, balises techniques et fautes de frappe récurrentes.
@@ -122,6 +222,28 @@ export function cleanTextArtifacts(rawText: string): string {
   text = text.replace(/\s+»/g, ' »');
 
   return text.trim();
+}
+
+/**
+ * Nettoie et supprime tous les marqueurs de balisage Markdown (#, *, **, -, etc.)
+ * pour l'affichage en texte brut / aperçu lisible sans symboles.
+ */
+export function stripMarkdown(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/#+\s+/g, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/_([^_]+)_/g, '$1')
+    .replace(/~~([^~]+)~~/g, '$1')
+    .replace(/^[\s\-\*\+]+/gm, '')
+    .replace(/^\d+\.\s+/gm, '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/\[\[\[NOTE_EXTERNE\]\]\]/g, '')
+    .replace(/\[Réf:\s*[^\]]+\]/gi, '')
+    .replace(/\[Source:\s*[^\]]+\]/gi, '')
+    .trim();
 }
 
 /**
@@ -171,7 +293,7 @@ export function formatParagraphRef(paragraphIndex?: number | string): string {
 /**
  * Transforme une Note complète en structure nettoyée et professionnelle.
  */
-export function processNoteData(note: Note): ProcessedNoteData {
+export function processNoteData(note: Note, sermons?: Array<Partial<Sermon>>): ProcessedNoteData {
   const cleanTitle = cleanTextArtifacts(note.title || 'Nouvelle Note');
   const rawContent = cleanTextArtifacts(note.content || '');
 
@@ -185,7 +307,10 @@ export function processNoteData(note: Note): ProcessedNoteData {
     type: 'scripture' | 'sermon' | 'general',
     dateOrVersion?: string,
     paragraphOrVerse?: string,
-    citationId?: string
+    citationId?: string,
+    sermonId?: string,
+    paragraphIndex?: number,
+    quotedText?: string
   ): number => {
     const key = `${type}_${title}_${dateOrVersion || ''}_${paragraphOrVerse || ''}`.toLowerCase();
     if (sourcesMap.has(key)) {
@@ -193,6 +318,9 @@ export function processNoteData(note: Note): ProcessedNoteData {
       if (citationId && (!existing.citationIds || !existing.citationIds.includes(citationId))) {
         existing.citationIds = [...(existing.citationIds || []), citationId];
       }
+      if (sermonId && !existing.sermonId) existing.sermonId = sermonId;
+      if (paragraphIndex !== undefined && existing.paragraphIndex === undefined) existing.paragraphIndex = paragraphIndex;
+      if (quotedText && !existing.quotedText) existing.quotedText = quotedText;
       return existing.index;
     }
 
@@ -223,7 +351,10 @@ export function processNoteData(note: Note): ProcessedNoteData {
       dateOrVersion: cleanD,
       paragraphOrVerse: cleanP,
       formattedLine,
-      citationIds: citationId ? [citationId] : []
+      citationIds: citationId ? [citationId] : [],
+      sermonId,
+      paragraphIndex,
+      quotedText
     };
 
     sourcesMap.set(key, sourceObj);
@@ -236,6 +367,7 @@ export function processNoteData(note: Note): ProcessedNoteData {
   const scriptureCitations: ProcessedNoteData['scriptureCitations'] = [];
   const churchAgeCitations: ProcessedNoteData['churchAgeCitations'] = [];
   const teachingCitations: ProcessedNoteData['teachingCitations'] = [];
+  const definitionItems: ProcessedDefinitionItem[] = [];
 
   if (note.citations && note.citations.length > 0) {
     const seenCitations = new Set<string>();
@@ -249,6 +381,38 @@ export function processNoteData(note: Note): ProcessedNoteData {
       const versionSnap = cleanTextArtifacts(citation.sermon_version_snapshot || '');
       const paraRef = formatParagraphRef(citation.paragraph_index);
 
+      // Détection des définitions du dictionnaire
+      const isDefinitionSource = citation.sermon_id?.startsWith('definition') || 
+        /Dictionnaire|Définition/i.test(titleSnap) || 
+        citation.sermon_id?.includes('definition');
+
+      if (isDefinitionSource) {
+        const parsed = parseDefinitionText(cleanQuote, titleSnap);
+        const srcIdx = getOrAddSource(`Dictionnaire — Terme « ${parsed.word} »`, 'general', 'Lexique Biblique', undefined, citation.id, citation.sermon_id, undefined, cleanQuote);
+        definitionItems.push({
+          id: citation.id,
+          citationId: citation.id,
+          word: parsed.word,
+          definition: parsed.definition,
+          etymology: parsed.etymology,
+          synonyms: parsed.synonyms,
+          rawText: cleanQuote,
+          sourceIndex: srcIdx,
+          orderIndex: definitionItems.length * 10
+        });
+        continue;
+      }
+
+      // Résolution des surlignages : s'ils sont stockés dans la citation, on les utilise en priorité.
+      // S'ils ne sont pas encore stockés et que la liste des sermons est fournie, on les extrait du sermon correspondant.
+      let citationHighlights = citation.highlights;
+      if ((!citationHighlights || citationHighlights.length === 0) && sermons && sermons.length > 0 && citation.sermon_id) {
+        const matchingSermon = sermons.find(s => s.id === citation.sermon_id);
+        if (matchingSermon && matchingSermon.highlights && matchingSermon.highlights.length > 0) {
+          citationHighlights = extractHighlightsFromSermon(matchingSermon, cleanQuote, citation.paragraph_index);
+        }
+      }
+
       // Clé d'unicité pour filtrer les doublons historiques
       const dedupKey = `${citation.sermon_id || ''}_${citation.paragraph_index ?? ''}_${cleanQuote.toLowerCase()}`;
       if (seenCitations.has(dedupKey)) continue;
@@ -260,38 +424,47 @@ export function processNoteData(note: Note): ProcessedNoteData {
 
       if (isScriptureSource && !/Exposé|Expose|Sermon|Prédication|Brochure|Message/i.test(titleSnap)) {
         const version = versionSnap || 'LSG 1910';
-        const srcIdx = getOrAddSource(titleSnap || 'Bible', 'scripture', version, paraRef, citation.id);
+        const srcIdx = getOrAddSource(titleSnap || 'Bible', 'scripture', version, paraRef, citation.id, citation.sermon_id, citation.paragraph_index, cleanQuote);
         scriptureCitations.push({
           citationId: citation.id,
+          sermonId: citation.sermon_id,
+          paragraphIndex: citation.paragraph_index,
           quote: cleanQuote,
           reference: `${titleSnap || 'Bible'}${version ? ` — ${version}` : ''}`,
-          sourceIndex: srcIdx
+          sourceIndex: srcIdx,
+          highlights: citationHighlights
         });
       } else if (isChurchAgeSource) {
         const metaParts = [];
         if (dateSnap) metaParts.push(dateSnap);
         if (paraRef) metaParts.push(paraRef);
 
-        const srcIdx = getOrAddSource(titleSnap || "Exposé des Sept Âges", 'sermon', dateSnap, paraRef, citation.id);
+        const srcIdx = getOrAddSource(titleSnap || "Exposé des Sept Âges", 'sermon', dateSnap, paraRef, citation.id, citation.sermon_id, citation.paragraph_index, cleanQuote);
         churchAgeCitations.push({
           citationId: citation.id,
+          sermonId: citation.sermon_id,
+          paragraphIndex: citation.paragraph_index,
           quote: cleanQuote,
           sourceTitle: titleSnap || "Exposé des Sept Âges",
           sourceMeta: metaParts.join(' — '),
-          sourceIndex: srcIdx
+          sourceIndex: srcIdx,
+          highlights: citationHighlights
         });
       } else {
         const metaParts = [];
         if (dateSnap) metaParts.push(dateSnap);
         if (paraRef) metaParts.push(paraRef);
 
-        const srcIdx = getOrAddSource(titleSnap || 'Exposé / Enseignement', 'sermon', dateSnap, paraRef, citation.id);
+        const srcIdx = getOrAddSource(titleSnap || 'Exposé / Enseignement', 'sermon', dateSnap, paraRef, citation.id, citation.sermon_id, citation.paragraph_index, cleanQuote);
         teachingCitations.push({
           citationId: citation.id,
+          sermonId: citation.sermon_id,
+          paragraphIndex: citation.paragraph_index,
           quote: cleanQuote,
           sourceTitle: titleSnap || 'Exposé / Enseignement',
           sourceMeta: metaParts.join(' — '),
-          sourceIndex: srcIdx
+          sourceIndex: srcIdx,
+          highlights: citationHighlights
         });
       }
     }
@@ -302,7 +475,7 @@ export function processNoteData(note: Note): ProcessedNoteData {
 
   const buildSectionItems = (
     category: 'scripture' | 'church_age' | 'teaching',
-    citations: Array<{ citationId: string; quote: string; reference?: string; sourceTitle?: string; sourceMeta?: string; sourceIndex?: number }>
+    citations: Array<{ citationId: string; sermonId?: string; paragraphIndex?: number; quote: string; reference?: string; sourceTitle?: string; sourceMeta?: string; sourceIndex?: number; highlights?: CitationHighlight[] }>
   ): NoteSectionItem[] => {
     const items: NoteSectionItem[] = [];
 
@@ -312,12 +485,15 @@ export function processNoteData(note: Note): ProcessedNoteData {
         kind: 'citation',
         id: c.citationId,
         citationId: c.citationId,
+        sermonId: c.sermonId,
+        paragraphIndex: c.paragraphIndex,
         quote: c.quote,
         reference: c.reference,
         sourceTitle: c.sourceTitle,
         sourceMeta: c.sourceMeta,
         sourceIndex: c.sourceIndex,
-        orderIndex: idx * 10
+        orderIndex: idx * 10,
+        highlights: c.highlights
       });
     });
 
@@ -399,6 +575,11 @@ export function processNoteData(note: Note): ProcessedNoteData {
         item.sourceIndex = indexMapping.get(item.sourceIndex);
       }
     }
+    for (const item of definitionItems) {
+      if (item.sourceIndex && indexMapping.has(item.sourceIndex)) {
+        item.sourceIndex = indexMapping.get(item.sourceIndex);
+      }
+    }
     for (const sc of scriptureCitations) {
       if (sc.sourceIndex && indexMapping.has(sc.sourceIndex)) {
         sc.sourceIndex = indexMapping.get(sc.sourceIndex);
@@ -472,6 +653,15 @@ export function processNoteData(note: Note): ProcessedNoteData {
     }
   }
 
+  if (definitionItems.length > 0) {
+    markdown += `### Dictionnaire & Lexique Biblique\n\n`;
+    for (const item of definitionItems) {
+      markdown += `**${item.word}** : ${item.definition}\n\n`;
+      if (item.etymology) markdown += `*Étymologie :* ${item.etymology}\n\n`;
+      if (item.synonyms && item.synonyms.length > 0) markdown += `*Synonymes :* ${item.synonyms.join(', ')}\n\n`;
+    }
+  }
+
   if (sourcesList.length > 0) {
     markdown += `## Sources\n\n`;
     for (const src of sourcesList) {
@@ -486,6 +676,7 @@ export function processNoteData(note: Note): ProcessedNoteData {
     scriptureItems,
     churchAgeItems,
     teachingItems,
+    definitionItems,
     scriptureCitations,
     churchAgeCitations,
     teachingCitations,

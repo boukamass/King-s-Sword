@@ -3,7 +3,8 @@ const PRECACHE_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/favicon-32x32.png'
+  '/favicon-32x32.png',
+  '/dictionary-fr.json'
 ];
 
 self.addEventListener('install', (event) => {

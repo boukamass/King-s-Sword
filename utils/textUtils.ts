@@ -187,6 +187,93 @@ export const getMultiWordHighlightRegex = (query: string): RegExp => {
 };
 
 /**
+ * Expression régulière détectant le début d'un paragraphe numéroté (ex: "1.", "1)", "[1]", "1 -", "E-1", "§1", "001.")
+ */
+export const NUMBERED_LINE_REGEX = /^(?:\[?\s*(\d+)\s*\]?|(\d+)[\.\)\:\-\s]|E-(\d+)|\§\s*(\d+))/i;
+
+/**
+ * Extrait le numéro de paragraphe explicite au début d'un texte s'il existe.
+ */
+export const extractLeadingParagraphNumber = (text: string): number | null => {
+  if (!text) return null;
+  const match = text.trim().match(/^(?:\[?\s*(\d+)\s*\]?|(\d+)[\.\)\:\-\s]|E-(\d+)|\§\s*(\d+))/i);
+  if (match) {
+    const raw = match[1] || match[2] || match[3] || match[4];
+    const n = parseInt(raw, 10);
+    if (!isNaN(n) && n > 0) return n;
+  }
+  return null;
+};
+
+/**
+ * Découpe robuste et intégrale d'un sermon en paragraphes sans tronquage :
+ * - Gère les séparations standards par double saut de ligne (\n\n)
+ * - Gère les sermons longs (500+ paragraphes) séparés par saut de ligne simple (\n) ou numérotés
+ * - Préserve l'intégralité de chaque paragraphe et son ordre exact.
+ */
+export const splitSermonIntoParagraphs = (text: string, isSong = false): string[] => {
+  if (!text) return [];
+
+  // Pour les cantiques, découpage standard par strophes
+  if (isSong) {
+    return text.split(/\r?\n\s*\r?\n+/).map(s => s.trim()).filter(Boolean);
+  }
+
+  // Normalisation des fins de ligne
+  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const doubleBlocks = normalized.split(/\n\s*\n+/).map(s => s.trim()).filter(Boolean);
+  const singleLines = normalized.split('\n').map(s => s.trim()).filter(Boolean);
+  const numberedCount = singleLines.filter(l => NUMBERED_LINE_REGEX.test(l)).length;
+
+  // Si le texte n'a pas ou très peu de doubles sauts mais de nombreuses lignes numérotées
+  if (doubleBlocks.length <= 5 && singleLines.length > doubleBlocks.length && numberedCount >= Math.min(singleLines.length * 0.3, 3)) {
+    return splitByNumberedLines(singleLines);
+  }
+
+  // Raffinage des blocs doubles pour extraire d'éventuels paragraphes numérotés fusionnés
+  const results: string[] = [];
+  for (const block of doubleBlocks) {
+    const blockLines = block.split('\n').map(l => l.trim()).filter(Boolean);
+    const blockNumberedCount = blockLines.filter(l => NUMBERED_LINE_REGEX.test(l)).length;
+
+    if (blockLines.length > 1 && blockNumberedCount >= 2) {
+      let currentSeg = '';
+      for (const line of blockLines) {
+        if (NUMBERED_LINE_REGEX.test(line)) {
+          if (currentSeg.trim()) results.push(currentSeg.trim());
+          currentSeg = line;
+        } else {
+          currentSeg = currentSeg ? currentSeg + '\n' + line : line;
+        }
+      }
+      if (currentSeg.trim()) results.push(currentSeg.trim());
+    } else {
+      results.push(block);
+    }
+  }
+
+  return results.length > 0 ? results : doubleBlocks;
+};
+
+function splitByNumberedLines(lines: string[]): string[] {
+  const segments: string[] = [];
+  let current = '';
+
+  for (const line of lines) {
+    if (NUMBERED_LINE_REGEX.test(line)) {
+      if (current.trim()) segments.push(current.trim());
+      current = line;
+    } else if (current) {
+      current += ' ' + line;
+    } else {
+      current = line;
+    }
+  }
+  if (current.trim()) segments.push(current.trim());
+  return segments.length > 0 ? segments : lines;
+}
+
+/**
  * Fusionne les balises <mark> adjacentes pour créer un surlignage unifié sans rupture visuelle.
  */
 export const mergeAdjacentMarks = (html: string): string => {
@@ -200,3 +287,4 @@ export const mergeAdjacentMarks = (html: string): string => {
   }
   return merged;
 };
+

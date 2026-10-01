@@ -72,6 +72,15 @@ export interface SourceSearchState {
   isFullTextSearch: boolean;
   selectedSynonym: string | null;
   activeSynonyms: string[];
+  selectedSearchParagraphId?: string | null;
+  selectedSermonId?: string | null;
+  activeSermon?: Sermon | null;
+  jumpToParagraph?: number | null;
+  selectedBibleBookId?: string | null;
+  selectedBibleChapter?: number | null;
+  selectedBibleVerse?: number | null;
+  selectedExposeChapter?: string | null;
+  selectedExposeSection?: string | null;
 }
 
 interface AppState {
@@ -126,6 +135,8 @@ interface AppState {
   pendingStudyRequest: string | null;
   jumpToText: string | null;
   jumpToParagraph: number | null;
+  selectedSearchParagraphId: string | null;
+  setSelectedSearchParagraphId: (id: string | null) => void;
   isProjectionOpen: boolean;
   projectionBlackout: boolean;
   isExternalMaskOpen: boolean;
@@ -250,10 +261,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   manualContextIds: [],
   libraryMode: 'sermons',
   sourceSearchStates: {
-    sermons: { searchQuery: '', searchResults: [], isFullTextSearch: false, selectedSynonym: null, activeSynonyms: [] },
-    bible: { searchQuery: '', searchResults: [], isFullTextSearch: false, selectedSynonym: null, activeSynonyms: [] },
-    expose: { searchQuery: '', searchResults: [], isFullTextSearch: false, selectedSynonym: null, activeSynonyms: [] },
-    songs: { searchQuery: '', searchResults: [], isFullTextSearch: false, selectedSynonym: null, activeSynonyms: [] },
+    sermons: { searchQuery: '', searchResults: [], isFullTextSearch: false, selectedSynonym: null, activeSynonyms: [], selectedSearchParagraphId: null, selectedSermonId: null, activeSermon: null, jumpToParagraph: null },
+    bible: { searchQuery: '', searchResults: [], isFullTextSearch: false, selectedSynonym: null, activeSynonyms: [], selectedSearchParagraphId: null, selectedSermonId: null, activeSermon: null, jumpToParagraph: null },
+    expose: { searchQuery: '', searchResults: [], isFullTextSearch: false, selectedSynonym: null, activeSynonyms: [], selectedSearchParagraphId: null, selectedSermonId: null, activeSermon: null, jumpToParagraph: null },
+    songs: { searchQuery: '', searchResults: [], isFullTextSearch: false, selectedSynonym: null, activeSynonyms: [], selectedSearchParagraphId: null, selectedSermonId: null, activeSermon: null, jumpToParagraph: null },
   },
   songsSortOrder: 'number-asc',
   songLanguageFilter: null,
@@ -305,6 +316,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   pendingStudyRequest: null,
   jumpToText: null,
   jumpToParagraph: null,
+  selectedSearchParagraphId: null,
   isProjectionOpen: false,
   projectionBlackout: false,
   isExternalMaskOpen: false,
@@ -523,29 +535,64 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setLibraryMode: (mode) => {
-    const { libraryMode: currentMode, searchQuery, searchResults, isFullTextSearch, selectedSynonym, activeSynonyms, sourceSearchStates } = get();
+    const state = get();
+    const currentMode = state.libraryMode;
     if (currentMode === mode) return;
 
-    // 1. Sauvegarder l'état actuel de recherche pour la source quittée
-    const updatedSourceStates: Record<LibraryMode, SourceSearchState> = {
-      ...sourceSearchStates,
-      [currentMode]: {
-        searchQuery,
-        searchResults,
-        isFullTextSearch,
-        selectedSynonym,
-        activeSynonyms: activeSynonyms || []
-      }
-    };
-
-    // 2. Restaurer l'état propre à la source cible (ou un état vierge par défaut)
-    const targetState: SourceSearchState = updatedSourceStates[mode] || {
+    // 1. Sauvegarder l'état complet actuel pour la source/rubrique quittée
+    const currentSource = state.sourceSearchStates?.[currentMode] || {
       searchQuery: '',
       searchResults: [],
       isFullTextSearch: false,
       selectedSynonym: null,
       activeSynonyms: []
     };
+
+    const updatedSourceStates: Record<LibraryMode, SourceSearchState> = {
+      ...state.sourceSearchStates,
+      [currentMode]: {
+        ...currentSource,
+        searchQuery: state.searchQuery,
+        searchResults: state.searchResults,
+        isFullTextSearch: state.isFullTextSearch,
+        selectedSynonym: state.selectedSynonym,
+        activeSynonyms: state.activeSynonyms || [],
+        selectedSearchParagraphId: state.selectedSearchParagraphId,
+        selectedSermonId: state.selectedSermonId,
+        activeSermon: state.activeSermon,
+        jumpToParagraph: state.jumpToParagraph,
+        selectedBibleBookId: state.selectedBibleBookId,
+        selectedBibleChapter: state.selectedBibleChapter,
+        selectedBibleVerse: state.selectedBibleVerse,
+        selectedExposeChapter: state.selectedExposeChapter,
+        selectedExposeSection: state.selectedExposeSection
+      }
+    };
+
+    // 2. Restaurer l'état complet propre à la source cible (ou un état vierge par défaut)
+    const targetState: SourceSearchState = updatedSourceStates[mode] || {
+      searchQuery: '',
+      searchResults: [],
+      isFullTextSearch: false,
+      selectedSynonym: null,
+      activeSynonyms: [],
+      selectedSearchParagraphId: null,
+      selectedSermonId: null,
+      activeSermon: null,
+      jumpToParagraph: null
+    };
+
+    // Déterminer le paragraphe cible si un snippet était sélectionné
+    let targetParagraph = targetState.jumpToParagraph ?? null;
+    if (targetState.selectedSearchParagraphId && targetState.searchResults?.length > 0) {
+      const foundResult = targetState.searchResults.find(r => r.paragraphId === targetState.selectedSearchParagraphId);
+      if (foundResult) {
+        targetParagraph = foundResult.paragraphIndex;
+        if (!targetState.selectedSermonId) {
+          targetState.selectedSermonId = foundResult.sermonId;
+        }
+      }
+    }
 
     set({
       libraryMode: mode,
@@ -556,15 +603,29 @@ export const useAppStore = create<AppState>((set, get) => ({
       isFullTextSearch: targetState.isFullTextSearch,
       selectedSynonym: targetState.selectedSynonym,
       activeSynonyms: targetState.activeSynonyms,
+      selectedSearchParagraphId: targetState.selectedSearchParagraphId ?? null,
+      selectedSermonId: targetState.selectedSermonId ?? null,
+      activeSermon: targetState.activeSermon ?? null,
+      jumpToParagraph: targetParagraph,
+      selectedBibleBookId: targetState.selectedBibleBookId ?? (mode === 'bible' ? state.selectedBibleBookId : null),
+      selectedBibleChapter: targetState.selectedBibleChapter ?? (mode === 'bible' ? state.selectedBibleChapter : null),
+      selectedBibleVerse: targetState.selectedBibleVerse ?? null,
+      selectedExposeChapter: targetState.selectedExposeChapter ?? (mode === 'expose' ? state.selectedExposeChapter : null),
+      selectedExposeSection: targetState.selectedExposeSection ?? (mode === 'expose' ? state.selectedExposeSection : null),
       isSearching: false,
-      selectedSermonId: null,
-      activeSermon: null,
       jumpToText: null,
-      jumpToParagraph: null,
-      selectedBibleVerse: null,
-      navigatedFromSearch: false,
+      navigatedFromSearch: Boolean(targetState.selectedSearchParagraphId),
       navigatedFromNoteId: null
     });
+
+    // Si un document était sélectionné mais pas encore chargé en mémoire, le charger
+    if (targetState.selectedSermonId && (!targetState.activeSermon || targetState.activeSermon.id !== targetState.selectedSermonId)) {
+      get().setSelectedSermonId(targetState.selectedSermonId).then(() => {
+        if (targetParagraph) {
+          get().setJumpToParagraph(targetParagraph);
+        }
+      });
+    }
   },
   setSongsSortOrder: (order) => set({ songsSortOrder: order }),
   setSongLanguageFilter: (lang) => set({ songLanguageFilter: lang }),
@@ -692,6 +753,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         
         if (results.length > 0) {
           const first = results[0];
+          get().setSelectedSearchParagraphId(first.paragraphId);
           await get().setSelectedSermonId(first.sermonId);
           get().setJumpToParagraph(first.paragraphIndex);
         } else {
@@ -719,6 +781,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           
           if (results.length > 0) {
               const first = results[0];
+              get().setSelectedSearchParagraphId(first.paragraphId);
               await get().setSelectedSermonId(first.sermonId);
               get().setJumpToParagraph(first.paragraphIndex);
           } else {
@@ -745,6 +808,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           
           if (results.length > 0) {
               const first = results[0];
+              get().setSelectedSearchParagraphId(first.paragraphId);
               await get().setSelectedSermonId(first.sermonId);
               get().setJumpToParagraph(first.paragraphIndex);
           } else {
@@ -772,6 +836,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         
         if (results.length > 0) {
           const first = results[0];
+          get().setSelectedSearchParagraphId(first.paragraphId);
           await get().setSelectedSermonId(first.sermonId);
           get().setJumpToParagraph(first.paragraphIndex);
         } else {
@@ -1146,6 +1211,20 @@ export const useAppStore = create<AppState>((set, get) => ({
   triggerStudyRequest: (t) => set({ pendingStudyRequest: t, aiOpen: true }),
   setJumpToText: (t) => set({ jumpToText: t }),
   setJumpToParagraph: (num) => set({ jumpToParagraph: num }),
+  setSelectedSearchParagraphId: (id) => set(state => {
+    const currentMode = state.libraryMode;
+    const currentSource = state.sourceSearchStates?.[currentMode];
+    return {
+      selectedSearchParagraphId: id,
+      sourceSearchStates: currentSource ? {
+        ...state.sourceSearchStates,
+        [currentMode]: {
+          ...currentSource,
+          selectedSearchParagraphId: id
+        }
+      } : state.sourceSearchStates
+    };
+  }),
   
   updateSermonHighlights: (id, highlights) => set(state => {
     const activeSermon = state.activeSermon;

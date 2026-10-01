@@ -1,7 +1,7 @@
 import { searchSermons, getSermonById } from './db';
 import { SearchMode, Sermon } from '../types';
 import { useAppStore } from '../store';
-import { normalizeText } from '../utils/textUtils';
+import { normalizeText, splitSermonIntoParagraphs, extractLeadingParagraphNumber } from '../utils/textUtils';
 
 export interface RetrievedParagraph {
   sermonId: string;
@@ -89,7 +89,12 @@ const fetchFullParagraphContent = async (sermonId: string, paragraphIndex: numbe
   // 1. Essayer depuis le cache en mémoire (store Zustand)
   const cachedSermon = store.sermonsMap.get(sermonId) as Sermon | undefined;
   if (cachedSermon?.text) {
-    const paragraphs = cachedSermon.text.split(/\n\s*\n/);
+    const paragraphs = splitSermonIntoParagraphs(cachedSermon.text);
+    const found = paragraphs.find((p, i) => {
+      const explicit = extractLeadingParagraphNumber(p);
+      return (explicit !== null ? explicit : i + 1) === paragraphIndex;
+    });
+    if (found) return found.trim();
     if (paragraphIndex >= 1 && paragraphIndex <= paragraphs.length) {
       return paragraphs[paragraphIndex - 1].trim();
     }
@@ -99,7 +104,12 @@ const fetchFullParagraphContent = async (sermonId: string, paragraphIndex: numbe
   try {
     const dbSermon = await getSermonById(sermonId);
     if (dbSermon?.text) {
-      const paragraphs = dbSermon.text.split(/\n\s*\n/);
+      const paragraphs = splitSermonIntoParagraphs(dbSermon.text);
+      const found = paragraphs.find((p, i) => {
+        const explicit = extractLeadingParagraphNumber(p);
+        return (explicit !== null ? explicit : i + 1) === paragraphIndex;
+      });
+      if (found) return found.trim();
       if (paragraphIndex >= 1 && paragraphIndex <= paragraphs.length) {
         return paragraphs[paragraphIndex - 1].trim();
       }

@@ -1,225 +1,420 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { getGeminiApiKey } from "../utils/apiKeyHelper";
+import { getAllGeminiApiKeys } from "../utils/apiKeyHelper";
+import { fetchJsonSafe } from "../utils/fetchHelper";
+import { get as idbGet, set as idbSet } from "idb-keyval";
 
-const CACHE_KEY = 'sermon_dictionary_cache';
+const CACHE_KEY = 'sermon_dictionary_cache_v2';
+const IDB_DICT_KEY = 'kings_sword_offline_dictionary_fr_v2';
 
 export interface WordDefinition {
   word: string;
   definition: string;
   synonyms: string[];
   etymology?: string;
+  source?: string;
+  grammarNote?: string;
 }
 
-// Dictionnaire théologique et biblique offline intégré
-const OFFLINE_DICTIONARY: Record<string, WordDefinition> = {
-  "justification": {
-    word: "Justification",
-    definition: "Acte de grâce par lequel Dieu déclare le croyant juste et sans péché par la foi en l'œuvre rédemptrice de Jésus-Christ.",
-    synonyms: ["Absolution", "Réconciliation", "Grâce", "Rédemption"],
-    etymology: "Du latin justificatio, rendre juste devant Dieu."
-  },
-  "sanctification": {
-    word: "Sanctification",
-    definition: "Processus de mise à part et de purification de l'esprit, de l'âme et du corps pour le service et la communion divine.",
-    synonyms: ["Purification", "Consécration", "Sainteté", "Mise à part"],
-    etymology: "Du latin sanctificare, rendre saint."
-  },
-  "bapteme": {
-    word: "Baptême",
-    definition: "Immersion d'eau au Nom du Seigneur Jésus-Christ pour la rémission des péchés, et baptême du Saint-Esprit comme sceau divin.",
-    synonyms: ["Immersion", "Nouvelle naissance", "Sceau du Saint-Esprit"],
-    etymology: "Du grec baptisma, plongeon ou immersion complète."
-  },
-  "baptême": {
-    word: "Baptême",
-    definition: "Immersion d'eau au Nom du Seigneur Jésus-Christ pour la rémission des péchés, et baptême du Saint-Esprit comme sceau divin.",
-    synonyms: ["Immersion", "Nouvelle naissance", "Sceau du Saint-Esprit"],
-    etymology: "Du grec baptisma, plongeon ou immersion complète."
-  },
-  "sceau": {
-    word: "Sceau",
-    definition: "Marque de propriété, de sécurité et d'achèvement apposée par Dieu; référence aux Sept Sceaux du livre de l'Apocalypse.",
-    synonyms: ["Empreinte", "Signe", "Confirmation", "Révélation"],
-    etymology: "Du latin sigillum, marque ou cachet officiel."
-  },
-  "epouse": {
-    word: "Épouse",
-    definition: "Le corps mystique des croyants élus rachetés par le sang du Christ, préparés pour les noces de l'Agneau.",
-    synonyms: ["Corps du Christ", "Église élue", "Fiancée céleste"],
-    etymology: "Du latin sponsa, promise par serment."
-  },
-  "épouse": {
-    word: "Épouse",
-    definition: "Le corps mystique des croyants élus rachetés par le sang du Christ, préparés pour les noces de l'Agneau.",
-    synonyms: ["Corps du Christ", "Église élue", "Fiancée céleste"],
-    etymology: "Du latin sponsa, promise par serment."
-  },
-  "prophete": {
-    word: "Prophète",
-    definition: "Porte-parole inspiré par l'Esprit de Dieu, à qui la Parole du Seigneur vient (Amos 3:7), révélateur des desseins divins.",
-    synonyms: ["Voyant", "Messager", "Sentinelle", "Porteur de Parole"],
-    etymology: "Du grec prophetes, celui qui proclame au nom d'un autre."
-  },
-  "prophète": {
-    word: "Prophète",
-    definition: "Porte-parole inspiré par l'Esprit de Dieu, à qui la Parole du Seigneur vient (Amos 3:7), révélateur des desseins divins.",
-    synonyms: ["Voyant", "Messager", "Sentinelle", "Porteur de Parole"],
-    etymology: "Du grec prophetes, celui qui proclame au nom d'un autre."
-  },
-  "foi": {
-    word: "Foi",
-    definition: "La révélation spirituelle et la certitude absolue des choses qu'on espère, une démonstration de celles qu'on ne voit pas.",
-    synonyms: ["Confiance", "Assurance", "Révélation", "Certitude"],
-    etymology: "Du latin fides, confiance et fidélité."
-  },
-  "grace": {
-    word: "Grâce",
-    definition: "Faveur imméritée et bonté souveraine accordée par Dieu aux hommes pour leur salut et leur restauration.",
-    synonyms: ["Faveur", "Miséricorde", "Bénédiction", "Don divin"],
-    etymology: "Du latin gratia, bienveillance spontanée."
-  },
-  "grâce": {
-    word: "Grâce",
-    definition: "Faveur imméritée et bonté souveraine accordée par Dieu aux hommes pour leur salut et leur restauration.",
-    synonyms: ["Faveur", "Miséricorde", "Bénédiction", "Don divin"],
-    etymology: "Du latin gratia, bienveillance spontanée."
-  },
-  "alliance": {
-    word: "Alliance",
-    definition: "Pacte sacré et solennel établi entre Dieu et Son peuple, scellé par le sang et assorti de promesses éternelles.",
-    synonyms: ["Pacte", "Testament", "Promesse", "Engagement divin"],
-    etymology: "De l'hébreu berith et du grec diatheke."
-  },
-  "redemption": {
-    word: "Rédemption",
-    definition: "Rachat et libération de l'homme de la servitude du péché au prix du sacrifice parfait du Calvaire.",
-    synonyms: ["Rachat", "Délivrance", "Salut", "Expiation"],
-    etymology: "Du latin redemptio, rachat d'un captif."
-  },
-  "rédemption": {
-    word: "Rédemption",
-    definition: "Rachat et libération de l'homme de la servitude du péché au prix du sacrifice parfait du Calvaire.",
-    synonyms: ["Rachat", "Délivrance", "Salut", "Expiation"],
-    etymology: "Du latin redemptio, rachat d'un captif."
-  },
-  "jubile": {
-    word: "Jubilé",
-    definition: "Temps d'affranchissement, de liberté totale, de retour aux possessions d'origine et de proclamation de grâce.",
-    synonyms: ["Libération", "Affranchissement", "Année de grâce", "Restauration"],
-    etymology: "De l'hébreu yobel, son du cor ou de la trompette de bélier."
-  },
-  "jubilé": {
-    word: "Jubilé",
-    definition: "Temps d'affranchissement, de liberté totale, de retour aux possessions d'origine et de proclamation de grâce.",
-    synonyms: ["Libération", "Affranchissement", "Année de grâce", "Restauration"],
-    etymology: "De l'hébreu yobel, son du cor ou de la trompette de bélier."
-  },
-  "pyramide": {
-    word: "Pyramide",
-    definition: "Figure architecturale et prophétique représentant la stature de l'homme parfait coiffée par la Pierre de Faîte (Capstone).",
-    synonyms: ["Édifice spirituel", "Stature de la foi", "Montagne sainte"],
-    etymology: "Du grec pyramis."
-  },
-  "aigle": {
-    word: "Aigle",
-    definition: "Symbole prophétique de la vision pénétrante, de la hauteur spirituelle et de la capacité à voler dans les hautes sphères célestes.",
-    synonyms: ["Vision céleste", "Esprit de prophétie", "Hauteur spirituelle"],
-    etymology: "Du latin aquila, oiseau noble et perçant."
-  },
-  "colonne": {
-    word: "Colonne de Feu",
-    definition: "Manifestation visible de la Présence divine et de l'Ange de l'Alliance guidant Son peuple depuis l'Ancien Testament jusqu'à notre époque.",
-    synonyms: ["Présence de Dieu", "Shekinah", "Lumière divine", "Ange de l'Alliance"],
-    etymology: "Symbole de la direction et de la lumière céleste."
+interface DictionaryEntry {
+  w: string;
+  d: string;
+  s?: string[];
+  e?: string;
+}
+
+// Base en mémoire du dictionnaire intégral français téléchargé
+let offlineDictionaryMap: Record<string, DictionaryEntry> | null = null;
+let offlineDictionaryPromise: Promise<Record<string, DictionaryEntry> | null> | null = null;
+
+/**
+ * Charge le dictionnaire complet français (55 000+ mots) au format JSON comme pour la Bible
+ * Priorité 1 : Mémoire vive
+ * Priorité 2 : IndexedDB (cache local permanent hors-ligne)
+ * Priorité 3 : /dictionary-fr.json (avec mise en cache IndexedDB automatique)
+ */
+export const ensureOfflineDictionaryLoaded = async (): Promise<Record<string, DictionaryEntry> | null> => {
+  if (offlineDictionaryMap && Object.keys(offlineDictionaryMap).length > 0) {
+    return offlineDictionaryMap;
   }
+  if (!offlineDictionaryPromise) {
+    offlineDictionaryPromise = (async () => {
+      // 1. Tenter le chargement depuis IndexedDB
+      try {
+        if (typeof window !== 'undefined') {
+          const cachedIdb = await idbGet<Record<string, DictionaryEntry>>(IDB_DICT_KEY);
+          if (cachedIdb && typeof cachedIdb === 'object' && Object.keys(cachedIdb).length > 1000) {
+            offlineDictionaryMap = cachedIdb;
+            return cachedIdb;
+          }
+        }
+      } catch (idbErr) {
+        console.warn("IndexedDB dictionary read failed, will fetch json:", idbErr);
+      }
+
+      // 2. Télécharger depuis le fichier local public /dictionary-fr.json (comme pour la Bible)
+      try {
+        const data = await fetchJsonSafe<Record<string, DictionaryEntry>>(
+          '/dictionary-fr.json',
+          ['dictionary-fr.json', './dictionary-fr.json']
+        );
+        if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+          offlineDictionaryMap = data;
+          // Sauvegarder dans IndexedDB en arrière-plan sans bloquer
+          if (typeof window !== 'undefined') {
+            idbSet(IDB_DICT_KEY, data).catch(() => {});
+          }
+          return data;
+        }
+      } catch (err) {
+        console.warn("Échec du chargement du dictionnaire offline /dictionary-fr.json:", err);
+      }
+      return null;
+    })();
+  }
+  return offlineDictionaryPromise;
 };
 
+// Démarrer le préchargement transparent en arrière-plan sans bloquer
+if (typeof window !== 'undefined') {
+  setTimeout(() => {
+    ensureOfflineDictionaryLoaded().catch(() => {});
+  }, 500);
+}
+
+/**
+ * Normalise un mot ou une expression en retirant les guillemets, ponctuations et articles élidés français
+ */
+export const normalizeWord = (raw: string): string => {
+  if (!raw) return "";
+  let w = raw.trim();
+  w = w.replace(/^[«"'\u2018\u201C\(\[\{]+/g, "").replace(/[»"'\u2019\u201D\)\]\}.,;:!?;\-]+$/g, "");
+  w = w.replace(/^[ldjqcsnmtLDJQCSNMT]['’]/, "");
+  w = w.replace(/^[«"'\u2018\u201C\(\[\{]+/g, "").replace(/[»"'\u2019\u201D\)\]\}.,;:!?;\-]+$/g, "");
+  return w.trim();
+};
+
+/**
+ * Transforme en clé canonique de recherche (sans accents, sans ponctuation, avec gestion des ligatures œ et æ)
+ */
+export const toLookupKey = (raw: string): string => {
+  const norm = normalizeWord(raw);
+  return norm
+    .toLowerCase()
+    .replace(/œ/g, "oe")
+    .replace(/æ/g, "ae")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "");
+};
+
+// Modèles Gemini officiels recommandés par ordre de priorité si en ligne
+const CANDIDATE_MODELS = [
+  "gemini-3.8-flash",
+  "gemini-3.1-flash-lite",
+  "gemini-2.5-flash",
+  "gemini-flash-latest"
+];
+
+/**
+ * Nettoie le cache local de toute entrée polluée par l'ancien message générique
+ */
 const getCache = (): Record<string, WordDefinition> => {
   try {
-    return JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+    const raw = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+    let hasChanged = false;
+    for (const key of Object.keys(raw)) {
+      const def = raw[key];
+      if (
+        !def ||
+        !def.definition ||
+        def.definition.includes("Terme théologique et lexical employé") ||
+        def.definition.includes("Représente un principe fondamental de foi") ||
+        def.definition.includes("Forme lexicale étudiée dans le contexte du Message")
+      ) {
+        delete raw[key];
+        hasChanged = true;
+      }
+    }
+    if (hasChanged) {
+      localStorage.setItem(CACHE_KEY, JSON.stringify(raw));
+    }
+    return raw;
   } catch {
     return {};
   }
 };
 
-const setCache = (word: string, definition: WordDefinition) => {
-  const cache = getCache();
-  cache[word.toLowerCase()] = definition;
-  localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+const setCache = (lookupKey: string, definition: WordDefinition) => {
+  try {
+    if (
+      !definition || 
+      !definition.definition || 
+      definition.definition.includes("Terme théologique et lexical employé")
+    ) {
+      return;
+    }
+    const cache = getCache();
+    cache[lookupKey] = definition;
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+  } catch (e) {
+    console.warn("Échec d'écriture dans le cache dictionnaire:", e);
+  }
 };
 
+interface ResolvedDictionaryMatch {
+  entry: DictionaryEntry;
+  baseWord?: string;
+  grammarNote?: string;
+}
+
+/**
+ * Recherche avec lemmatisation avancée (pluriels, féminins, verbes conjugués, formes dérivées)
+ * et résolution des renvois ("Du verbe X", "Féminin de Y", "Pluriel de Z")
+ */
+const resolveEntry = (
+  key: string,
+  dict: Record<string, DictionaryEntry>,
+  depth = 0
+): ResolvedDictionaryMatch | null => {
+  if (!key || depth > 2) return null;
+
+  let entry: DictionaryEntry | undefined = dict[key];
+  let grammarNote: string | undefined = undefined;
+
+  if (!entry) {
+    // 1. Pluriel en aux -> al (animaux -> animal, journaux -> journal)
+    if (key.endsWith('aux')) {
+      const cand = key.slice(0, -3) + 'al';
+      if (dict[cand]) {
+        entry = dict[cand];
+        grammarNote = `Forme plurielle (pluriel de ${dict[cand].w})`;
+      }
+    }
+
+    // 2. Pluriel en eaux -> eau (oiseaux -> oiseau, châteaux -> château)
+    if (!entry && key.endsWith('eaux')) {
+      const cand = key.slice(0, -1);
+      if (dict[cand]) {
+        entry = dict[cand];
+        grammarNote = `Forme plurielle (pluriel de ${dict[cand].w})`;
+      }
+    }
+
+    // 3. Pluriel en -s ou -x
+    if (!entry && (key.endsWith('s') || key.endsWith('x'))) {
+      const cand = key.slice(0, -1);
+      if (dict[cand]) {
+        entry = dict[cand];
+        grammarNote = `Forme plurielle (de ${dict[cand].w})`;
+      } else if (cand.endsWith('e') && dict[cand.slice(0, -1)]) {
+        const base = cand.slice(0, -1);
+        entry = dict[base];
+        grammarNote = `Forme féminine plurielle (de ${dict[base].w})`;
+      }
+    }
+
+    // 4. Formes féminines en -e, -ée, -ive, -rice, -euse
+    if (!entry && key.endsWith('rice') && dict[key.slice(0, -4) + 'teur']) {
+      const base = key.slice(0, -4) + 'teur';
+      entry = dict[base];
+      grammarNote = `Forme féminine (de ${dict[base].w})`;
+    }
+    if (!entry && key.endsWith('ive') && dict[key.slice(0, -3) + 'if']) {
+      const base = key.slice(0, -3) + 'if';
+      entry = dict[base];
+      grammarNote = `Forme féminine (de ${dict[base].w})`;
+    }
+    if (!entry && key.endsWith('euse') && dict[key.slice(0, -4) + 'eur']) {
+      const base = key.slice(0, -4) + 'eur';
+      entry = dict[base];
+      grammarNote = `Forme féminine (de ${dict[base].w})`;
+    }
+    if (!entry && key.endsWith('ee') && dict[key.slice(0, -1)]) {
+      const cand = key.slice(0, -1);
+      entry = dict[cand];
+      grammarNote = `Participe passé / forme féminine (de ${dict[cand].w})`;
+    }
+    if (!entry && key.endsWith('e') && key.length > 3 && dict[key.slice(0, -1)]) {
+      const cand = key.slice(0, -1);
+      entry = dict[cand];
+      grammarNote = `Forme féminine (de ${dict[cand].w})`;
+    }
+
+    // 5. Terminaisons verbales courantes du français
+    if (!entry) {
+      const verbEndings: [string, string][] = [
+        ['aient', 'er'], ['erait', 'er'], ['eraient', 'er'], ['eront', 'er'],
+        ['erions', 'er'], ['eriez', 'er'], ['erent', 'er'],
+        ['ait', 'er'], ['ais', 'er'], ['ant', 'er'], ['ent', 'er'],
+        ['era', 'er'], ['eras', 'er'], ['ons', 'er'], ['ez', 'er'],
+        ['issant', 'ir'], ['issaient', 'ir'], ['issait', 'ir'], ['issent', 'ir'],
+        ['irait', 'ir'], ['ira', 'ir'], ['iront', 'ir']
+      ];
+      for (const [end, repl] of verbEndings) {
+        if (key.endsWith(end) && key.length > end.length + 2) {
+          const cand = key.slice(0, -end.length) + repl;
+          if (dict[cand]) {
+            entry = dict[cand];
+            grammarNote = `Forme conjuguée du verbe ${dict[cand].w}`;
+            break;
+          }
+          const cand2 = key.slice(0, -end.length);
+          if (dict[cand2]) {
+            entry = dict[cand2];
+            grammarNote = `Forme dérivée de ${dict[cand2].w}`;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  if (entry) {
+    // Si l'entrée trouvée est elle-même un renvoi grammatical laconique (ex. "Du verbe enseigner", "Féminin de saint")
+    const dLower = entry.d.toLowerCase();
+    const verbMatch = entry.d.match(/du verbe\s+([a-zà-ÿœæ-]+)/i);
+    const femMatch = entry.d.match(/féminin\s+(?:singulier|pluriel)?\s+de\s+([a-zà-ÿœæ-]+)/i);
+    const plurMatch = entry.d.match(/pluriel\s+de\s+([a-zà-ÿœæ-]+)/i);
+    const targetWord = (verbMatch && verbMatch[1]) || (femMatch && femMatch[1]) || (plurMatch && plurMatch[1]);
+    
+    if (targetWord) {
+      const targetKey = toLookupKey(targetWord);
+      if (targetKey && targetKey !== key && dict[targetKey]) {
+        const sub = resolveEntry(targetKey, dict, depth + 1);
+        if (sub && sub.entry && sub.entry.d && sub.entry.d.length > 20) {
+          return {
+            entry: sub.entry,
+            baseWord: sub.entry.w || targetWord,
+            grammarNote: `${entry.w} : ${entry.d.replace(/\.$/, '')}`
+          };
+        }
+      }
+    }
+
+    return {
+      entry,
+      grammarNote
+    };
+  }
+
+  return null;
+};
+
+/**
+ * Récupère la définition d'un mot ou d'une expression
+ * 1. Vérifie le cache local nettoyé
+ * 2. Vérifie le dictionnaire hors-ligne intégral (55 000+ mots) avec lemmatisation
+ * 3. En ligne avec clé API : interroge Gemini pour enrichir l'exégèse
+ * 4. Fallback informatif et noble sans texte générique
+ */
 export const getDefinition = async (word: string): Promise<WordDefinition> => {
-  const cleanedWord = word.trim().toLowerCase();
-  
-  // 1. Vérifier le cache local (100% offline)
+  const displayWord = normalizeWord(word) || word.trim();
+  const lookupKey = toLookupKey(word);
+
+  if (!lookupKey) {
+    return {
+      word: displayWord || "Terme",
+      definition: "Veuillez sélectionner un mot ou une expression valide à définir.",
+      synonyms: []
+    };
+  }
+
+  // 1. Vérifier le cache local nettoyé
   const cache = getCache();
-  if (cache[cleanedWord]) {
-    return cache[cleanedWord];
+  if (cache[lookupKey]) {
+    return cache[lookupKey];
   }
 
-  // 2. Vérifier le dictionnaire local offline intégré
-  if (OFFLINE_DICTIONARY[cleanedWord]) {
-    const def = OFFLINE_DICTIONARY[cleanedWord];
-    setCache(cleanedWord, def);
-    return def;
-  }
+  // 2. Vérifier le dictionnaire hors-ligne complet chargé depuis /dictionary-fr.json
+  const dictData = await ensureOfflineDictionaryLoaded();
+  if (dictData) {
+    const resolved = resolveEntry(lookupKey, dictData);
 
-  // Recherche approximative dans le dictionnaire offline
-  for (const [key, val] of Object.entries(OFFLINE_DICTIONARY)) {
-    if (cleanedWord.includes(key) || key.includes(cleanedWord)) {
-      setCache(cleanedWord, val);
-      return val;
+    if (resolved && resolved.entry && resolved.entry.d) {
+      const wordResult: WordDefinition = {
+        word: resolved.entry.w || (displayWord.charAt(0).toUpperCase() + displayWord.slice(1)),
+        definition: resolved.entry.d,
+        synonyms: resolved.entry.s && resolved.entry.s.length > 0 ? resolved.entry.s : [displayWord],
+        etymology: resolved.entry.e || undefined,
+        source: "Dictionnaire Webster & Français",
+        grammarNote: resolved.grammarNote
+      };
+      setCache(lookupKey, wordResult);
+      return wordResult;
     }
   }
 
-  // 3. Si en ligne et avec clé API disponible, interroger Gemini
-  const apiKey = getGeminiApiKey();
-  if (apiKey && navigator.onLine) {
-    try {
-      const ai = new GoogleGenAI({ apiKey });
-      const prompt = `Dictionnaire théologique et biblique de référence. Fournis une définition concise et profonde de : "${cleanedWord}".
-      Format JSON: word, definition, synonyms (array), etymology.`;
+  // 3. Si en ligne et qu'une clé API Gemini est disponible, interroger Gemini
+  const availableKeys = getAllGeminiApiKeys();
+  const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              word: { type: Type.STRING },
-              definition: { type: Type.STRING },
-              synonyms: { type: Type.ARRAY, items: { type: Type.STRING } },
-              etymology: { type: Type.STRING },
-            },
-            required: ["word", "definition", "synonyms"],
-          },
-        },
-      });
+  if (availableKeys.length > 0 && isOnline) {
+    for (const currentKey of availableKeys) {
+      try {
+        const ai = new GoogleGenAI({ apiKey: currentKey });
+        const prompt = `Tu es un dictionnaire de référence de langue française (style Webster 1828 et Littré) et un lexique d'autorité biblique et théologique.
+Fournis la définition rigoureuse, noble et complète du terme suivant : "${displayWord}".
 
-      let cleanText = (response.text || '').trim();
-      if (cleanText.startsWith('```')) {
-        cleanText = cleanText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+Format de réponse OBLIGATOIRE en JSON valide strict avec les propriétés suivantes :
+- "word": "${displayWord}" (avec la casse et les accents français corrects)
+- "definition": "Définition substantielle, claire et soignée (environ 2 à 4 phrases complètes, précisant le sens premier et, s'il y a lieu, le sens biblique ou moral)."
+- "synonyms": ["tableau", "de 3 à 6", "termes ou synonymes", "associés"]
+- "etymology": "Origine étymologique précise (grecque, latine, hébraïque ou historique du mot)."
+`;
+
+        for (const modelName of CANDIDATE_MODELS) {
+          try {
+            const response = await ai.models.generateContent({
+              model: modelName,
+              contents: prompt,
+              config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                  type: Type.OBJECT,
+                  properties: {
+                    word: { type: Type.STRING },
+                    definition: { type: Type.STRING },
+                    synonyms: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    etymology: { type: Type.STRING },
+                  },
+                  required: ["word", "definition", "synonyms"],
+                },
+                temperature: 0.2,
+              },
+            });
+
+            let cleanText = (response.text || '').trim();
+            const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              cleanText = jsonMatch[0];
+            }
+
+            const result = JSON.parse(cleanText) as WordDefinition;
+            if (result.word && result.definition && result.definition.length > 15) {
+              if (!result.word || result.word.toLowerCase() === 'word') {
+                result.word = displayWord.charAt(0).toUpperCase() + displayWord.slice(1);
+              }
+              result.source = "King's Sword Exégèse & Dictionnaire";
+              setCache(lookupKey, result);
+              return result;
+            }
+          } catch (modelErr: any) {
+            continue;
+          }
+        }
+      } catch (keyErr) {
+        continue;
       }
-      const result = JSON.parse(cleanText || '{}') as WordDefinition;
-      if (result.word) {
-        setCache(cleanedWord, result);
-        return result;
-      }
-    } catch (error) {
-      console.warn("Échec Gemini pour la définition, bascule vers définition synthétique locale:", error);
     }
   }
 
-  // 4. Génération d'une définition locale intelligente offline
-  const capitalized = word.charAt(0).toUpperCase() + word.slice(1);
-  const fallbackDef: WordDefinition = {
+  // 4. Fallback propre si hors-ligne et non trouvé dans le dictionnaire
+  const capitalized = displayWord.charAt(0).toUpperCase() + displayWord.slice(1);
+  return {
     word: capitalized,
-    definition: `Terme théologique et lexical employé dans l'étude des Écritures et des sermons. Représente un principe fondamental de foi et d'édification spirituelle.`,
-    synonyms: ["Principe", "Notion biblique", "Concept spirituel"],
-    etymology: `Forme lexicale étudiée dans le contexte du Message.`
+    definition: `Définition pour « ${capitalized} » : ce terme spécifique n'a pas été trouvé dans le dictionnaire hors-ligne. Veuillez vérifier l'orthographe ou vous connecter à Internet pour interroger le service étendu.`,
+    synonyms: [capitalized],
+    etymology: undefined,
+    source: "Dictionnaire Hors-ligne"
   };
-  setCache(cleanedWord, fallbackDef);
-  return fallbackDef;
 };

@@ -3,11 +3,12 @@ import React, { useState, useEffect, useRef, useMemo, useCallback, memo, startTr
 import { useAppStore } from '../store';
 import { translations } from '../translations';
 import { getDefinition, WordDefinition } from '../services/dictionaryService';
-import { getAccentInsensitiveRegex, getSearchHighlightRegex } from '../utils/textUtils';
-import { Sermon, Highlight, SearchMode, QuickAccessItemType } from '../types';
+import { getAccentInsensitiveRegex, getSearchHighlightRegex, splitSermonIntoParagraphs, extractLeadingParagraphNumber } from '../utils/textUtils';
+import { Sermon, Highlight, SearchMode, QuickAccessItemType, CitationHighlight } from '../types';
 import { PALETTE_HIGHLIGHT_COLORS } from '../constants';
 import { formatSongContent } from '../services/songService';
 import NoteSelectorModal from './NoteSelectorModal';
+import { extractHighlightsFromParagraph, extractHighlightsFromSelection } from '../utils/highlightUtils';
 import { 
   openProjectionWindow, 
   broadcastProjectionPayload, 
@@ -114,7 +115,7 @@ const ActionButton = memo(({ onClick, icon: Icon, tooltip, special = false, acti
         borderRadius: '0.75rem'
       }}
     >
-      <Icon className={variant === 'amber' && active ? 'fill-amber-500' : ''} style={isFullscreen ? { width: '0.8em', height: '0.8em' } : { width: '1rem', height: '1rem' }} />
+      {Icon && <Icon className={variant === 'amber' && active ? 'fill-amber-500' : ''} style={isFullscreen ? { width: '0.8em', height: '0.8em' } : { width: '1rem', height: '1rem' }} />}
     </button>
   </div>
 ));
@@ -316,6 +317,8 @@ const Reader: React.FC = () => {
   const setJumpToParagraph = useAppStore(s => s.setJumpToParagraph);
   const selectedBibleVerse = useAppStore(s => s.selectedBibleVerse);
   const setSelectedBibleVerse = useAppStore(s => s.setSelectedBibleVerse);
+  const selectedSearchParagraphId = useAppStore(s => s.selectedSearchParagraphId);
+  const storeSearchResults = useAppStore(s => s.searchResults);
 
   const sidebarWidth = useAppStore(s => s.sidebarWidth);
   const aiWidth = useAppStore(s => s.aiWidth);
@@ -340,6 +343,16 @@ const Reader: React.FC = () => {
 
   const [selectedSermonParagraph, setSelectedSermonParagraph] = useState<number | null>(null);
 
+  const targetActiveParagraph = useMemo(() => {
+    if (isBibleChapter && selectedBibleVerse) return selectedBibleVerse;
+    if (selectedSermonParagraph) return selectedSermonParagraph;
+    if (selectedSearchParagraphId && storeSearchResults && storeSearchResults.length > 0) {
+      const found = storeSearchResults.find(r => r.paragraphId === selectedSearchParagraphId && r.sermonId === sermon?.id);
+      if (found) return found.paragraphIndex;
+    }
+    return null;
+  }, [isBibleChapter, selectedBibleVerse, selectedSermonParagraph, selectedSearchParagraphId, storeSearchResults, sermon?.id]);
+
   const safeScrollToElement = useCallback((el: HTMLElement | null | undefined) => {
     if (!el) return;
     try {
@@ -356,8 +369,15 @@ const Reader: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (selectedSearchParagraphId && storeSearchResults && storeSearchResults.length > 0) {
+      const found = storeSearchResults.find(r => r.paragraphId === selectedSearchParagraphId && r.sermonId === sermon?.id);
+      if (found) {
+        setSelectedSermonParagraph(found.paragraphIndex);
+        return;
+      }
+    }
     setSelectedSermonParagraph(null);
-  }, [sermon?.id]);
+  }, [sermon?.id, selectedSearchParagraphId, storeSearchResults]);
 
   const processedText = useMemo(() => {
     if (!sermon || !sermon.text) return '';
@@ -370,11 +390,8 @@ const Reader: React.FC = () => {
 
   const segments = useMemo(() => {
     if (!processedText) return [];
-    return processedText
-      .split(/\n\s*\n+/)
-      .map(s => s.trim())
-      .filter(s => s.length > 0); 
-  }, [processedText]);
+    return splitSermonIntoParagraphs(processedText, isSong);
+  }, [processedText, isSong]);
 
   const structuredSegments = useMemo(() => {
     const result: { words: SimpleWord[]; isNumbered: boolean; text: string }[] = [];
@@ -415,7 +432,7 @@ const Reader: React.FC = () => {
   const [searchMatchWordIndices, setSearchMatchWordIndices] = useState<Set<number>>(new Set());
   const [currentResultIndex, setCurrentResultIndex] = useState(-1);
   const [isPlayerExpanded, setIsPlayerExpanded] = useState(false);
-  const [noteSelectorPayload, setNoteSelectorPayload] = useState<{ text: string; sermon: Sermon; paragraphIndex?: number } | null>(null);
+  const [noteSelectorPayload, setNoteSelectorPayload] = useState<{ text: string; sermon: Sermon; paragraphIndex?: number; highlights?: CitationHighlight[] } | null>(null);
   const [isOSFullscreen, setIsOSFullscreen] = useState(false);
   const [projectedSegmentIndex, setProjectedSegmentIndex] = useState<number | null>(null);
   const projectedSegmentIndexRef = useRef<number | null>(null);
@@ -552,7 +569,11 @@ const Reader: React.FC = () => {
   const [navFilterText, setNavFilterText] = useState('');
 
   const filteredSegments = useMemo(() => {
-    return structuredSegments.map((seg, idx) => ({ seg, idx, num: idx + 1 }))
+    return structuredSegments.map((seg, idx) => {
+      const explicitNum = extractLeadingParagraphNumber(seg.text);
+      const num = explicitNum !== null ? explicitNum : idx + 1;
+      return { seg, idx, num };
+    })
       .filter(({ num, seg }) => {
         if (!navFilterText.trim()) return true;
         const q = navFilterText.trim().toLowerCase();
@@ -1204,10 +1225,14 @@ const Reader: React.FC = () => {
 
   useEffect(() => {
     if (jumpToParagraph !== null && sermon && structuredSegments.length > 0) {
-        if (isSermon) {
-            setSelectedSermonParagraph(jumpToParagraph);
+        setSelectedSermonParagraph(jumpToParagraph);
+        let segmentIdx = structuredSegments.findIndex((seg, i) => {
+            const explicitNum = extractLeadingParagraphNumber(seg.text);
+            return (explicitNum !== null ? explicitNum : i + 1) === jumpToParagraph;
+        });
+        if (segmentIdx === -1) {
+            segmentIdx = Math.max(0, Math.min(structuredSegments.length - 1, jumpToParagraph - 1));
         }
-        const segmentIdx = jumpToParagraph - 1;
         const segment = structuredSegments[segmentIdx];
         if (segment) {
             setTimeout(() => {
@@ -1246,7 +1271,9 @@ const Reader: React.FC = () => {
                         }
                     }
                     
-                    setJumpHighlightIndices(targetHighlightIndices);
+                    if (targetHighlightIndices.length > 0) {
+                      setJumpHighlightIndices(targetHighlightIndices);
+                    }
 
                     const targetEl = wordRefs.current.get(targetGlobalIndex);
                     if (targetEl) safeScrollToElement(targetEl);
@@ -1289,26 +1316,52 @@ const Reader: React.FC = () => {
   
   const citationHighlightMap = useMemo(() => {
     const map = new Map<number, { colorClass: string }>();
-    if (!activeNoteId || !sermon) return map;
-    const activeNote = notes.find(n => n.id === activeNoteId);
-    if (!activeNote) return map;
-    const relevantCitations = activeNote.citations.filter(c => c.sermon_id === sermon.id);
+    const noteIdToUse = activeNoteId || navigatedFromNoteId;
+    if (!noteIdToUse || !sermon) return map;
+    const currentNote = notes.find(n => n.id === noteIdToUse);
+    if (!currentNote) return map;
+    const relevantCitations = currentNote.citations.filter(c => c.sermon_id === sermon.id);
     if (relevantCitations.length === 0) return map;
+
     for (const citation of relevantCitations) {
+      if (citation.highlights && citation.highlights.length > 0) {
+        // Appliquer chaque surlignage spécifique avec sa propre couleur d'origine
+        for (const h of citation.highlights) {
+          const highlightText = h.text || citation.quoted_text.slice(h.start, h.end);
+          if (!highlightText || !highlightText.trim()) continue;
+          const regex = getAccentInsensitiveRegex(highlightText.trim(), false);
+          let match;
+          while ((match = regex.exec(fullSermonText)) !== null) {
+            const colorClass = PALETTE_HIGHLIGHT_COLORS[h.color || 'amber'] || PALETTE_HIGHLIGHT_COLORS['amber'];
+            let currentChar = 0;
+            for (let i = 0; i < words.length; i++) {
+              if (currentChar + words[i].text.length > match.index && currentChar < match.index + match[0].length) {
+                map.set(words[i].globalIndex, { colorClass });
+              }
+              currentChar += words[i].text.length;
+            }
+            if (regex.lastIndex === match.index) regex.lastIndex++;
+          }
+        }
+      } else {
+        // Surligner toute la citation avec la couleur de la note
         const regex = getAccentInsensitiveRegex(citation.quoted_text, false);
         let match;
         while ((match = regex.exec(fullSermonText)) !== null) {
-            const colorClass = PALETTE_HIGHLIGHT_COLORS[activeNote.color || 'default'];
-            let currentChar = 0;
-            for (let i = 0; i < words.length; i++) {
-                if (currentChar + words[i].text.length > match.index && currentChar < match.index + match[0].length) map.set(words[i].globalIndex, { colorClass });
-                currentChar += words[i].text.length;
+          const colorClass = PALETTE_HIGHLIGHT_COLORS[currentNote.color || 'amber'] || PALETTE_HIGHLIGHT_COLORS['amber'];
+          let currentChar = 0;
+          for (let i = 0; i < words.length; i++) {
+            if (currentChar + words[i].text.length > match.index && currentChar < match.index + match[0].length) {
+              map.set(words[i].globalIndex, { colorClass });
             }
-            if (regex.lastIndex === match.index) regex.lastIndex++;
+            currentChar += words[i].text.length;
+          }
+          if (regex.lastIndex === match.index) regex.lastIndex++;
         }
+      }
     }
     return map;
-  }, [activeNoteId, notes, sermon?.id, words, fullSermonText]);
+  }, [activeNoteId, navigatedFromNoteId, notes, sermon?.id, words, fullSermonText]);
 
   useEffect(() => {
     if (readerSearchQuery.length >= 1) {
@@ -1432,7 +1485,8 @@ const Reader: React.FC = () => {
 
   const handleDefine = async () => {
     if (!selection) return;
-    const word = selection.text.split(' ')[0].replace(/[.,;?!]/g, "");
+    const rawText = selection.text.trim();
+    const word = rawText.split(/\s+/).length <= 4 && rawText.length <= 45 ? rawText : rawText.split(/\s+/)[0];
     setIsDefining(true); setSelection(null);
     try {
       const def = await getDefinition(word);
@@ -1443,14 +1497,29 @@ const Reader: React.FC = () => {
 
   const handleAddDefinitionToNote = () => {
     if (!activeDefinition) return;
-    const defText = `**${activeDefinition.word}**\n\n${activeDefinition.definition}\n\n*Étymologie :* ${activeDefinition.etymology || 'Non spécifiée'}\n*Synonymes :* ${activeDefinition.synonyms.join(', ')}`;
+
+    const cleanEtymology = activeDefinition.etymology && activeDefinition.etymology.trim() && activeDefinition.etymology !== 'Non spécifiée' && !activeDefinition.etymology.includes('non répertoriés')
+      ? activeDefinition.etymology.trim()
+      : null;
+    const cleanSynonyms = activeDefinition.synonyms && activeDefinition.synonyms.length > 0
+      ? activeDefinition.synonyms.join(', ')
+      : null;
+
+    let defText = `${activeDefinition.word}${activeDefinition.grammarNote ? ` (${activeDefinition.grammarNote})` : ''}\n\nDéfinition : ${activeDefinition.definition}`;
+    if (cleanEtymology) {
+      defText += `\n\nÉtymologie : ${cleanEtymology}`;
+    }
+    if (cleanSynonyms) {
+      defText += `\n\nSynonymes : ${cleanSynonyms}`;
+    }
+
     setNoteSelectorPayload({
       text: defText,
       sermon: {
-        id: `definition-${activeDefinition.word}`,
-        title: 'Définition du Dictionnaire',
-        date: new Date().toISOString().split('T')[0],
-        city: 'Système',
+        id: `definition-${activeDefinition.word.toLowerCase()}`,
+        title: `Dictionnaire : ${activeDefinition.word}`,
+        date: 'Lexique',
+        city: activeDefinition.source || 'Dictionnaire Webster & Français',
         text: ''
       }
     });
@@ -1909,7 +1978,15 @@ const Reader: React.FC = () => {
         .dark .reader-selection-area ::selection { background-color: white !important; color: black !important; }
       `}</style>
       
-      {noteSelectorPayload && <NoteSelectorModal selectionText={noteSelectorPayload.text} sermon={noteSelectorPayload.sermon} paragraphIndex={noteSelectorPayload.paragraphIndex} onClose={() => setNoteSelectorPayload(null)} />}
+      {noteSelectorPayload && (
+        <NoteSelectorModal 
+          selectionText={noteSelectorPayload.text} 
+          sermon={noteSelectorPayload.sermon} 
+          paragraphIndex={noteSelectorPayload.paragraphIndex} 
+          highlights={noteSelectorPayload.highlights}
+          onClose={() => setNoteSelectorPayload(null)} 
+        />
+      )}
       
       {activeDefinition && (
         <div className="fixed inset-0 z-[100000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200" onClick={() => setActiveDefinition(null)}>
@@ -1921,8 +1998,11 @@ const Reader: React.FC = () => {
                   <BookOpenCheck className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-[10px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-widest">Dictionnaire</div>
+                  <div className="text-[10px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-widest">{activeDefinition?.source || "Dictionnaire Webster & Français"}</div>
                   <h3 className="text-xl sm:text-2xl font-black text-zinc-900 dark:text-white leading-tight truncate">{activeDefinition?.word}</h3>
+                  {activeDefinition?.grammarNote && (
+                    <div className="text-[11px] font-semibold text-teal-700 dark:text-teal-300 mt-0.5">{activeDefinition.grammarNote}</div>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -1999,8 +2079,12 @@ const Reader: React.FC = () => {
             <div className="px-5 sm:px-6 py-3 border-t border-slate-200 dark:border-zinc-800/80 bg-slate-50/70 dark:bg-zinc-950/50 flex items-center justify-between shrink-0">
               <p className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest flex items-center gap-1.5">
                 <Milestone className="w-3 h-3 text-teal-600 dark:text-teal-400" />
-                <span>King's Sword Dictionnaire IA</span>
+                <span>{activeDefinition?.source || "Dictionnaire Webster & Français"}</span>
               </p>
+              <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Dictionnaire hors-ligne actif
+              </span>
             </div>
           </div>
         </div>
@@ -2058,12 +2142,36 @@ const Reader: React.FC = () => {
         >
             {navigatedFromSearch && (
               <button 
-                onClick={() => { startTransition(() => { setSearchQuery(lastSearchQuery); setIsFullTextSearch(true); setSelectedSermonId(null); setNavigatedFromSearch(false); }); }} 
-                className="bg-amber-600/10 text-amber-700 dark:text-amber-400 font-bold uppercase tracking-wider rounded-xl flex items-center justify-center transition-all"
+                onClick={() => { 
+                  startTransition(() => { 
+                    setSidebarOpen(true);
+                    setIsFullTextSearch(true);
+                    if (lastSearchQuery) setSearchQuery(lastSearchQuery);
+                    setNavigatedFromSearch(false); 
+                  }); 
+                }} 
+                className="bg-amber-600/10 text-amber-700 dark:text-amber-400 font-bold uppercase tracking-wider rounded-xl flex items-center justify-center transition-all cursor-pointer hover:bg-amber-600/20"
                 style={isOSFullscreen ? { fontSize: `${fontSize * 0.3}px`, padding: '0.8em 1.2em', borderRadius: '0.8em', minHeight: '1.8em' } : { fontSize: '9px', padding: '0.375rem 0.75rem' }}
+                title="Afficher les résultats de recherche dans le panneau latéral"
               >
                 <ChevronLeft className="inline mr-1" style={isOSFullscreen ? { width: '1em', height: '1em' } : { width: '12px', height: '12px' }} /> 
-                {t.reader_exit_search}
+                {t.reader_exit_search || "Retour aux résultats"}
+              </button>
+            )}
+
+            {navigatedFromNoteId && (
+              <button 
+                onClick={() => {
+                  const targetNoteId = navigatedFromNoteId;
+                  setNavigatedFromNoteId(null);
+                  setActiveNoteId(targetNoteId);
+                }} 
+                className="bg-teal-600/10 text-teal-700 dark:text-teal-300 hover:bg-teal-600/20 font-bold uppercase tracking-wider rounded-xl flex items-center justify-center transition-all cursor-pointer"
+                style={isOSFullscreen ? { fontSize: `${fontSize * 0.3}px`, padding: '0.8em 1.2em', borderRadius: '0.8em', minHeight: '1.8em' } : { fontSize: '9px', padding: '0.375rem 0.75rem' }}
+                title="Retourner à votre note dans le journal"
+              >
+                <ChevronLeft className="inline mr-1" style={isOSFullscreen ? { width: '1em', height: '1em' } : { width: '12px', height: '12px' }} /> 
+                Retour à la note
               </button>
             )}
 
@@ -2493,7 +2601,7 @@ const Reader: React.FC = () => {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
                 {filteredSegments.map(({ seg, idx, num }) => {
                   const isProjected = projectedSegmentIndex === idx;
-                  const isSelected = (isBibleChapter && selectedBibleVerse === num) || (isSermon && selectedSermonParagraph === num);
+                  const isSelected = (isBibleChapter && selectedBibleVerse === num) || (targetActiveParagraph === num);
                   const previewSnippet = seg.text ? seg.text.replace(/\s+/g, ' ').trim().slice(0, 80) : '';
 
                   return (
@@ -2504,7 +2612,7 @@ const Reader: React.FC = () => {
                         e.stopPropagation();
                         if (isBibleChapter) {
                           setSelectedBibleVerse(num);
-                        } else if (isSermon) {
+                        } else {
                           setSelectedSermonParagraph(num);
                         }
                         const segEl = segmentRefs.current.get(idx);
@@ -2555,12 +2663,13 @@ const Reader: React.FC = () => {
                 Haut
               </button>
 
-              {(selectedBibleVerse || selectedSermonParagraph) && (
+              {(selectedBibleVerse || selectedSermonParagraph || targetActiveParagraph) && (
                 <button
                   type="button"
                   onClick={() => {
                     setSelectedBibleVerse(null);
                     setSelectedSermonParagraph(null);
+                    useAppStore.getState().setSelectedSearchParagraphId(null);
                   }}
                   className="px-1 py-0.5 rounded text-red-500 hover:bg-red-500/10 transition-colors uppercase tracking-wider"
                   data-tooltip="Effacer la sélection"
@@ -2618,7 +2727,7 @@ const Reader: React.FC = () => {
               const isProjected = projectedSegmentIndex === segIdx;
               const content = renderSegmentContent(seg.words);
               const isChorus = isSong && /^(ch[oœ]eur|refrain|chorus)\s*:/i.test(seg.text.trim());
-              const isSelectedParagraph = (isBibleChapter && selectedBibleVerse === (segIdx + 1)) || (isSermon && selectedSermonParagraph === (segIdx + 1));
+              const isSelectedParagraph = (isBibleChapter && selectedBibleVerse === (segIdx + 1)) || (targetActiveParagraph === (segIdx + 1));
 
               return (
                 <div 
@@ -2690,7 +2799,13 @@ const Reader: React.FC = () => {
                         type="button"
                         onClick={(e) => { 
                           e.stopPropagation(); 
-                          setNoteSelectorPayload({ text: seg.text.trim(), sermon, paragraphIndex: segIdx + 1 }); 
+                          const segHighlights = extractHighlightsFromParagraph(seg, highlightMap);
+                          setNoteSelectorPayload({ 
+                            text: seg.text.trim(), 
+                            sermon, 
+                            paragraphIndex: segIdx + 1,
+                            highlights: segHighlights 
+                          }); 
                         }}
                         className="inline-flex items-center gap-1 bg-white dark:bg-zinc-900 hover:bg-emerald-600 text-emerald-700 dark:text-emerald-300 hover:text-white border border-emerald-600/40 dark:border-emerald-500/40 text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer"
                         data-tooltip="Ajouter ce paragraphe au journal d'étude"
@@ -2793,7 +2908,27 @@ const Reader: React.FC = () => {
                 <button onClick={() => { handleDefine(); setSelection(null); }} data-tooltip="Définir ce mot dans le dictionnaire" data-tooltip-icon="book" className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-sky-500/15 text-zinc-800 dark:text-zinc-200 rounded-xl active:scale-95 transition-colors cursor-pointer"><BookOpen className="w-4 h-4 text-sky-500" /><span className="text-[8px] font-bold uppercase tracking-tight">Définir</span></button>
                 <button onClick={() => { triggerStudyRequest(selection.text); setSelection(null); }} data-tooltip="Étudier avec l'assistant IA" data-tooltip-icon="sparkles" className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-teal-600/15 text-zinc-800 dark:text-zinc-200 rounded-xl active:scale-95 transition-colors cursor-pointer"><Sparkles className="w-4 h-4 text-teal-600 animate-pulse" /><span className="text-[8px] font-bold uppercase tracking-tight">Étudier</span></button>
                 <div className="w-px h-6 bg-zinc-200/80 dark:bg-zinc-700/80 my-auto mx-1" />
-                <button onClick={() => { setNoteSelectorPayload({ text: selection.text, sermon }); setSelection(null); }} data-tooltip="Ajouter cet extrait au journal de notes" data-tooltip-icon="notes" className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-emerald-500/15 text-zinc-800 dark:text-zinc-200 rounded-xl active:scale-95 transition-colors cursor-pointer"><NotebookPen className="w-4 h-4 text-emerald-500" /><span className="text-[8px] font-bold uppercase tracking-tight">Note</span></button>
+                <button 
+                  onClick={() => { 
+                    const selectedWords = selectionIndices.map(idx => words[idx]).filter(Boolean);
+                    const selHighlights = extractHighlightsFromSelection(selectedWords, selection.text, highlightMap);
+                    const firstWord = selectedWords[0];
+                    const paragraphIndex = firstWord && firstWord.segmentIndex !== undefined ? firstWord.segmentIndex + 1 : undefined;
+                    setNoteSelectorPayload({ 
+                      text: selection.text, 
+                      sermon, 
+                      paragraphIndex,
+                      highlights: selHighlights 
+                    }); 
+                    setSelection(null); 
+                  }} 
+                  data-tooltip="Ajouter cet extrait au journal de notes" 
+                  data-tooltip-icon="notes" 
+                  className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-emerald-500/15 text-zinc-800 dark:text-zinc-200 rounded-xl active:scale-95 transition-colors cursor-pointer"
+                >
+                  <NotebookPen className="w-4 h-4 text-emerald-500" />
+                  <span className="text-[8px] font-bold uppercase tracking-tight">Note</span>
+                </button>
               </div>
             </div>
           )}

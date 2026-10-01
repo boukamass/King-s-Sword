@@ -3,6 +3,8 @@ import { useAppStore, sortNotesByRecency } from '../store';
 import { translations } from '../translations';
 import { Note, Citation } from '../types';
 import { normalizeText } from '../utils/textUtils';
+import { stripMarkdown } from '../utils/noteFormatter';
+import { HighlightedQuote } from './HighlightedQuote';
 import { 
   Plus, 
   X, 
@@ -19,7 +21,8 @@ import {
   Quote,
   Download,
   Upload,
-  CheckCircle2
+  CheckCircle2,
+  BookOpenCheck
 } from 'lucide-react';
 
 const PALETTE_COLORS: { name: string; key: string; bg: string; border: string; ring: string; }[] = [
@@ -107,25 +110,37 @@ const NoteCard = memo(({
           <div className="flex flex-col gap-2 p-2.5 bg-white/50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200/50 dark:border-zinc-700/50 shadow-sm overflow-hidden">
             <div className="flex items-center gap-2">
               <div className="w-5 h-5 flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-md border border-teal-600/20 shrink-0">
-                <Link2 className="w-2.5 h-2.5" />
+                {firstCitation.sermon_id?.startsWith('definition') ? (
+                  <BookOpenCheck className="w-2.5 h-2.5" />
+                ) : (
+                  <Link2 className="w-2.5 h-2.5" />
+                )}
               </div>
               <div className="flex-1 min-w-0">
                  <span className="text-[9px] font-black text-zinc-700 dark:text-zinc-300 uppercase tracking-tight truncate block">{firstCitation.sermon_title_snapshot}</span>
               </div>
-              <button 
-                onClick={(e) => { e.stopPropagation(); onJumpToReader(firstCitation); }}
-                className="w-5 h-5 flex items-center justify-center bg-teal-600 text-white rounded-md hover:bg-teal-700 transition-all active:scale-90"
-              >
-                <ExternalLink className="w-2.5 h-2.5" />
-              </button>
+              {!firstCitation.sermon_id?.startsWith('definition') && (
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onJumpToReader(firstCitation); }}
+                  className="w-5 h-5 flex items-center justify-center bg-teal-600 text-white rounded-md hover:bg-teal-700 transition-all active:scale-90"
+                >
+                  <ExternalLink className="w-2.5 h-2.5" />
+                </button>
+              )}
             </div>
             
             <div className="flex flex-wrap items-center gap-2 mt-1">
-               <span className="text-[7px] font-black text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-200/50 dark:border-zinc-700/50">{firstCitation.sermon_date_snapshot}</span>
-               {firstCitation.sermon_version_snapshot && (
-                 <span className="text-[7px] font-black text-teal-600 bg-teal-600/5 px-1.5 py-0.5 rounded border border-teal-600/10">[{firstCitation.sermon_version_snapshot}]</span>
+               {firstCitation.sermon_id?.startsWith('definition') ? (
+                 <span className="text-[7px] font-black text-teal-700 dark:text-teal-300 bg-teal-600/10 px-1.5 py-0.5 rounded border border-teal-600/20">Dictionnaire Biblique</span>
+               ) : (
+                 <>
+                   <span className="text-[7px] font-black text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-200/50 dark:border-zinc-700/50">{firstCitation.sermon_date_snapshot}</span>
+                   {firstCitation.sermon_version_snapshot && (
+                     <span className="text-[7px] font-black text-teal-600 bg-teal-600/5 px-1.5 py-0.5 rounded border border-teal-600/10">[{firstCitation.sermon_version_snapshot}]</span>
+                   )}
+                   <span className="text-[7px] font-black text-amber-600 bg-amber-600/5 px-1.5 py-0.5 rounded border border-amber-600/10">Para. {firstCitation.paragraph_index ?? '—'}</span>
+                 </>
                )}
-               <span className="text-[7px] font-black text-amber-600 bg-amber-600/5 px-1.5 py-0.5 rounded border border-amber-600/10">Para. {firstCitation.paragraph_index ?? '—'}</span>
             </div>
           </div>
         )}
@@ -133,13 +148,13 @@ const NoteCard = memo(({
         <div className="relative group/preview mt-2">
            {n.content ? (
              <p className="text-[11px] text-zinc-600 dark:text-zinc-400 line-clamp-2 leading-relaxed font-medium italic opacity-90 pl-1">
-               {n.content}
+               {stripMarkdown(n.content)}
              </p>
            ) : firstCitation ? (
              <div className="flex gap-2 pl-1 border-l-2 border-teal-600/30 bg-teal-600/5 dark:bg-teal-600/10 p-2 rounded-r-lg">
                <Quote className="w-3 h-3 text-teal-600/40 shrink-0" />
                <p className="text-[10px] text-zinc-600 dark:text-zinc-400 line-clamp-2 leading-relaxed font-medium italic">
-                 {firstCitation.quoted_text}
+                 <HighlightedQuote quote={stripMarkdown(firstCitation.quoted_text || '')} highlights={firstCitation.highlights} />
                </p>
              </div>
            ) : null}
