@@ -426,7 +426,8 @@ const Reader: React.FC = () => {
   
   const [selection, setSelection] = useState<{ text: string; x: number; y: number } | null>(null);
   const [selectionIndices, setSelectionIndices] = useState<number[]>([]);
-  const [isSearchVisible, setIsSearchVisible] = useState(false);
+  const isSearchVisible = useAppStore(s => s.isReaderSearchVisible);
+  const setIsSearchVisible = useAppStore(s => s.setIsReaderSearchVisible);
   const [readerSearchQuery, setReaderSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<number[]>([]);
   const [searchMatchWordIndices, setSearchMatchWordIndices] = useState<Set<number>>(new Set());
@@ -1927,6 +1928,10 @@ const Reader: React.FC = () => {
       e.preventDefault();
       if (e.shiftKey) handleSearchPrev();
       else handleSearchNext();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setIsSearchVisible(false);
+      setReaderSearchQuery('');
     }
   };
 
@@ -2488,7 +2493,7 @@ const Reader: React.FC = () => {
       )}
 
       {isSearchVisible && (
-        <div className="shrink-0 h-14 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-xl border-b border-zinc-200 dark:border-zinc-800 flex items-center px-4 md:px-8 z-[100000] animate-in slide-in-from-top-4 duration-300">
+        <div className="shrink-0 h-14 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border-b border-zinc-200 dark:border-zinc-800 flex items-center px-4 md:px-8 z-30 animate-in slide-in-from-top-4 duration-300">
           <div className="max-w-4xl mx-auto w-full flex items-center gap-4">
             <div className="relative flex-1 group">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 group-focus-within:text-teal-600 transition-colors" />

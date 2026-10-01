@@ -137,6 +137,8 @@ interface AppState {
   jumpToParagraph: number | null;
   selectedSearchParagraphId: string | null;
   setSelectedSearchParagraphId: (id: string | null) => void;
+  isReaderSearchVisible: boolean;
+  setIsReaderSearchVisible: (visible: boolean) => void;
   isProjectionOpen: boolean;
   projectionBlackout: boolean;
   isExternalMaskOpen: boolean;
@@ -317,6 +319,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   jumpToText: null,
   jumpToParagraph: null,
   selectedSearchParagraphId: null,
+  isReaderSearchVisible: false,
   isProjectionOpen: false,
   projectionBlackout: false,
   isExternalMaskOpen: false,
@@ -1211,6 +1214,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   triggerStudyRequest: (t) => set({ pendingStudyRequest: t, aiOpen: true }),
   setJumpToText: (t) => set({ jumpToText: t }),
   setJumpToParagraph: (num) => set({ jumpToParagraph: num }),
+  setIsReaderSearchVisible: (visible) => set({ isReaderSearchVisible: visible }),
   setSelectedSearchParagraphId: (id) => set(state => {
     const currentMode = state.libraryMode;
     const currentSource = state.sourceSearchStates?.[currentMode];

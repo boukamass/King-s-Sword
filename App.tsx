@@ -152,6 +152,7 @@ const App: React.FC = () => {
   const setIsQuickAccessModalOpen = useAppStore(s => s.setIsQuickAccessModalOpen);
   const activeNoteId = useAppStore(s => s.activeNoteId);
   const isProjectionOpen = useAppStore(s => s.isProjectionOpen);
+  const isReaderSearchVisible = useAppStore(s => s.isReaderSearchVisible);
   const theme = useAppStore(s => s.theme);
   const addNotification = useAppStore(s => s.addNotification);
 
@@ -273,13 +274,23 @@ const App: React.FC = () => {
 
           {/* Floating Side Buttons for Notes & AI */}
           {!isFullscreen && !activeNoteId && (!notesOpen || !aiOpen) && (
-            <div className={`absolute right-3 z-40 flex flex-col gap-2 pointer-events-auto no-print transition-all duration-300 ${isProjectionOpen ? 'top-[116px]' : 'top-[68px]'}`}>
+            <div 
+              className={`absolute right-3 z-[100002] flex flex-col gap-2 pointer-events-auto no-print transition-all duration-300 ${
+                isProjectionOpen && isReaderSearchVisible
+                  ? 'top-[172px]'
+                  : isProjectionOpen
+                  ? 'top-[116px]'
+                  : isReaderSearchVisible
+                  ? 'top-[124px]'
+                  : 'top-[68px]'
+              }`}
+            >
               {!notesOpen && (
                 <button
                   onClick={toggleNotes}
                   data-tooltip="Ouvrir le journal de notes"
                   data-tooltip-icon="notes"
-                  className="flex items-center justify-center w-10 h-10 bg-white/90 dark:bg-zinc-800/90 backdrop-blur-md text-zinc-600 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl shadow-md hover:bg-teal-600/10 hover:text-teal-600 hover:border-teal-600/30 transition-all duration-200 active:scale-95 cursor-pointer shrink-0"
+                  className="flex items-center justify-center w-10 h-10 bg-white/95 dark:bg-zinc-800/95 backdrop-blur-md text-zinc-600 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl shadow-lg hover:bg-teal-600/10 hover:text-teal-600 hover:border-teal-600/30 transition-all duration-200 active:scale-95 cursor-pointer shrink-0"
                 >
                   <NotebookPen className="w-4 h-4 text-teal-600 dark:text-teal-400" />
                 </button>
@@ -289,7 +300,7 @@ const App: React.FC = () => {
                   onClick={toggleAI}
                   data-tooltip="Ouvrir l'Assistant IA"
                   data-tooltip-icon="sparkles"
-                  className="flex items-center justify-center w-10 h-10 bg-white/90 dark:bg-zinc-800/90 backdrop-blur-md text-zinc-600 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl shadow-md hover:bg-teal-600/10 hover:text-teal-600 hover:border-teal-600/30 transition-all duration-200 active:scale-95 cursor-pointer shrink-0"
+                  className="flex items-center justify-center w-10 h-10 bg-white/95 dark:bg-zinc-800/95 backdrop-blur-md text-zinc-600 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl shadow-lg hover:bg-teal-600/10 hover:text-teal-600 hover:border-teal-600/30 transition-all duration-200 active:scale-95 cursor-pointer shrink-0"
                 >
                   <Sparkles className="w-4 h-4 text-teal-600 dark:text-teal-400" />
                 </button>
