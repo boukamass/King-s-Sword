@@ -56,12 +56,12 @@ const webSearchFallback = async (params: {
   showOnlySynonyms?: boolean; 
   showOnlyQuery?: boolean;
   filters?: {
-    year: string | null;
-    month: string | null;
-    day: string | null;
-    city: string | null;
-    version: string | null;
-    audio: boolean;
+    year?: string[] | string | null;
+    month?: string[] | string | null;
+    day?: string[] | string | null;
+    city?: string[] | string | null;
+    version?: string[] | string | null;
+    audio?: boolean;
   }
 }): Promise<any[]> => {
   const store = useAppStore.getState();
@@ -115,11 +115,46 @@ const webSearchFallback = async (params: {
 
     if (params.filters) {
       const { year, month, day, city, version, audio } = params.filters;
-      if (year && (!s.date || !s.date.startsWith(year))) continue;
-      if (month && (!s.date || s.date.substring(5, 7) !== month)) continue;
-      if (day && (!s.date || s.date.substring(8, 10) !== day)) continue;
-      if (city && s.city !== city) continue;
-      if (version && s.version !== version) continue;
+      if (year) {
+        if (!s.date) continue;
+        if (Array.isArray(year)) {
+          if (year.length > 0 && !year.some(y => s.date!.startsWith(y))) continue;
+        } else if (!s.date.startsWith(year)) {
+          continue;
+        }
+      }
+      if (month) {
+        if (!s.date || s.date.length < 7) continue;
+        const m = s.date.substring(5, 7);
+        if (Array.isArray(month)) {
+          if (month.length > 0 && !month.includes(m)) continue;
+        } else if (m !== month) {
+          continue;
+        }
+      }
+      if (day) {
+        if (!s.date || s.date.length < 10) continue;
+        const d = s.date.substring(8, 10);
+        if (Array.isArray(day)) {
+          if (day.length > 0 && !day.includes(d)) continue;
+        } else if (d !== day) {
+          continue;
+        }
+      }
+      if (city) {
+        if (Array.isArray(city)) {
+          if (city.length > 0 && (!s.city || !city.includes(s.city))) continue;
+        } else if (s.city !== city) {
+          continue;
+        }
+      }
+      if (version) {
+        if (Array.isArray(version)) {
+          if (version.length > 0 && (!s.version || !version.includes(s.version))) continue;
+        } else if (s.version !== version) {
+          continue;
+        }
+      }
       if (audio && !s.audio_url) continue;
     }
 

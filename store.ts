@@ -120,11 +120,11 @@ interface AppState {
   showOnlyQuery: boolean;
   activeSynonyms: string[];
   selectedSynonym: string | null;
-  cityFilter: string | null;
-  yearFilter: string | null;
-  monthFilter: string | null;
-  dayFilter: string | null;
-  versionFilter: string | null;
+  cityFilter: string[];
+  yearFilter: string[];
+  monthFilter: string[];
+  dayFilter: string[];
+  versionFilter: string[];
   timeFilter: string | null;
   audioFilter: boolean;
   languageFilter: string;
@@ -214,11 +214,11 @@ interface AppState {
   setAiOpen: (v: boolean) => void;
   setAssistantMode: (mode: 'auto-rag' | 'dock') => void;
   setNotesOpen: (v: boolean) => void;
-  setCityFilter: (city: string | null) => void;
-  setYearFilter: (year: string | null) => void;
-  setMonthFilter: (month: string | null) => void;
-  setDayFilter: (day: string | null) => void;
-  setVersionFilter: (v: string | null) => void;
+  setCityFilter: (city: string[] | string | null) => void;
+  setYearFilter: (year: string[] | string | null) => void;
+  setMonthFilter: (month: string[] | string | null) => void;
+  setDayFilter: (day: string[] | string | null) => void;
+  setVersionFilter: (v: string[] | string | null) => void;
   setTimeFilter: (v: string | null) => void;
   setAudioFilter: (v: boolean) => void;
   resetFilters: () => void;
@@ -294,11 +294,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   showOnlyQuery: false,
   activeSynonyms: [],
   selectedSynonym: null,
-  cityFilter: null,
-  yearFilter: null,
-  monthFilter: null,
-  dayFilter: null,
-  versionFilter: null, 
+  cityFilter: [],
+  yearFilter: [],
+  monthFilter: [],
+  dayFilter: [],
+  versionFilter: [], 
   timeFilter: null,
   audioFilter: false,
   languageFilter: 'Français',
@@ -902,19 +902,19 @@ export const useAppStore = create<AppState>((set, get) => ({
   setAiOpen: (v) => set({ aiOpen: v }),
   setAssistantMode: (mode) => set({ assistantMode: mode }),
   setNotesOpen: (v) => set({ notesOpen: v, ...(v ? { sidebarOpen: false } : {}) }),
-  setCityFilter: (f) => set({ cityFilter: f }),
-  setYearFilter: (f) => set({ yearFilter: f }),
-  setMonthFilter: (f) => set({ monthFilter: f }),
-  setDayFilter: (f) => set({ dayFilter: f }),
-  setVersionFilter: (f) => set({ versionFilter: f }),
+  setCityFilter: (f) => set({ cityFilter: Array.isArray(f) ? f.filter(Boolean) : (typeof f === 'string' && f.trim() ? [f.trim()] : []) }),
+  setYearFilter: (f) => set({ yearFilter: Array.isArray(f) ? f.filter(Boolean) : (typeof f === 'string' && f.trim() ? [f.trim()] : []) }),
+  setMonthFilter: (f) => set({ monthFilter: Array.isArray(f) ? f.filter(Boolean) : (typeof f === 'string' && f.trim() ? [f.trim()] : []) }),
+  setDayFilter: (f) => set({ dayFilter: Array.isArray(f) ? f.filter(Boolean) : (typeof f === 'string' && f.trim() ? [f.trim()] : []) }),
+  setVersionFilter: (f) => set({ versionFilter: Array.isArray(f) ? f.filter(Boolean) : (typeof f === 'string' && f.trim() ? [f.trim()] : []) }),
   setTimeFilter: (f) => set({ timeFilter: f }),
   setAudioFilter: (f) => set({ audioFilter: f }),
   resetFilters: () => set({
-    cityFilter: null,
-    yearFilter: null,
-    monthFilter: null,
-    dayFilter: null,
-    versionFilter: null,
+    cityFilter: [],
+    yearFilter: [],
+    monthFilter: [],
+    dayFilter: [],
+    versionFilter: [],
     timeFilter: null,
     audioFilter: false
   }),

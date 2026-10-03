@@ -13,6 +13,7 @@ import {
   ChevronDown, 
   ChevronUp, 
   X, 
+  Check,
   ArrowRight, 
   Headphones, 
   Sparkles, 
@@ -124,6 +125,239 @@ const ModernDropdown: React.FC<DropdownProps> = ({ value, onChange, options, pla
                 {value === opt && <span className="w-1.5 h-1.5 bg-teal-600 rounded-full shrink-0" />}
               </button>
             ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+interface MultiDropdownProps {
+  values: string[];
+  onChange: (vals: string[]) => void;
+  options: string[];
+  placeholder: string;
+  className?: string;
+  displayValue?: (val: string) => string;
+  triggerDisplayValue?: (val: string) => string;
+  align?: 'left' | 'right' | 'center' | 'auto';
+}
+
+const ModernMultiDropdown: React.FC<MultiDropdownProps> = ({ 
+  values = [], 
+  onChange, 
+  options, 
+  placeholder, 
+  className = "", 
+  displayValue,
+  triggerDisplayValue,
+  align = 'auto'
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [resolvedAlign, setResolvedAlign] = useState<'left' | 'right' | 'center'>(align === 'auto' ? 'left' : align);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen && containerRef.current) {
+      if (align && align !== 'auto') {
+        setResolvedAlign(align);
+        return;
+      }
+      const rect = containerRef.current.getBoundingClientRect();
+      const parentEl = containerRef.current.closest('.p-3\\.5') || containerRef.current.parentElement;
+      const parentRight = parentEl ? parentEl.getBoundingClientRect().right : window.innerWidth;
+      if (rect.left + 260 > parentRight - 8) {
+        setResolvedAlign('right');
+      } else {
+        setResolvedAlign('left');
+      }
+    }
+  }, [isOpen, align]);
+
+  const filteredOptions = useMemo(() => {
+    if (!searchTerm.trim()) return options;
+    const q = searchTerm.trim().toLowerCase();
+    return options.filter(opt => {
+      const label = displayValue ? displayValue(opt) : opt;
+      return label.toLowerCase().includes(q) || opt.toLowerCase().includes(q);
+    });
+  }, [options, searchTerm, displayValue]);
+
+  const toggleOption = (opt: string) => {
+    if (values.includes(opt)) {
+      onChange(values.filter(v => v !== opt));
+    } else {
+      onChange([...values, opt]);
+    }
+  };
+
+  const handleClearAll = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onChange([]);
+  };
+
+  const triggerLabel = useMemo(() => {
+    if (values.length === 0) return placeholder;
+    if (values.length === 1) {
+      if (triggerDisplayValue) return triggerDisplayValue(values[0]);
+      return displayValue ? displayValue(values[0]) : values[0];
+    }
+    return placeholder;
+  }, [values, placeholder, displayValue, triggerDisplayValue]);
+
+  return (
+    <div className={`relative ${className}`} ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full flex items-center justify-between px-1.5 py-1.5 rounded-lg border text-[8px] font-black uppercase tracking-tight transition-all duration-200 cursor-pointer min-w-0 ${
+          values.length > 0 
+            ? 'bg-teal-600/15 dark:bg-teal-500/15 border-teal-600/50 text-teal-800 dark:text-teal-300 shadow-sm ring-1 ring-teal-500/20' 
+            : 'bg-white dark:bg-zinc-800/80 border-slate-200 dark:border-zinc-700 text-slate-500 hover:border-teal-500/50'
+        }`}
+      >
+        <div className="flex items-center gap-1 min-w-0 pr-0.5">
+          <span className="truncate">{triggerLabel}</span>
+          {values.length > 1 && (
+            <span className="shrink-0 px-1 py-0.2 rounded-full bg-teal-600 text-white text-[7px] font-black leading-tight shadow-xs">
+              {values.length}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-0.5 shrink-0">
+          {values.length > 0 && (
+            <span 
+              onClick={handleClearAll}
+              title="Effacer ce filtre"
+              className="hover:text-red-500 transition-colors p-0.5 rounded-full hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer"
+            >
+              <X className="w-2 h-2" />
+            </span>
+          )}
+          <ChevronDown className={`w-2.5 h-2.5 transition-transform duration-300 ${isOpen ? 'rotate-180 text-teal-600' : 'text-slate-400'}`} />
+        </div>
+      </button>
+
+      {isOpen && (
+        <div className={`absolute top-full mt-1.5 ${
+          resolvedAlign === 'right' 
+            ? 'right-0 left-auto' 
+            : resolvedAlign === 'center' 
+            ? 'left-1/2 -translate-x-1/2' 
+            : 'left-0 right-auto'
+        } w-64 max-w-[calc(100vw-24px)] max-h-80 bg-white/98 dark:bg-zinc-900/98 backdrop-blur-xl border border-slate-200 dark:border-zinc-700/80 rounded-2xl shadow-2xl z-[1000] overflow-hidden flex flex-col p-2 animate-in fade-in zoom-in-95 duration-200`}>
+          {/* Header with Search and Actions */}
+          <div className="space-y-1.5 pb-2 border-b border-slate-100 dark:border-zinc-800 shrink-0">
+            {options.length > 8 && (
+              <div className="relative">
+                <Search className="w-3 h-3 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder={`Rechercher ${placeholder.toLowerCase()}...`}
+                  className="w-full pl-7 pr-6 py-1 bg-slate-50 dark:bg-zinc-800/60 rounded-lg text-[9px] font-medium border border-slate-200 dark:border-zinc-700/70 focus:outline-none focus:border-teal-500 text-zinc-900 dark:text-zinc-100 placeholder:text-slate-400"
+                />
+                {searchTerm && (
+                  <button 
+                    type="button"
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 cursor-pointer"
+                  >
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                )}
+              </div>
+            )}
+
+            <div className="flex items-center justify-between px-1 text-[8.5px]">
+              <span className="font-bold text-slate-400 uppercase tracking-wider">
+                {values.length === 0 ? "Aucune sélection" : `${values.length} sélectionné${values.length > 1 ? 's' : ''}`}
+              </span>
+              <div className="flex items-center gap-2">
+                {values.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => onChange([])}
+                    className="text-red-500 hover:text-red-600 font-bold hover:underline cursor-pointer"
+                  >
+                    Effacer
+                  </button>
+                )}
+                {filteredOptions.length > 0 && values.length < filteredOptions.length && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const merged = Array.from(new Set([...values, ...filteredOptions]));
+                      onChange(merged);
+                    }}
+                    className="text-teal-600 dark:text-teal-400 hover:underline font-bold cursor-pointer"
+                  >
+                    Tout cocher
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* List of Options */}
+          <div className="overflow-y-auto custom-scrollbar flex-1 space-y-0.5 py-1 max-h-52">
+            {filteredOptions.length === 0 ? (
+              <div className="py-4 text-center text-slate-400 text-[9px] font-medium">
+                Aucun résultat
+              </div>
+            ) : (
+              filteredOptions.map((opt) => {
+                const isSelected = values.includes(opt);
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => toggleOption(opt)}
+                    className={`w-full text-left px-2.5 py-1.5 text-[9px] transition-all rounded-lg border flex items-center justify-between gap-2 cursor-pointer ${
+                      isSelected 
+                        ? 'text-teal-800 dark:text-teal-300 bg-teal-600/15 dark:bg-teal-600/25 border-teal-600/30 font-black' 
+                        : 'text-zinc-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800/60 border-transparent font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                        isSelected 
+                          ? 'bg-teal-600 border-teal-600 text-white' 
+                          : 'border-slate-300 dark:border-zinc-600 bg-white dark:bg-zinc-800'
+                      }`}>
+                        {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                      </div>
+                      <span className="truncate">
+                        {displayValue ? displayValue(opt) : opt}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+
+          {/* Bottom OK button */}
+          <div className="pt-1.5 border-t border-slate-100 dark:border-zinc-800 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="w-full py-1 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-[8.5px] font-black uppercase tracking-wider transition-all shadow-xs cursor-pointer"
+            >
+              {values.length === 0 ? "Fermer" : `Appliquer (${values.length})`}
+            </button>
           </div>
         </div>
       )}
@@ -798,6 +1032,13 @@ const Sidebar: React.FC = () => {
     return lang === 'fr' ? namesFR[idx] : namesEN[idx];
   };
 
+  const getMonthShortName = (month: string) => {
+    const namesFR = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
+    const namesEN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const idx = parseInt(month, 10) - 1;
+    return lang === 'fr' ? namesFR[idx] : namesEN[idx];
+  };
+
   const dynamicDays = useMemo(() => {
     const days = [];
     for (let i = 1; i <= 31; i++) days.push(i.toString().padStart(2, '0'));
@@ -819,21 +1060,25 @@ const Sidebar: React.FC = () => {
   const filteredSermons = useMemo(() => {
     const q = normalizeText(deferredSearchQuery.trim());
     return sermons.filter(sermon => {
-      if (yearFilter) {
-        if (!sermon.date || !sermon.date.startsWith(yearFilter)) return false;
+      if (yearFilter && yearFilter.length > 0) {
+        if (!sermon.date || !yearFilter.some(y => sermon.date!.startsWith(y))) return false;
       }
-      if (monthFilter) {
+      if (monthFilter && monthFilter.length > 0) {
         if (!sermon.date || sermon.date.length < 7) return false;
         const m = sermon.date.substring(5, 7);
-        if (m !== monthFilter) return false;
+        if (!monthFilter.includes(m)) return false;
       }
-      if (dayFilter) {
+      if (dayFilter && dayFilter.length > 0) {
         if (!sermon.date || sermon.date.length < 10) return false;
         const d = sermon.date.substring(8, 10);
-        if (d !== dayFilter) return false;
+        if (!dayFilter.includes(d)) return false;
       }
-      if (cityFilter && sermon.city !== cityFilter) return false;
-      if (versionFilter && sermon.version !== versionFilter) return false;
+      if (cityFilter && cityFilter.length > 0) {
+        if (!sermon.city || !cityFilter.includes(sermon.city)) return false;
+      }
+      if (versionFilter && versionFilter.length > 0) {
+        if (!sermon.version || !versionFilter.includes(sermon.version)) return false;
+      }
       if (audioFilter && !sermon.audio_url) return false;
 
       if (!q) return true;
@@ -1028,11 +1273,11 @@ const Sidebar: React.FC = () => {
       return count;
     }
     let count = 0;
-    if (yearFilter) count++;
-    if (monthFilter) count++;
-    if (dayFilter) count++;
-    if (cityFilter) count++;
-    if (versionFilter) count++;
+    if (yearFilter && yearFilter.length > 0) count += yearFilter.length;
+    if (monthFilter && monthFilter.length > 0) count += monthFilter.length;
+    if (dayFilter && dayFilter.length > 0) count += dayFilter.length;
+    if (cityFilter && cityFilter.length > 0) count += cityFilter.length;
+    if (versionFilter && versionFilter.length > 0) count += versionFilter.length;
     if (audioFilter) count++;
     return count;
   }, [libraryMode, bibleTestamentFilter, bibleCategoryFilter, yearFilter, monthFilter, dayFilter, cityFilter, versionFilter, audioFilter]);
@@ -1632,12 +1877,58 @@ const Sidebar: React.FC = () => {
                   </div>
                 </div>
               ) : libraryMode === 'sermons' ? (
-                <div className="flex flex-wrap gap-1.5">
-                  <ModernDropdown value={yearFilter} onChange={setYearFilter} options={dynamicYears} placeholder={t.filter_year} />
-                  <ModernDropdown value={monthFilter} onChange={setMonthFilter} options={dynamicMonths} placeholder={t.filter_month} displayValue={getMonthName} />
-                  <ModernDropdown value={dayFilter} onChange={setDayFilter} options={dynamicMonths} placeholder={t.filter_day} />
-                  <ModernDropdown value={cityFilter} onChange={setCityFilter} options={dynamicCities} placeholder={t.filter_city} />
-                  <ModernDropdown value={versionFilter} onChange={setVersionFilter} options={dynamicVersions} placeholder={t.filter_version} />
+                <div className="space-y-2">
+                  <div className="grid grid-cols-5 gap-1 w-full">
+                    <ModernMultiDropdown values={yearFilter} onChange={setYearFilter} options={dynamicYears} placeholder={t.filter_year} align="left" />
+                    <ModernMultiDropdown values={monthFilter} onChange={setMonthFilter} options={dynamicMonths} placeholder={t.filter_month} displayValue={getMonthName} triggerDisplayValue={getMonthShortName} align="left" />
+                    <ModernMultiDropdown values={dayFilter} onChange={setDayFilter} options={dynamicDays} placeholder={t.filter_day} align="center" />
+                    <ModernMultiDropdown values={cityFilter} onChange={setCityFilter} options={dynamicCities} placeholder={t.filter_city} align="right" />
+                    <ModernMultiDropdown values={versionFilter} onChange={setVersionFilter} options={dynamicVersions} placeholder={t.filter_version} align="right" />
+                  </div>
+
+                  {activeFiltersCount > 0 && (
+                    <div className="flex items-center justify-between gap-1.5 pt-1.5 border-t border-slate-100 dark:border-zinc-800 text-[8px]">
+                      <div className="flex flex-wrap items-center gap-1 min-w-0 max-h-16 overflow-y-auto custom-scrollbar">
+                        {yearFilter.map(y => (
+                          <span key={`y-${y}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 font-bold">
+                            {y}
+                            <button type="button" onClick={() => setYearFilter(yearFilter.filter(v => v !== y))} className="hover:text-red-500 cursor-pointer">×</button>
+                          </span>
+                        ))}
+                        {monthFilter.map(m => (
+                          <span key={`m-${m}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 font-bold">
+                            {getMonthName(m)}
+                            <button type="button" onClick={() => setMonthFilter(monthFilter.filter(v => v !== m))} className="hover:text-red-500 cursor-pointer">×</button>
+                          </span>
+                        ))}
+                        {dayFilter.map(d => (
+                          <span key={`d-${d}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 font-bold">
+                            J:{d}
+                            <button type="button" onClick={() => setDayFilter(dayFilter.filter(v => v !== d))} className="hover:text-red-500 cursor-pointer">×</button>
+                          </span>
+                        ))}
+                        {cityFilter.map(c => (
+                          <span key={`c-${c}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 font-bold max-w-[120px]">
+                            <span className="truncate">{c}</span>
+                            <button type="button" onClick={() => setCityFilter(cityFilter.filter(v => v !== c))} className="hover:text-red-500 shrink-0 cursor-pointer">×</button>
+                          </span>
+                        ))}
+                        {versionFilter.map(v => (
+                          <span key={`v-${v}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 font-bold max-w-[110px]">
+                            <span className="truncate">{v}</span>
+                            <button type="button" onClick={() => setVersionFilter(versionFilter.filter(x => x !== v))} className="hover:text-red-500 shrink-0 cursor-pointer">×</button>
+                          </span>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={resetFilters}
+                        className="text-red-500 hover:text-red-600 font-black hover:underline shrink-0 uppercase tracking-wider text-[7.5px] cursor-pointer"
+                      >
+                        Effacer tout
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : null}
             </div>

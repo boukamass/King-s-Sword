@@ -192,10 +192,13 @@ const SearchResults: React.FC = () => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const lastPerformedSearchByModeRef = useRef<Record<string, string>>({});
 
+  const serializeFilters = (arr: string[] | string | null | undefined) => Array.isArray(arr) ? arr.slice().sort().join(',') : (arr || '');
+
   const performSearch = useCallback(async (q: string, m: SearchMode, off: number) => {
     if (!q || q.length < 2) return;
     
-    const searchId = `${libraryMode}-${bibleVersion}-${bibleTestamentFilter}-${selectedExposeChapter}-${selectedExposeSection}-${songLanguageFilter}-${q}-${m}-${off}-${showOnlySynonyms}-${showOnlyQuery}-${includeSynonyms}-${selectedSynonym}-${yearFilter}-${monthFilter}-${dayFilter}-${cityFilter}-${versionFilter}-${audioFilter}`;
+    const filterKey = `${serializeFilters(yearFilter)}-${serializeFilters(monthFilter)}-${serializeFilters(dayFilter)}-${serializeFilters(cityFilter)}-${serializeFilters(versionFilter)}-${audioFilter}`;
+    const searchId = `${libraryMode}-${bibleVersion}-${bibleTestamentFilter}-${selectedExposeChapter}-${selectedExposeSection}-${songLanguageFilter}-${q}-${m}-${off}-${showOnlySynonyms}-${showOnlyQuery}-${includeSynonyms}-${selectedSynonym}-${filterKey}`;
     if (off === 0 && searchId === lastPerformedSearchByModeRef.current[libraryMode] && searchResults.length > 0) return;
     
     setIsSearching(true);
@@ -244,7 +247,8 @@ const SearchResults: React.FC = () => {
   }, [setSearchResults, setIsSearching, showOnlySynonyms, showOnlyQuery, includeSynonyms, selectedSynonym, activeSynonyms, yearFilter, monthFilter, dayFilter, cityFilter, versionFilter, audioFilter, libraryMode, bibleVersion, bibleTestamentFilter, selectedExposeChapter, selectedExposeSection, songLanguageFilter, searchResults.length]);
 
   useEffect(() => {
-    const currentSearchId = `${libraryMode}-${bibleVersion}-${bibleTestamentFilter}-${selectedExposeChapter}-${selectedExposeSection}-${songLanguageFilter}-${searchQuery}-${searchMode}-${showOnlySynonyms}-${showOnlyQuery}-${includeSynonyms}-${selectedSynonym}-${yearFilter}-${monthFilter}-${dayFilter}-${cityFilter}-${versionFilter}-${audioFilter}`;
+    const filterKey = `${serializeFilters(yearFilter)}-${serializeFilters(monthFilter)}-${serializeFilters(dayFilter)}-${serializeFilters(cityFilter)}-${serializeFilters(versionFilter)}-${audioFilter}`;
+    const currentSearchId = `${libraryMode}-${bibleVersion}-${bibleTestamentFilter}-${selectedExposeChapter}-${selectedExposeSection}-${songLanguageFilter}-${searchQuery}-${searchMode}-${showOnlySynonyms}-${showOnlyQuery}-${includeSynonyms}-${selectedSynonym}-${filterKey}`;
     if (currentSearchId !== lastSearchContext) {
       savedSearchScrollTopFullByMode[libraryMode] = 0;
       lastSearchContext = currentSearchId;

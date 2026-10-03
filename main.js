@@ -256,25 +256,32 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0, synon
     let filterClauses = '';
     const queryParams = [highlightOpen, highlightClose, ftsQuery];
 
-    if (filters.year) {
-      filterClauses += ' AND s.date LIKE ?';
-      queryParams.push(`${filters.year}%`);
+    const toArr = (v) => Array.isArray(v) ? v.filter(Boolean) : (v ? [v] : []);
+
+    const years = toArr(filters.year);
+    if (years.length > 0) {
+      filterClauses += ' AND (' + years.map(() => 's.date LIKE ?').join(' OR ') + ')';
+      years.forEach(y => queryParams.push(`${y}%`));
     }
-    if (filters.month) {
-      filterClauses += ' AND SUBSTR(s.date, 6, 2) = ?';
-      queryParams.push(filters.month);
+    const months = toArr(filters.month);
+    if (months.length > 0) {
+      filterClauses += ' AND SUBSTR(s.date, 6, 2) IN (' + months.map(() => '?').join(',') + ')';
+      months.forEach(m => queryParams.push(m));
     }
-    if (filters.day) {
-      filterClauses += ' AND SUBSTR(s.date, 9, 2) = ?';
-      queryParams.push(filters.day);
+    const days = toArr(filters.day);
+    if (days.length > 0) {
+      filterClauses += ' AND SUBSTR(s.date, 9, 2) IN (' + days.map(() => '?').join(',') + ')';
+      days.forEach(d => queryParams.push(d));
     }
-    if (filters.city) {
-      filterClauses += ' AND s.city = ?';
-      queryParams.push(filters.city);
+    const cities = toArr(filters.city);
+    if (cities.length > 0) {
+      filterClauses += ' AND s.city IN (' + cities.map(() => '?').join(',') + ')';
+      cities.forEach(c => queryParams.push(c));
     }
-    if (filters.version) {
-      filterClauses += ' AND s.version = ?';
-      queryParams.push(filters.version);
+    const versions = toArr(filters.version);
+    if (versions.length > 0) {
+      filterClauses += ' AND s.version IN (' + versions.map(() => '?').join(',') + ')';
+      versions.forEach(v => queryParams.push(v));
     }
     if (filters.audio) {
       filterClauses += " AND s.audio_url IS NOT NULL AND s.audio_url != ''";
