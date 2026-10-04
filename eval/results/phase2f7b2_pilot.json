@@ -1,0 +1,87 @@
+{
+  "timestamp": "2026-10-03T18:27:50.497Z",
+  "environment": "development",
+  "status": "PILOT_BATCH_VALIDATED",
+  "featureFlags": {
+    "useLegacyRetrieval": true,
+    "useHybridRetrieval": false,
+    "useEmbeddings": false,
+    "useQueryRewrite": false,
+    "useReranker": false,
+    "useCitationValidation": false,
+    "useQueryCache": false,
+    "useResponseCache": false
+  },
+  "corpusSelection": {
+    "totalChunksSelected": 16,
+    "maxAllowedLimit": 50,
+    "sermonsCount": 4,
+    "sermonsList": [
+      "63-0324M",
+      "64-0719M",
+      "65-0725M",
+      "65-1212"
+    ]
+  },
+  "indexationPass1": {
+    "totalChunks": 16,
+    "embeddingsRequired": 16,
+    "embeddingsCompleted": 16,
+    "embeddingsFailed": 0,
+    "apiCalls": 16,
+    "retries": 0,
+    "elapsedMs": 6032.01,
+    "avgTimePerEmbeddingMs": 377
+  },
+  "indexationPass2Idempotence": {
+    "totalChunks": 16,
+    "alreadyIndexed": 16,
+    "newApiCalls": 0,
+    "isIdempotent": true
+  },
+  "consistencyChecks": {
+    "verifiedChunksCount": 16,
+    "dimension": 3072,
+    "blobByteLength": 12288,
+    "allValidFloat32": true
+  },
+  "vectorSearchResults": [
+    {
+      "type": "Directe",
+      "query": "Cavalier sur le cheval blanc et l'antichrist",
+      "expectedSermonId": "63-0324M",
+      "topResultSermonId": "63-0324M",
+      "topResultChunkId": "63-0324M_c2_p2_p2",
+      "score": 0.7508,
+      "isMatch": true,
+      "embeddingLatencyMs": 291.01,
+      "searchLatencyMs": 6.71
+    },
+    {
+      "type": "Paraphrase",
+      "query": "Sainte Cène, pain sans levain et communion du Soir",
+      "expectedSermonId": "65-1212",
+      "topResultSermonId": "65-1212",
+      "topResultChunkId": "65-1212_c1_p1_p2",
+      "score": 0.7352,
+      "isMatch": true,
+      "embeddingLatencyMs": 275.88,
+      "searchLatencyMs": 0.31
+    },
+    {
+      "type": "Autre Sermon",
+      "query": "La fête des trompettes et le rassemblement d'Israël",
+      "expectedSermonId": "64-0719M",
+      "topResultSermonId": "64-0719M",
+      "topResultChunkId": "64-0719M_c2_p2_p2",
+      "score": 0.7739,
+      "isMatch": true,
+      "embeddingLatencyMs": 243.73,
+      "searchLatencyMs": 0.19
+    }
+  ],
+  "storageMetrics": {
+    "estimatedBytesAdded": 214032,
+    "estimatedKilobytesAdded": 209
+  }
+}

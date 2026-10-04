@@ -27,7 +27,28 @@ export const ensureFullBibleLoaded = async (version: BibleVersion = 'lsg1910'): 
         const verMeta = BIBLE_VERSIONS_META[version] || BIBLE_VERSIONS_META.lsg1910;
         const filePath = verMeta.file.startsWith('/') ? verMeta.file : `/${verMeta.file}`;
         const relativePath = verMeta.file.replace(/^\//, '');
-        const data = await fetchJsonSafe<Record<string, Record<number, BibleVerse[]>>>(filePath, [relativePath]);
+        let data = await fetchJsonSafe<Record<string, Record<number, BibleVerse[]>>>(filePath, [relativePath]);
+        
+        // Fallback environnement Node.js (scripts de tests et benchmarks)
+        if (!data && typeof window === 'undefined') {
+          try {
+            const fs = await import('fs');
+            const path = await import('path');
+            const fileName = verMeta.file.replace(/^\//, '');
+            const candidates = [
+              path.resolve('public', fileName),
+              path.resolve('dist', fileName),
+              path.resolve('../public', fileName)
+            ];
+            for (const cand of candidates) {
+              if (fs.existsSync(cand)) {
+                data = JSON.parse(fs.readFileSync(cand, 'utf8'));
+                break;
+              }
+            }
+          } catch {}
+        }
+
         if (data && typeof data === 'object') {
           fullBibleDataMap.set(version, data);
           return data;

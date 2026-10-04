@@ -1,0 +1,490 @@
+{
+  "timestamp": "2026-10-03T18:48:50.364Z",
+  "dataset": {
+    "name": "eval/questions.json",
+    "total_questions": 88,
+    "answerable_questions": 80,
+    "unanswerable_questions": 8
+  },
+  "metrics_comparison": {
+    "historical_baseline": {
+      "recall_at_5": 90,
+      "recall_at_10": 90,
+      "recall_at_20": 90,
+      "source_coverage_at_5": 93.1,
+      "source_coverage_at_10": 93.1,
+      "source_coverage_at_20": 93.1,
+      "mrr": 0.881
+    },
+    "recalculated_paragraphs": {
+      "recall_at_5": 90,
+      "recall_at_10": 90,
+      "recall_at_20": 90,
+      "source_coverage_at_5": 93.1,
+      "source_coverage_at_10": 93.1,
+      "source_coverage_at_20": 93.1,
+      "mrr": 0.848
+    },
+    "phase2f8_shadow_legacy_as_is": {
+      "recall_at_5": 0,
+      "mrr": 0,
+      "note": "Résultat direct obtenu en Phase 2F.8 en raison de l'absence de await sur l'appel asynchrone (Bug 1)."
+    },
+    "phase2f8_shadow_with_await_mismatched_struct": {
+      "recall_at_5": 0,
+      "mrr": 0,
+      "note": "Résultat obtenu si await est ajouté mais que la structure de LexicalChunkHit reste incompatible avec evaluateRetrievalPerformance (Bug 2)."
+    }
+  },
+  "diagnostic": {
+    "status": "LEGACY_BASELINE_PROTOCOL_MISMATCH",
+    "is_historical_baseline_reproducible": true,
+    "bug_1_description": "Absence de await lors de l'appel à retrieveRelevantSermonPassages() à la ligne 173 de scripts/run_phase2f8_shadow.mjs. Cela retourne une Promise vide dont la propriété .paragraphs est undefined, provoquant une liste vide de passages récupérés.",
+    "bug_2_description": "Incompatibilité de structure entre LexicalChunkHit et la fonction d'évaluation evaluateRetrievalPerformance(). Les LexicalChunkHit n'ont pas de propriété .sermonId ni .paragraphIds, or la fonction d'évaluation tente d'accéder directement à chunk.sermonId et chunk.paragraphIds.",
+    "recalculation_needed_for_phase2f8": true
+  },
+  "examples_mismatches": [
+    {
+      "id": "Q001",
+      "question": "Que portait le cavalier sur le cheval blanc et quel élément crucial lui manquait-il ?",
+      "expected_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2
+        }
+      ],
+      "legacy_raw_passages": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 2
+        }
+      ],
+      "legacy_mapped_hits_fake_chunks": [
+        {
+          "chunkId": "chunk_63-0324M_p2",
+          "rank": 1,
+          "score": 55,
+          "matchedParagraphIds": [
+            2
+          ]
+        },
+        {
+          "chunkId": "chunk_65-1212_p2",
+          "rank": 2,
+          "score": 10,
+          "matchedParagraphIds": [
+            2
+          ]
+        }
+      ],
+      "reason_mismatch": "Le tableau legacyHits contient des objets de type LexicalChunkHit qui n'ont ni .sermonId ni .paragraphIds, alors que la fonction d'évaluation evaluateRetrievalPerformance tente d'y accéder en faisant chunk.paragraphIds ou chunk.sermonId. De plus, l'absence de `await` lors de l'appel à retrieveRelevantSermonPassages() à la ligne 173 produit un tableau de résultats vide."
+    },
+    {
+      "id": "Q002",
+      "question": "Pourquoi les questions et les réponses sont-elles qualifiées de partie essentielle de l'enseignement ?",
+      "expected_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 1
+        }
+      ],
+      "legacy_raw_passages": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 1
+        }
+      ],
+      "legacy_mapped_hits_fake_chunks": [
+        {
+          "chunkId": "chunk_63-0324M_p1",
+          "rank": 1,
+          "score": 95,
+          "matchedParagraphIds": [
+            1
+          ]
+        }
+      ],
+      "reason_mismatch": "Le tableau legacyHits contient des objets de type LexicalChunkHit qui n'ont ni .sermonId ni .paragraphIds, alors que la fonction d'évaluation evaluateRetrievalPerformance tente d'y accéder en faisant chunk.paragraphIds ou chunk.sermonId. De plus, l'absence de `await` lors de l'appel à retrieveRelevantSermonPassages() à la ligne 173 produit un tableau de résultats vide."
+    },
+    {
+      "id": "Q003",
+      "question": "De quoi la communion n'est-elle pas simplement faite selon Frère Branham ?",
+      "expected_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1
+        }
+      ],
+      "legacy_raw_passages": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1
+        }
+      ],
+      "legacy_mapped_hits_fake_chunks": [
+        {
+          "chunkId": "chunk_65-1212_p1",
+          "rank": 1,
+          "score": 60,
+          "matchedParagraphIds": [
+            1
+          ]
+        }
+      ],
+      "reason_mismatch": "Le tableau legacyHits contient des objets de type LexicalChunkHit qui n'ont ni .sermonId ni .paragraphIds, alors que la fonction d'évaluation evaluateRetrievalPerformance tente d'y accéder en faisant chunk.paragraphIds ou chunk.sermonId. De plus, l'absence de `await` lors de l'appel à retrieveRelevantSermonPassages() à la ligne 173 produit un tableau de résultats vide."
+    },
+    {
+      "id": "Q004",
+      "question": "Où était réservée la manne cachée dans l'Ancien Testament selon le sermon sur La Communion ?",
+      "expected_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3
+        }
+      ],
+      "legacy_raw_passages": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2
+        }
+      ],
+      "legacy_mapped_hits_fake_chunks": [
+        {
+          "chunkId": "chunk_65-1212_p3",
+          "rank": 1,
+          "score": 100,
+          "matchedParagraphIds": [
+            3
+          ]
+        },
+        {
+          "chunkId": "chunk_64-0719M_p2",
+          "rank": 2,
+          "score": 30,
+          "matchedParagraphIds": [
+            2
+          ]
+        },
+        {
+          "chunkId": "chunk_65-0725M_p2",
+          "rank": 3,
+          "score": 10,
+          "matchedParagraphIds": [
+            2
+          ]
+        }
+      ],
+      "reason_mismatch": "Le tableau legacyHits contient des objets de type LexicalChunkHit qui n'ont ni .sermonId ni .paragraphIds, alors que la fonction d'évaluation evaluateRetrievalPerformance tente d'y accéder en faisant chunk.paragraphIds ou chunk.sermonId. De plus, l'absence de `await` lors de l'appel à retrieveRelevantSermonPassages() à la ligne 173 produit un tableau de résultats vide."
+    },
+    {
+      "id": "Q005",
+      "question": "Que sonnait la fête des trompettes dans l'Ancien Testament sous la loi mosaïque ?",
+      "expected_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2
+        }
+      ],
+      "legacy_raw_passages": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3
+        }
+      ],
+      "legacy_mapped_hits_fake_chunks": [
+        {
+          "chunkId": "chunk_64-0719M_p2",
+          "rank": 1,
+          "score": 160,
+          "matchedParagraphIds": [
+            2
+          ]
+        },
+        {
+          "chunkId": "chunk_64-0719M_p3",
+          "rank": 2,
+          "score": 40,
+          "matchedParagraphIds": [
+            3
+          ]
+        },
+        {
+          "chunkId": "chunk_65-1212_p3",
+          "rank": 3,
+          "score": 20,
+          "matchedParagraphIds": [
+            3
+          ]
+        }
+      ],
+      "reason_mismatch": "Le tableau legacyHits contient des objets de type LexicalChunkHit qui n'ont ni .sermonId ni .paragraphIds, alors que la fonction d'évaluation evaluateRetrievalPerformance tente d'y accéder en faisant chunk.paragraphIds ou chunk.sermonId. De plus, l'absence de `await` lors de l'appel à retrieveRelevantSermonPassages() à la ligne 173 produit un tableau de résultats vide."
+    },
+    {
+      "id": "Q006",
+      "question": "Quel symbole végétal et quel drapeau attestent du rétablissement d'Israël ?",
+      "expected_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3
+        }
+      ],
+      "legacy_raw_passages": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3
+        }
+      ],
+      "legacy_mapped_hits_fake_chunks": [
+        {
+          "chunkId": "chunk_64-0719M_p2",
+          "rank": 1,
+          "score": 20,
+          "matchedParagraphIds": [
+            2
+          ]
+        },
+        {
+          "chunkId": "chunk_64-0719M_p3",
+          "rank": 2,
+          "score": 20,
+          "matchedParagraphIds": [
+            3
+          ]
+        }
+      ],
+      "reason_mismatch": "Le tableau legacyHits contient des objets de type LexicalChunkHit qui n'ont ni .sermonId ni .paragraphIds, alors que la fonction d'évaluation evaluateRetrievalPerformance tente d'y accéder en faisant chunk.paragraphIds ou chunk.sermonId. De plus, l'absence de `await` lors de l'appel à retrieveRelevantSermonPassages() à la ligne 173 produit un tableau de résultats vide."
+    },
+    {
+      "id": "Q007",
+      "question": "Sur quoi la pluie de Dieu tombe-t-elle indifféremment dans le même champ ?",
+      "expected_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2
+        }
+      ],
+      "legacy_raw_passages": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 2
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3
+        }
+      ],
+      "legacy_mapped_hits_fake_chunks": [
+        {
+          "chunkId": "chunk_65-0725M_p2",
+          "rank": 1,
+          "score": 85,
+          "matchedParagraphIds": [
+            2
+          ]
+        },
+        {
+          "chunkId": "chunk_65-1212_p2",
+          "rank": 2,
+          "score": 30,
+          "matchedParagraphIds": [
+            2
+          ]
+        },
+        {
+          "chunkId": "chunk_65-1212_p3",
+          "rank": 3,
+          "score": 10,
+          "matchedParagraphIds": [
+            3
+          ]
+        }
+      ],
+      "reason_mismatch": "Le tableau legacyHits contient des objets de type LexicalChunkHit qui n'ont ni .sermonId ni .paragraphIds, alors que la fonction d'évaluation evaluateRetrievalPerformance tente d'y accéder en faisant chunk.paragraphIds ou chunk.sermonId. De plus, l'absence de `await` lors de l'appel à retrieveRelevantSermonPassages() à la ligne 173 produit un tableau de résultats vide."
+    },
+    {
+      "id": "Q008",
+      "question": "De quoi les yeux spirituels des croyants doivent-ils être oints selon la prière finale de 65-0725M ?",
+      "expected_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 4
+        }
+      ],
+      "legacy_raw_passages": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 4
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3
+        }
+      ],
+      "legacy_mapped_hits_fake_chunks": [
+        {
+          "chunkId": "chunk_65-0725M_p4",
+          "rank": 1,
+          "score": 45,
+          "matchedParagraphIds": [
+            4
+          ]
+        },
+        {
+          "chunkId": "chunk_65-0725M_p2",
+          "rank": 2,
+          "score": 25,
+          "matchedParagraphIds": [
+            2
+          ]
+        },
+        {
+          "chunkId": "chunk_65-0725M_p3",
+          "rank": 3,
+          "score": 25,
+          "matchedParagraphIds": [
+            3
+          ]
+        }
+      ],
+      "reason_mismatch": "Le tableau legacyHits contient des objets de type LexicalChunkHit qui n'ont ni .sermonId ni .paragraphIds, alors que la fonction d'évaluation evaluateRetrievalPerformance tente d'y accéder en faisant chunk.paragraphIds ou chunk.sermonId. De plus, l'absence de `await` lors de l'appel à retrieveRelevantSermonPassages() à la ligne 173 produit un tableau de résultats vide."
+    },
+    {
+      "id": "Q009",
+      "question": "Quel est le thème biblique de la lumière du soir prophétisée par Zacharie ?",
+      "expected_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3
+        }
+      ],
+      "legacy_raw_passages": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 4
+        }
+      ],
+      "legacy_mapped_hits_fake_chunks": [
+        {
+          "chunkId": "chunk_63-0324M_p3",
+          "rank": 1,
+          "score": 65,
+          "matchedParagraphIds": [
+            3
+          ]
+        },
+        {
+          "chunkId": "chunk_65-1212_p1",
+          "rank": 2,
+          "score": 10,
+          "matchedParagraphIds": [
+            1
+          ]
+        },
+        {
+          "chunkId": "chunk_65-0725M_p4",
+          "rank": 3,
+          "score": 10,
+          "matchedParagraphIds": [
+            4
+          ]
+        }
+      ],
+      "reason_mismatch": "Le tableau legacyHits contient des objets de type LexicalChunkHit qui n'ont ni .sermonId ni .paragraphIds, alors que la fonction d'évaluation evaluateRetrievalPerformance tente d'y accéder en faisant chunk.paragraphIds ou chunk.sermonId. De plus, l'absence de `await` lors de l'appel à retrieveRelevantSermonPassages() à la ligne 173 produit un tableau de résultats vide."
+    },
+    {
+      "id": "Q010",
+      "question": "Comment le thème du discernement spirituel est-il opposé aux apparences extérieures ?",
+      "expected_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4
+        }
+      ],
+      "legacy_raw_passages": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1
+        }
+      ],
+      "legacy_mapped_hits_fake_chunks": [
+        {
+          "chunkId": "chunk_63-0324M_p4",
+          "rank": 1,
+          "score": 55,
+          "matchedParagraphIds": [
+            4
+          ]
+        },
+        {
+          "chunkId": "chunk_65-0725M_p3",
+          "rank": 2,
+          "score": 20,
+          "matchedParagraphIds": [
+            3
+          ]
+        },
+        {
+          "chunkId": "chunk_65-1212_p1",
+          "rank": 3,
+          "score": 10,
+          "matchedParagraphIds": [
+            1
+          ]
+        }
+      ],
+      "reason_mismatch": "Le tableau legacyHits contient des objets de type LexicalChunkHit qui n'ont ni .sermonId ni .paragraphIds, alors que la fonction d'évaluation evaluateRetrievalPerformance tente d'y accéder en faisant chunk.paragraphIds ou chunk.sermonId. De plus, l'absence de `await` lors de l'appel à retrieveRelevantSermonPassages() à la ligne 173 produit un tableau de résultats vide."
+    }
+  ],
+  "feature_flags": {
+    "useLegacyRetrieval": true,
+    "useHybridRetrieval": false
+  }
+}

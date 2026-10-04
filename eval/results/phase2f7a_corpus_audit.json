@@ -1,0 +1,142 @@
+{
+  "timestamp": "2026-10-03T18:17:55.227Z",
+  "environment": "development",
+  "featureFlags": {
+    "useLegacyRetrieval": true,
+    "useHybridRetrieval": false,
+    "useEmbeddings": false,
+    "useQueryRewrite": false,
+    "useReranker": false,
+    "useCitationValidation": false,
+    "useQueryCache": false,
+    "useResponseCache": false
+  },
+  "sermonsAudit": {
+    "totalSermons": 4,
+    "validSermons": 4,
+    "invalidSermons": 0,
+    "sermonsWithoutParagraphs": 0,
+    "sermonsWithEmptyParagraphs": 4,
+    "metadataAnomaliesCount": 0,
+    "totalParagraphs": 16,
+    "details": [
+      {
+        "sermonId": "63-0324M",
+        "title": "Questions Et Réponses Sur Les Sceaux",
+        "date": "1963-03-24",
+        "city": "Jeffersonville",
+        "version": "VGR",
+        "paragraphCount": 5,
+        "emptyParagraphsFound": 4,
+        "isValid": true
+      },
+      {
+        "sermonId": "65-1212",
+        "title": "La Communion",
+        "date": "1965-12-12",
+        "city": "Tucson",
+        "version": "Shp",
+        "paragraphCount": 3,
+        "emptyParagraphsFound": 2,
+        "isValid": true
+      },
+      {
+        "sermonId": "64-0719M",
+        "title": "La Fête Des Trompettes",
+        "date": "1964-07-19",
+        "city": "Jeffersonville",
+        "version": "VGR",
+        "paragraphCount": 4,
+        "emptyParagraphsFound": 3,
+        "isValid": true
+      },
+      {
+        "sermonId": "65-0725M",
+        "title": "Les Oints Du Temps De La Fin",
+        "date": "1965-07-25",
+        "city": "Jeffersonville",
+        "version": "VGR",
+        "paragraphCount": 4,
+        "emptyParagraphsFound": 3,
+        "isValid": true
+      }
+    ]
+  },
+  "chunkingDryRun": {
+    "totalChunks": 16,
+    "avgChunksPerSermon": 4,
+    "coverageRatePercent": 100,
+    "chunkSizesChar": {
+      "avg": 545,
+      "median": 621,
+      "min": 98,
+      "max": 872
+    },
+    "chunkSizesWords": {
+      "avg": 91
+    },
+    "chunksExceeding900CharsCount": 0,
+    "chunksExceeding3ParasCount": 0,
+    "anomaliesCount": 0
+  },
+  "hashingAudit": {
+    "hashAlgorithm": "FNV-1a 64-bit (computeChunkHash)",
+    "totalHashesGenerated": 16,
+    "uniqueHashesCount": 16,
+    "exactHashDuplicatesCount": 0,
+    "hashConflictsCount": 0
+  },
+  "embeddingEstimation": {
+    "devCorpus": {
+      "chunksCount": 16,
+      "embeddingsNeeded": 16,
+      "vectorBytes": 196608,
+      "vectorMegabytes": 0.188,
+      "totalSqliteBytes": 228608,
+      "apiBatchRequests": 1
+    },
+    "fullCatalogProjection": {
+      "estimatedSermonsCount": 1500,
+      "estimatedChunksCount": 60000,
+      "embeddingsNeeded": 60000,
+      "embeddingModel": "gemini-embedding-2-preview (Float32 3072D)",
+      "bytesPerEmbedding": 12288,
+      "totalVectorStorageBytes": 737280000,
+      "totalVectorStorageMegabytes": 703,
+      "totalMetadataStorageMegabytes": 114,
+      "totalSqliteStorageMegabytes": 818,
+      "apiBatchRequests": 600
+    }
+  },
+  "sqliteVerification": {
+    "tableName": "sermon_chunks",
+    "primaryKey": "chunk_id (TEXT PRIMARY KEY)",
+    "foreignKey": "FOREIGN KEY(sermon_id) REFERENCES sermons(id) ON DELETE CASCADE",
+    "columnsVerified": [
+      "chunk_id (TEXT)",
+      "sermon_id (TEXT)",
+      "paragraph_ids (TEXT)",
+      "start_paragraph (INTEGER)",
+      "end_paragraph (INTEGER)",
+      "text (TEXT)",
+      "sermon_title (TEXT)",
+      "date (TEXT)",
+      "city (TEXT)",
+      "version (TEXT)",
+      "character_count (INTEGER)",
+      "word_count (INTEGER)",
+      "content_hash (TEXT)",
+      "embedding (BLOB DEFAULT NULL)",
+      "created_at (TEXT)",
+      "updated_at (TEXT)"
+    ],
+    "indexesVerified": [
+      "idx_chunks_sermon_id ON sermon_chunks(sermon_id)",
+      "idx_chunks_content_hash ON sermon_chunks(content_hash)"
+    ],
+    "compatibilityStatus": "100% COMPATIBLE",
+    "isReadyForFullCorpus": true
+  },
+  "anomalies": [],
+  "recommendation": "READY_FOR_2F7B_BATCH_INDEXING"
+}

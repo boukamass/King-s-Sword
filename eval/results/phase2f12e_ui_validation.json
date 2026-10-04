@@ -1,0 +1,63 @@
+{
+  "timestamp": "2026-10-04T15:51:24.601Z",
+  "phase": "2F.12E",
+  "title": "Validation du Vrai Flux UI & AI Context",
+  "totalTests": 9,
+  "passCount": 9,
+  "failCount": 0,
+  "status": "UI_VALIDATED",
+  "featureFlags": {
+    "useLegacyRetrieval": true,
+    "useHybridRetrieval": false,
+    "useUnifiedRag": true,
+    "useEmbeddings": false,
+    "useQueryRewrite": false,
+    "useReranker": false,
+    "useCitationValidation": false,
+    "useQueryCache": false,
+    "useResponseCache": false
+  },
+  "scenarios": [
+    {
+      "name": "1. Sermon seul",
+      "status": "PASS"
+    },
+    {
+      "name": "2. Exposé seul",
+      "status": "PASS"
+    },
+    {
+      "name": "3. Bible seule",
+      "status": "PASS"
+    },
+    {
+      "name": "4. Chant seul",
+      "status": "PASS"
+    },
+    {
+      "name": "5. Multi-source",
+      "status": "PASS"
+    },
+    {
+      "name": "6. Test d'isolement",
+      "status": "PASS"
+    },
+    {
+      "name": "7. Citations",
+      "status": "PASS"
+    },
+    {
+      "name": "8. Question hors contexte",
+      "status": "PASS"
+    }
+  ],
+  "modifiedFiles": [
+    "services/unifiedRagIntegrationService.ts",
+    "components/AIAssistant.tsx",
+    "services/unifiedRagService.ts",
+    "scripts/test_phase2f12d_integration.mjs",
+    "scripts/test_phase2f12e_ui_validation.mjs",
+    "package.json"
+  ],
+  "errors": []
+}

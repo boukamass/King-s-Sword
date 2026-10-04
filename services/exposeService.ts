@@ -62,7 +62,28 @@ export const loadExposeData = async () => {
   if (exposeData) return exposeData;
   
   try {
-    const rawData = await fetchJsonSafe<any>('/expose.json', ['expose.json']);
+    let rawData = await fetchJsonSafe<any>('/expose.json', ['expose.json']);
+    
+    // Fallback environnement Node.js (scripts de tests et benchmarks)
+    if (!rawData && typeof window === 'undefined') {
+      try {
+        const fs = await import('fs');
+        const path = await import('path');
+        const candidates = [
+          path.resolve('public/expose.json'),
+          path.resolve('dist/expose.json'),
+          path.resolve('../public/expose.json')
+        ];
+        for (const cand of candidates) {
+          if (fs.existsSync(cand)) {
+            rawData = JSON.parse(fs.readFileSync(cand, 'utf8'));
+            break;
+          }
+        }
+      } catch {
+        // ignore in non-node env
+      }
+    }
     
     if (rawData) {
       // 1. Map TOC chapters with clean titles (including Chapter 0 'Introduction')

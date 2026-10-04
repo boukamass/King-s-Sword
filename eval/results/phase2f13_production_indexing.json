@@ -1,0 +1,24 @@
+{
+  "timestamp": "2026-10-04T09:08:10.056Z",
+  "phase": "2F.13",
+  "title": "Indexation Production du Corpus Complet",
+  "finalStatus": "PRODUCTION_CORPUS_NOT_AVAILABLE",
+  "isProductionCorpusAvailable": false,
+  "metrics": {
+    "totalSermons": 4,
+    "totalParagraphs": 16,
+    "totalChunks": 16,
+    "chunksWithEmbedding": 16,
+    "chunksWithoutEmbedding": 0,
+    "invalidEmbeddings": 0,
+    "nanCount": 0,
+    "infinityCount": 0,
+    "invalidDimensionCount": 0,
+    "reusedChunks": 0,
+    "newEmbeddings": 16,
+    "regeneratedEmbeddings": 0,
+    "errors": 0,
+    "retries": 0,
+    "totalDurationSeconds": 6.31
+  }
+}

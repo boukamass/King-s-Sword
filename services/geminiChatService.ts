@@ -1,8 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
-import { ChatMessage } from '../types';
+import { ChatMessage, RetrievalEvidencePackage } from '../types';
 import { isOllamaAvailable, askOllamaChat, offlineLocalSearchAnalysis } from './ollamaService';
 import { getGeminiApiKey, getAllGeminiApiKeys, extractAllApiKeys, cleanApiKey } from '../utils/apiKeyHelper';
 import { RetrievedParagraph } from './sermonRagService';
+import { aiConfig } from '../config/aiConfig';
 
 export interface GeminiSource {
   title: string;
@@ -15,6 +16,7 @@ export interface GeminiResponse {
   text: string;
   sources: GeminiSource[];
   retrievedParagraphs?: RetrievedParagraph[];
+  evidencePackage?: RetrievalEvidencePackage;
   engineUsed?: 'gemini' | 'ollama' | 'local_fallback';
   errorDetails?: {
     type: string;
@@ -25,6 +27,7 @@ export interface GeminiResponse {
 export interface AskGeminiChatOptions {
   mode?: 'auto-rag' | 'dock';
   retrievedParagraphs?: RetrievedParagraph[];
+  evidencePackage?: RetrievalEvidencePackage;
 }
 
 /**
@@ -127,12 +130,7 @@ export const classifyGeminiError = (error: any): { type: string; userMessage: st
   };
 };
 
-const CANDIDATE_MODELS = [
-  "gemini-3.8-flash",
-  "gemini-3.1-flash-lite",
-  "gemini-flash-latest",
-  "gemini-3.1-pro-preview"
-];
+export const CANDIDATE_MODELS = aiConfig.models.fastFailoverCascade;
 
 /**
  * Test explicite de la clé API Gemini en envoyant une micro-requête minimale sans aucun outil externe.
@@ -191,7 +189,7 @@ export const testGeminiApiKey = async (
         } catch (modelErr: any) {
           lastError = modelErr;
           const cl = classifyGeminiError(modelErr);
-          if (cl.type === 'API_KEY_INVALID' || cl.type === 'PERMISSION_DENIED') {
+          if (cl.type === 'API_KEY_INVALID') {
             break;
           }
         }
@@ -238,7 +236,17 @@ export const askGeminiChat = async (
 ): Promise<GeminiResponse> => {
   const availableKeys = getAllGeminiApiKeys();
   const apiKey = availableKeys[0];
-  const isAutoRag = options.mode === 'auto-rag' || (options.retrievedParagraphs && options.retrievedParagraphs.length > 0);
+  const isAutoRag = options.mode === 'auto-rag' || (options.retrievedParagraphs && options.retrievedParagraphs.length > 0) || !!options.evidencePackage;
+
+  // Si un package d'Evidence indique que la question n'est pas couverte (abstention)
+  if (options.evidencePackage && !options.evidencePackage.answerable) {
+    return {
+      text: "Les documents disponibles dans la base documentaire de l'application ne contiennent pas d'informations suffisantes pour répondre à cette question.",
+      sources: [],
+      evidencePackage: options.evidencePackage,
+      engineUsed: 'gemini'
+    };
+  }
 
   // 1. Si au moins une clé est présente et que nous sommes en ligne : tentative prioritaire avec Gemini Cloud
   // RÈGLE STRICTE : AUCUNE RECHERCHE WEB GOOGLE (googleSearch désactivé). Réponses fondées exclusivement sur les sources internes.
@@ -262,7 +270,7 @@ DIRECTIVES STRICTES DE RÉPONSE FONDÉE EXCLUSIVEMENT SUR LES SOURCES FOURNIES D
    « Les documents disponibles dans la base documentaire de l'application ne contiennent pas d'informations suffisantes pour répondre à cette question. »
 6. Regroupe toujours en fin de réponse une section "### Sources consultées" listant clairement les sermons et paragraphes cités.`;
 
-      userPromptWithContext = `${contextText.substring(0, 300000)}
+      userPromptWithContext = `${contextText.substring(0, aiConfig.models.dockMaxChars)}
 
 ============================================================
 QUESTION DU CHERCHEUR :
@@ -280,7 +288,7 @@ DIRECTIVES STRICTES DE RÉPONSE FONDÉE EXCLUSIVEMENT SUR LES SOURCES DE L'APPLI
 
       userPromptWithContext = `DOCUMENTS SOURCES FOURNIS DANS L'APPLICATION (Dock IA / Sermons actifs) :
 ============================================================
-${contextText.substring(0, 300000)}
+${contextText.substring(0, aiConfig.models.dockMaxChars)}
 ============================================================
 
 CONSIGNES :
@@ -312,7 +320,7 @@ QUESTION DU CHERCHEUR :
     // Configuration pure sans aucun outil externe (aucun googleSearch)
     const config: any = { 
       systemInstruction,
-      temperature: isAutoRag ? 0.2 : 0.4
+      temperature: isAutoRag ? aiConfig.models.autoRagTemperature : aiConfig.models.dockTemperature
     };
 
     let successfulResponse: any = null;
@@ -335,11 +343,11 @@ QUESTION DU CHERCHEUR :
           } catch (err: any) {
             lastKeyError = err;
             const cl = classifyGeminiError(err);
-            // Si l'erreur est liée au quota ou modèle temporairement inaccessible, essayer le modèle suivant
-            if (cl.type === 'QUOTA_EXHAUSTED' || cl.type === 'MODEL_UNAVAILABLE' || cl.type === 'SERVICE_UNAVAILABLE') {
+            // Si l'erreur est liée au quota ou modèle temporairement inaccessible ou restreint régionalement, essayer le modèle suivant
+            if (cl.type === 'QUOTA_EXHAUSTED' || cl.type === 'MODEL_UNAVAILABLE' || cl.type === 'SERVICE_UNAVAILABLE' || cl.type === 'PERMISSION_DENIED') {
               continue;
             }
-            // Pour les erreurs de clé invalide ou permissions, passer à la clé suivante
+            // Pour les erreurs de clé invalide, passer à la clé suivante
             break;
           }
         }
@@ -356,7 +364,18 @@ QUESTION DU CHERCHEUR :
       const text = successfulResponse.text || "Aucune réponse générée.";
       const sources: GeminiSource[] = [];
 
-      if (options.retrievedParagraphs && options.retrievedParagraphs.length > 0) {
+      if (options.evidencePackage && options.evidencePackage.evidence.length > 0) {
+        options.evidencePackage.evidence.forEach(ev => {
+          ev.citationParagraphs.forEach(cp => {
+            sources.push({
+              title: `${ev.sermonTitle} (${ev.date || 'Non daté'}) — §${cp.paragraphIndex}`,
+              uri: `sermon://${ev.sermonId}/${cp.paragraphIndex}`,
+              sermonId: ev.sermonId,
+              paragraphIndex: cp.paragraphIndex
+            });
+          });
+        });
+      } else if (options.retrievedParagraphs && options.retrievedParagraphs.length > 0) {
         options.retrievedParagraphs.forEach(p => {
           sources.push({
             title: `${p.title} (${p.date || 'Non daté'}) — §${p.paragraphIndex}`,
@@ -371,6 +390,7 @@ QUESTION DU CHERCHEUR :
         text, 
         sources,
         retrievedParagraphs: options.retrievedParagraphs,
+        evidencePackage: options.evidencePackage,
         engineUsed: 'gemini'
       };
     }

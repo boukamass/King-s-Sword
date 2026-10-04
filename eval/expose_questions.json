@@ -1,0 +1,362 @@
+[
+  {
+    "id": "EXP_001",
+    "category": "information_explicite",
+    "question": "Quelle est la définition et la signification des œuvres des Nicolaïtes dans l'Âge d'Éphèse ?",
+    "expectedDocuments": ["expose-ch-3"],
+    "expectedChapter": "3",
+    "answerable": true,
+    "difficulty": "facile"
+  },
+  {
+    "id": "EXP_002",
+    "category": "information_explicite",
+    "question": "Qui est le messager désigné pour l'Âge de l'Église de Smyrne selon l'Exposé ?",
+    "expectedDocuments": ["expose-ch-4"],
+    "expectedChapter": "4",
+    "answerable": true,
+    "difficulty": "facile"
+  },
+  {
+    "id": "EXP_003",
+    "category": "information_explicite",
+    "question": "À quoi correspondent prophétiquement les dix jours de tribulation mentionnés pour l'Église de Smyrne sous l'empereur Dioclétien ?",
+    "expectedDocuments": ["expose-ch-4"],
+    "expectedChapter": "4",
+    "answerable": true,
+    "difficulty": "moyen"
+  },
+  {
+    "id": "EXP_004",
+    "category": "information_explicite",
+    "question": "Qui est le messager suscité par Dieu pour l'Âge de l'Église de Sardes ?",
+    "expectedDocuments": ["expose-ch-7"],
+    "expectedChapter": "7",
+    "answerable": true,
+    "difficulty": "facile"
+  },
+  {
+    "id": "EXP_005",
+    "category": "reformulation",
+    "question": "Quel a été le rôle de saint Martin de Tours en tant que messager dans l'Âge de Pergame ?",
+    "expectedDocuments": ["expose-ch-5"],
+    "expectedChapter": "5",
+    "answerable": true,
+    "difficulty": "moyen"
+  },
+  {
+    "id": "EXP_006",
+    "category": "reformulation",
+    "question": "Comment l'esprit de Jézabel est-il décrit et identifié dans l'Âge de l'Église de Thyatire ?",
+    "expectedDocuments": ["expose-ch-6"],
+    "expectedChapter": "6",
+    "answerable": true,
+    "difficulty": "moyen"
+  },
+  {
+    "id": "EXP_007",
+    "category": "paraphrase",
+    "question": "De quelle manière l'alliance néfaste entre l'institution religieuse et l'empire séculier s'est-elle concrétisée au concile de Nicée en 325 ?",
+    "expectedDocuments": ["expose-ch-5"],
+    "expectedChapter": "5",
+    "answerable": true,
+    "difficulty": "moyen"
+  },
+  {
+    "id": "EXP_008",
+    "category": "paraphrase",
+    "question": "En quoi consiste la porte ouverte que personne ne peut fermer accordée à l'âge de l'amour fraternel ?",
+    "expectedDocuments": ["expose-ch-8"],
+    "expectedChapter": "8",
+    "answerable": true,
+    "difficulty": "moyen"
+  },
+  {
+    "id": "EXP_009",
+    "category": "question_thematique",
+    "question": "Comment l'Exposé démontre-t-il la Divinité suprême de Jésus-Christ en tant que Seul Vrai Dieu, Alpha et Oméga ?",
+    "expectedDocuments": ["expose-ch-1"],
+    "expectedChapter": "1",
+    "answerable": true,
+    "difficulty": "moyen"
+  },
+  {
+    "id": "EXP_010",
+    "category": "question_thematique",
+    "question": "Qu'est-ce que la doctrine de Balaam enseignée dans l'Âge de Pergame ?",
+    "expectedDocuments": ["expose-ch-5"],
+    "expectedChapter": "5",
+    "answerable": true,
+    "difficulty": "moyen"
+  },
+  {
+    "id": "EXP_011",
+    "category": "question_thematique",
+    "question": "Quelle est la portée spirituelle de la manne cachée et du caillou blanc promis au vainqueur ?",
+    "expectedDocuments": ["expose-ch-5"],
+    "expectedChapter": "5",
+    "answerable": true,
+    "difficulty": "difficile"
+  },
+  {
+    "id": "EXP_012",
+    "category": "recherche_passage_precis",
+    "question": "Quelle est la racine étymologique et la signification exacte du nom Smyrne selon l'Exposé ?",
+    "expectedDocuments": ["expose-ch-4"],
+    "expectedChapter": "4",
+    "answerable": true,
+    "difficulty": "facile"
+  },
+  {
+    "id": "EXP_013",
+    "category": "recherche_passage_precis",
+    "question": "Que signifie littéralement le mot Pergame dans le contexte de l'histoire de l'Église ?",
+    "expectedDocuments": ["expose-ch-5"],
+    "expectedChapter": "5",
+    "answerable": true,
+    "difficulty": "facile"
+  },
+  {
+    "id": "EXP_014",
+    "category": "recherche_passage_precis",
+    "question": "Quelle est la définition littérale du terme Laodicée et que traduit-elle sur l'état du peuple ?",
+    "expectedDocuments": ["expose-ch-9"],
+    "expectedChapter": "9",
+    "answerable": true,
+    "difficulty": "facile"
+  },
+  {
+    "id": "EXP_015",
+    "category": "recherche_passage_precis",
+    "question": "Que signifie le nom Sardes selon l'Exposé des Sept Âges ?",
+    "expectedDocuments": ["expose-ch-7"],
+    "expectedChapter": "7",
+    "answerable": true,
+    "difficulty": "facile"
+  },
+  {
+    "id": "EXP_016",
+    "category": "plusieurs_passages",
+    "question": "Comment les Nicolaïtes sont-ils passés du stade d'œuvres dans Éphèse au stade de doctrine établie dans Pergame ?",
+    "expectedDocuments": ["expose-ch-3", "expose-ch-5"],
+    "expectedChapter": "3,5",
+    "answerable": true,
+    "difficulty": "difficile"
+  },
+  {
+    "id": "EXP_017",
+    "category": "plusieurs_passages",
+    "question": "Comment le conflit entre la vraie vigne spirituelle et la fausse vigne charnelle se développe-t-il à travers les âges ?",
+    "expectedDocuments": ["expose-ch-3", "expose-ch-10"],
+    "expectedChapter": "3,10",
+    "answerable": true,
+    "difficulty": "difficile"
+  },
+  {
+    "id": "EXP_018",
+    "category": "plusieurs_exposes",
+    "question": "Quels sont les sept messagers des sept âges de l'Église décrits dans l'Exposé ?",
+    "expectedDocuments": ["expose-ch-10"],
+    "expectedChapter": "10",
+    "answerable": true,
+    "difficulty": "moyen"
+  },
+  {
+    "id": "EXP_019",
+    "category": "plusieurs_exposes",
+    "question": "Quelle est la particularité commune aux Églises de Smyrne et de Philadelphie quant aux reproches du Seigneur ?",
+    "expectedDocuments": ["expose-ch-4", "expose-ch-8"],
+    "expectedChapter": "4,8",
+    "answerable": true,
+    "difficulty": "moyen"
+  },
+  {
+    "id": "EXP_020",
+    "category": "question_ambigue",
+    "question": "Que représente la vision de l'Étoile du Matin donnée à l'Église de Thyatire ?",
+    "expectedDocuments": ["expose-ch-6"],
+    "expectedChapter": "6",
+    "answerable": true,
+    "difficulty": "moyen"
+  },
+  {
+    "id": "EXP_021",
+    "category": "question_ambigue",
+    "question": "Qui sont les sept étoiles tenues dans la main droite du Fils de l'Homme ?",
+    "expectedDocuments": ["expose-ch-1", "expose-ch-2"],
+    "expectedChapter": "1,2",
+    "answerable": true,
+    "difficulty": "moyen"
+  },
+  {
+    "id": "EXP_022",
+    "category": "question_ambigue",
+    "question": "Comment l'Exposé explique-t-il la ceinture d'or que portait le Christ sur la poitrine dans la vision de Patmos ?",
+    "expectedDocuments": ["expose-ch-2"],
+    "expectedChapter": "2",
+    "answerable": true,
+    "difficulty": "moyen"
+  },
+  {
+    "id": "EXP_023",
+    "category": "hors_expose",
+    "question": "Quelle est la vitesse maximale et la puissance moteur d'un tracteur agricole diesel moderne ?",
+    "expectedDocuments": [],
+    "expectedChapter": null,
+    "answerable": false,
+    "difficulty": "facile"
+  },
+  {
+    "id": "EXP_024",
+    "category": "hors_expose",
+    "question": "Qui a marqué les buts lors de la finale de la Coupe du Monde de football en 1998 à Paris ?",
+    "expectedDocuments": [],
+    "expectedChapter": null,
+    "answerable": false,
+    "difficulty": "facile"
+  },
+  {
+    "id": "EXP_025",
+    "category": "hors_expose",
+    "question": "À quelle température l'azote liquide entre-t-il en ébullition sous pression atmosphérique standard ?",
+    "expectedDocuments": [],
+    "expectedChapter": null,
+    "answerable": false,
+    "difficulty": "facile"
+  },
+  {
+    "id": "EXP_026",
+    "category": "hors_expose",
+    "question": "Quelles sont les formules mathématiques d'Albert Einstein expliquant la relativité restreinte ?",
+    "expectedDocuments": [],
+    "expectedChapter": null,
+    "answerable": false,
+    "difficulty": "facile"
+  },
+  {
+    "id": "EXP_027",
+    "category": "hors_expose",
+    "question": "Quelle est l'exégèse coranique traditionnelle des versets de la sourate Al-Baqara ?",
+    "expectedDocuments": [],
+    "expectedChapter": null,
+    "answerable": false,
+    "difficulty": "facile"
+  },
+  {
+    "id": "EXP_028",
+    "category": "refus_obligatoire",
+    "question": "Quelles sont les résolutions votées lors de la quatrième session du Concile Vatican II en 1965 selon l'Exposé ?",
+    "expectedDocuments": [],
+    "expectedChapter": null,
+    "answerable": false,
+    "difficulty": "moyen"
+  },
+  {
+    "id": "EXP_029",
+    "category": "refus_obligatoire",
+    "question": "Que prescrit le droit canonique du Concile de Trente au sujet du commerce des indulgences d'après l'Exposé ?",
+    "expectedDocuments": [],
+    "expectedChapter": null,
+    "answerable": false,
+    "difficulty": "moyen"
+  },
+  {
+    "id": "EXP_030",
+    "category": "refus_obligatoire",
+    "question": "Quels sont les détails architecturaux de Gustave Eiffel pour l'érection de la tour métallique à Paris mentionnés dans l'Exposé ?",
+    "expectedDocuments": [],
+    "expectedChapter": null,
+    "answerable": false,
+    "difficulty": "facile"
+  },
+  {
+    "id": "EXP_031",
+    "category": "information_explicite",
+    "question": "Quel était le messager de Dieu pour le premier Âge de l'Église selon l'Exposé ?",
+    "expectedDocuments": ["expose-ch-3"],
+    "expectedChapter": "3",
+    "answerable": true,
+    "difficulty": "facile"
+  },
+  {
+    "id": "EXP_032",
+    "category": "information_explicite",
+    "question": "Qui était le messager pour l'Âge de l'Église de Philadelphie selon l'Exposé ?",
+    "expectedDocuments": ["expose-ch-8"],
+    "expectedChapter": "8",
+    "answerable": true,
+    "difficulty": "facile"
+  },
+  {
+    "id": "EXP_033",
+    "category": "information_explicite",
+    "question": "Quel est le reproche majeur fait par le Seigneur à l'Église de Laodicée concernant sa tiédeur ?",
+    "expectedDocuments": ["expose-ch-9"],
+    "expectedChapter": "9",
+    "answerable": true,
+    "difficulty": "moyen"
+  },
+  {
+    "id": "EXP_034",
+    "category": "reformulation",
+    "question": "Comment l'Exposé décrit-il les yeux comme une flamme de feu dans la vision de Christ à Patmos ?",
+    "expectedDocuments": ["expose-ch-2"],
+    "expectedChapter": "2",
+    "answerable": true,
+    "difficulty": "moyen"
+  },
+  {
+    "id": "EXP_035",
+    "category": "paraphrase",
+    "question": "En quoi consiste le vêtement blanc promis à ceux qui n'ont pas souillé leurs vêtements dans l'Église de Sardes ?",
+    "expectedDocuments": ["expose-ch-7"],
+    "expectedChapter": "7",
+    "answerable": true,
+    "difficulty": "moyen"
+  },
+  {
+    "id": "EXP_036",
+    "category": "question_thematique",
+    "question": "Quelle est la signification de l'épée aiguë à deux tranchants qui sort de la bouche du Fils de l'Homme ?",
+    "expectedDocuments": ["expose-ch-2"],
+    "expectedChapter": "2",
+    "answerable": true,
+    "difficulty": "moyen"
+  },
+  {
+    "id": "EXP_037",
+    "category": "recherche_passage_precis",
+    "question": "Que signifie le nom Philadelphie d'après l'Exposé des Sept Âges ?",
+    "expectedDocuments": ["expose-ch-8"],
+    "expectedChapter": "8",
+    "answerable": true,
+    "difficulty": "facile"
+  },
+  {
+    "id": "EXP_038",
+    "category": "refus_obligatoire",
+    "question": "Quelles sont les directives sur le déploiement du réseau internet mondial données dans l'Exposé ?",
+    "expectedDocuments": [],
+    "expectedChapter": null,
+    "answerable": false,
+    "difficulty": "facile"
+  },
+  {
+    "id": "EXP_039",
+    "category": "hors_expose",
+    "question": "Quelle est la composition chimique de l'atmosphère terrestre en pourcentage d'azote et d'oxygène ?",
+    "expectedDocuments": [],
+    "expectedChapter": null,
+    "answerable": false,
+    "difficulty": "facile"
+  },
+  {
+    "id": "EXP_040",
+    "category": "plusieurs_passages",
+    "question": "Comment le baptême d'eau au Nom du Seigneur Jésus-Christ est-il expliqué et défendu dans l'Exposé ?",
+    "expectedDocuments": ["expose-ch-0", "expose-ch-1"],
+    "expectedChapter": "0,1",
+    "answerable": true,
+    "difficulty": "difficile"
+  }
+]

@@ -1,0 +1,119 @@
+{
+  "phase": "Phase 2F.12C — Unified RAG & AI Context",
+  "timestamp": "2026-10-04T15:51:17.969Z",
+  "totalTests": 20,
+  "passedTests": 20,
+  "failedTests": 0,
+  "allPassed": true,
+  "summary": {
+    "aiContextEnforcement": "PASS",
+    "sermonRetrieval": "PASS",
+    "exposeRetrieval": "PASS",
+    "bibleRetrieval": "PASS",
+    "songRetrieval": "PASS",
+    "crossResourceRetrieval": "PASS",
+    "granularSelection": "PASS",
+    "outOfContextRejection": "PASS",
+    "citations": "PASS",
+    "answerability": "PASS",
+    "determinism": "PASS",
+    "regression": "PASS",
+    "flagsPreserved": "PASS"
+  },
+  "tests": [
+    {
+      "name": "Sermon seul (63-0324M) : preuves confinées au sermon sélectionné",
+      "status": "PASS",
+      "evidenceCount": 3
+    },
+    {
+      "name": "Exposé seul (expose-ch-8) : preuves confinées au chapitre sélectionné",
+      "status": "PASS",
+      "evidenceCount": 5
+    },
+    {
+      "name": "Bible seul (bible-jhn-3) : verset Jean 3:16 retrouvé et authentifié",
+      "status": "PASS",
+      "citation": "[Réf: Jean 3:16]"
+    },
+    {
+      "name": "Chant seul (song-1) : strophes du cantique retrouvées",
+      "status": "PASS",
+      "evidenceCount": 5
+    },
+    {
+      "name": "Multi-sermons (63-0324M + 65-1212) : périmètre strictement respecté",
+      "status": "PASS",
+      "distinctSermons": [
+        "63-0324M",
+        "65-1212"
+      ]
+    },
+    {
+      "name": "Croisé Sermon + Bible : périmètre respecté sans interférence",
+      "status": "PASS",
+      "sources": [
+        "63-0324M",
+        "bible-jhn-3"
+      ]
+    },
+    {
+      "name": "Croisé Sermon + Exposé : preuves mixtes confinées",
+      "status": "PASS"
+    },
+    {
+      "name": "Croisé Exposé + Bible : périmètre respecté",
+      "status": "PASS"
+    },
+    {
+      "name": "Croisé 3 ressources (Sermon + Exposé + Bible)",
+      "status": "PASS"
+    },
+    {
+      "name": "Croisé 4 types de ressources (Sermon, Exposé, Bible, Chant)",
+      "status": "PASS"
+    },
+    {
+      "name": "Rejet strict : information existante dans l'Exposé mais hors AI Context -> answerable=false",
+      "status": "PASS"
+    },
+    {
+      "name": "Rejet strict : passage biblique absent de l'AI Context -> answerable=false",
+      "status": "PASS"
+    },
+    {
+      "name": "Granularité verset Bible : seul le verset 16 est inclus dans le retrieval",
+      "status": "PASS"
+    },
+    {
+      "name": "Granularité paragraphe sermon : restreint strictement au paragraphe §2",
+      "status": "PASS"
+    },
+    {
+      "name": "Granularité page Exposé : restreint à la page 15",
+      "status": "PASS",
+      "chunksCount": 3
+    },
+    {
+      "name": "Abstention hors-domaine absolu (diesel / tracteur)",
+      "status": "PASS"
+    },
+    {
+      "name": "Citations 100% authentiques, conformes et zéro fuite de Chunk ID",
+      "status": "PASS",
+      "validCount": 5
+    },
+    {
+      "name": "Déterminisme 100% sur 3 exécutions consécutives",
+      "status": "PASS"
+    },
+    {
+      "name": "Non-régression 2F.12B (EXP_037=validé, EXP_028=refusé, EXP_029=refusé)",
+      "status": "PASS"
+    },
+    {
+      "name": "Feature flags de production inchangés (useLegacyRetrieval=true, useHybridRetrieval=false)",
+      "status": "PASS"
+    }
+  ]
+}

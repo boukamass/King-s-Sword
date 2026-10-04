@@ -1,0 +1,1305 @@
+/**
+ * Script de génération et validation stricte du jeu d'évaluation RAG King's Sword
+ * Garantit que chaque question est reliée au corpus réel de public/library.json
+ * Couvre exhaustivement les 11 catégories exigées par le protocole d'évaluation.
+ */
+
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const rootDir = path.resolve(__dirname, '..');
+
+const library = JSON.parse(fs.readFileSync(path.join(rootDir, 'public', 'library.json'), 'utf8'));
+const sermonsMap = new Map();
+library.forEach(s => {
+  const paragraphs = s.text.split(/\n\s*\n/).filter(p => p.trim().length > 0);
+  sermonsMap.set(s.id, {
+    ...s,
+    paragraphs: paragraphs.map((p, idx) => {
+      const match = p.trim().match(/^(\d+)[\.\s]/);
+      const num = match ? parseInt(match[1], 10) : idx + 1;
+      return { num, text: p.trim() };
+    })
+  });
+});
+
+function getParaText(sermonId, paraNum) {
+  const s = sermonsMap.get(sermonId);
+  if (!s) throw new Error(`Sermon ${sermonId} introuvable`);
+  const p = s.paragraphs.find(p => p.num === paraNum);
+  if (!p) throw new Error(`Paragraphe ${paraNum} introuvable dans ${sermonId}`);
+  return p.text;
+}
+
+function verifySnippet(sermonId, paraNum, snippet) {
+  const text = getParaText(sermonId, paraNum);
+  if (!text.includes(snippet)) {
+    throw new Error(`Snippet "${snippet}" non trouvé dans ${sermonId} §${paraNum} !`);
+  }
+}
+
+const rawQuestions = [
+  // =========================================================================
+  // 1. enseignement_precis (8 questions)
+  // =========================================================================
+  {
+    id: "Q001",
+    question: "Que portait le cavalier sur le cheval blanc et quel élément crucial lui manquait-il ?",
+    category: "enseignement_precis",
+    difficulty: "easy",
+    answerable: true,
+    expected_sermons: ["63-0324M"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "63-0324M", paragraphIndex: 2 }],
+    relevant_snippet: "Il portait un arc, mais n'avait aucune flèche. C'est le grand bluff religieux du temps de la fin.",
+    expected_answer: "Le cavalier portait un arc mais n'avait aucune flèche, ce qui représente le grand bluff religieux du temps de la fin.",
+    expected_answer_keywords: ["arc", "flèche", "bluff religieux"]
+  },
+  {
+    id: "Q002",
+    question: "Pourquoi les questions et les réponses sont-elles qualifiées de partie essentielle de l'enseignement ?",
+    category: "enseignement_precis",
+    difficulty: "easy",
+    answerable: true,
+    expected_sermons: ["63-0324M"],
+    expected_paragraphs: [1],
+    expected_sources: [{ sermonId: "63-0324M", paragraphIndex: 1 }],
+    relevant_snippet: "Les questions et les réponses sont toujours une partie essentielle de l'enseignement. Cela nous permet de clarifier les points qui auraient pu être mal compris pendant les réunions du soir.",
+    expected_answer: "Elles permettent de clarifier les points qui auraient pu être mal compris pendant les réunions du soir.",
+    expected_answer_keywords: ["clarifier", "mal compris", "réunions du soir"]
+  },
+  {
+    id: "Q003",
+    question: "De quoi la communion n'est-elle pas simplement faite selon Frère Branham ?",
+    category: "enseignement_precis",
+    difficulty: "easy",
+    answerable: true,
+    expected_sermons: ["65-1212"],
+    expected_paragraphs: [1],
+    expected_sources: [{ sermonId: "65-1212", paragraphIndex: 1 }],
+    relevant_snippet: "La communion n'est pas simplement manger un morceau de pain sans levain et boire un peu de jus de cep.",
+    expected_answer: "Elle n'est pas simplement manger un morceau de pain sans levain et boire un peu de jus de cep, mais une union spirituelle.",
+    expected_answer_keywords: ["pain sans levain", "jus de cep", "union spirituelle"]
+  },
+  {
+    id: "Q004",
+    question: "Où était réservée la manne cachée dans l'Ancien Testament selon le sermon sur La Communion ?",
+    category: "enseignement_precis",
+    difficulty: "easy",
+    answerable: true,
+    expected_sermons: ["65-1212"],
+    expected_paragraphs: [3],
+    expected_sources: [{ sermonId: "65-1212", paragraphIndex: 3 }],
+    relevant_snippet: "La manne cachée dans l'Ancien Testament était réservée à l'intérieur du Lieu Très Saint.",
+    expected_answer: "Elle était réservée à l'intérieur du Lieu Très Saint.",
+    expected_answer_keywords: ["manne cachée", "Lieu Très Saint", "Ancien Testament"]
+  },
+  {
+    id: "Q005",
+    question: "Que sonnait la fête des trompettes dans l'Ancien Testament sous la loi mosaïque ?",
+    category: "enseignement_precis",
+    difficulty: "easy",
+    answerable: true,
+    expected_sermons: ["64-0719M"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "64-0719M", paragraphIndex: 2 }],
+    relevant_snippet: "Dans l'Ancien Testament, sous la loi mosaïque, la fête des trompettes sonnait le rassemblement d'Israël pour le jour du grand pardon.",
+    expected_answer: "Elle sonnait le rassemblement d'Israël pour le jour du grand pardon sous la loi mosaïque.",
+    expected_answer_keywords: ["loi mosaïque", "rassemblement", "Israël", "grand pardon"]
+  },
+  {
+    id: "Q006",
+    question: "Quel symbole végétal et quel drapeau attestent du rétablissement d'Israël ?",
+    category: "enseignement_precis",
+    difficulty: "easy",
+    answerable: true,
+    expected_sermons: ["64-0719M"],
+    expected_paragraphs: [3],
+    expected_sources: [{ sermonId: "64-0719M", paragraphIndex: 3 }],
+    relevant_snippet: "Le figuier a repoussé ses feuilles, la nation d'Israël est érigée, le drapeau à l'étoile de David flotte à Jérusalem",
+    expected_answer: "Le figuier a repoussé ses feuilles et le drapeau à l'étoile de David flotte à Jérusalem.",
+    expected_answer_keywords: ["figuier", "feuilles", "étoile de David", "Jérusalem"]
+  },
+  {
+    id: "Q007",
+    question: "Sur quoi la pluie de Dieu tombe-t-elle indifféremment dans le même champ ?",
+    category: "enseignement_precis",
+    difficulty: "easy",
+    answerable: true,
+    expected_sermons: ["65-0725M"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "65-0725M", paragraphIndex: 2 }],
+    relevant_snippet: "tout comme la pluie de Dieu tombe indifféremment sur le bon blé et sur l'ivraie dans le même champ.",
+    expected_answer: "La pluie de Dieu tombe indifféremment sur le bon blé et sur l'ivraie dans le même champ.",
+    expected_answer_keywords: ["pluie", "bon blé", "ivraie", "champ"]
+  },
+  {
+    id: "Q008",
+    question: "De quoi les yeux spirituels des croyants doivent-ils être oints selon la prière finale de 65-0725M ?",
+    category: "enseignement_precis",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["65-0725M"],
+    expected_paragraphs: [4],
+    expected_sources: [{ sermonId: "65-0725M", paragraphIndex: 4 }],
+    relevant_snippet: "Que le Dieu de toute grâce nous accorde un cœur pur et des yeux spirituels oints du collyre divin pour reconnaître la Vérité",
+    expected_answer: "Ils doivent être oints du collyre divin afin de reconnaître la Vérité et marcher dans Sa lumière.",
+    expected_answer_keywords: ["yeux spirituels", "collyre divin", "reconnaître la Vérité"]
+  },
+
+  // =========================================================================
+  // 2. theme_biblique (8 questions)
+  // =========================================================================
+  {
+    id: "Q009",
+    question: "Quel est le thème biblique de la lumière du soir prophétisée par Zacharie ?",
+    category: "theme_biblique",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["63-0324M"],
+    expected_paragraphs: [3],
+    expected_sources: [{ sermonId: "63-0324M", paragraphIndex: 3 }],
+    relevant_snippet: "Dieu rassemble Ses élus hors de la confusion babylonienne pour les amener dans la lumière parfaite du soir, selon le prophète Zacharie : \"Au temps du soir, la lumière paraîtra.\"",
+    expected_answer: "Le rassemblement des élus hors de Babylone dans la lumière parfaite de la Parole restaurée au temps de la fin.",
+    expected_answer_keywords: ["lumière parfaite du soir", "Zacharie", "élus", "confusion babylonienne"]
+  },
+  {
+    id: "Q010",
+    question: "Comment le thème du discernement spirituel est-il opposé aux apparences extérieures ?",
+    category: "theme_biblique",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["63-0324M"],
+    expected_paragraphs: [4],
+    expected_sources: [{ sermonId: "63-0324M", paragraphIndex: 4 }],
+    relevant_snippet: "Ne vous laissez pas séduire par les apparences extérieures, l'éloquence humaine ou la grandeur des édifices. Regardez uniquement à la Parole écrites et révélée par le Saint-Esprit",
+    expected_answer: "Le discernement ne doit pas se baser sur les grands édifices ou l'éloquence mais uniquement sur la Parole écrite et révélée.",
+    expected_answer_keywords: ["apparences extérieures", "éloquence humaine", "édifices", "Parole"]
+  },
+  {
+    id: "Q011",
+    question: "Comment le thème biblique de la manne cachée s'applique-t-il à la Parole révélée aujourd'hui ?",
+    category: "theme_biblique",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["65-1212"],
+    expected_paragraphs: [3],
+    expected_sources: [{ sermonId: "65-1212", paragraphIndex: 3 }],
+    relevant_snippet: "Aujourd'hui, cette manne spirituelle, c'est la Parole révélée de Dieu dispensée au peuple de la promesse.",
+    expected_answer: "La manne spirituelle représente la Parole révélée de Dieu accordée au peuple de la promesse pour le temps présent.",
+    expected_answer_keywords: ["manne spirituelle", "Parole révélée", "peuple de la promesse"]
+  },
+  {
+    id: "Q012",
+    question: "Quel est le thème biblique du Calvaire et de l'identification spirituelle à Christ ?",
+    category: "theme_biblique",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["65-1212"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "65-1212", paragraphIndex: 2 }],
+    relevant_snippet: "C'est un acte de foi pure, une identification directe avec le sacrifice parfait accompli une fois pour toutes au Calvaire.",
+    expected_answer: "Une foi vivante et une identification directe avec le sacrifice parfait de Jésus-Christ au Calvaire.",
+    expected_answer_keywords: ["identification directe", "sacrifice parfait", "Calvaire"]
+  },
+  {
+    id: "Q013",
+    question: "Comment le thème biblique du figuier qui reverdit annonce-t-il la proximité du retour du Seigneur ?",
+    category: "theme_biblique",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["64-0719M"],
+    expected_paragraphs: [3],
+    expected_sources: [{ sermonId: "64-0719M", paragraphIndex: 3 }],
+    relevant_snippet: "Le figuier a repoussé ses feuilles, la nation d'Israël est érigée, le drapeau à l'étoile de David flotte à Jérusalem, et la venue du Seigneur est plus proche que lorsque nous avons cru",
+    expected_answer: "Le reverdissement du figuier symbolise le retour d'Israël comme nation souveraine signalant la venue imminente du Seigneur.",
+    expected_answer_keywords: ["figuier", "nation d'Israël", "venue du Seigneur"]
+  },
+  {
+    id: "Q014",
+    question: "Quel est le thème du rassemblement des cent quarante-quatre mille Juifs scellés ?",
+    category: "theme_biblique",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["64-0719M"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "64-0719M", paragraphIndex: 2 }],
+    relevant_snippet: "Entre la Sixième et la Septième Trompette se trouve le rassemblement des cent quarante-quatre mille Juifs scellés par le ministère des deux témoins prophétiques d'Apocalypse 11.",
+    expected_answer: "Le rassemblement des 144 000 élus d'Israël scellés entre la Sixième et Septième Trompette.",
+    expected_answer_keywords: ["cent quarante-quatre mille", "scellés", "deux témoins", "Apocalypse 11"]
+  },
+  {
+    id: "Q015",
+    question: "Comment le thème biblique de la pluie tombant sur le blé et l'ivraie explique-t-il les faux prophètes ?",
+    category: "theme_biblique",
+    difficulty: "hard",
+    answerable: true,
+    expected_sermons: ["65-0725M"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "65-0725M", paragraphIndex: 2 }],
+    relevant_snippet: "tout comme la pluie de Dieu tombe indifféremment sur le bon blé et sur l'ivraie dans le même champ. Mais bien que l'esprit extérieur soit oint, leur âme intérieure n'est pas née de la Semence incorruptible",
+    expected_answer: "L'Esprit oint l'extérieur des individus tout comme la pluie arrose le blé et l'ivraie, mais la nature intérieure reste distincte.",
+    expected_answer_keywords: ["pluie de Dieu", "bon blé", "ivraie", "esprit extérieur", "âme intérieure"]
+  },
+  {
+    id: "Q016",
+    question: "Quel est le thème de la Semence incorruptible de la Parole face aux dons spirituels temporaires ?",
+    category: "theme_biblique",
+    difficulty: "hard",
+    answerable: true,
+    expected_sermons: ["65-0725M"],
+    expected_paragraphs: [2, 3],
+    expected_sources: [
+      { sermonId: "65-0725M", paragraphIndex: 2 },
+      { sermonId: "65-0725M", paragraphIndex: 3 }
+    ],
+    relevant_snippet: "leur âme intérieure n'est pas née de la Semence incorruptible de la Parole.",
+    expected_answer: "La nouvelle naissance de l'âme par la Semence incorruptible de la Parole est supérieure et distincte de la simple manifestation des dons.",
+    expected_answer_keywords: ["Semence incorruptible", "âme intérieure", "dons spirituels"]
+  },
+
+  // =========================================================================
+  // 3. phrase_expression (8 questions)
+  // =========================================================================
+  {
+    id: "Q017",
+    question: "Dans quel contexte l'expression « grand bluff religieux du temps de la fin » est-elle employée ?",
+    category: "phrase_expression",
+    difficulty: "easy",
+    answerable: true,
+    expected_sermons: ["63-0324M"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "63-0324M", paragraphIndex: 2 }],
+    relevant_snippet: "Il portait un arc, mais n'avait aucune flèche. C'est le grand bluff religieux du temps de la fin.",
+    expected_answer: "Elle qualifie le cavalier sur le cheval blanc portant un arc sans flèche qui séduit par un faux dogme.",
+    expected_answer_keywords: ["grand bluff religieux", "arc", "flèche", "cavalier"]
+  },
+  {
+    id: "Q018",
+    question: "Où trouve-t-on l'expression « Au temps du soir, la lumière paraîtra » et quel prophète l'a dite ?",
+    category: "phrase_expression",
+    difficulty: "easy",
+    answerable: true,
+    expected_sermons: ["63-0324M"],
+    expected_paragraphs: [3],
+    expected_sources: [{ sermonId: "63-0324M", paragraphIndex: 3 }],
+    relevant_snippet: "selon le prophète Zacharie : \"Au temps du soir, la lumière paraîtra.\"",
+    expected_answer: "Dans le sermon des Sceaux §3, citant le prophète Zacharie.",
+    expected_answer_keywords: ["Zacharie", "temps du soir", "lumière"]
+  },
+  {
+    id: "Q019",
+    question: "Quelle phrase résume le témoignage du croyant crucifié avec Christ lors du service de communion ?",
+    category: "phrase_expression",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["65-1212"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "65-1212", paragraphIndex: 2 }],
+    relevant_snippet: "\"Je suis crucifié avec Christ, je ne vis plus pour moi-même, mais c'est Christ qui vit en moi par Sa résurrection.\"",
+    expected_answer: "« Je suis crucifié avec Christ, je ne vis plus pour moi-même, mais c'est Christ qui vit en moi par Sa résurrection. »",
+    expected_answer_keywords: ["crucifié avec Christ", "vit en moi", "résurrection"]
+  },
+  {
+    id: "Q020",
+    question: "Dans quel sermon trouve-t-on la phrase « manger un morceau de pain sans levain et boire un peu de jus de cep » ?",
+    category: "phrase_expression",
+    difficulty: "easy",
+    answerable: true,
+    expected_sermons: ["65-1212"],
+    expected_paragraphs: [1],
+    expected_sources: [{ sermonId: "65-1212", paragraphIndex: 1 }],
+    relevant_snippet: "La communion n'est pas simplement manger un morceau de pain sans levain et boire un peu de jus de cep.",
+    expected_answer: "Dans le sermon 'La Communion' (65-1212 §1).",
+    expected_answer_keywords: ["pain sans levain", "jus de cep", "communion"]
+  },
+  {
+    id: "Q021",
+    question: "Que signifie l'expression « le figuier a repoussé ses feuilles » dans La Fête des Trompettes ?",
+    category: "phrase_expression",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["64-0719M"],
+    expected_paragraphs: [3],
+    expected_sources: [{ sermonId: "64-0719M", paragraphIndex: 3 }],
+    relevant_snippet: "Le figuier a repoussé ses feuilles, la nation d'Israël est érigée",
+    expected_answer: "Elle désigne l'érection et la restauration nationale d'Israël.",
+    expected_answer_keywords: ["figuier", "feuilles", "nation d'Israël"]
+  },
+  {
+    id: "Q022",
+    question: "Dans quel contexte Branham parle-t-il du « drapeau à l'étoile de David » flottant à Jérusalem ?",
+    category: "phrase_expression",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["64-0719M"],
+    expected_paragraphs: [3],
+    expected_sources: [{ sermonId: "64-0719M", paragraphIndex: 3 }],
+    relevant_snippet: "le drapeau à l'étoile de David flotte à Jérusalem, et la venue du Seigneur est plus proche que lorsque nous avons cru au commencement.",
+    expected_answer: "Pour illustrer l'accomplissement prophétique du retour des Juifs signalant la proximité du retour du Seigneur.",
+    expected_answer_keywords: ["drapeau", "étoile de David", "Jérusalem", "venue du Seigneur"]
+  },
+  {
+    id: "Q023",
+    question: "À propos de quoi Branham emploie-t-il l'expression « dévient d'un seul iota du pur Ainsi dit le Seigneur » ?",
+    category: "phrase_expression",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["65-0725M"],
+    expected_paragraphs: [3],
+    expected_sources: [{ sermonId: "65-0725M", paragraphIndex: 3 }],
+    relevant_snippet: "L'Épouse de Christ ne se laisse pas éblouir par des miracles spectaculaires si ceux-ci dévient d'un seul iota du pur \"Ainsi dit le Seigneur\".",
+    expected_answer: "À propos du refus de l'Épouse d'être séduite par des miracles qui s'écartent de la pure Parole de Dieu.",
+    expected_answer_keywords: ["iota", "Ainsi dit le Seigneur", "miracles spectaculaires"]
+  },
+  {
+    id: "Q024",
+    question: "Que désigne l'expression « collyre divin » dans Les Oints du Temps de la Fin ?",
+    category: "phrase_expression",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["65-0725M"],
+    expected_paragraphs: [4],
+    expected_sources: [{ sermonId: "65-0725M", paragraphIndex: 4 }],
+    relevant_snippet: "yeux spirituels oints du collyre divin pour reconnaître la Vérité et marcher dans Sa lumière.",
+    expected_answer: "L'onction spirituelle qui ouvre les yeux de l'esprit pour discerner et reconnaître la Vérité.",
+    expected_answer_keywords: ["collyre divin", "yeux spirituels", "reconnaître la Vérité"]
+  },
+
+  // =========================================================================
+  // 4. doctrine (8 questions)
+  // =========================================================================
+  {
+    id: "Q025",
+    question: "Quelle est la doctrine enseignée sur la véritable identité du cavalier sur le cheval blanc ?",
+    category: "doctrine",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["63-0324M"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "63-0324M", paragraphIndex: 2 }],
+    relevant_snippet: "le cavalier sur le cheval blanc n'était pas le Seigneur Jésus-Christ, mais bien l'antichrist imitant le Véritable.",
+    expected_answer: "Le cavalier blanc du premier sceau n'est pas Jésus-Christ mais l'esprit de l'antichrist imitant le Seigneur.",
+    expected_answer_keywords: ["cavalier", "cheval blanc", "antichrist", "imitant"]
+  },
+  {
+    id: "Q026",
+    question: "Quelle doctrine Branham expose-t-il sur l'infaillibilité de la Parole divine face aux dogmes humains ?",
+    category: "doctrine",
+    difficulty: "hard",
+    answerable: true,
+    expected_sermons: ["63-0324M"],
+    expected_paragraphs: [3, 4],
+    expected_sources: [
+      { sermonId: "63-0324M", paragraphIndex: 3 },
+      { sermonId: "63-0324M", paragraphIndex: 4 }
+    ],
+    relevant_snippet: "la Parole est la seule Vérité infaillible qui subsistera à jamais quand les cieux et la terre passeront.",
+    expected_answer: "La Parole de Dieu révélée par le Saint-Esprit est la seule vérité absolue et immuable, au-dessus de tout système religieux.",
+    expected_answer_keywords: ["Vérité infaillible", "Parole", "dogmes humains"]
+  },
+  {
+    id: "Q027",
+    question: "Quelle est la doctrine biblique de la Sainte Cène comme union vivante plutôt que simple rite commémoratif ?",
+    category: "doctrine",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["65-1212"],
+    expected_paragraphs: [1],
+    expected_sources: [{ sermonId: "65-1212", paragraphIndex: 1 }],
+    relevant_snippet: "C'est une union spirituelle profonde et vivante entre le croyant racheté et son Seigneur glorieux.",
+    expected_answer: "La communion est une union vivante et profonde entre le croyant racheté et son Seigneur glorieux.",
+    expected_answer_keywords: ["union spirituelle", "croyant racheté", "Seigneur glorieux"]
+  },
+  {
+    id: "Q028",
+    question: "Comment la doctrine de la manne du sanctuaire est-elle reliée à la nourriture spirituelle de l'Épouse ?",
+    category: "doctrine",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["65-1212"],
+    expected_paragraphs: [3],
+    expected_sources: [{ sermonId: "65-1212", paragraphIndex: 3 }],
+    relevant_snippet: "Aujourd'hui, cette manne spirituelle, c'est la Parole révélée de Dieu dispensée au peuple de la promesse.",
+    expected_answer: "La manne cachée du Lieu Très Saint trouve son accomplissement doctrinal dans la Parole révélée donnée au peuple de la promesse.",
+    expected_answer_keywords: ["manne spirituelle", "Lieu Très Saint", "Parole révélée"]
+  },
+  {
+    id: "Q029",
+    question: "Quelle doctrine régit le calendrier prophétique du réveil d'Israël après l'Enlèvement de l'Épouse ?",
+    category: "doctrine",
+    difficulty: "hard",
+    answerable: true,
+    expected_sermons: ["64-0719M"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "64-0719M", paragraphIndex: 2 }],
+    relevant_snippet: "cette trompette sonne le réveil d'Israël juste après que l'Épouse des Nations est enlevée dans la gloire.",
+    expected_answer: "Le réveil prophétique d'Israël a lieu immédiatement après que l'Épouse des Nations est enlevée dans la gloire.",
+    expected_answer_keywords: ["réveil d'Israël", "Épouse des Nations", "enlevée dans la gloire"]
+  },
+  {
+    id: "Q030",
+    question: "Quelle doctrine régit le scellement des 144 000 Juifs par les deux témoins ?",
+    category: "doctrine",
+    difficulty: "hard",
+    answerable: true,
+    expected_sermons: ["64-0719M"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "64-0719M", paragraphIndex: 2 }],
+    relevant_snippet: "Entre la Sixième et la Septième Trompette se trouve le rassemblement des cent quarante-quatre mille Juifs scellés par le ministère des deux témoins prophétiques d'Apocalypse 11.",
+    expected_answer: "Ils sont scellés entre la Sixième et Septième Trompette grâce au ministère prophétique d'Apocalypse 11.",
+    expected_answer_keywords: ["cent quarante-quatre mille", "scellés", "deux témoins prophétiques"]
+  },
+  {
+    id: "Q031",
+    question: "Quelle doctrine fondamentale sépare l'onction de l'Esprit extérieur de la régénération intérieure ?",
+    category: "doctrine",
+    difficulty: "hard",
+    answerable: true,
+    expected_sermons: ["65-0725M"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "65-0725M", paragraphIndex: 2 }],
+    relevant_snippet: "bien que l'esprit extérieur soit oint, leur âme intérieure n'est pas née de la Semence incorruptible de la Parole.",
+    expected_answer: "L'esprit extérieur peut être oint pour opérer des prodiges, mais seule l'âme régénérée par la Semence incorruptible appartient à Dieu.",
+    expected_answer_keywords: ["esprit extérieur", "oint", "âme intérieure", "Semence incorruptible"]
+  },
+  {
+    id: "Q032",
+    question: "Quelle doctrine établit le Fruit et la Parole originale comme unique test de vérité spirituelle ?",
+    category: "doctrine",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["65-0725M"],
+    expected_paragraphs: [3],
+    expected_sources: [{ sermonId: "65-0725M", paragraphIndex: 3 }],
+    relevant_snippet: "C'est par la comparaison stricte avec le Fruit et la Parole originale consommée dans Sa totalité.",
+    expected_answer: "Le critère d'authenticité divine n'est pas le miracle mais l'alignement sans réserve avec le Fruit et la Parole originale.",
+    expected_answer_keywords: ["Fruit", "Parole originale", "totalité"]
+  },
+
+  // =========================================================================
+  // 5. personne_biblique (8 questions)
+  // =========================================================================
+  {
+    id: "Q033",
+    question: "Quel rôle le prophète Zacharie joue-t-il dans la prédication des Sceaux ?",
+    category: "personne_biblique",
+    difficulty: "easy",
+    answerable: true,
+    expected_sermons: ["63-0324M"],
+    expected_paragraphs: [3],
+    expected_sources: [{ sermonId: "63-0324M", paragraphIndex: 3 }],
+    relevant_snippet: "selon le prophète Zacharie : \"Au temps du soir, la lumière paraîtra.\"",
+    expected_answer: "Il prophétise l'apparition de la lumière divine au temps du soir pour rassembler les élus.",
+    expected_answer_keywords: ["Zacharie", "lumière", "temps du soir"]
+  },
+  {
+    id: "Q034",
+    question: "Comment le Seigneur Jésus-Christ est-il distingué du cavalier imposteur dans le premier sceau ?",
+    category: "personne_biblique",
+    difficulty: "easy",
+    answerable: true,
+    expected_sermons: ["63-0324M"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "63-0324M", paragraphIndex: 2 }],
+    relevant_snippet: "le cavalier sur le cheval blanc n'était pas le Seigneur Jésus-Christ, mais bien l'antichrist imitant le Véritable.",
+    expected_answer: "Jésus-Christ est le Véritable, tandis que le cavalier blanc est l'antichrist qui L'imite.",
+    expected_answer_keywords: ["Seigneur Jésus-Christ", "antichrist", "imitant le Véritable"]
+  },
+  {
+    id: "Q035",
+    question: "Quelle déclaration de Jésus dans l'Évangile de Jean est citée dans le sermon sur La Communion ?",
+    category: "personne_biblique",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["65-1212"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "65-1212", paragraphIndex: 2 }],
+    relevant_snippet: "dans l'Évangile de Jean : \"Si vous ne mangez la chair du Fils de l'homme, et si vous ne buvez son sang, vous n'avez point la vie en vous-mêmes.\"",
+    expected_answer: "La parole de Jésus disant que sans manger la chair du Fils de l'homme et boire son sang, on n'a point la vie.",
+    expected_answer_keywords: ["Jean", "chair du Fils de l'homme", "sang", "vie"]
+  },
+  {
+    id: "Q036",
+    question: "Qui sont les deux témoins prophétiques d'Apocalypse 11 mentionnés dans La Fête des Trompettes ?",
+    category: "personne_biblique",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["64-0719M"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "64-0719M", paragraphIndex: 2 }],
+    relevant_snippet: "scellés par le ministère des deux témoins prophétiques d'Apocalypse 11.",
+    expected_answer: "Ce sont les deux témoins prophétiques chargés de sceller les cent quarante-quatre mille Juifs.",
+    expected_answer_keywords: ["deux témoins prophétiques", "Apocalypse 11", "scellés"]
+  },
+  {
+    id: "Q037",
+    question: "Quel rôle la loi de Moïse joue-t-elle dans l'institution de la fête des trompettes ?",
+    category: "personne_biblique",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["64-0719M"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "64-0719M", paragraphIndex: 2 }],
+    relevant_snippet: "Dans l'Ancien Testament, sous la loi mosaïque, la fête des trompettes sonnait le rassemblement d'Israël pour le jour du grand pardon.",
+    expected_answer: "Elle a institué la fête des trompettes pour sonner le rassemblement d'Israël en vue du jour du grand pardon.",
+    expected_answer_keywords: ["loi mosaïque", "rassemblement", "grand pardon"]
+  },
+  {
+    id: "Q038",
+    question: "Quelle parole d'avertissement de Jésus dans Matthieu 24 est citée dans Les Oints du Temps de la Fin ?",
+    category: "personne_biblique",
+    difficulty: "easy",
+    answerable: true,
+    expected_sermons: ["65-0725M"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "65-0725M", paragraphIndex: 2 }],
+    relevant_snippet: "Dans Matthieu chapitre 24, verset 24, le Seigneur Jésus avertit expressément : \"Car il s'élèvera de faux Christs et de faux prophètes; ils feront de grands prodiges et des miracles, au point de séduire, s'il était possible, même les élus.\"",
+    expected_answer: "Jésus avertit qu'il s'élèvera de faux Christs et faux prophètes faisant de grands miracles pour séduire même les élus.",
+    expected_answer_keywords: ["Matthieu 24", "faux Christs", "faux prophètes", "élus"]
+  },
+  {
+    id: "Q039",
+    question: "Quel roi d'Israël dont le symbole flotte à Jérusalem est mentionné dans La Fête des Trompettes ?",
+    category: "personne_biblique",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["64-0719M"],
+    expected_paragraphs: [3],
+    expected_sources: [{ sermonId: "64-0719M", paragraphIndex: 3 }],
+    relevant_snippet: "le drapeau à l'étoile de David flotte à Jérusalem",
+    expected_answer: "Le roi David, à travers l'étoile de David figurant sur le drapeau national.",
+    expected_answer_keywords: ["étoile de David", "David", "Jérusalem"]
+  },
+  {
+    id: "Q040",
+    question: "Quelle figure messianique vit dans le croyant qui participe à la communion par Sa résurrection ?",
+    category: "personne_biblique",
+    difficulty: "easy",
+    answerable: true,
+    expected_sermons: ["65-1212"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "65-1212", paragraphIndex: 2 }],
+    relevant_snippet: "mais c'est Christ qui vit en moi par Sa résurrection.",
+    expected_answer: "Jésus-Christ Lui-même vivant dans le croyant par la puissance de Sa résurrection.",
+    expected_answer_keywords: ["Christ", "vit en moi", "résurrection"]
+  },
+
+  // =========================================================================
+  // 6. evenement_biblique (8 questions)
+  // =========================================================================
+  {
+    id: "Q041",
+    question: "Quel événement biblique marque l'ouverture du premier sceau ?",
+    category: "evenement_biblique",
+    difficulty: "easy",
+    answerable: true,
+    expected_sermons: ["63-0324M"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "63-0324M", paragraphIndex: 2 }],
+    relevant_snippet: "Le premier sceau a été ouvert, et nous avons clairement vu que le cavalier sur le cheval blanc n'était pas le Seigneur Jésus-Christ, mais bien l'antichrist",
+    expected_answer: "L'ouverture du premier sceau révélant le départ du cavalier blanc antichrist pour séduire le monde.",
+    expected_answer_keywords: ["premier sceau", "ouvert", "cavalier", "cheval blanc"]
+  },
+  {
+    id: "Q042",
+    question: "Quel événement prophétique survient lorsque le Septième Ange sonne du clairon ?",
+    category: "evenement_biblique",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["63-0324M"],
+    expected_paragraphs: [3],
+    expected_sources: [{ sermonId: "63-0324M", paragraphIndex: 3 }],
+    relevant_snippet: "Mais lorsque le Septième Ange sonne du clairon, tous les mystères cachés depuis la fondation du monde doivent s'accomplir.",
+    expected_answer: "Tous les mystères cachés depuis la fondation du monde doivent s'accomplir.",
+    expected_answer_keywords: ["Septième Ange", "clairon", "mystères cachés", "s'accomplir"]
+  },
+  {
+    id: "Q043",
+    question: "Quel événement historique et spirituel au Calvaire fonde le mémorial de la communion ?",
+    category: "evenement_biblique",
+    difficulty: "easy",
+    answerable: true,
+    expected_sermons: ["65-1212"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "65-1212", paragraphIndex: 2 }],
+    relevant_snippet: "une identification directe avec le sacrifice parfait accompli une fois pour toutes au Calvaire.",
+    expected_answer: "Le sacrifice parfait accompli une fois pour toutes au Calvaire par Jésus-Christ.",
+    expected_answer_keywords: ["sacrifice parfait", "Calvaire"]
+  },
+  {
+    id: "Q044",
+    question: "Quel événement biblique de l'Ancien Testament correspondait au jour du grand pardon ?",
+    category: "evenement_biblique",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["64-0719M"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "64-0719M", paragraphIndex: 2 }],
+    relevant_snippet: "la fête des trompettes sonnait le rassemblement d'Israël pour le jour du grand pardon.",
+    expected_answer: "La sonnerie des trompettes rassemblant le peuple d'Israël.",
+    expected_answer_keywords: ["fête des trompettes", "rassemblement d'Israël", "grand pardon"]
+  },
+  {
+    id: "Q045",
+    question: "Quel événement glorieux concernant l'Épouse des Nations précède immédiatement le réveil d'Israël ?",
+    category: "evenement_biblique",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["64-0719M"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "64-0719M", paragraphIndex: 2 }],
+    relevant_snippet: "juste après que l'Épouse des Nations est enlevée dans la gloire.",
+    expected_answer: "L'Enlèvement de l'Épouse des Nations dans la gloire.",
+    expected_answer_keywords: ["Épouse des Nations", "enlevée dans la gloire"]
+  },
+  {
+    id: "Q046",
+    question: "Quel événement contemporain a permis de ramener le peuple juif dans sa patrie d'origine ?",
+    category: "evenement_biblique",
+    difficulty: "hard",
+    answerable: true,
+    expected_sermons: ["64-0719M"],
+    expected_paragraphs: [3],
+    expected_sources: [{ sermonId: "64-0719M", paragraphIndex: 3 }],
+    relevant_snippet: "les trompettes ont retenti pour persécuter et secouer le peuple juif à travers les nations de la terre, les ramenant ainsi dans leur patrie d'origine.",
+    expected_answer: "Les persécutions et le retentissement des trompettes secouant les Juifs à travers les nations.",
+    expected_answer_keywords: ["trompettes", "persécuter", "patrie d'origine"]
+  },
+  {
+    id: "Q047",
+    question: "Quel événement de séduction spirituelle mondiale Jésus a-t-il annoncé pour la fin des temps dans Matthieu 24 ?",
+    category: "evenement_biblique",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["65-0725M"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "65-0725M", paragraphIndex: 2 }],
+    relevant_snippet: "Car il s'élèvera de faux Christs et de faux prophètes; ils feront de grands prodiges et des miracles, au point de séduire, s'il était possible, même les élus.",
+    expected_answer: "La montée de faux Christs et de faux prophètes opérant de grands miracles pour tenter de séduire même les élus.",
+    expected_answer_keywords: ["faux Christs", "faux prophètes", "prodiges", "séduire"]
+  },
+  {
+    id: "Q048",
+    question: "Quel événement solennel final est annoncé par la sonnerie prochaine de la trompette de Dieu ?",
+    category: "evenement_biblique",
+    difficulty: "easy",
+    answerable: true,
+    expected_sermons: ["64-0719M"],
+    expected_paragraphs: [4],
+    expected_sources: [{ sermonId: "64-0719M", paragraphIndex: 4 }],
+    relevant_snippet: "car la trompette de Dieu sonnera très bientôt pour l'Enlèvement.",
+    expected_answer: "L'Enlèvement de l'Église.",
+    expected_answer_keywords: ["trompette de Dieu", "Enlèvement"]
+  },
+
+  // =========================================================================
+  // 7. relations_passages (8 questions)
+  // =========================================================================
+  {
+    id: "Q049",
+    question: "Quelle relation le sermon sur les Sceaux établit-il entre le Septième Ange et Zacharie ?",
+    category: "relations_passages",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["63-0324M"],
+    expected_paragraphs: [3],
+    expected_sources: [{ sermonId: "63-0324M", paragraphIndex: 3 }],
+    relevant_snippet: "lorsque le Septième Ange sonne du clairon, tous les mystères cachés depuis la fondation du monde doivent s'accomplir. Dieu rassemble Ses élus hors de la confusion babylonienne pour les amener dans la lumière parfaite du soir, selon le prophète Zacharie : \"Au temps du soir, la lumière paraîtra.\"",
+    expected_answer: "La sonnerie du Septième Ange accomplit la prophétie de Zacharie en révélant la lumière parfaite du soir pour rassembler les élus.",
+    expected_answer_keywords: ["Septième Ange", "Zacharie", "lumière parfaite du soir"]
+  },
+  {
+    id: "Q050",
+    question: "Comment le passage de l'Évangile de Jean sur la chair et le sang est-il relié au Calvaire ?",
+    category: "relations_passages",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["65-1212"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "65-1212", paragraphIndex: 2 }],
+    relevant_snippet: "dans l'Évangile de Jean : \"Si vous ne mangez la chair du Fils de l'homme, et si vous ne buvez son sang, vous n'avez point la vie en vous-mêmes.\" C'est un acte de foi pure, une identification directe avec le sacrifice parfait accompli une fois pour toutes au Calvaire.",
+    expected_answer: "Participer aux éléments de la communion est une foi pure et une identification directe au sacrifice du Calvaire.",
+    expected_answer_keywords: ["Évangile de Jean", "sacrifice parfait", "Calvaire", "identification"]
+  },
+  {
+    id: "Q051",
+    question: "Quelle relation existe-t-il entre la loi mosaïque et le ministère des deux témoins d'Apocalypse 11 ?",
+    category: "relations_passages",
+    difficulty: "hard",
+    answerable: true,
+    expected_sermons: ["64-0719M"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "64-0719M", paragraphIndex: 2 }],
+    relevant_snippet: "Entre la Sixième et la Septième Trompette se trouve le rassemblement des cent quarante-quatre mille Juifs scellés par le ministère des deux témoins prophétiques d'Apocalypse 11.",
+    expected_answer: "La fête instituée sous la loi mosaïque trouve son accomplissement prophétique final lors du scellement des 144 000 par les témoins d'Apocalypse 11.",
+    expected_answer_keywords: ["loi mosaïque", "Apocalypse 11", "rassemblement", "scellés"]
+  },
+  {
+    id: "Q052",
+    question: "Quel lien est établi entre Matthieu 24:24 et la métaphore de la pluie sur le blé et l'ivraie ?",
+    category: "relations_passages",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["65-0725M"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "65-0725M", paragraphIndex: 2 }],
+    relevant_snippet: "Dans Matthieu chapitre 24, verset 24, le Seigneur Jésus avertit expressément : \"Car il s'élèvera de faux Christs et de faux prophètes; ils feront de grands prodiges et des miracles, au point de séduire, s'il était possible, même les élus.\"",
+    expected_answer: "Les faux oints opèrent de vrais prodiges car ils reçoivent la pluie de l'onction tout comme l'ivraie reçoit la même eau que le blé.",
+    expected_answer_keywords: ["Matthieu 24", "faux Christs", "pluie", "blé", "ivraie"]
+  },
+  {
+    id: "Q053",
+    question: "Comment la manne cachée du Lieu Très Saint est-elle mise en rapport avec la Parole révélée actuelle ?",
+    category: "relations_passages",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["65-1212"],
+    expected_paragraphs: [3],
+    expected_sources: [{ sermonId: "65-1212", paragraphIndex: 3 }],
+    relevant_snippet: "La manne cachée dans l'Ancien Testament était réservée à l'intérieur du Lieu Très Saint. Aujourd'hui, cette manne spirituelle, c'est la Parole révélée de Dieu dispensée au peuple de la promesse.",
+    expected_answer: "Ce qui était typifié matériellement dans le sanctuaire est maintenant dispensé spirituellement comme la Parole révélée.",
+    expected_answer_keywords: ["manne cachée", "Lieu Très Saint", "Parole révélée"]
+  },
+  {
+    id: "Q054",
+    question: "Quelle relation unit la persécution des Juifs à travers les nations et le rassemblement prophétique des Trompettes ?",
+    category: "relations_passages",
+    difficulty: "hard",
+    answerable: true,
+    expected_sermons: ["64-0719M"],
+    expected_paragraphs: [3],
+    expected_sources: [{ sermonId: "64-0719M", paragraphIndex: 3 }],
+    relevant_snippet: "les trompettes ont retenti pour persécuter et secouer le peuple juif à travers les nations de la terre, les ramenant ainsi dans leur patrie d'origine.",
+    expected_answer: "Les persécutions ont servi d'instrument divin pour secouer le peuple juif et le contraindre à regagner sa patrie selon la prophétie.",
+    expected_answer_keywords: ["trompettes", "persécuter", "secouer", "patrie d'origine"]
+  },
+  {
+    id: "Q055",
+    question: "Quel lien direct unit le discernement spirituel de l'Épouse à la Parole infaillible de Dieu ?",
+    category: "relations_passages",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["63-0324M"],
+    expected_paragraphs: [4],
+    expected_sources: [{ sermonId: "63-0324M", paragraphIndex: 4 }],
+    relevant_snippet: "Regardez uniquement à la Parole écrites et révélée par le Saint-Esprit, car la Parole est la seule Vérité infaillible qui subsistera à jamais quand les cieux et la terre passeront.",
+    expected_answer: "Le discernement spirituel repose exclusivement sur la Parole révélée par le Saint-Esprit, seule vérité infaillible.",
+    expected_answer_keywords: ["discernement", "Parole écrites", "Vérité infaillible"]
+  },
+  {
+    id: "Q056",
+    question: "Comment la manifestation des dons spirituels est-elle subordonnée au Fruit et à la Parole totale ?",
+    category: "relations_passages",
+    difficulty: "hard",
+    answerable: true,
+    expected_sermons: ["65-0725M"],
+    expected_paragraphs: [3],
+    expected_sources: [{ sermonId: "65-0725M", paragraphIndex: 3 }],
+    relevant_snippet: "Ce n'est pas par la manifestation des dons spirituels seuls, car l'ivraie peut manifester les dons. C'est par la comparaison stricte avec le Fruit et la Parole originale consommée dans Sa totalité.",
+    expected_answer: "Les dons ne prouvent rien à eux seuls car l'ivraie les manifeste ; ils doivent obligatoirement être éprouvés par le Fruit et la Parole intégrale.",
+    expected_answer_keywords: ["dons spirituels", "ivraie", "Fruit", "Parole originale"]
+  },
+
+  // =========================================================================
+  // 8. multi_sermons (8 questions nécessitant plusieurs sermons)
+  // =========================================================================
+  {
+    id: "Q057",
+    question: "Comment l'avertissement contre la séduction du premier sceau (63-0324M) complète-t-il celui sur les faux oints (65-0725M) ?",
+    category: "multi_sermons",
+    difficulty: "hard",
+    answerable: true,
+    expected_sermons: ["63-0324M", "65-0725M"],
+    expected_paragraphs: [2, 2],
+    expected_sources: [
+      { sermonId: "63-0324M", paragraphIndex: 2 },
+      { sermonId: "65-0725M", paragraphIndex: 2 }
+    ],
+    relevant_snippet: "C'est le grand bluff religieux du temps de la fin. L'esprit de l'antichrist est sorti conquérant pour séduire le monde entier",
+    expected_answer: "Dans les Sceaux, l'antichrist séduit par un bluff sans flèche et de faux dogmes, tandis que dans les faux oints, cette séduction s'opère par des hommes oints faisant de vrais miracles mais sans semence divine.",
+    expected_answer_keywords: ["bluff religieux", "faux dogme", "faux oints", "séduire"]
+  },
+  {
+    id: "Q058",
+    question: "En quoi l'Épouse de Christ décrite dans les Sceaux diffère-t-elle des séducteurs démasqués dans Les Oints du Temps de la Fin ?",
+    category: "multi_sermons",
+    difficulty: "hard",
+    answerable: true,
+    expected_sermons: ["63-0324M", "65-0725M"],
+    expected_paragraphs: [2, 3],
+    expected_sources: [
+      { sermonId: "63-0324M", paragraphIndex: 2 },
+      { sermonId: "65-0725M", paragraphIndex: 3 }
+    ],
+    relevant_snippet: "Mais l'Épouse de Christ a l'Esprit de Dieu pour discerner ces choses avec une précision divine.",
+    expected_answer: "L'Épouse possède l'Esprit de Dieu pour discerner avec précision divine et ne se laisse pas éblouir par les miracles si la Parole est violée.",
+    expected_answer_keywords: ["Épouse de Christ", "discerner", "précision divine", "Ainsi dit le Seigneur"]
+  },
+  {
+    id: "Q059",
+    question: "Quel rôle central la Parole révélée joue-t-elle à la fois dans La Communion (65-1212) et dans les Sceaux (63-0324M) ?",
+    category: "multi_sermons",
+    difficulty: "hard",
+    answerable: true,
+    expected_sermons: ["65-1212", "63-0324M"],
+    expected_paragraphs: [3, 4],
+    expected_sources: [
+      { sermonId: "65-1212", paragraphIndex: 3 },
+      { sermonId: "63-0324M", paragraphIndex: 4 }
+    ],
+    relevant_snippet: "cette manne spirituelle, c'est la Parole révélée de Dieu dispensée au peuple de la promesse.",
+    expected_answer: "Dans la communion elle est la manne spirituelle du peuple de la promesse, et dans les Sceaux elle est la seule vérité infaillible qui subsiste à jamais.",
+    expected_answer_keywords: ["manne spirituelle", "Parole révélée", "Vérité infaillible"]
+  },
+  {
+    id: "Q060",
+    question: "Comment l'Enlèvement de l'Épouse est-il articulé entre La Fête des Trompettes (64-0719M) et l'appel hors de Babylone (63-0324M) ?",
+    category: "multi_sermons",
+    difficulty: "hard",
+    answerable: true,
+    expected_sermons: ["64-0719M", "63-0324M"],
+    expected_paragraphs: [2, 3],
+    expected_sources: [
+      { sermonId: "64-0719M", paragraphIndex: 2 },
+      { sermonId: "63-0324M", paragraphIndex: 3 }
+    ],
+    relevant_snippet: "juste après que l'Épouse des Nations est enlevée dans la gloire.",
+    expected_answer: "L'Épouse est d'abord rassemblée hors de la confusion babylonienne dans la lumière du soir (63-0324M) avant d'être enlevée dans la gloire précédant le réveil d'Israël (64-0719M).",
+    expected_answer_keywords: ["Épouse des Nations", "enlevée dans la gloire", "confusion babylonienne", "lumière du soir"]
+  },
+  {
+    id: "Q061",
+    question: "De quelle façon la manne cachée de l'Ancien Testament (65-1212) fait-elle écho aux mystères dévoilés par le Septième Ange (63-0324M) ?",
+    category: "multi_sermons",
+    difficulty: "hard",
+    answerable: true,
+    expected_sermons: ["65-1212", "63-0324M"],
+    expected_paragraphs: [3, 3],
+    expected_sources: [
+      { sermonId: "65-1212", paragraphIndex: 3 },
+      { sermonId: "63-0324M", paragraphIndex: 3 }
+    ],
+    relevant_snippet: "La manne cachée dans l'Ancien Testament était réservée à l'intérieur du Lieu Très Saint.",
+    expected_answer: "La nourriture cachée autrefois dans le Lieu Très Saint correspond aux mystères cachés depuis la fondation du monde accomplis lors du son du Septième Ange.",
+    expected_answer_keywords: ["manne cachée", "mystères cachés", "Septième Ange"]
+  },
+  {
+    id: "Q062",
+    question: "Quelle distinction de calendrier prophétique existe-t-il entre le salut des Nations (64-0719M) et l'appel des élus (63-0324M) ?",
+    category: "multi_sermons",
+    difficulty: "hard",
+    answerable: true,
+    expected_sermons: ["64-0719M", "63-0324M"],
+    expected_paragraphs: [3, 3],
+    expected_sources: [
+      { sermonId: "64-0719M", paragraphIndex: 3 },
+      { sermonId: "63-0324M", paragraphIndex: 3 }
+    ],
+    relevant_snippet: "pendant que Dieu traite avec les Nations pour en tirer un peuple pour Son Nom, les trompettes ont retenti pour persécuter et secouer le peuple juif",
+    expected_answer: "Dieu traite avec les Nations pour en tirer un peuple pour Son Nom en les amenant dans la lumière du soir, tandis qu'Israël attend après le départ des Nations.",
+    expected_answer_keywords: ["Dieu traite avec les Nations", "peuple pour Son Nom", "élus"]
+  },
+  {
+    id: "Q063",
+    question: "Comment la sainteté requise pour la communion (65-1212) fait-elle écho à la pureté de cœur demandée dans les faux oints (65-0725M) ?",
+    category: "multi_sermons",
+    difficulty: "hard",
+    answerable: true,
+    expected_sermons: ["65-1212", "65-0725M"],
+    expected_paragraphs: [3, 4],
+    expected_sources: [
+      { sermonId: "65-1212", paragraphIndex: 3 },
+      { sermonId: "65-0725M", paragraphIndex: 4 }
+    ],
+    relevant_snippet: "Restez dans cet esprit de prière et de grande humilité pendant que nous nous préparons pour cet acte sacré",
+    expected_answer: "Les deux textes appellent à une grande humilité intérieure et à un cœur pur oint par Dieu plutôt qu'à un simple formalisme extérieur.",
+    expected_answer_keywords: ["esprit de prière", "humilité", "cœur pur"]
+  },
+  {
+    id: "Q064",
+    question: "Pourquoi ni les grands édifices (63-0324M) ni les miracles spectaculaires (65-0725M) ne prouvent-ils la vérité divine ?",
+    category: "multi_sermons",
+    difficulty: "hard",
+    answerable: true,
+    expected_sermons: ["63-0324M", "65-0725M"],
+    expected_paragraphs: [4, 3],
+    expected_sources: [
+      { sermonId: "63-0324M", paragraphIndex: 4 },
+      { sermonId: "65-0725M", paragraphIndex: 3 }
+    ],
+    relevant_snippet: "Ne vous laissez pas séduire par les apparences extérieures, l'éloquence humaine ou la grandeur des édifices.",
+    expected_answer: "Parce que les grands édifices ne sont que des apparences humaines et que l'ivraie peut manifester des miracles ; seule la Parole originale fait autorité.",
+    expected_answer_keywords: ["grandeur des édifices", "miracles spectaculaires", "Parole", "ivraie"]
+  },
+
+  // =========================================================================
+  // 9. ambigue (8 questions brèves / formulées de manière elliptique)
+  // =========================================================================
+  {
+    id: "Q065",
+    question: "Et que portait cet imposteur monté sur le cheval ?",
+    category: "ambigue",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["63-0324M"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "63-0324M", paragraphIndex: 2 }],
+    relevant_snippet: "Il portait un arc, mais n'avait aucune flèche.",
+    expected_answer: "Il portait un arc mais n'avait aucune flèche.",
+    expected_answer_keywords: ["arc", "flèche"]
+  },
+  {
+    id: "Q066",
+    question: "Où cette nourriture sacrée était-elle gardée autrefois ?",
+    category: "ambigue",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["65-1212"],
+    expected_paragraphs: [3],
+    expected_sources: [{ sermonId: "65-1212", paragraphIndex: 3 }],
+    relevant_snippet: "La manne cachée dans l'Ancien Testament était réservée à l'intérieur du Lieu Très Saint.",
+    expected_answer: "À l'intérieur du Lieu Très Saint.",
+    expected_answer_keywords: ["Lieu Très Saint", "manne cachée"]
+  },
+  {
+    id: "Q067",
+    question: "Et combien sont-ils à être scellés à ce moment précis ?",
+    category: "ambigue",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["64-0719M"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "64-0719M", paragraphIndex: 2 }],
+    relevant_snippet: "le rassemblement des cent quarante-quatre mille Juifs scellés par le ministère des deux témoins",
+    expected_answer: "Cent quarante-quatre mille (144 000) Juifs.",
+    expected_answer_keywords: ["cent quarante-quatre mille", "144 000"]
+  },
+  {
+    id: "Q068",
+    question: "Pourquoi les miracles seuls ne suffisent-ils pas à les reconnaître ?",
+    category: "ambigue",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["65-0725M"],
+    expected_paragraphs: [3],
+    expected_sources: [{ sermonId: "65-0725M", paragraphIndex: 3 }],
+    relevant_snippet: "Ce n'est pas par la manifestation des dons spirituels seuls, car l'ivraie peut manifester les dons.",
+    expected_answer: "Parce que l'ivraie est aussi capable de manifester les dons spirituels.",
+    expected_answer_keywords: ["ivraie", "dons spirituels", "manifester"]
+  },
+  {
+    id: "Q069",
+    question: "Quel prophète de l'Écriture a annoncé cette clarté vespérale ?",
+    category: "ambigue",
+    difficulty: "easy",
+    answerable: true,
+    expected_sermons: ["63-0324M"],
+    expected_paragraphs: [3],
+    expected_sources: [{ sermonId: "63-0324M", paragraphIndex: 3 }],
+    relevant_snippet: "selon le prophète Zacharie : \"Au temps du soir, la lumière paraîtra.\"",
+    expected_answer: "Le prophète Zacharie.",
+    expected_answer_keywords: ["Zacharie", "lumière", "soir"]
+  },
+  {
+    id: "Q070",
+    question: "Et quel étendard flotte aujourd'hui au-dessus de cette ville ?",
+    category: "ambigue",
+    difficulty: "easy",
+    answerable: true,
+    expected_sermons: ["64-0719M"],
+    expected_paragraphs: [3],
+    expected_sources: [{ sermonId: "64-0719M", paragraphIndex: 3 }],
+    relevant_snippet: "le drapeau à l'étoile de David flotte à Jérusalem",
+    expected_answer: "Le drapeau à l'étoile de David à Jérusalem.",
+    expected_answer_keywords: ["drapeau", "étoile de David", "Jérusalem"]
+  },
+  {
+    id: "Q071",
+    question: "De quelle semence leur être intérieur doit-il obligatoirement naître ?",
+    category: "ambigue",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["65-0725M"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "65-0725M", paragraphIndex: 2 }],
+    relevant_snippet: "leur âme intérieure n'est pas née de la Semence incorruptible de la Parole.",
+    expected_answer: "De la Semence incorruptible de la Parole.",
+    expected_answer_keywords: ["Semence incorruptible", "Parole"]
+  },
+  {
+    id: "Q072",
+    question: "Et pourquoi ne faut-il pas regarder à la magnificence de leurs temples ?",
+    category: "ambigue",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["63-0324M"],
+    expected_paragraphs: [4],
+    expected_sources: [{ sermonId: "63-0324M", paragraphIndex: 4 }],
+    relevant_snippet: "Ne vous laissez pas séduire par les apparences extérieures, l'éloquence humaine ou la grandeur des édifices. Regardez uniquement à la Parole",
+    expected_answer: "Parce que ce ne sont que des apparences extérieures et que seule la Parole révélée est la Vérité infaillible.",
+    expected_answer_keywords: ["apparences extérieures", "grandeur des édifices", "Parole"]
+  },
+
+  // =========================================================================
+  // 10. hors_corpus (8 questions hors corpus devant être strictement refusées)
+  // =========================================================================
+  {
+    id: "Q073",
+    question: "Que dit William Branham sur la construction de la Tour Eiffel à Paris ?",
+    category: "hors_corpus",
+    difficulty: "hard",
+    answerable: false,
+    expected_sermons: [],
+    expected_paragraphs: [],
+    expected_sources: [],
+    relevant_snippet: "",
+    expected_answer: "Information absente du corpus documentaire King's Sword.",
+    expected_answer_keywords: ["absente", "non mentionné"]
+  },
+  {
+    id: "Q074",
+    question: "Quelle est la date exacte de l'invention d'Internet selon les sermons disponibles ?",
+    category: "hors_corpus",
+    difficulty: "hard",
+    answerable: false,
+    expected_sermons: [],
+    expected_paragraphs: [],
+    expected_sources: [],
+    relevant_snippet: "",
+    expected_answer: "Information absente du corpus documentaire King's Sword.",
+    expected_answer_keywords: ["absente", "non mentionné"]
+  },
+  {
+    id: "Q075",
+    question: "Comment réparer une pompe à injection diesel sur un tracteur agricole ?",
+    category: "hors_corpus",
+    difficulty: "hard",
+    answerable: false,
+    expected_sermons: [],
+    expected_paragraphs: [],
+    expected_sources: [],
+    relevant_snippet: "",
+    expected_answer: "Information absente du corpus documentaire King's Sword.",
+    expected_answer_keywords: ["absente", "non mentionné"]
+  },
+  {
+    id: "Q076",
+    question: "Dans quel sermon Branham affirme-t-il que le cavalier noir maniait une épée laser ?",
+    category: "hors_corpus",
+    difficulty: "hard",
+    answerable: false,
+    expected_sermons: [],
+    expected_paragraphs: [],
+    expected_sources: [],
+    relevant_snippet: "",
+    expected_answer: "Information absente du corpus documentaire King's Sword.",
+    expected_answer_keywords: ["absente", "non mentionné"]
+  },
+  {
+    id: "Q077",
+    question: "Quel est le résultat de la finale de la coupe du monde de football de 1998 ?",
+    category: "hors_corpus",
+    difficulty: "hard",
+    answerable: false,
+    expected_sermons: [],
+    expected_paragraphs: [],
+    expected_sources: [],
+    relevant_snippet: "",
+    expected_answer: "Information absente du corpus documentaire King's Sword.",
+    expected_answer_keywords: ["absente", "non mentionné"]
+  },
+  {
+    id: "Q078",
+    question: "Quelle est la formule mathématique de la relativité générale énoncée par Einstein selon les textes ?",
+    category: "hors_corpus",
+    difficulty: "hard",
+    answerable: false,
+    expected_sermons: [],
+    expected_paragraphs: [],
+    expected_sources: [],
+    relevant_snippet: "",
+    expected_answer: "Information absente du corpus documentaire King's Sword.",
+    expected_answer_keywords: ["absente", "non mentionné"]
+  },
+  {
+    id: "Q079",
+    question: "Combien de chapitres compte la sourate Al-Baqara selon William Branham ?",
+    category: "hors_corpus",
+    difficulty: "hard",
+    answerable: false,
+    expected_sermons: [],
+    expected_paragraphs: [],
+    expected_sources: [],
+    relevant_snippet: "",
+    expected_answer: "Information absente du corpus documentaire King's Sword.",
+    expected_answer_keywords: ["absente", "non mentionné"]
+  },
+  {
+    id: "Q080",
+    question: "Quelle est la température d'ébullition de l'azote liquide selon les sermons de Jeffersonville ?",
+    category: "hors_corpus",
+    difficulty: "hard",
+    answerable: false,
+    expected_sermons: [],
+    expected_paragraphs: [],
+    expected_sources: [],
+    relevant_snippet: "",
+    expected_answer: "Information absente du corpus documentaire King's Sword.",
+    expected_answer_keywords: ["absente", "non mentionné"]
+  },
+
+  // =========================================================================
+  // 11. citation_precise (8 questions exigeant une citation exacte et fidèle)
+  // =========================================================================
+  {
+    id: "Q081",
+    question: "Citer exactement la phrase décrivant l'armement et la supercherie du cavalier sur le cheval blanc.",
+    category: "citation_precise",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["63-0324M"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "63-0324M", paragraphIndex: 2 }],
+    relevant_snippet: "Il portait un arc, mais n'avait aucune flèche. C'est le grand bluff religieux du temps de la fin.",
+    expected_answer: "« Il portait un arc, mais n'avait aucune flèche. C'est le grand bluff religieux du temps de la fin. »",
+    expected_answer_keywords: ["portait un arc", "aucune flèche", "grand bluff religieux"]
+  },
+  {
+    id: "Q082",
+    question: "Citer la prophétie de Zacharie telle qu'elle est retranscrite mot à mot dans le sermon des Sceaux.",
+    category: "citation_precise",
+    difficulty: "easy",
+    answerable: true,
+    expected_sermons: ["63-0324M"],
+    expected_paragraphs: [3],
+    expected_sources: [{ sermonId: "63-0324M", paragraphIndex: 3 }],
+    relevant_snippet: "\"Au temps du soir, la lumière paraîtra.\"",
+    expected_answer: "« Au temps du soir, la lumière paraîtra. »",
+    expected_answer_keywords: ["Au temps du soir", "lumière paraîtra"]
+  },
+  {
+    id: "Q083",
+    question: "Citer exactement les paroles de Jésus dans l'Évangile de Jean mentionnées dans La Communion.",
+    category: "citation_precise",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["65-1212"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "65-1212", paragraphIndex: 2 }],
+    relevant_snippet: "\"Si vous ne mangez la chair du Fils de l'homme, et si vous ne buvez son sang, vous n'avez point la vie en vous-mêmes.\"",
+    expected_answer: "« Si vous ne mangez la chair du Fils de l'homme, et si vous ne buvez son sang, vous n'avez point la vie en vous-mêmes. »",
+    expected_answer_keywords: ["chair du Fils de l'homme", "buvez son sang", "vie en vous-mêmes"]
+  },
+  {
+    id: "Q084",
+    question: "Citer textuellement la déclaration de foi et d'identification avec Christ lors de la Sainte Cène.",
+    category: "citation_precise",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["65-1212"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "65-1212", paragraphIndex: 2 }],
+    relevant_snippet: "\"Je suis crucifié avec Christ, je ne vis plus pour moi-même, mais c'est Christ qui vit en moi par Sa résurrection.\"",
+    expected_answer: "« Je suis crucifié avec Christ, je ne vis plus pour moi-même, mais c'est Christ qui vit en moi par Sa résurrection. »",
+    expected_answer_keywords: ["crucifié avec Christ", "ne vis plus pour moi-même", "Christ qui vit en moi"]
+  },
+  {
+    id: "Q085",
+    question: "Citer le passage de Matthieu 24:24 textuellement consigné dans Les Oints du Temps de la Fin.",
+    category: "citation_precise",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["65-0725M"],
+    expected_paragraphs: [2],
+    expected_sources: [{ sermonId: "65-0725M", paragraphIndex: 2 }],
+    relevant_snippet: "\"Car il s'élèvera de faux Christs et de faux prophètes; ils feront de grands prodiges et des miracles, au point de séduire, s'il était possible, même les élus.\"",
+    expected_answer: "« Car il s'élèvera de faux Christs et de faux prophètes; ils feront de grands prodiges et des miracles, au point de séduire, s'il était possible, même les élus. »",
+    expected_answer_keywords: ["faux Christs", "faux prophètes", "grands prodiges", "séduire"]
+  },
+  {
+    id: "Q086",
+    question: "Citer la phrase exacte définissant ce que la communion n'est pas simplement.",
+    category: "citation_precise",
+    difficulty: "easy",
+    answerable: true,
+    expected_sermons: ["65-1212"],
+    expected_paragraphs: [1],
+    expected_sources: [{ sermonId: "65-1212", paragraphIndex: 1 }],
+    relevant_snippet: "La communion n'est pas simplement manger un morceau de pain sans levain et boire un peu de jus de cep.",
+    expected_answer: "« La communion n'est pas simplement manger un morceau de pain sans levain et boire un peu de jus de cep. »",
+    expected_answer_keywords: ["manger un morceau de pain sans levain", "boire un peu de jus de cep"]
+  },
+  {
+    id: "Q087",
+    question: "Citer la mise en garde textuelle concernant l'attachement au « pur Ainsi dit le Seigneur » face aux miracles.",
+    category: "citation_precise",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["65-0725M"],
+    expected_paragraphs: [3],
+    expected_sources: [{ sermonId: "65-0725M", paragraphIndex: 3 }],
+    relevant_snippet: "L'Épouse de Christ ne se laisse pas éblouir par des miracles spectaculaires si ceux-ci dévient d'un seul iota du pur \"Ainsi dit le Seigneur\".",
+    expected_answer: "« L'Épouse de Christ ne se laisse pas éblouir par des miracles spectaculaires si ceux-ci dévient d'un seul iota du pur \"Ainsi dit le Seigneur\". »",
+    expected_answer_keywords: ["ne se laisse pas éblouir", "dévient d'un seul iota", "Ainsi dit le Seigneur"]
+  },
+  {
+    id: "Q088",
+    question: "Citer la description exacte des signes visibles à Jérusalem prouvant que le figuier a reverdi.",
+    category: "citation_precise",
+    difficulty: "medium",
+    answerable: true,
+    expected_sermons: ["64-0719M"],
+    expected_paragraphs: [3],
+    expected_sources: [{ sermonId: "64-0719M", paragraphIndex: 3 }],
+    relevant_snippet: "Le figuier a repoussé ses feuilles, la nation d'Israël est érigée, le drapeau à l'étoile de David flotte à Jérusalem, et la venue du Seigneur est plus proche que lorsque nous avons cru au commencement.",
+    expected_answer: "« Le figuier a repoussé ses feuilles, la nation d'Israël est érigée, le drapeau à l'étoile de David flotte à Jérusalem, et la venue du Seigneur est plus proche que lorsque nous avons cru au commencement. »",
+    expected_answer_keywords: ["figuier a repoussé ses feuilles", "nation d'Israël est érigée", "drapeau à l'étoile de David"]
+  }
+];
+
+// Vérification d'intégrité de chaque question
+console.log("Vérification rigoureuse des questions par rapport à public/library.json...");
+rawQuestions.forEach((q, idx) => {
+  if (q.answerable) {
+    if (!q.expected_sources || q.expected_sources.length === 0) {
+      throw new Error(`Question ${q.id} answerable mais sans sources !`);
+    }
+    q.expected_sources.forEach(src => {
+      const s = sermonsMap.get(src.sermonId);
+      if (!s) throw new Error(`Question ${q.id}: sermon ${src.sermonId} inexistant`);
+      const p = s.paragraphs.find(para => para.num === src.paragraphIndex);
+      if (!p) throw new Error(`Question ${q.id}: sermon ${src.sermonId} §${src.paragraphIndex} inexistant`);
+    });
+    if (!q.relevant_snippet || q.relevant_snippet.trim() === '') {
+      throw new Error(`Question ${q.id} answerable mais sans relevant_snippet !`);
+    }
+    // Vérifier que le snippet est présent dans au moins un des paragraphes attendus
+    const foundInAny = q.expected_sources.some(src => {
+      const text = getParaText(src.sermonId, src.paragraphIndex);
+      return text.includes(q.relevant_snippet);
+    });
+    if (!foundInAny) {
+      throw new Error(`Question ${q.id}: snippet "${q.relevant_snippet}" introuvable dans ses sources attendues`);
+    }
+  } else {
+    if (q.expected_sources.length > 0 || q.expected_sermons.length > 0 || q.expected_paragraphs.length > 0) {
+      throw new Error(`Question ${q.id} non-answerable mais contient des sources !`);
+    }
+  }
+});
+
+const outputPath = path.join(rootDir, 'eval', 'questions.json');
+fs.writeFileSync(outputPath, JSON.stringify(rawQuestions, null, 2), 'utf8');
+
+console.log(`✅ ${rawQuestions.length} questions générées et validées sans erreur dans ${outputPath}`);
+
+// Affichage de la répartition par catégorie
+const catCount = {};
+rawQuestions.forEach(q => {
+  catCount[q.category] = (catCount[q.category] || 0) + 1;
+});
+console.log("Répartition par catégorie :", catCount);

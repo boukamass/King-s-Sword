@@ -3,6 +3,10 @@ import { useAppStore } from '../store';
 import { askGeminiChat, GeminiSource } from '../services/geminiChatService';
 import { analyzeSelectionContext } from '../services/studyService';
 import { retrieveRelevantSermonPassages, formatRagContextForGemini, RetrievedParagraph } from '../services/sermonRagService';
+import { executeAutoRagPipeline, formatEvidenceContextForGemini } from '../services/autoRagRetrievalService';
+import { generateNewRagResponse } from '../services/generationAdapter';
+import { executeUnifiedRagAssistantFlow, executeShadowUnifiedRag } from '../services/unifiedRagIntegrationService';
+import { aiConfig } from '../config/aiConfig';
 import { getSermonById } from '../services/db';
 import { getBibleChapterSermon, getBibleBookSermon } from '../services/bibleService';
 import { BIBLE_BOOKS_META } from '../services/bibleMetadata';
@@ -13,6 +17,7 @@ import { marked } from 'marked';
 import NoteSelectorModal from './NoteSelectorModal';
 import { ApiKeyModal } from './ApiKeyModal';
 import { hasValidGeminiApiKey } from '../utils/apiKeyHelper';
+import { CorpusIndexingIndicator } from './CorpusIndexingIndicator';
 import { Sermon, ChatMessage } from '../types';
 import { splitSermonIntoParagraphs, extractLeadingParagraphNumber } from '../utils/textUtils';
 import { 
@@ -349,6 +354,22 @@ const AIAssistant: React.FC = () => {
     return Array.from(uniqueMap.values());
   }, [sermons, sermonsMap, contextSermonIds, bibleVersion, allLoadedSongs]);
 
+  // Estimation non-bloquante de la volumétrie et des tokens pour le Dock IA
+  const estimatedDockStats = useMemo(() => {
+    if (contextSermonIds.length === 0) return { chars: 0, tokens: 0 };
+    let totalChars = 0;
+    const docCount = Math.max(1, contextSermonIds.length);
+    const maxCharsPerDoc = docCount <= 5 ? 60000 : docCount <= 20 ? 25000 : Math.max(3000, Math.floor(300000 / docCount));
+    
+    selectedSermonsMetadata.forEach(s => {
+      const textLen = (s.text || '').length;
+      totalChars += Math.min(textLen || 15000, maxCharsPerDoc);
+    });
+    // Ratio universel d'estimation : ~3.8 caractères par token pour le français/anglais
+    const estimatedTokens = Math.round(totalChars / 3.8);
+    return { chars: totalChars, tokens: estimatedTokens };
+  }, [contextSermonIds, selectedSermonsMetadata]);
+
   // Transforme les balises de référence [Réf: ID_SERMON, Para. N] en liens interactifs cliquables
   const formatAIResponse = (text: string) => {
     const formattedText = text.replace(/\[Réf:\s*([a-zA-Z0-9_-]+)(?:,\s*Para\.?\s*(\d+))?\]/gi, (match, sermonId, paraNum) => {
@@ -486,76 +507,172 @@ const AIAssistant: React.FC = () => {
     try {
       if (assistantMode === 'auto-rag') {
         // ==============================================================
-        // MODE RAG AUTOMATIQUE SUR L'ENSEMBLE DES SERMONS
+        // MODE RAG AUTOMATIQUE SUR L'ENSEMBLE DES SERMONS / AI CONTEXT
         // ==============================================================
-        setTypingStatus("Recherche des passages pertinents dans les sermons...");
-        
-        const ragResult = await retrieveRelevantSermonPassages(msg, {
-          maxParagraphs: 8,
-          minScoreThreshold: 10
-        });
+        if (aiConfig.featureFlags.useUnifiedRag || aiConfig.featureFlags.useHybridRetrieval) {
+          const autoRagContext = Array.from(sermonsMap.keys());
 
-        // Cas où aucun passage pertinent n'est identifié
-        if (!ragResult.hasResults || ragResult.paragraphs.length === 0) {
-          const noResultMsg: ChatMessageWithSources = {
-            role: 'assistant',
-            content: `🔍 **Aucun passage pertinent n'a été trouvé dans les sermons disponibles pour :** *"${msg}"*.\n\nLes termes doctrinaux analysés (*${ragResult.keywordsUsed.join(', ') || 'aucun'}*) ne correspondent à aucun extrait significatif dans la bibliothèque actuelle. Vous pouvez reformuler votre question avec des termes doctrinaux plus spécifiques ou ajouter manuellement des sermons dans le Dock IA.`,
+          setTypingStatus(`Recherche unifiée dans ${autoRagContext.length} ressource(s)...`);
+
+          const unifiedResult = await executeUnifiedRagAssistantFlow(msg, autoRagContext, {
+            loadedSermonsMap: sermonsMap,
+            bibleVersion
+          });
+
+          if (unifiedResult.status === 'not_answerable' || !unifiedResult.evidencePackage.answerable) {
+            const abstentionMsg: ChatMessageWithSources = {
+              role: 'assistant',
+              content: `🔍 **Information documentaire** : ${unifiedResult.evidencePackage.reason || "Les documents disponibles dans la base documentaire de l'application ne contiennent pas d'informations suffisantes pour répondre à cette question."}`,
+              timestamp: new Date().toISOString(),
+            };
+            addChatMessage(chatKey, abstentionMsg);
+            return;
+          }
+
+          setTypingStatus(`Génération de la réponse sur ${unifiedResult.evidencePackage.evidence.length} preuve(s) documentaire(s)...`);
+
+          if (unifiedResult.status === 'success' && unifiedResult.answerText) {
+            const newMessage: ChatMessageWithSources = { 
+              role: 'assistant', 
+              content: unifiedResult.answerText, 
+              timestamp: new Date().toISOString(),
+              sources: unifiedResult.sources && unifiedResult.sources.length > 0 ? unifiedResult.sources : undefined
+            };
+            addChatMessage(chatKey, newMessage);
+          } else {
+            const errorMsg: ChatMessageWithSources = {
+              role: 'assistant',
+              content: `❌ **Erreur de génération Gemini** : ${unifiedResult.errorMessage || 'Impossible de joindre le modèle de génération.'}`,
+              timestamp: new Date().toISOString(),
+            };
+            addChatMessage(chatKey, errorMsg);
+          }
+
+        } else {
+          // ==============================================================
+          // MODE RAG LEGACY (INCHANGÉ PAR DÉFAUT)
+          // ==============================================================
+          setTypingStatus("Recherche des passages pertinents dans les sermons...");
+          
+          const ragResult = await retrieveRelevantSermonPassages(msg, {
+            maxParagraphs: 8,
+            minScoreThreshold: 10
+          });
+
+          // Cas où aucun passage pertinent n'est identifié
+          if (!ragResult.hasResults || ragResult.paragraphs.length === 0) {
+            const noResultMsg: ChatMessageWithSources = {
+              role: 'assistant',
+              content: `🔍 **Aucun passage pertinent n'a été trouvé dans les sermons disponibles pour :** *"${msg}"*.\n\nLes termes doctrinaux analysés (*${ragResult.keywordsUsed.join(', ') || 'aucun'}*) ne correspondent à aucun extrait significatif dans la bibliothèque actuelle. Vous pouvez reformuler votre question avec des termes doctrinaux plus spécifiques ou ajouter manuellement des sermons dans le Dock IA.`,
+              timestamp: new Date().toISOString(),
+            };
+            addChatMessage(chatKey, noResultMsg);
+            return;
+          }
+
+          setTypingStatus(`Analyse théologique de ${ragResult.paragraphs.length} extrait(s) retrouvé(s)...`);
+
+          const formattedContext = formatRagContextForGemini(ragResult.paragraphs, msg);
+
+          // Appel direct RAG à Gemini basé exclusivement sur les sermons internes
+          const { text, sources } = await askGeminiChat(msg, formattedContext, history, {
+            mode: 'auto-rag',
+            retrievedParagraphs: ragResult.paragraphs
+          });
+
+          const newMessage: ChatMessageWithSources = { 
+            role: 'assistant', 
+            content: text, 
             timestamp: new Date().toISOString(),
+            sources: sources.length > 0 ? sources : undefined
           };
-          addChatMessage(chatKey, noResultMsg);
-          return;
+          addChatMessage(chatKey, newMessage);
         }
-
-        setTypingStatus(`Analyse théologique de ${ragResult.paragraphs.length} extrait(s) retrouvé(s)...`);
-
-        const formattedContext = formatRagContextForGemini(ragResult.paragraphs, msg);
-
-        // Appel direct RAG à Gemini basé exclusivement sur les sermons internes
-        const { text, sources } = await askGeminiChat(msg, formattedContext, history, {
-          mode: 'auto-rag',
-          retrievedParagraphs: ragResult.paragraphs
-        });
-
-        const newMessage: ChatMessageWithSources = { 
-          role: 'assistant', 
-          content: text, 
-          timestamp: new Date().toISOString(),
-          sources: sources.length > 0 ? sources : undefined
-        };
-        addChatMessage(chatKey, newMessage);
 
       } else {
         // ==============================================================
-        // MODE DOCK IA (DOCUMENTS CHOISIS MANUELLEMENT SANS LIMITATION)
+        // MODE DOCK IA (AI CONTEXT EXPLICITE SÉLECTIONNÉ PAR L'UTILISATEUR)
         // ==============================================================
-        setTypingStatus(`Lecture des ${contextSermonIds.length} ressource(s) du Dock IA...`);
-        const validSermons = await getFullSermons(contextSermonIds);
-        
-        // Calculer l'allocation de caractères par document pour garantir que 100% des ressources sont transmises
-        const docCount = Math.max(1, validSermons.length);
-        const maxCharsPerDoc = docCount <= 5 ? 60000 : docCount <= 20 ? 25000 : Math.max(3000, Math.floor(300000 / docCount));
+        if (aiConfig.featureFlags.useUnifiedRag) {
+          // ==============================================================
+          // PIPELINE UNIFIED RAG : AI CONTEXT -> UNIFIED RAG -> EVIDENCE -> GEMINI -> CITATION VALIDATION
+          // ==============================================================
+          setTypingStatus(`Recherche ciblée Unified RAG dans les ${contextSermonIds.length} ressource(s)...`);
 
-        const ctx = validSermons.map(s => {
-          const numberedText = splitSermonIntoParagraphs(s.text)
-                .map((p, i) => {
-                  const explicitNum = extractLeadingParagraphNumber(p);
-                  const pNum = explicitNum !== null ? explicitNum : i + 1;
-                  return `[Para. ${pNum}] ${p.trim()}`;
-                })
-                .join('\n');
-          return `[DOC ID: ${s.id}] - TITRE: ${s.title} (${s.date || 'Non daté'}, ${s.city || ''})\nCONTENU:\n${numberedText.substring(0, maxCharsPerDoc)}`;
-        }).join('\n\n---\n\n');
-        
-        setTypingStatus(`Analyse théologique complète de ${validSermons.length} ressource(s)...`);
-        const { text, sources } = await askGeminiChat(msg, ctx, history, { mode: 'dock' });
-        
-        const newMessage: ChatMessageWithSources = { 
-          role: 'assistant', 
-          content: text, 
-          timestamp: new Date().toISOString(),
-          sources: sources.length > 0 ? sources : undefined
-        };
-        addChatMessage(chatKey, newMessage);
+          const unifiedResult = await executeUnifiedRagAssistantFlow(msg, contextSermonIds, {
+            loadedSermonsMap: sermonsMap,
+            bibleVersion
+          });
+
+          // RÈGLE : Non-answerable strict
+          if (unifiedResult.status === 'not_answerable' || !unifiedResult.evidencePackage.answerable) {
+            const abstentionMsg: ChatMessageWithSources = {
+              role: 'assistant',
+              content: `🔍 **Information documentaire** : ${unifiedResult.evidencePackage.reason || "Les ressources sélectionnées dans le Dock IA ne contiennent pas d'informations suffisantes pour répondre à cette question."}`,
+              timestamp: new Date().toISOString(),
+            };
+            addChatMessage(chatKey, abstentionMsg);
+            return;
+          }
+
+          setTypingStatus(`Génération de la réponse sur ${unifiedResult.evidencePackage.evidence.length} preuve(s) documentaire(s)...`);
+
+          if (unifiedResult.status === 'success' && unifiedResult.answerText) {
+            const newMessage: ChatMessageWithSources = { 
+              role: 'assistant', 
+              content: unifiedResult.answerText, 
+              timestamp: new Date().toISOString(),
+              sources: unifiedResult.sources && unifiedResult.sources.length > 0 ? unifiedResult.sources : undefined
+            };
+            addChatMessage(chatKey, newMessage);
+          } else {
+            const errorMsg: ChatMessageWithSources = {
+              role: 'assistant',
+              content: `❌ **Erreur de génération Gemini** : ${unifiedResult.errorMessage || 'Impossible de joindre le modèle de génération.'}`,
+              timestamp: new Date().toISOString(),
+            };
+            addChatMessage(chatKey, errorMsg);
+          }
+
+        } else {
+          // ==============================================================
+          // MODE DOCK IA LEGACY (INCHANGÉ PAR DÉFAUT)
+          // ==============================================================
+          // Lancement en arrière-plan du Shadow Unified RAG pour comparaison passive non-autoritaire
+          executeShadowUnifiedRag(msg, contextSermonIds, {
+            loadedSermonsMap: sermonsMap,
+            bibleVersion
+          }).catch(() => {});
+
+          setTypingStatus(`Lecture des ${contextSermonIds.length} ressource(s) du Dock IA...`);
+          const validSermons = await getFullSermons(contextSermonIds);
+          
+          // Calculer l'allocation de caractères par document pour garantir que 100% des ressources sont transmises
+          const docCount = Math.max(1, validSermons.length);
+          const maxCharsPerDoc = docCount <= 5 ? 60000 : docCount <= 20 ? 25000 : Math.max(3000, Math.floor(300000 / docCount));
+
+          const ctx = validSermons.map(s => {
+            const numberedText = splitSermonIntoParagraphs(s.text)
+                  .map((p, i) => {
+                    const explicitNum = extractLeadingParagraphNumber(p);
+                    const pNum = explicitNum !== null ? explicitNum : i + 1;
+                    return `[Para. ${pNum}] ${p.trim()}`;
+                  })
+                  .join('\n');
+            return `[DOC ID: ${s.id}] - TITRE: ${s.title} (${s.date || 'Non daté'}, ${s.city || ''})\nCONTENU:\n${numberedText.substring(0, maxCharsPerDoc)}`;
+          }).join('\n\n---\n\n');
+          
+          setTypingStatus(`Analyse théologique complète de ${validSermons.length} ressource(s)...`);
+          const { text, sources } = await askGeminiChat(msg, ctx, history, { mode: 'dock' });
+          
+          const newMessage: ChatMessageWithSources = { 
+            role: 'assistant', 
+            content: text, 
+            timestamp: new Date().toISOString(),
+            sources: sources.length > 0 ? sources : undefined
+          };
+          addChatMessage(chatKey, newMessage);
+        }
       }
     } catch (e: any) {
       let displayMessage = e?.message || "Une erreur est survenue lors de l'analyse.";
@@ -715,6 +832,9 @@ const AIAssistant: React.FC = () => {
           <span>Nouveau</span>
         </button>
       </div>
+
+      {/* Indicateur de préparation de la bibliothèque en arrière-plan */}
+      <CorpusIndexingIndicator className="mx-3 my-1.5 shrink-0" />
 
       {/* Tiroir déroulant de gestion des conversations multiples */}
       {isConversationsDrawerOpen && (
@@ -912,9 +1032,16 @@ const AIAssistant: React.FC = () => {
         ) : (
           <div className="mt-2 shrink-0">
             <div className="flex items-center justify-between mb-1.5 px-1">
-              <span className="text-[8px] font-black uppercase tracking-[0.2em] text-zinc-500">
-                Sources Dock ({selectedSermonsMetadata.length})
-              </span>
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-[8px] font-black uppercase tracking-[0.2em] text-zinc-500 shrink-0">
+                  Sources Dock ({selectedSermonsMetadata.length})
+                </span>
+                {contextSermonIds.length > 0 && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 text-[7.5px] font-bold">
+                    ~{estimatedDockStats.tokens.toLocaleString()} tokens ({Math.round(estimatedDockStats.chars / 1000)}k / 300k car.)
+                  </span>
+                )}
+              </div>
               {contextSermonIds.length > 0 && (
                 <button 
                   onClick={clearContextSermons} 

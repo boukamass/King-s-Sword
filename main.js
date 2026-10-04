@@ -163,10 +163,32 @@ function initDatabase() {
         updated_at TEXT
       );
 
+      CREATE TABLE IF NOT EXISTS sermon_chunks (
+        chunk_id TEXT PRIMARY KEY,
+        sermon_id TEXT,
+        paragraph_ids TEXT,
+        start_paragraph INTEGER,
+        end_paragraph INTEGER,
+        text TEXT,
+        sermon_title TEXT,
+        date TEXT,
+        city TEXT,
+        version TEXT,
+        character_count INTEGER,
+        word_count INTEGER,
+        content_hash TEXT,
+        embedding BLOB DEFAULT NULL,
+        created_at TEXT,
+        updated_at TEXT,
+        FOREIGN KEY(sermon_id) REFERENCES sermons(id) ON DELETE CASCADE
+      );
+
       CREATE INDEX IF NOT EXISTS idx_paragraphs_sermon_id ON paragraphs(sermon_id);
       CREATE INDEX IF NOT EXISTS idx_citations_note_id ON citations(note_id);
       CREATE INDEX IF NOT EXISTS idx_notes_order ON notes("order");
       CREATE INDEX IF NOT EXISTS idx_sermons_date ON sermons(date DESC);
+      CREATE INDEX IF NOT EXISTS idx_chunks_sermon_id ON sermon_chunks(sermon_id);
+      CREATE INDEX IF NOT EXISTS idx_chunks_content_hash ON sermon_chunks(content_hash);
     `);
 
     try {
@@ -566,6 +588,145 @@ ipcMain.handle('db:setKV', (event, key, value) => {
       .run(key, typeof value === 'string' ? value : JSON.stringify(value), new Date().toISOString());
     return { success: true };
   } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+// ==========================================
+// CHUNKS & GESTION VECTORIELLE LOCALE (SQLITE)
+// ==========================================
+function formatChunkRow(row) {
+  if (!row) return null;
+  return {
+    chunkId: row.chunk_id,
+    sermonId: row.sermon_id,
+    paragraphIds: typeof row.paragraph_ids === 'string' ? JSON.parse(row.paragraph_ids) : (row.paragraph_ids || []),
+    startParagraph: row.start_paragraph,
+    endParagraph: row.end_paragraph,
+    text: row.text,
+    sermonTitle: row.sermon_title,
+    date: row.date,
+    city: row.city,
+    version: row.version,
+    characterCount: row.character_count,
+    wordCount: row.word_count,
+    contentHash: row.content_hash,
+    embedding: row.embedding ? Array.from(new Float32Array(row.embedding.buffer)) : null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+ipcMain.handle('db:saveChunks', (event, chunks) => {
+  if (!db) return { success: false, count: 0, saved: 0, unchanged: 0, error: "DB Unavailable" };
+  if (!Array.isArray(chunks) || chunks.length === 0) {
+    return { success: true, count: 0, saved: 0, unchanged: 0 };
+  }
+
+  try {
+    let saved = 0;
+    let unchanged = 0;
+    const now = new Date().toISOString();
+
+    const insertTx = db.transaction((chunkList) => {
+      const selectStmt = db.prepare('SELECT content_hash FROM sermon_chunks WHERE chunk_id = ?');
+      const upsertStmt = db.prepare(`
+        INSERT INTO sermon_chunks (
+          chunk_id, sermon_id, paragraph_ids, start_paragraph, end_paragraph,
+          text, sermon_title, date, city, version, character_count, word_count,
+          content_hash, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(chunk_id) DO UPDATE SET
+          sermon_id = excluded.sermon_id,
+          paragraph_ids = excluded.paragraph_ids,
+          start_paragraph = excluded.start_paragraph,
+          end_paragraph = excluded.end_paragraph,
+          text = excluded.text,
+          sermon_title = excluded.sermon_title,
+          date = excluded.date,
+          city = excluded.city,
+          version = excluded.version,
+          character_count = excluded.character_count,
+          word_count = excluded.word_count,
+          content_hash = excluded.content_hash,
+          updated_at = excluded.updated_at
+      `);
+
+      for (const c of chunkList) {
+        const existing = selectStmt.get(c.chunkId);
+        if (existing && existing.content_hash && existing.content_hash === c.contentHash) {
+          unchanged++;
+        } else {
+          upsertStmt.run(
+            c.chunkId,
+            c.sermonId,
+            JSON.stringify(c.paragraphIds || []),
+            c.startParagraph,
+            c.endParagraph,
+            c.text || '',
+            c.sermonTitle || '',
+            c.date || '',
+            c.city || null,
+            c.version || '',
+            c.characterCount || (c.text ? c.text.length : 0),
+            c.wordCount || 0,
+            c.contentHash || '',
+            c.createdAt || now,
+            now
+          );
+          saved++;
+        }
+      }
+    });
+
+    insertTx(chunks);
+    return { success: true, count: chunks.length, saved, unchanged };
+  } catch (e) {
+    console.error("[DB] saveChunks error:", e.message);
+    return { success: false, count: chunks.length, saved: 0, unchanged: 0, error: e.message };
+  }
+});
+
+ipcMain.handle('db:getChunk', (event, chunkId) => {
+  if (!db || !chunkId) return null;
+  try {
+    const row = db.prepare('SELECT * FROM sermon_chunks WHERE chunk_id = ?').get(chunkId);
+    return formatChunkRow(row);
+  } catch (e) {
+    console.error("[DB] getChunk error:", e.message);
+    return null;
+  }
+});
+
+ipcMain.handle('db:getChunksBySermon', (event, sermonId) => {
+  if (!db || !sermonId) return [];
+  try {
+    const rows = db.prepare('SELECT * FROM sermon_chunks WHERE sermon_id = ? ORDER BY start_paragraph ASC').all(sermonId);
+    return rows.map(formatChunkRow);
+  } catch (e) {
+    console.error("[DB] getChunksBySermon error:", e.message);
+    return [];
+  }
+});
+
+ipcMain.handle('db:getAllChunks', () => {
+  if (!db) return [];
+  try {
+    const rows = db.prepare('SELECT * FROM sermon_chunks ORDER BY sermon_id, start_paragraph ASC').all();
+    return rows.map(formatChunkRow);
+  } catch (e) {
+    console.error("[DB] getAllChunks error:", e.message);
+    return [];
+  }
+});
+
+ipcMain.handle('db:deleteChunksBySermon', (event, sermonId) => {
+  if (!db || !sermonId) return { success: false, count: 0 };
+  try {
+    const info = db.prepare('DELETE FROM sermon_chunks WHERE sermon_id = ?').run(sermonId);
+    return { success: true, count: info.changes };
+  } catch (e) {
+    console.error("[DB] deleteChunksBySermon error:", e.message);
     return { success: false, error: e.message };
   }
 });

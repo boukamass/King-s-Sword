@@ -1,0 +1,383 @@
+{
+  "timestamp": "2026-10-03T15:58:31.247Z",
+  "engines": {
+    "legacy": {
+      "name": "LEGACY",
+      "global": {
+        "recallAt5": 90,
+        "recallAt10": 90,
+        "recallAt20": 90,
+        "sourceCoverageAt5": 93.1,
+        "sourceCoverageAt10": 93.1,
+        "sourceCoverageAt20": 93.1,
+        "mrr": 0.881,
+        "successRate": 88.6,
+        "avgLatencyMs": 0.95
+      },
+      "by_category": {
+        "enseignement_precis": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 100,
+          "recallAt10": 100,
+          "recallAt20": 100,
+          "sourceCoverageAt5": 100,
+          "mrr": 1,
+          "successRate": 100
+        },
+        "theme_biblique": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 100,
+          "recallAt10": 100,
+          "recallAt20": 100,
+          "sourceCoverageAt5": 100,
+          "mrr": 1,
+          "successRate": 100
+        },
+        "phrase_expression": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 100,
+          "recallAt10": 100,
+          "recallAt20": 100,
+          "sourceCoverageAt5": 100,
+          "mrr": 0.938,
+          "successRate": 100
+        },
+        "doctrine": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 93.8,
+          "recallAt10": 93.8,
+          "recallAt20": 93.8,
+          "sourceCoverageAt5": 100,
+          "mrr": 0.938,
+          "successRate": 100
+        },
+        "personne_biblique": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 100,
+          "recallAt10": 100,
+          "recallAt20": 100,
+          "sourceCoverageAt5": 100,
+          "mrr": 0.938,
+          "successRate": 100
+        },
+        "evenement_biblique": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 87.5,
+          "recallAt10": 87.5,
+          "recallAt20": 87.5,
+          "sourceCoverageAt5": 87.5,
+          "mrr": 0.75,
+          "successRate": 87.5
+        },
+        "relations_passages": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 100,
+          "recallAt10": 100,
+          "recallAt20": 100,
+          "sourceCoverageAt5": 100,
+          "mrr": 0.938,
+          "successRate": 100
+        },
+        "multi_sermons": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 56.3,
+          "recallAt10": 56.3,
+          "recallAt20": 56.3,
+          "sourceCoverageAt5": 81.3,
+          "mrr": 0.75,
+          "successRate": 75
+        },
+        "ambigue": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 75,
+          "recallAt10": 75,
+          "recallAt20": 75,
+          "sourceCoverageAt5": 75,
+          "mrr": 0.688,
+          "successRate": 75
+        },
+        "hors_corpus": {
+          "total": 8,
+          "answerable": 0,
+          "recallAt5": 0,
+          "recallAt10": 0,
+          "recallAt20": 0,
+          "sourceCoverageAt5": 0,
+          "mrr": 0,
+          "successRate": 50
+        },
+        "citation_precise": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 87.5,
+          "recallAt10": 87.5,
+          "recallAt20": 87.5,
+          "sourceCoverageAt5": 87.5,
+          "mrr": 0.875,
+          "successRate": 87.5
+        }
+      }
+    },
+    "vector": {
+      "name": "VECTOR",
+      "global": {
+        "recallAt5": 95,
+        "recallAt10": 99.4,
+        "recallAt20": 100,
+        "sourceCoverageAt5": 100,
+        "sourceCoverageAt10": 100,
+        "sourceCoverageAt20": 100,
+        "mrr": 0.847,
+        "successRate": 90.9,
+        "avgLatencyMs": 0.18
+      },
+      "by_category": {
+        "enseignement_precis": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 100,
+          "recallAt10": 100,
+          "recallAt20": 100,
+          "sourceCoverageAt5": 100,
+          "mrr": 1,
+          "successRate": 100
+        },
+        "theme_biblique": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 100,
+          "recallAt10": 100,
+          "recallAt20": 100,
+          "sourceCoverageAt5": 100,
+          "mrr": 0.76,
+          "successRate": 100
+        },
+        "phrase_expression": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 87.5,
+          "recallAt10": 100,
+          "recallAt20": 100,
+          "sourceCoverageAt5": 100,
+          "mrr": 0.83,
+          "successRate": 100
+        },
+        "doctrine": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 100,
+          "recallAt10": 100,
+          "recallAt20": 100,
+          "sourceCoverageAt5": 100,
+          "mrr": 1,
+          "successRate": 100
+        },
+        "personne_biblique": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 100,
+          "recallAt10": 100,
+          "recallAt20": 100,
+          "sourceCoverageAt5": 100,
+          "mrr": 0.729,
+          "successRate": 100
+        },
+        "evenement_biblique": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 100,
+          "recallAt10": 100,
+          "recallAt20": 100,
+          "sourceCoverageAt5": 100,
+          "mrr": 0.792,
+          "successRate": 100
+        },
+        "relations_passages": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 100,
+          "recallAt10": 100,
+          "recallAt20": 100,
+          "sourceCoverageAt5": 100,
+          "mrr": 0.917,
+          "successRate": 100
+        },
+        "multi_sermons": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 87.5,
+          "recallAt10": 93.8,
+          "recallAt20": 100,
+          "sourceCoverageAt5": 100,
+          "mrr": 0.938,
+          "successRate": 100
+        },
+        "ambigue": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 87.5,
+          "recallAt10": 100,
+          "recallAt20": 100,
+          "sourceCoverageAt5": 100,
+          "mrr": 0.733,
+          "successRate": 100
+        },
+        "hors_corpus": {
+          "total": 8,
+          "answerable": 0,
+          "recallAt5": 0,
+          "recallAt10": 0,
+          "recallAt20": 0,
+          "sourceCoverageAt5": 0,
+          "mrr": 0,
+          "successRate": 0
+        },
+        "citation_precise": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 87.5,
+          "recallAt10": 100,
+          "recallAt20": 100,
+          "sourceCoverageAt5": 100,
+          "mrr": 0.771,
+          "successRate": 100
+        }
+      }
+    },
+    "hybrid": {
+      "name": "HYBRID",
+      "global": {
+        "recallAt5": 96.3,
+        "recallAt10": 98.8,
+        "recallAt20": 100,
+        "sourceCoverageAt5": 99.4,
+        "sourceCoverageAt10": 100,
+        "sourceCoverageAt20": 100,
+        "mrr": 0.881,
+        "successRate": 90.9,
+        "avgLatencyMs": 0.06
+      },
+      "by_category": {
+        "enseignement_precis": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 100,
+          "recallAt10": 100,
+          "recallAt20": 100,
+          "sourceCoverageAt5": 100,
+          "mrr": 1,
+          "successRate": 100
+        },
+        "theme_biblique": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 100,
+          "recallAt10": 100,
+          "recallAt20": 100,
+          "sourceCoverageAt5": 100,
+          "mrr": 0.854,
+          "successRate": 100
+        },
+        "phrase_expression": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 100,
+          "recallAt10": 100,
+          "recallAt20": 100,
+          "sourceCoverageAt5": 100,
+          "mrr": 0.938,
+          "successRate": 100
+        },
+        "doctrine": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 93.8,
+          "recallAt10": 93.8,
+          "recallAt20": 100,
+          "sourceCoverageAt5": 100,
+          "mrr": 1,
+          "successRate": 100
+        },
+        "personne_biblique": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 100,
+          "recallAt10": 100,
+          "recallAt20": 100,
+          "sourceCoverageAt5": 100,
+          "mrr": 0.813,
+          "successRate": 100
+        },
+        "evenement_biblique": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 87.5,
+          "recallAt10": 100,
+          "recallAt20": 100,
+          "sourceCoverageAt5": 100,
+          "mrr": 0.771,
+          "successRate": 100
+        },
+        "relations_passages": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 100,
+          "recallAt10": 100,
+          "recallAt20": 100,
+          "sourceCoverageAt5": 100,
+          "mrr": 1,
+          "successRate": 100
+        },
+        "multi_sermons": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 81.3,
+          "recallAt10": 93.8,
+          "recallAt20": 100,
+          "sourceCoverageAt5": 93.8,
+          "mrr": 0.817,
+          "successRate": 100
+        },
+        "ambigue": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 100,
+          "recallAt10": 100,
+          "recallAt20": 100,
+          "sourceCoverageAt5": 100,
+          "mrr": 0.823,
+          "successRate": 100
+        },
+        "hors_corpus": {
+          "total": 8,
+          "answerable": 0,
+          "recallAt5": 0,
+          "recallAt10": 0,
+          "recallAt20": 0,
+          "sourceCoverageAt5": 0,
+          "mrr": 0,
+          "successRate": 0
+        },
+        "citation_precise": {
+          "total": 8,
+          "answerable": 8,
+          "recallAt5": 100,
+          "recallAt10": 100,
+          "recallAt20": 100,
+          "sourceCoverageAt5": 100,
+          "mrr": 0.792,
+          "successRate": 100
+        }
+      }
+    }
+  }
+}

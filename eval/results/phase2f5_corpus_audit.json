@@ -1,0 +1,104 @@
+{
+  "timestamp": "2026-10-03T18:04:01.006Z",
+  "environment": "development",
+  "sourcesFound": [
+    {
+      "sourceName": "public/library.json",
+      "description": "Corpus de développement local",
+      "sermonCount": 4
+    },
+    {
+      "sourceName": "eval/cache_embeddings.json",
+      "description": "Cache de vecteurs pré-calculés",
+      "embeddingCount": 104
+    },
+    {
+      "sourceName": "eval/questions.json",
+      "description": "Jeu de données de benchmark",
+      "questionCount": 88
+    }
+  ],
+  "corpusMetrics": {
+    "sermonsCount": 4,
+    "indexedSermonsCount": 4,
+    "incompleteSermonsCount": 0,
+    "totalParagraphs": 16,
+    "totalChunks": 16,
+    "chunksWithEmbeddingCount": 0,
+    "chunksWithoutEmbeddingCount": 16
+  },
+  "distinctSermonsBySource": {
+    "libraryJson": [
+      "63-0324M",
+      "65-1212",
+      "64-0719M",
+      "65-0725M"
+    ],
+    "questionsJsonReferenced": [
+      "63-0324M",
+      "65-1212",
+      "64-0719M",
+      "65-0725M"
+    ]
+  },
+  "sermonsDetail": [
+    {
+      "sermonId": "63-0324M",
+      "title": "Questions Et Réponses Sur Les Sceaux",
+      "date": "1963-03-24",
+      "city": "Jeffersonville",
+      "version": "VGR",
+      "paragraphCount": 5,
+      "chunkCount": 5,
+      "coveredParagraphsCount": 5,
+      "paragraphCoveragePercent": 100,
+      "hasCoverageGap": false,
+      "chunksWithEmbeddingCount": 0,
+      "isValid": true
+    },
+    {
+      "sermonId": "65-1212",
+      "title": "La Communion",
+      "date": "1965-12-12",
+      "city": "Tucson",
+      "version": "Shp",
+      "paragraphCount": 3,
+      "chunkCount": 3,
+      "coveredParagraphsCount": 3,
+      "paragraphCoveragePercent": 100,
+      "hasCoverageGap": false,
+      "chunksWithEmbeddingCount": 0,
+      "isValid": true
+    },
+    {
+      "sermonId": "64-0719M",
+      "title": "La Fête Des Trompettes",
+      "date": "1964-07-19",
+      "city": "Jeffersonville",
+      "version": "VGR",
+      "paragraphCount": 4,
+      "chunkCount": 4,
+      "coveredParagraphsCount": 4,
+      "paragraphCoveragePercent": 100,
+      "hasCoverageGap": false,
+      "chunksWithEmbeddingCount": 0,
+      "isValid": true
+    },
+    {
+      "sermonId": "65-0725M",
+      "title": "Les Oints Du Temps De La Fin",
+      "date": "1965-07-25",
+      "city": "Jeffersonville",
+      "version": "VGR",
+      "paragraphCount": 4,
+      "chunkCount": 4,
+      "coveredParagraphsCount": 4,
+      "paragraphCoveragePercent": 100,
+      "hasCoverageGap": false,
+      "chunksWithEmbeddingCount": 0,
+      "isValid": true
+    }
+  ],
+  "anomaliesDetectedCount": 0,
+  "anomalies": []
+}

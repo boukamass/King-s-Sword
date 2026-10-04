@@ -1,0 +1,360 @@
+{
+  "phase": "2F.9A",
+  "source": "eval/results/phase2f9_generation_ab.json",
+  "timestamp": "2026-10-03T19:05:25.904Z",
+  "productionFlagsUnchanged": true,
+  "classification": "CLEAN_WITH_QUOTA_EXCLUSIONS",
+  "legacy": {
+    "totalAttempts": 10,
+    "successfulGenerations": 0,
+    "quotaErrors": 7,
+    "generationErrors": 3,
+    "unknownErrors": 0,
+    "successfulGenerationLatencyMean": null,
+    "successfulTotalLatencyMean": null,
+    "citationAuthenticity": null,
+    "lexicalEvidenceCoverage": null,
+    "oldChunkIdAlerts": 7,
+    "strictChunkIdExposures": 0
+  },
+  "newRag": {
+    "totalAttempts": 10,
+    "successfulGenerations": 3,
+    "quotaErrors": 6,
+    "generationErrors": 1,
+    "unknownErrors": 0,
+    "successfulGenerationLatencyMean": 3640,
+    "successfulTotalLatencyMean": 5379.7,
+    "citationAuthenticity": 100,
+    "lexicalEvidenceCoverage": 76,
+    "oldChunkIdAlerts": 6,
+    "strictChunkIdExposures": 0
+  },
+  "integrity": {
+    "falsePositiveChunkIdAlerts": 13,
+    "trueChunkIdExposures": 0,
+    "quotaContaminatedMetrics": true
+  },
+  "questions": [
+    {
+      "id": "Q001",
+      "category": "enseignement_precis",
+      "question": "Que portait le cavalier sur le cheval blanc et quel élément crucial lui manquait-il ?",
+      "expectedAnswerable": true,
+      "legacy": {
+        "generationStatus": "generation_error",
+        "oldChunkDetector": false,
+        "strictChunkDetector": false,
+        "detectedChunkIds": [],
+        "classification": "none",
+        "latencyMs": null,
+        "citationCount": null,
+        "validCitationCount": null,
+        "citationAuthenticity": null,
+        "lexicalEvidenceCoverage": 0,
+        "correctRefusal": null
+      },
+      "newRag": {
+        "generationStatus": "success",
+        "oldChunkDetector": false,
+        "strictChunkDetector": false,
+        "detectedChunkIds": [],
+        "classification": "none",
+        "latencyMs": 9103,
+        "citationCount": 2,
+        "validCitationCount": 2,
+        "citationAuthenticity": 1,
+        "lexicalEvidenceCoverage": 0.816,
+        "correctRefusal": null
+      }
+    },
+    {
+      "id": "Q009",
+      "category": "theme_biblique",
+      "question": "Quel est le thème biblique de la lumière du soir prophétisée par Zacharie ?",
+      "expectedAnswerable": true,
+      "legacy": {
+        "generationStatus": "generation_error",
+        "oldChunkDetector": false,
+        "strictChunkDetector": false,
+        "detectedChunkIds": [],
+        "classification": "none",
+        "latencyMs": null,
+        "citationCount": null,
+        "validCitationCount": null,
+        "citationAuthenticity": null,
+        "lexicalEvidenceCoverage": 0,
+        "correctRefusal": null
+      },
+      "newRag": {
+        "generationStatus": "success",
+        "oldChunkDetector": false,
+        "strictChunkDetector": false,
+        "detectedChunkIds": [],
+        "classification": "none",
+        "latencyMs": 6740,
+        "citationCount": 2,
+        "validCitationCount": 2,
+        "citationAuthenticity": 1,
+        "lexicalEvidenceCoverage": 0.704,
+        "correctRefusal": null
+      }
+    },
+    {
+      "id": "Q017",
+      "category": "phrase_expression",
+      "question": "Dans quel contexte l'expression « grand bluff religieux du temps de la fin » est-elle employée ?",
+      "expectedAnswerable": true,
+      "legacy": {
+        "generationStatus": "generation_error",
+        "oldChunkDetector": false,
+        "strictChunkDetector": false,
+        "detectedChunkIds": [],
+        "classification": "none",
+        "latencyMs": null,
+        "citationCount": null,
+        "validCitationCount": null,
+        "citationAuthenticity": null,
+        "lexicalEvidenceCoverage": 0,
+        "correctRefusal": null
+      },
+      "newRag": {
+        "generationStatus": "generation_error",
+        "oldChunkDetector": false,
+        "strictChunkDetector": false,
+        "detectedChunkIds": [],
+        "classification": "none",
+        "latencyMs": null,
+        "citationCount": null,
+        "validCitationCount": null,
+        "citationAuthenticity": null,
+        "lexicalEvidenceCoverage": 0,
+        "correctRefusal": null
+      }
+    },
+    {
+      "id": "Q025",
+      "category": "doctrine",
+      "question": "Quelle est la doctrine enseignée sur la véritable identité du cavalier sur le cheval blanc ?",
+      "expectedAnswerable": true,
+      "legacy": {
+        "generationStatus": "quota_error",
+        "oldChunkDetector": true,
+        "strictChunkDetector": false,
+        "detectedChunkIds": [],
+        "classification": "false_positive_due_to_error_payload",
+        "latencyMs": null,
+        "citationCount": null,
+        "validCitationCount": null,
+        "citationAuthenticity": null,
+        "lexicalEvidenceCoverage": 0,
+        "correctRefusal": null
+      },
+      "newRag": {
+        "generationStatus": "quota_error",
+        "oldChunkDetector": true,
+        "strictChunkDetector": false,
+        "detectedChunkIds": [],
+        "classification": "false_positive_due_to_error_payload",
+        "latencyMs": null,
+        "citationCount": null,
+        "validCitationCount": null,
+        "citationAuthenticity": null,
+        "lexicalEvidenceCoverage": 0,
+        "correctRefusal": null
+      }
+    },
+    {
+      "id": "Q033",
+      "category": "personne_biblique",
+      "question": "Quel rôle le prophète Zacharie joue-t-il dans la prédication des Sceaux ?",
+      "expectedAnswerable": true,
+      "legacy": {
+        "generationStatus": "quota_error",
+        "oldChunkDetector": true,
+        "strictChunkDetector": false,
+        "detectedChunkIds": [],
+        "classification": "false_positive_due_to_error_payload",
+        "latencyMs": null,
+        "citationCount": null,
+        "validCitationCount": null,
+        "citationAuthenticity": null,
+        "lexicalEvidenceCoverage": 0,
+        "correctRefusal": null
+      },
+      "newRag": {
+        "generationStatus": "quota_error",
+        "oldChunkDetector": true,
+        "strictChunkDetector": false,
+        "detectedChunkIds": [],
+        "classification": "false_positive_due_to_error_payload",
+        "latencyMs": null,
+        "citationCount": null,
+        "validCitationCount": null,
+        "citationAuthenticity": null,
+        "lexicalEvidenceCoverage": 0,
+        "correctRefusal": null
+      }
+    },
+    {
+      "id": "Q041",
+      "category": "evenement_biblique",
+      "question": "Quel événement biblique marque l'ouverture du premier sceau ?",
+      "expectedAnswerable": true,
+      "legacy": {
+        "generationStatus": "quota_error",
+        "oldChunkDetector": true,
+        "strictChunkDetector": false,
+        "detectedChunkIds": [],
+        "classification": "false_positive_due_to_error_payload",
+        "latencyMs": null,
+        "citationCount": null,
+        "validCitationCount": null,
+        "citationAuthenticity": null,
+        "lexicalEvidenceCoverage": 0,
+        "correctRefusal": null
+      },
+      "newRag": {
+        "generationStatus": "quota_error",
+        "oldChunkDetector": true,
+        "strictChunkDetector": false,
+        "detectedChunkIds": [],
+        "classification": "false_positive_due_to_error_payload",
+        "latencyMs": null,
+        "citationCount": null,
+        "validCitationCount": null,
+        "citationAuthenticity": null,
+        "lexicalEvidenceCoverage": 0,
+        "correctRefusal": null
+      }
+    },
+    {
+      "id": "Q049",
+      "category": "relations_passages",
+      "question": "Quelle relation le sermon sur les Sceaux établit-il entre le Septième Ange et Zacharie ?",
+      "expectedAnswerable": true,
+      "legacy": {
+        "generationStatus": "quota_error",
+        "oldChunkDetector": true,
+        "strictChunkDetector": false,
+        "detectedChunkIds": [],
+        "classification": "false_positive_due_to_error_payload",
+        "latencyMs": null,
+        "citationCount": null,
+        "validCitationCount": null,
+        "citationAuthenticity": null,
+        "lexicalEvidenceCoverage": 0,
+        "correctRefusal": null
+      },
+      "newRag": {
+        "generationStatus": "quota_error",
+        "oldChunkDetector": true,
+        "strictChunkDetector": false,
+        "detectedChunkIds": [],
+        "classification": "false_positive_due_to_error_payload",
+        "latencyMs": null,
+        "citationCount": null,
+        "validCitationCount": null,
+        "citationAuthenticity": null,
+        "lexicalEvidenceCoverage": 0,
+        "correctRefusal": null
+      }
+    },
+    {
+      "id": "Q057",
+      "category": "multi_sermons",
+      "question": "Comment l'avertissement contre la séduction du premier sceau (63-0324M) complète-t-il celui sur les faux oints (65-0725M) ?",
+      "expectedAnswerable": true,
+      "legacy": {
+        "generationStatus": "quota_error",
+        "oldChunkDetector": true,
+        "strictChunkDetector": false,
+        "detectedChunkIds": [],
+        "classification": "false_positive_due_to_error_payload",
+        "latencyMs": null,
+        "citationCount": null,
+        "validCitationCount": null,
+        "citationAuthenticity": null,
+        "lexicalEvidenceCoverage": 0,
+        "correctRefusal": null
+      },
+      "newRag": {
+        "generationStatus": "quota_error",
+        "oldChunkDetector": true,
+        "strictChunkDetector": false,
+        "detectedChunkIds": [],
+        "classification": "false_positive_due_to_error_payload",
+        "latencyMs": null,
+        "citationCount": null,
+        "validCitationCount": null,
+        "citationAuthenticity": null,
+        "lexicalEvidenceCoverage": 0,
+        "correctRefusal": null
+      }
+    },
+    {
+      "id": "Q081",
+      "category": "citation_precise",
+      "question": "Citer exactement la phrase décrivant l'armement et la supercherie du cavalier sur le cheval blanc.",
+      "expectedAnswerable": true,
+      "legacy": {
+        "generationStatus": "quota_error",
+        "oldChunkDetector": true,
+        "strictChunkDetector": false,
+        "detectedChunkIds": [],
+        "classification": "false_positive_due_to_error_payload",
+        "latencyMs": null,
+        "citationCount": null,
+        "validCitationCount": null,
+        "citationAuthenticity": null,
+        "lexicalEvidenceCoverage": 0,
+        "correctRefusal": null
+      },
+      "newRag": {
+        "generationStatus": "quota_error",
+        "oldChunkDetector": true,
+        "strictChunkDetector": false,
+        "detectedChunkIds": [],
+        "classification": "false_positive_due_to_error_payload",
+        "latencyMs": null,
+        "citationCount": null,
+        "validCitationCount": null,
+        "citationAuthenticity": null,
+        "lexicalEvidenceCoverage": 0,
+        "correctRefusal": null
+      }
+    },
+    {
+      "id": "Q073",
+      "category": "hors_corpus",
+      "question": "Que dit William Branham sur la construction de la Tour Eiffel à Paris ?",
+      "expectedAnswerable": false,
+      "legacy": {
+        "generationStatus": "quota_error",
+        "oldChunkDetector": true,
+        "strictChunkDetector": false,
+        "detectedChunkIds": [],
+        "classification": "false_positive_due_to_error_payload",
+        "latencyMs": null,
+        "citationCount": null,
+        "validCitationCount": null,
+        "citationAuthenticity": null,
+        "lexicalEvidenceCoverage": 0,
+        "correctRefusal": null
+      },
+      "newRag": {
+        "generationStatus": "success",
+        "oldChunkDetector": false,
+        "strictChunkDetector": false,
+        "detectedChunkIds": [],
+        "classification": "none",
+        "latencyMs": 296,
+        "citationCount": 0,
+        "validCitationCount": 0,
+        "citationAuthenticity": null,
+        "lexicalEvidenceCoverage": 0.364,
+        "correctRefusal": true
+      }
+    }
+  ]
+}

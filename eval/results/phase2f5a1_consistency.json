@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-10-03T18:04:00.000Z",
+  "chunkCountPrevious": 16,
+  "chunkCountCurrent": 16,
+  "chunkCountAuditArtifact": 6,
+  "chunkCountDifferenceExplained": true,
+  "chunkCountExplanation": "L'audit 2F.5A utilisait une boucle simplifiée non-glissante avec targetWords=150. La fonction officielle createLibraryChunks de services/chunkingService.ts génère exactement 16 chunks avec fenêtrage glissant (overlap=1).",
+  "currentHashAlgorithm": "FNV-1a 64-bit",
+  "previousHashAlgorithm": "FNV-1a 64-bit",
+  "auditScriptHashAlgorithm": "MD5",
+  "hashAlgorithmExplanation": "computeChunkHash dans services/chunkingService.ts utilise le dual-hash FNV-1a 64-bit depuis la Phase 2A. Le script d'audit 2F.5A avait utilisé crypto.createHash('md5') dans son propre scope.",
+  "embeddingPersistenceAvailable": true,
+  "embeddingPersistenceCurrentlyUsed": true,
+  "embeddingStorageType": "SQLite BLOB (Float32Array 12288 bytes / 3072 floats)",
+  "evaluationCacheUsedByProduction": false,
+  "evaluationCacheUsageScope": "Uniquement les scripts de benchmark d'évaluation (eval/cache_embeddings.json est lu par scripts/run_benchmark_comparison.mjs pour éviter le taux de quota 429). La production lit et écrit exclusivement en SQLite ou mémoire."
+}

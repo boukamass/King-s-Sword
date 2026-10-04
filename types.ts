@@ -158,6 +158,233 @@ export interface QuickAccessItem {
   isFavorite?: boolean;
 }
 
+export type DocumentSourceType = 'sermon' | 'expose' | 'bible' | 'song';
+
+export type AIContextUnitType = 'document' | 'chapter' | 'section' | 'page' | 'paragraph' | 'verse' | 'range';
+
+export interface AIContextUnit {
+  type: AIContextUnitType;
+  id?: string | number;
+  start?: number;
+  end?: number;
+  paragraphIndex?: number;
+  verse?: number;
+}
+
+export interface AIContextSource {
+  sourceType: DocumentSourceType;
+  sourceId: string;
+  title?: string;
+  selectedUnit?: AIContextUnit;
+  allowedParagraphIds?: number[];
+  allowedVerses?: number[];
+}
+
+export interface AIContext {
+  sources: AIContextSource[];
+}
+
+export interface DocumentParagraph {
+  paragraphId: string | number;
+  paragraphIndex: number; // 1-based sequential index in document
+  text: string;
+  sectionTitle?: string | null;
+  chapterNumber?: string | number | null;
+  chapterTitle?: string | null;
+  pageNumber?: number | null;
+  indexInPage?: number | null;
+}
+
+export interface CanonicalDocument {
+  documentId: string;
+  documentType: DocumentSourceType;
+  title: string;
+  author?: string;
+  date?: string;
+  city?: string | null;
+  version?: string;
+  paragraphs: DocumentParagraph[];
+  metadata?: Record<string, any>;
+}
+
+export interface SermonChunk {
+  chunkId: string;
+  sermonId: string;
+  paragraphIds: number[];
+  startParagraph: number;
+  endParagraph: number;
+  text: string;
+  sermonTitle: string;
+  date?: string;
+  city?: string | null;
+  version?: string;
+  characterCount: number;
+  wordCount: number;
+  contentHash?: string;
+  embedding?: number[] | null;
+  createdAt?: string;
+  updatedAt?: string;
+  // Generic Document Abstraction Extensions (Phase 2F.11)
+  documentType?: DocumentSourceType;
+  documentId?: string;
+  sectionTitle?: string | null;
+  chapterTitle?: string | null;
+  chapterNumber?: string | null;
+  metadata?: Record<string, any>;
+}
+
+export type DocumentChunk = SermonChunk;
+export type Chunk = SermonChunk;
+
+export interface ChunkingOptions {
+  maxCharacters?: number;
+  minCharacters?: number;
+  overlapParagraphs?: number;
+  maxParagraphsPerChunk?: number;
+}
+
+export interface VectorSearchResult {
+  chunk: SermonChunk;
+  score: number;
+  rank: number;
+}
+
+export interface VectorSearchOptions {
+  topK?: number;
+  minScoreThreshold?: number;
+  sermonIdFilter?: string[];
+}
+
+export interface LexicalChunkHit {
+  chunkId: string;
+  rank: number;
+  score?: number;
+  matchedParagraphIds?: number[];
+}
+
+export interface HybridSearchResult {
+  chunkId: string;
+  sermonId: string;
+  paragraphIds: number[];
+  startParagraph: number;
+  endParagraph: number;
+  text: string;
+  sermonTitle: string;
+  date?: string;
+  city?: string | null;
+  version?: string;
+  lexicalRank: number | null;
+  lexicalScore: number | null;
+  vectorRank: number | null;
+  vectorScore: number | null;
+  rrfScore: number;
+  rank: number;
+  chunk: SermonChunk;
+}
+
+export interface HybridSearchOptions {
+  k?: number; // RRF constant, default 60
+  topK?: number; // default 10
+  minRrfScore?: number;
+  sermonIdFilter?: string[];
+  vectorWeight?: number;
+  lexicalWeight?: number;
+}
+
+export interface RerankedSearchResult extends HybridSearchResult {
+  rerankScore: number;
+  rerankDetails: {
+    baseRrfScore: number;
+    vectorCosine: number;
+    lexicalScore: number;
+    isMultiModal: boolean;
+    queryTermCoverage: number;
+  };
+}
+
+export interface AnswerabilityAssessment {
+  answerable: boolean;
+  confidenceScore: number; // 0.0 à 1.0
+  reason: string;
+  topScore: number;
+  evidenceCount: number;
+  absentKeywords?: string[];
+}
+
+export interface ValidatedCitation {
+  chunkId: string;
+  sermonId: string;
+  paragraphIndex: number;
+  citationTitle: string;
+  isAuthentic: boolean;
+  textSnippet: string;
+  validationError?: string;
+}
+
+export interface RerankOptions {
+  topK?: number;
+  vectorWeight?: number;
+  lexicalWeight?: number;
+  rrfWeight?: number;
+  multiModalBonus?: number;
+}
+
+export interface EvidenceParagraphCitation {
+  paragraphIndex: number;
+  formattedCitation: string; // e.g. "[Réf: 63-0324M, §2]" ou "[Réf: 63-0324M, Para. 2]" - JAMAIS de chunkId !
+  textSnippet: string;
+  isAuthentic: boolean;
+}
+
+export interface RetrievalEvidence {
+  chunkId: string;
+  sermonId: string;
+  sermonTitle: string;
+  paragraphIds: number[];
+  startParagraph: number;
+  endParagraph: number;
+  text: string;
+  date?: string;
+  city?: string | null;
+  version?: string;
+  retrievalScore: number;
+  rank: number;
+  sourceType: 'lexical' | 'vector' | 'hybrid' | 'reranked';
+  citationParagraphs: EvidenceParagraphCitation[];
+}
+
+export interface RetrievalEvidencePackage {
+  answerable: boolean;
+  confidenceScore: number;
+  reason: string;
+  evidence: RetrievalEvidence[];
+  query: string;
+  totalCandidates?: number;
+  rejectedCount?: number;
+}
+
+export interface ValidatedCitationDetail {
+  rawMatch: string;
+  sermonId: string | null;
+  paragraphIndex: number | null;
+  isValid: boolean;
+  reason: string;
+  matchedEvidence?: {
+    sermonId: string;
+    sermonTitle: string;
+    paragraphIndex: number;
+    snippet: string;
+  };
+}
+
+export interface CitationValidationResult {
+  text: string;
+  citations: ValidatedCitationDetail[];
+  validCitationCount: number;
+  invalidCitationCount: number;
+  allCitationsValid: boolean;
+}
+
 export interface ElectronAPI {
   platform: string;
   onUpdateAvailable: (callback: () => void) => void;
@@ -185,6 +412,11 @@ export interface ElectronAPI {
     setKV: (key: string, value: any) => Promise<{ success: boolean; error?: string }>;
     exportBackup?: () => Promise<{ success: boolean; backup?: any; error?: string }>;
     importBackup?: (backupData: any) => Promise<{ success: boolean; importedNotes?: number; importedSongs?: number; error?: string }>;
+    saveChunks?: (chunks: SermonChunk[]) => Promise<{ success: boolean; count: number; saved: number; unchanged: number; error?: string }>;
+    getChunk?: (chunkId: string) => Promise<SermonChunk | null>;
+    getChunksBySermon?: (sermonId: string) => Promise<SermonChunk[]>;
+    getAllChunks?: () => Promise<SermonChunk[]>;
+    deleteChunksBySermon?: (sermonId: string) => Promise<{ success: boolean; count?: number; error?: string }>;
   };
   security?: {
     getLockStatus: () => Promise<{ locked: boolean; machineId: string; reason?: string }>;
