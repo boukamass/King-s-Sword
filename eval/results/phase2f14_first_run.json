@@ -1,0 +1,86 @@
+{
+  "timestamp": "2026-10-04T15:51:45.372Z",
+  "phase": "2F.14",
+  "title": "Indexation Automatique du Corpus au Premier Lancement",
+  "status": "FIRST_RUN_INDEXING_READY",
+  "totalTests": 10,
+  "passCount": 10,
+  "failCount": 0,
+  "detectedCorpusLocation": {
+    "web": "/library.json",
+    "electron": "window.electronAPI.db / process.resourcesPath / library.json"
+  },
+  "indexingStatesSupported": [
+    "NOT_STARTED",
+    "SCANNING",
+    "CHUNKING",
+    "EMBEDDING",
+    "READY",
+    "PARTIAL",
+    "ERROR"
+  ],
+  "concurrencyProtection": "VERROU_MUTEX_IS_INDEXING_IN_PROGRESS",
+  "featureFlags": {
+    "useLegacyRetrieval": true,
+    "useHybridRetrieval": false,
+    "useUnifiedRag": true,
+    "useEmbeddings": false,
+    "useQueryRewrite": false,
+    "useReranker": false,
+    "useCitationValidation": false,
+    "useQueryCache": false,
+    "useResponseCache": false
+  },
+  "scenariosTested": [
+    {
+      "title": "Premier lancement : 4 sermons découpés en 16 chunks indexés avec succès (READY)",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "title": "Deuxième lancement : 0 embedding créé, 16/16 réutilisés sans appel Gemini inutiles",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "title": "Modification d'un sermon : Seul le chunk modifié est ré-indexé (1 créé, 15 réutilisés)",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "title": "Simulation d'interruption / embedding NULL réussie",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "title": "Reprise d'indexation : Seul le chunk avec embedding NULL est régénéré",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "title": "Gestion d'erreur 429/503 : passage propre en état PARTIAL/ERROR sans effacer les 15 embeddings valides",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "title": "Reprise automatique post-erreur : l'index retrouve l'état READY avec succès",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "title": "Verrou anti-concurrence : Les deux appels concurrents sont gérés en toute sécurité sans conflit",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "title": "Corpus déjà indexé : L'état READY est conservé de manière persistante",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "title": "Unified RAG : Fonctionnement optimal et réponses authentiques avec citations après état READY",
+      "status": "PASS",
+      "details": ""
+    }
+  ]
+}

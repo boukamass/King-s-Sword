@@ -1,0 +1,29 @@
+{
+  "timestamp": "2026-10-04T15:51:27.678Z",
+  "phase": "2F.12G",
+  "title": "Activation contrôlée du Unified RAG",
+  "totalTests": 8,
+  "passCount": 8,
+  "failCount": 0,
+  "status": "UNIFIED_RAG_ACTIVATED",
+  "finalValueUseUnifiedRag": true,
+  "featureFlags": {
+    "useLegacyRetrieval": true,
+    "useHybridRetrieval": false,
+    "useUnifiedRag": true,
+    "useEmbeddings": false,
+    "useQueryRewrite": false,
+    "useReranker": false,
+    "useCitationValidation": false,
+    "useQueryCache": false,
+    "useResponseCache": false
+  },
+  "checks": [
+    "Sermon sélectionné -> réponse OK",
+    "Exposé sélectionné -> réponse OK",
+    "Bible sélectionnée -> réponse OK",
+    "Question hors AI Context -> isolement OK",
+    "Citations [Réf: ...] -> conformes",
+    "Rollback testé -> OK"
+  ]
+}

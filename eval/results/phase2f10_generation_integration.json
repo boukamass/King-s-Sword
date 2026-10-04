@@ -1,0 +1,103 @@
+{
+  "phase": "2F.10",
+  "name": "GENERATION INTEGRATION HARDENING",
+  "timestamp": "2026-10-04T07:05:00.000Z",
+  "status": "SUCCESS",
+  "disclaimer": "Les fixtures Gemini utilisées dans les tests ne sont pas des générations Gemini réelles. Elles ne sont pas incluses dans les benchmarks de performance.",
+  "productionFlags": {
+    "useLegacyRetrieval": true,
+    "useHybridRetrieval": false,
+    "unchanged": true
+  },
+  "metrics": {
+    "geminiApiCalls": 0,
+    "fallbackUsed": 0,
+    "groundTruthProductionFallback": 0,
+    "ollamaProductionFallback": 0,
+    "cachedResponseFallback": 0,
+    "syntheticResponseFallback": 0,
+    "totalTests": 11,
+    "passedTests": 11,
+    "failedTests": 0
+  },
+  "tests": [
+    {
+      "id": "fixture_a_valid_citation",
+      "description": "Réponse Gemini valide avec citation valide [Réf: 63-0324M, §2]",
+      "status": "PASS",
+      "expectedStatus": "success",
+      "citationValid": true
+    },
+    {
+      "id": "fixture_b_invalid_citation",
+      "description": "Réponse Gemini avec mauvaise citation [Réf: UNKNOWN, §999]",
+      "status": "PASS",
+      "expectedStatus": "success",
+      "invalidCitationCount": 1
+    },
+    {
+      "id": "fixture_c_no_citation",
+      "description": "Réponse Gemini valide sans citation",
+      "status": "PASS",
+      "expectedStatus": "success",
+      "validCitationCount": 0
+    },
+    {
+      "id": "fixture_d_429_quota_error",
+      "description": "Erreur 429 RESOURCE_EXHAUSTED",
+      "status": "PASS",
+      "expectedStatus": "error",
+      "answerText": null,
+      "errorCode": "RESOURCE_EXHAUSTED"
+    },
+    {
+      "id": "fixture_e_503_service_error",
+      "description": "Erreur 503 UNAVAILABLE",
+      "status": "PASS",
+      "expectedStatus": "error",
+      "answerText": null,
+      "errorCode": "SERVICE_UNAVAILABLE"
+    },
+    {
+      "id": "fixture_f_empty_response",
+      "description": "Réponse Gemini vide",
+      "status": "PASS",
+      "expectedStatus": "error",
+      "answerText": null,
+      "errorCode": "EMPTY_RESPONSE"
+    },
+    {
+      "id": "fixture_g_chunk_id_exposure",
+      "description": "Réponse Gemini contenant un vrai Chunk ID",
+      "status": "PASS",
+      "expectedStatus": "success",
+      "chunkIdExposure": true
+    },
+    {
+      "id": "fixture_h_unanswerable_evidence",
+      "description": "Evidence answerable = false (zéro appel Gemini)",
+      "status": "PASS",
+      "expectedStatus": "not_answerable",
+      "answerText": null,
+      "geminiCalled": false
+    },
+    {
+      "id": "fixture_i_ollama_fallback_attempt",
+      "description": "Tentative de fallback Ollama bloquée net",
+      "status": "PASS",
+      "expectedError": "INVALID_GENERATION_CONTRACT"
+    },
+    {
+      "id": "test_non_contamination_429",
+      "description": "Non-contamination : tentative de requalification d'un 429 en succès local rejetée",
+      "status": "PASS",
+      "expectedError": "INVALID_GENERATION_CONTRACT"
+    },
+    {
+      "id": "test_end_to_end_pipeline",
+      "description": "Flux complet simulé Question → Evidence → Mock Gemini → Validator → Result",
+      "status": "PASS",
+      "expectedStatus": "success"
+    }
+  ]
+}

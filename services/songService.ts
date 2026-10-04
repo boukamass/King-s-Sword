@@ -461,7 +461,27 @@ export const loadAllSongs = async (forceReload = false): Promise<Song[]> => {
 
   // Try fetching fresh songs.json first (always fetch with timestamp to bypass HTTP and build caches)
   try {
-    const data = await fetchJsonSafe<any>(`/songs.json?t=${Date.now()}`, ['/songs.json', 'songs.json']);
+    let data = await fetchJsonSafe<any>(`/songs.json?t=${Date.now()}`, ['/songs.json', 'songs.json']);
+
+    // Fallback environnement Node.js (scripts de tests et benchmarks)
+    if (!data && typeof window === 'undefined') {
+      try {
+        const fs = await import('fs');
+        const path = await import('path');
+        const candidates = [
+          path.resolve('public/songs.json'),
+          path.resolve('dist/songs.json'),
+          path.resolve('../public/songs.json')
+        ];
+        for (const cand of candidates) {
+          if (fs.existsSync(cand)) {
+            data = JSON.parse(fs.readFileSync(cand, 'utf8'));
+            break;
+          }
+        }
+      } catch {}
+    }
+
     if (data) {
       const rawList: Song[] = Array.isArray(data) ? data : data.songs || [];
       let customIdbSongs: Song[] = [];
@@ -483,9 +503,11 @@ export const loadAllSongs = async (forceReload = false): Promise<Song[]> => {
 
       // Update IndexedDB (replace old cached base songs completely) & LocalStorage
       await idbReplaceAll(STORE_SONGS, merged);
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-      } catch (e) {}
+      if (typeof localStorage !== 'undefined') {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+        } catch (e) {}
+      }
 
       return inMemorySongs;
     }
@@ -522,18 +544,20 @@ export const loadAllSongs = async (forceReload = false): Promise<Song[]> => {
   }
 
   // Fallback 3 (Offline Web): Try loading from LocalStorage
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const merged = mergeSongs(parsed);
-        inMemorySongs = merged;
-        return inMemorySongs;
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const merged = mergeSongs(parsed);
+          inMemorySongs = merged;
+          return inMemorySongs;
+        }
       }
+    } catch (e) {
+      console.warn('Failed to parse songs from localStorage:', e);
     }
-  } catch (e) {
-    console.warn('Failed to parse songs from localStorage:', e);
   }
 
   inMemorySongs = [];

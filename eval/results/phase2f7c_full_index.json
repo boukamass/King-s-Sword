@@ -1,0 +1,155 @@
+{
+  "timestamp": "2026-10-03T18:32:30.136Z",
+  "environment": "development",
+  "status": "FULL_CORPUS_INDEXED",
+  "featureFlags": {
+    "useLegacyRetrieval": true,
+    "useHybridRetrieval": false,
+    "useEmbeddings": false,
+    "useQueryRewrite": false,
+    "useReranker": false,
+    "useCitationValidation": false,
+    "useQueryCache": false,
+    "useResponseCache": false
+  },
+  "corpusMetrics": {
+    "sermonsCount": 4,
+    "paragraphsCount": 16,
+    "chunksCount": 16,
+    "chunksAlreadyIndexedBefore": 0,
+    "chunksEmbeddedThisRun": 16,
+    "chunksFailed": 0
+  },
+  "indexingPerformance": {
+    "batchSize": 5,
+    "maxRetries": 3,
+    "apiCalls": 16,
+    "retries": 0,
+    "totalElapsedMs": 6192.72,
+    "throughputChunksPerMin": 155
+  },
+  "coherenceChecks": {
+    "chunksWithoutEmbedding": 0,
+    "invalidEmbeddings": 0,
+    "uniqueHashesCount": 16,
+    "duplicateHashesCount": 0,
+    "isFullyCoherent": true
+  },
+  "vectorSearchResults": [
+    {
+      "id": 1,
+      "type": "Enseignement précis",
+      "query": "Le cavalier sur le cheval blanc n'est pas Jésus-Christ",
+      "expectedSermon": "63-0324M",
+      "topResultSermonId": "63-0324M",
+      "topResultChunkId": "63-0324M_c2_p2_p2",
+      "score": 0.6976,
+      "isMatched": true,
+      "embeddingLatencyMs": 288,
+      "searchLatencyMs": 5.8
+    },
+    {
+      "id": 2,
+      "type": "Thème biblique",
+      "query": "La manne cachée et la Sainte Cène",
+      "expectedSermon": "65-1212",
+      "topResultSermonId": "65-1212",
+      "topResultChunkId": "65-1212_c3_p3_p3",
+      "score": 0.7923,
+      "isMatched": true,
+      "embeddingLatencyMs": 313.53,
+      "searchLatencyMs": 0.31
+    },
+    {
+      "id": 3,
+      "type": "Doctrine",
+      "query": "Les cent quarante-quatre mille Juifs et les deux témoins",
+      "expectedSermon": "64-0719M",
+      "topResultSermonId": "64-0719M",
+      "topResultChunkId": "64-0719M_c2_p2_p2",
+      "score": 0.7494,
+      "isMatched": true,
+      "embeddingLatencyMs": 256.43,
+      "searchLatencyMs": 0.24
+    },
+    {
+      "id": 4,
+      "type": "Personne",
+      "query": "Le prophète Zacharie et la lumière du soir",
+      "expectedSermon": "63-0324M",
+      "topResultSermonId": "63-0324M",
+      "topResultChunkId": "63-0324M_c3_p3_p3",
+      "score": 0.531,
+      "isMatched": true,
+      "embeddingLatencyMs": 264.61,
+      "searchLatencyMs": 0.16
+    },
+    {
+      "id": 5,
+      "type": "Événement",
+      "query": "Le figuier repousse et la nation d'Israël est érigée",
+      "expectedSermon": "64-0719M",
+      "topResultSermonId": "64-0719M",
+      "topResultChunkId": "64-0719M_c3_p3_p4",
+      "score": 0.6708,
+      "isMatched": true,
+      "embeddingLatencyMs": 269.57,
+      "searchLatencyMs": 0.14
+    },
+    {
+      "id": 6,
+      "type": "Relation passages",
+      "query": "Jean et Apocalypse 11 dans les derniers jours",
+      "expectedSermon": "64-0719M",
+      "topResultSermonId": "64-0719M",
+      "topResultChunkId": "64-0719M_c2_p2_p2",
+      "score": 0.6664,
+      "isMatched": true,
+      "embeddingLatencyMs": 293.35,
+      "searchLatencyMs": 0.14
+    },
+    {
+      "id": 7,
+      "type": "Recherche paraphrasée",
+      "query": "Repas du Seigneur, vin et pain sans levain",
+      "expectedSermon": "65-1212",
+      "topResultSermonId": "65-1212",
+      "topResultChunkId": "65-1212_c1_p1_p2",
+      "score": 0.6615,
+      "isMatched": true,
+      "embeddingLatencyMs": 320.22,
+      "searchLatencyMs": 0.14
+    },
+    {
+      "id": 8,
+      "type": "Question hors corpus",
+      "query": "Quel est le principe de fonctionnement d'un moteur Diesel ?",
+      "expectedSermon": "N/A",
+      "topResultSermonId": "65-0725M",
+      "topResultChunkId": "65-0725M_c2_p2_p2",
+      "score": 0.514,
+      "isMatched": true,
+      "embeddingLatencyMs": 307.58,
+      "searchLatencyMs": 0.18
+    }
+  ],
+  "corpusComparison": {
+    "phase2F7ABefore": {
+      "sermonsCount": 4,
+      "paragraphsCount": 16,
+      "chunksCount": 16,
+      "indexedChunksCount": 0,
+      "chunksWithoutEmbeddingCount": 16,
+      "anomaliesCount": 0
+    },
+    "phase2F7CAfter": {
+      "sermonsCount": 4,
+      "paragraphsCount": 16,
+      "chunksCount": 16,
+      "indexedChunksCount": 16,
+      "chunksWithoutEmbeddingCount": 0,
+      "anomaliesCount": 0
+    }
+  },
+  "finalReadinessStatus": "FULL_CORPUS_INDEXED"
+}

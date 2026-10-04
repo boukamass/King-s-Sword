@@ -1,0 +1,780 @@
+{
+  "phase": "2F.11",
+  "name": "EXPOSE RAG INTEGRATION & CONTROLLED VALIDATION",
+  "timestamp": "2026-10-04T15:22:59.762Z",
+  "status": "SUCCESS",
+  "productionFlags": {
+    "useLegacyRetrieval": true,
+    "useHybridRetrieval": false,
+    "unchanged": true
+  },
+  "corpus": {
+    "name": "Exposé des Sept Âges de l'Église",
+    "totalChapters": 11,
+    "totalParagraphs": 1590,
+    "totalChunks": 1434,
+    "coverageRatePercent": 100
+  },
+  "summaryMetrics": {
+    "totalQuestions": 40,
+    "answerableQuestions": 30,
+    "unanswerableQuestions": 10,
+    "coverageRatePercent": 100,
+    "answerability": {
+      "truePositives": 30,
+      "trueNegatives": 10,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "precision": 1,
+      "recall": 1,
+      "accuracy": 1,
+      "abstentionRateOnUnanswerable": 1
+    },
+    "citations": {
+      "totalEvaluated": 200,
+      "validCitations": 200,
+      "invalidCitations": 0,
+      "authenticityRate": 1,
+      "chunkIdExposureCount": 0
+    },
+    "retrievalComparison": {
+      "lexical": {
+        "name": "Lexical BM25",
+        "recallAt5": 0.9,
+        "recallAt10": 0.967,
+        "recallAt20": 1,
+        "sourceCoverageAt5": 0.867,
+        "sourceCoverageAt10": 0.95,
+        "sourceCoverageAt20": 1,
+        "mrr": 0.761
+      },
+      "hybrid": {
+        "name": "Hybrid RRF (k=60)",
+        "recallAt5": 0.933,
+        "recallAt10": 0.967,
+        "recallAt20": 1,
+        "sourceCoverageAt5": 0.883,
+        "sourceCoverageAt10": 0.95,
+        "sourceCoverageAt20": 1,
+        "mrr": 0.915
+      },
+      "reranked": {
+        "name": "Reranked New RAG",
+        "recallAt5": 1,
+        "recallAt10": 1,
+        "recallAt20": 1,
+        "sourceCoverageAt5": 0.983,
+        "sourceCoverageAt10": 0.983,
+        "sourceCoverageAt20": 0.983,
+        "mrr": 1
+      }
+    },
+    "determinism100Percent": true
+  },
+  "detailedResults": [
+    {
+      "id": "EXP_001",
+      "category": "information_explicite",
+      "question": "Quelle est la définition et la signification des œuvres des Nicolaïtes dans l'Âge d'Éphèse ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 0.88,
+      "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal corroboré).",
+      "expectedDocuments": [
+        "expose-ch-3"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-3",
+        "expose-ch-3",
+        "expose-ch-3"
+      ],
+      "evidenceCount": 5
+    },
+    {
+      "id": "EXP_002",
+      "category": "information_explicite",
+      "question": "Qui est le messager désigné pour l'Âge de l'Église de Smyrne selon l'Exposé ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 0.88,
+      "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal corroboré).",
+      "expectedDocuments": [
+        "expose-ch-4"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-4",
+        "expose-ch-4",
+        "expose-ch-4"
+      ],
+      "evidenceCount": 5
+    },
+    {
+      "id": "EXP_003",
+      "category": "information_explicite",
+      "question": "À quoi correspondent prophétiquement les dix jours de tribulation mentionnés pour l'Église de Smyrne sous l'empereur Dioclétien ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 0.75,
+      "reason": "Similarité sémantique vectorielle in-domain validée.",
+      "expectedDocuments": [
+        "expose-ch-4"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-4",
+        "expose-ch-4",
+        "expose-ch-4"
+      ],
+      "evidenceCount": 5
+    },
+    {
+      "id": "EXP_004",
+      "category": "information_explicite",
+      "question": "Qui est le messager suscité par Dieu pour l'Âge de l'Église de Sardes ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 0.96,
+      "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal corroboré).",
+      "expectedDocuments": [
+        "expose-ch-7"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-7",
+        "expose-ch-7",
+        "expose-ch-7"
+      ],
+      "evidenceCount": 5
+    },
+    {
+      "id": "EXP_005",
+      "category": "reformulation",
+      "question": "Quel a été le rôle de saint Martin de Tours en tant que messager dans l'Âge de Pergame ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 0.93,
+      "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal corroboré).",
+      "expectedDocuments": [
+        "expose-ch-5"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-5",
+        "expose-ch-5",
+        "expose-ch-5"
+      ],
+      "evidenceCount": 5
+    },
+    {
+      "id": "EXP_006",
+      "category": "reformulation",
+      "question": "Comment l'esprit de Jézabel est-il décrit et identifié dans l'Âge de l'Église de Thyatire ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 0.9,
+      "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal corroboré).",
+      "expectedDocuments": [
+        "expose-ch-6"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-6",
+        "expose-ch-7",
+        "expose-ch-4"
+      ],
+      "evidenceCount": 5
+    },
+    {
+      "id": "EXP_007",
+      "category": "paraphrase",
+      "question": "De quelle manière l'alliance néfaste entre l'institution religieuse et l'empire séculier s'est-elle concrétisée au concile de Nicée en 325 ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 0.73,
+      "reason": "Similarité sémantique vectorielle in-domain validée.",
+      "expectedDocuments": [
+        "expose-ch-5"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-5",
+        "expose-ch-5",
+        "expose-ch-5"
+      ],
+      "evidenceCount": 5
+    },
+    {
+      "id": "EXP_008",
+      "category": "paraphrase",
+      "question": "En quoi consiste la porte ouverte que personne ne peut fermer accordée à l'âge de l'amour fraternel ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 0.93,
+      "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal corroboré).",
+      "expectedDocuments": [
+        "expose-ch-8"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-8",
+        "expose-ch-8",
+        "expose-ch-8"
+      ],
+      "evidenceCount": 5
+    },
+    {
+      "id": "EXP_009",
+      "category": "question_thematique",
+      "question": "Comment l'Exposé démontre-t-il la Divinité suprême de Jésus-Christ en tant que Seul Vrai Dieu, Alpha et Oméga ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 0.91,
+      "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal corroboré).",
+      "expectedDocuments": [
+        "expose-ch-1"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-1",
+        "expose-ch-1",
+        "expose-ch-1"
+      ],
+      "evidenceCount": 5
+    },
+    {
+      "id": "EXP_010",
+      "category": "question_thematique",
+      "question": "Qu'est-ce que la doctrine de Balaam enseignée dans l'Âge de Pergame ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 0.96,
+      "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal corroboré).",
+      "expectedDocuments": [
+        "expose-ch-5"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-5",
+        "expose-ch-5",
+        "expose-ch-5"
+      ],
+      "evidenceCount": 5
+    },
+    {
+      "id": "EXP_011",
+      "category": "question_thematique",
+      "question": "Quelle est la portée spirituelle de la manne cachée et du caillou blanc promis au vainqueur ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 0.9,
+      "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal corroboré).",
+      "expectedDocuments": [
+        "expose-ch-5"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-5",
+        "expose-ch-5",
+        "expose-ch-5"
+      ],
+      "evidenceCount": 5
+    },
+    {
+      "id": "EXP_012",
+      "category": "recherche_passage_precis",
+      "question": "Quelle est la racine étymologique et la signification exacte du nom Smyrne selon l'Exposé ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 0.83,
+      "reason": "Similarité sémantique vectorielle in-domain validée.",
+      "expectedDocuments": [
+        "expose-ch-4"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-4",
+        "expose-ch-4",
+        "expose-ch-4"
+      ],
+      "evidenceCount": 5
+    },
+    {
+      "id": "EXP_013",
+      "category": "recherche_passage_precis",
+      "question": "Que signifie littéralement le mot Pergame dans le contexte de l'histoire de l'Église ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 0.73,
+      "reason": "Similarité sémantique vectorielle in-domain validée.",
+      "expectedDocuments": [
+        "expose-ch-5"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-5",
+        "expose-ch-5",
+        "expose-ch-5"
+      ],
+      "evidenceCount": 5
+    },
+    {
+      "id": "EXP_014",
+      "category": "recherche_passage_precis",
+      "question": "Quelle est la définition littérale du terme Laodicée et que traduit-elle sur l'état du peuple ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 0.88,
+      "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal corroboré).",
+      "expectedDocuments": [
+        "expose-ch-9"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-9",
+        "expose-ch-9",
+        "expose-ch-9"
+      ],
+      "evidenceCount": 5
+    },
+    {
+      "id": "EXP_015",
+      "category": "recherche_passage_precis",
+      "question": "Que signifie le nom Sardes selon l'Exposé des Sept Âges ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 0.88,
+      "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal corroboré).",
+      "expectedDocuments": [
+        "expose-ch-7"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-7",
+        "expose-ch-7",
+        "expose-ch-1"
+      ],
+      "evidenceCount": 5
+    },
+    {
+      "id": "EXP_016",
+      "category": "plusieurs_passages",
+      "question": "Comment les Nicolaïtes sont-ils passés du stade d'œuvres dans Éphèse au stade de doctrine établie dans Pergame ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 0.93,
+      "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal corroboré).",
+      "expectedDocuments": [
+        "expose-ch-3",
+        "expose-ch-5"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-5",
+        "expose-ch-5",
+        "expose-ch-3"
+      ],
+      "evidenceCount": 5
+    },
+    {
+      "id": "EXP_017",
+      "category": "plusieurs_passages",
+      "question": "Comment le conflit entre la vraie vigne spirituelle et la fausse vigne charnelle se développe-t-il à travers les âges ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 0.93,
+      "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal corroboré).",
+      "expectedDocuments": [
+        "expose-ch-3",
+        "expose-ch-10"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-3",
+        "expose-ch-3",
+        "expose-ch-3"
+      ],
+      "evidenceCount": 5
+    },
+    {
+      "id": "EXP_018",
+      "category": "plusieurs_exposes",
+      "question": "Quels sont les sept messagers des sept âges de l'Église décrits dans l'Exposé ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 0.88,
+      "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal corroboré).",
+      "expectedDocuments": [
+        "expose-ch-10"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-10",
+        "expose-ch-7",
+        "expose-ch-4"
+      ],
+      "evidenceCount": 5
+    },
+    {
+      "id": "EXP_019",
+      "category": "plusieurs_exposes",
+      "question": "Quelle est la particularité commune aux Églises de Smyrne et de Philadelphie quant aux reproches du Seigneur ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 0.75,
+      "reason": "Similarité sémantique vectorielle in-domain validée.",
+      "expectedDocuments": [
+        "expose-ch-4",
+        "expose-ch-8"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-4",
+        "expose-ch-4",
+        "expose-ch-4"
+      ],
+      "evidenceCount": 5
+    },
+    {
+      "id": "EXP_020",
+      "category": "question_ambigue",
+      "question": "Que représente la vision de l'Étoile du Matin donnée à l'Église de Thyatire ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 0.87,
+      "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal corroboré).",
+      "expectedDocuments": [
+        "expose-ch-6"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-6",
+        "expose-ch-6",
+        "expose-ch-8"
+      ],
+      "evidenceCount": 5
+    },
+    {
+      "id": "EXP_021",
+      "category": "question_ambigue",
+      "question": "Qui sont les sept étoiles tenues dans la main droite du Fils de l'Homme ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 0.94,
+      "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal corroboré).",
+      "expectedDocuments": [
+        "expose-ch-1",
+        "expose-ch-2"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-2",
+        "expose-ch-1",
+        "expose-ch-1"
+      ],
+      "evidenceCount": 5
+    },
+    {
+      "id": "EXP_022",
+      "category": "question_ambigue",
+      "question": "Comment l'Exposé explique-t-il la ceinture d'or que portait le Christ sur la poitrine dans la vision de Patmos ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 0.9,
+      "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal corroboré).",
+      "expectedDocuments": [
+        "expose-ch-2"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-2",
+        "expose-ch-2",
+        "expose-ch-2"
+      ],
+      "evidenceCount": 5
+    },
+    {
+      "id": "EXP_023",
+      "category": "hors_expose",
+      "question": "Quelle est la vitesse maximale et la puissance moteur d'un tracteur agricole diesel moderne ?",
+      "answerableExpected": false,
+      "answerablePredicted": false,
+      "confidenceScore": 0.1,
+      "reason": "Sujet hors du champ doctrinal des documents : tracteur, agricole, diesel.",
+      "expectedDocuments": [],
+      "topRetrievedDocs": [
+        "expose-ch-8",
+        "expose-ch-8",
+        "expose-ch-3"
+      ],
+      "evidenceCount": 0
+    },
+    {
+      "id": "EXP_024",
+      "category": "hors_expose",
+      "question": "Qui a marqué les buts lors de la finale de la Coupe du Monde de football en 1998 à Paris ?",
+      "answerableExpected": false,
+      "answerablePredicted": false,
+      "confidenceScore": 0.1,
+      "reason": "Sujet hors du champ doctrinal des documents : football, 1998, paris.",
+      "expectedDocuments": [],
+      "topRetrievedDocs": [
+        "expose-ch-7",
+        "expose-ch-7",
+        "expose-ch-3"
+      ],
+      "evidenceCount": 0
+    },
+    {
+      "id": "EXP_025",
+      "category": "hors_expose",
+      "question": "À quelle température l'azote liquide entre-t-il en ébullition sous pression atmosphérique standard ?",
+      "answerableExpected": false,
+      "answerablePredicted": false,
+      "confidenceScore": 0.1,
+      "reason": "Sujet hors du champ doctrinal des documents : azote, ebullition.",
+      "expectedDocuments": [],
+      "topRetrievedDocs": [
+        "expose-ch-4",
+        "expose-ch-5",
+        "expose-ch-6"
+      ],
+      "evidenceCount": 0
+    },
+    {
+      "id": "EXP_026",
+      "category": "hors_expose",
+      "question": "Quelles sont les formules mathématiques d'Albert Einstein expliquant la relativité restreinte ?",
+      "answerableExpected": false,
+      "answerablePredicted": false,
+      "confidenceScore": 0.1,
+      "reason": "Sujet hors du champ doctrinal des documents : einstein, relativite.",
+      "expectedDocuments": [],
+      "topRetrievedDocs": [
+        "expose-ch-4",
+        "expose-ch-5"
+      ],
+      "evidenceCount": 0
+    },
+    {
+      "id": "EXP_027",
+      "category": "hors_expose",
+      "question": "Quelle est l'exégèse coranique traditionnelle des versets de la sourate Al-Baqara ?",
+      "answerableExpected": false,
+      "answerablePredicted": false,
+      "confidenceScore": 0.1,
+      "reason": "Sujet hors du champ doctrinal des documents : sourate, baqara.",
+      "expectedDocuments": [],
+      "topRetrievedDocs": [
+        "expose-ch-5",
+        "expose-ch-1",
+        "expose-ch-4"
+      ],
+      "evidenceCount": 0
+    },
+    {
+      "id": "EXP_028",
+      "category": "refus_obligatoire",
+      "question": "Quelles sont les résolutions votées lors de la quatrième session du Concile Vatican II en 1965 selon l'Exposé ?",
+      "answerableExpected": false,
+      "answerablePredicted": false,
+      "confidenceScore": 0.1,
+      "reason": "Sujet hors du champ doctrinal des documents : vatican.",
+      "expectedDocuments": [],
+      "topRetrievedDocs": [
+        "expose-ch-3",
+        "expose-ch-6",
+        "expose-ch-7"
+      ],
+      "evidenceCount": 0
+    },
+    {
+      "id": "EXP_029",
+      "category": "refus_obligatoire",
+      "question": "Que prescrit le droit canonique du Concile de Trente au sujet du commerce des indulgences d'après l'Exposé ?",
+      "answerableExpected": false,
+      "answerablePredicted": false,
+      "confidenceScore": 0.1,
+      "reason": "Sujet hors du champ doctrinal des documents : canonique.",
+      "expectedDocuments": [],
+      "topRetrievedDocs": [
+        "expose-ch-3",
+        "expose-ch-1",
+        "expose-ch-3"
+      ],
+      "evidenceCount": 0
+    },
+    {
+      "id": "EXP_030",
+      "category": "refus_obligatoire",
+      "question": "Quels sont les détails architecturaux de Gustave Eiffel pour l'érection de la tour métallique à Paris mentionnés dans l'Exposé ?",
+      "answerableExpected": false,
+      "answerablePredicted": false,
+      "confidenceScore": 0.1,
+      "reason": "Sujet hors du champ doctrinal des documents : eiffel, paris.",
+      "expectedDocuments": [],
+      "topRetrievedDocs": [
+        "expose-ch-1",
+        "expose-ch-3",
+        "expose-ch-3"
+      ],
+      "evidenceCount": 0
+    },
+    {
+      "id": "EXP_031",
+      "category": "information_explicite",
+      "question": "Quel était le messager de Dieu pour le premier Âge de l'Église selon l'Exposé ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 1,
+      "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal corroboré).",
+      "expectedDocuments": [
+        "expose-ch-3"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-3",
+        "expose-ch-3",
+        "expose-ch-3"
+      ],
+      "evidenceCount": 5
+    },
+    {
+      "id": "EXP_032",
+      "category": "information_explicite",
+      "question": "Qui était le messager pour l'Âge de l'Église de Philadelphie selon l'Exposé ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 0.97,
+      "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal corroboré).",
+      "expectedDocuments": [
+        "expose-ch-8"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-8",
+        "expose-ch-8",
+        "expose-ch-3"
+      ],
+      "evidenceCount": 5
+    },
+    {
+      "id": "EXP_033",
+      "category": "information_explicite",
+      "question": "Quel est le reproche majeur fait par le Seigneur à l'Église de Laodicée concernant sa tiédeur ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 0.9,
+      "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal corroboré).",
+      "expectedDocuments": [
+        "expose-ch-9"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-9",
+        "expose-ch-9",
+        "expose-ch-9"
+      ],
+      "evidenceCount": 5
+    },
+    {
+      "id": "EXP_034",
+      "category": "reformulation",
+      "question": "Comment l'Exposé décrit-il les yeux comme une flamme de feu dans la vision de Christ à Patmos ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 0.91,
+      "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal corroboré).",
+      "expectedDocuments": [
+        "expose-ch-2"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-2",
+        "expose-ch-2",
+        "expose-ch-2"
+      ],
+      "evidenceCount": 5
+    },
+    {
+      "id": "EXP_035",
+      "category": "paraphrase",
+      "question": "En quoi consiste le vêtement blanc promis à ceux qui n'ont pas souillé leurs vêtements dans l'Église de Sardes ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 0.94,
+      "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal corroboré).",
+      "expectedDocuments": [
+        "expose-ch-7"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-7",
+        "expose-ch-7",
+        "expose-ch-7"
+      ],
+      "evidenceCount": 5
+    },
+    {
+      "id": "EXP_036",
+      "category": "question_thematique",
+      "question": "Quelle est la signification de l'épée aiguë à deux tranchants qui sort de la bouche du Fils de l'Homme ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 0.93,
+      "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal corroboré).",
+      "expectedDocuments": [
+        "expose-ch-2"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-2",
+        "expose-ch-2",
+        "expose-ch-2"
+      ],
+      "evidenceCount": 5
+    },
+    {
+      "id": "EXP_037",
+      "category": "recherche_passage_precis",
+      "question": "Que signifie le nom Philadelphie d'après l'Exposé des Sept Âges ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 0.94,
+      "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal corroboré).",
+      "expectedDocuments": [
+        "expose-ch-8"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-8",
+        "expose-ch-8",
+        "expose-ch-8"
+      ],
+      "evidenceCount": 5
+    },
+    {
+      "id": "EXP_038",
+      "category": "refus_obligatoire",
+      "question": "Quelles sont les directives sur le déploiement du réseau internet mondial données dans l'Exposé ?",
+      "answerableExpected": false,
+      "answerablePredicted": false,
+      "confidenceScore": 0.1,
+      "reason": "Sujet hors du champ doctrinal des documents : internet.",
+      "expectedDocuments": [],
+      "topRetrievedDocs": [
+        "expose-ch-1",
+        "expose-ch-1",
+        "expose-ch-9"
+      ],
+      "evidenceCount": 0
+    },
+    {
+      "id": "EXP_039",
+      "category": "hors_expose",
+      "question": "Quelle est la composition chimique de l'atmosphère terrestre en pourcentage d'azote et d'oxygène ?",
+      "answerableExpected": false,
+      "answerablePredicted": false,
+      "confidenceScore": 0.1,
+      "reason": "Sujet hors du champ doctrinal des documents : azote.",
+      "expectedDocuments": [],
+      "topRetrievedDocs": [
+        "expose-ch-1",
+        "expose-ch-2",
+        "expose-ch-3"
+      ],
+      "evidenceCount": 0
+    },
+    {
+      "id": "EXP_040",
+      "category": "plusieurs_passages",
+      "question": "Comment le baptême d'eau au Nom du Seigneur Jésus-Christ est-il expliqué et défendu dans l'Exposé ?",
+      "answerableExpected": true,
+      "answerablePredicted": true,
+      "confidenceScore": 0.9,
+      "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal corroboré).",
+      "expectedDocuments": [
+        "expose-ch-0",
+        "expose-ch-1"
+      ],
+      "topRetrievedDocs": [
+        "expose-ch-1",
+        "expose-ch-0",
+        "expose-ch-1"
+      ],
+      "evidenceCount": 5
+    }
+  ]
+}

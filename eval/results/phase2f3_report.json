@@ -1,0 +1,569 @@
+{
+  "timestamp": "2026-10-03T17:50:20.577Z",
+  "defaultFlagVerified": true,
+  "questionsTestedCount": 10,
+  "results": [
+    {
+      "questionId": "Q001",
+      "question": "Que portait le cavalier sur le cheval blanc et quel élément crucial lui manquait-il ?",
+      "category": "enseignement_precis",
+      "isExpectedAnswerable": true,
+      "legacy": {
+        "retrievedCount": 2,
+        "retrievalTimeMs": 16,
+        "geminiTimeMs": 74,
+        "totalTimeMs": 90,
+        "responseText": "> ℹ️ **Mode Secours Local** : *Connexion à Google Gemini indisponible (Serveurs Google occupés ou micro-coupure réseau temporaire). Analyse produite automatiquement par le moteur local pour ne pas bloquer votre recherche.*\n\n### Synthèse Locale Hors-Ligne\n\nVoici les extraits pertinents identifiés dans le texte sélectionné pour votre requête **\"Que portait le cavalier sur le cheval blanc et quel élément crucial lui manquait-il ?\"** :\n\n> 2. Le premier sceau a été ouvert, et nous avons clairement vu que le cavalier sur le cheval blanc n'était pas le Seigneur Jésus-Christ, mais bien l'antichrist imitant le Véritable. Il portait un arc, mais n'avait aucune flèche. C'est le grand bluff religieux du temps de la fin. L'esprit de l'antichrist est sorti conquérant pour séduire le monde entier par une fausse paix et un faux dogme. Mais l'Épouse de Christ a l'Esprit de Dieu pour discerner ces choses avec une précision divine.\n\n> 2. Comme l'Écriture le déclare si magnifiquement dans l'Évangile de Jean : \"Si vous ne mangez la chair du Fils de l'homme, et si vous ne buvez son sang, vous n'avez point la vie en vous-mêmes.\" C'est un acte de foi pure, une identification directe avec le sacrifice parfait accompli une fois pour toutes au Calvaire. Quand vous prenez ces éléments consacrés, vous témoignez devant Dieu, devant les anges et devant le monde entier : \"Je suis crucifié avec Christ, je ne vis plus pour moi-même, mais c'est Christ qui vit en moi par Sa résurrection.\"\n\n\n*Mode hors-ligne actif — Traitement 100% local.*",
+        "validCitations": 0,
+        "invalidCitations": 0,
+        "error": null
+      },
+      "newPipeline": {
+        "answerable": true,
+        "confidenceScore": 0.85,
+        "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal).",
+        "evidenceCount": 4,
+        "evidenceSermons": [
+          {
+            "sermonId": "63-0324M",
+            "title": "Questions Et Réponses Sur Les Sceaux",
+            "paragraphIds": [
+              1,
+              2
+            ]
+          },
+          {
+            "sermonId": "63-0324M",
+            "title": "Questions Et Réponses Sur Les Sceaux",
+            "paragraphIds": [
+              2
+            ]
+          },
+          {
+            "sermonId": "65-1212",
+            "title": "La Communion",
+            "paragraphIds": [
+              1,
+              2
+            ]
+          },
+          {
+            "sermonId": "65-1212",
+            "title": "La Communion",
+            "paragraphIds": [
+              2,
+              3
+            ]
+          }
+        ],
+        "retrievalTimeMs": 328,
+        "geminiTimeMs": 3,
+        "totalTimeMs": 331,
+        "responseText": "> ℹ️ **Mode Secours Local** : *Connexion à Google Gemini indisponible (Serveurs Google occupés ou micro-coupure réseau temporaire). Analyse produite automatiquement par le moteur local pour ne pas bloquer votre recherche.*\n\n### Synthèse Locale Hors-Ligne\n\nVoici les extraits pertinents identifiés dans le texte sélectionné pour votre requête **\"Que portait le cavalier sur le cheval blanc et quel élément crucial lui manquait-il ?\"** :\n\n> 2. Le premier sceau a été ouvert, et nous avons clairement vu que le cavalier sur le cheval blanc n'était pas le Seigneur Jésus-Christ, mais bien l'antichrist imitant le Véritable. Il portait un arc, mais n'avait aucune flèche. C'est le grand bluff religieux du temps de la fin. L'esprit de l'antichrist est sorti conquérant pour séduire le monde entier par une fausse paix et un faux dogme. Mais l'Épouse de Christ a l'Esprit de Dieu pour discerner ces choses avec une précision divine.\n\n> 2. Le premier sceau a été ouvert, et nous avons clairement vu que le cavalier sur le cheval blanc n'était pas le Seigneur Jésus-Christ, mais bien l'antichrist imitant le Véritable. Il portait un arc, mais n'avait aucune flèche. C'est le grand bluff religieux du temps de la fin. L'esprit de l'antichrist est sorti conquérant pour séduire le monde entier par une fausse paix et un faux dogme. Mais l'Épouse de Christ a l'Esprit de Dieu pour discerner ces choses avec une précision divine.\n\n> 2. Comme l'Écriture le déclare si magnifiquement dans l'Évangile de Jean : \"Si vous ne mangez la chair du Fils de l'homme, et si vous ne buvez son sang, vous n'avez point la vie en vous-mêmes.\" C'est un acte de foi pure, une identification directe avec le sacrifice parfait accompli une fois pour toutes au Calvaire. Quand vous prenez ces éléments consacrés, vous témoignez devant Dieu, devant les anges et devant le monde entier : \"Je suis crucifié avec Christ, je ne vis plus pour moi-même, mais c'est Christ qui vit en moi par Sa résurrection.\"\n\n> 2. Comme l'Écriture le déclare si magnifiquement dans l'Évangile de Jean : \"Si vous ne mangez la chair du Fils de l'homme, et si vous ne buvez son sang, vous n'avez point la vie en vous-mêmes.\" C'est un acte de foi pure, une identification directe avec le sacrifice parfait accompli une fois pour toutes au Calvaire. Quand vous prenez ces éléments consacrés, vous témoignez devant Dieu, devant les anges et devant le monde entier : \"Je suis crucifié avec Christ, je ne vis plus pour moi-même, mais c'est Christ qui vit en moi par Sa résurrection.\"\n\n\n*Mode hors-ligne actif — Traitement 100% local.*",
+        "validCitations": 0,
+        "invalidCitations": 0,
+        "invalidDetails": [],
+        "error": null
+      }
+    },
+    {
+      "questionId": "Q002",
+      "question": "Pourquoi les questions et les réponses sont-elles qualifiées de partie essentielle de l'enseignement ?",
+      "category": "enseignement_precis",
+      "isExpectedAnswerable": true,
+      "legacy": {
+        "retrievedCount": 1,
+        "retrievalTimeMs": 3,
+        "geminiTimeMs": 2,
+        "totalTimeMs": 5,
+        "responseText": "> ℹ️ **Mode Secours Local** : *Connexion à Google Gemini indisponible (Serveurs Google occupés ou micro-coupure réseau temporaire). Analyse produite automatiquement par le moteur local pour ne pas bloquer votre recherche.*\n\n### Synthèse Locale Hors-Ligne\n\nVoici les extraits pertinents identifiés dans le texte sélectionné pour votre requête **\"Pourquoi les questions et les réponses sont-elles qualifiées de partie essentielle de l'enseignement ?\"** :\n\n> Sermon : \"Questions Et Réponses Sur Les Sceaux\"\n\n> 1. Maintenant, nous allons aborder une étude très profonde ce matin. Les questions et les réponses sont toujours une partie essentielle de l'enseignement. Cela nous permet de clarifier les points qui auraient pu être mal compris pendant les réunions du soir.\n\n\n*Mode hors-ligne actif — Traitement 100% local.*",
+        "validCitations": 0,
+        "invalidCitations": 0,
+        "error": null
+      },
+      "newPipeline": {
+        "answerable": true,
+        "confidenceScore": 0.85,
+        "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal).",
+        "evidenceCount": 1,
+        "evidenceSermons": [
+          {
+            "sermonId": "63-0324M",
+            "title": "Questions Et Réponses Sur Les Sceaux",
+            "paragraphIds": [
+              1,
+              2
+            ]
+          }
+        ],
+        "retrievalTimeMs": 320,
+        "geminiTimeMs": 2,
+        "totalTimeMs": 322,
+        "responseText": "> ℹ️ **Mode Secours Local** : *Connexion à Google Gemini indisponible (Serveurs Google occupés ou micro-coupure réseau temporaire). Analyse produite automatiquement par le moteur local pour ne pas bloquer votre recherche.*\n\n### Synthèse Locale Hors-Ligne\n\nVoici les extraits pertinents identifiés dans le texte sélectionné pour votre requête **\"Pourquoi les questions et les réponses sont-elles qualifiées de partie essentielle de l'enseignement ?\"** :\n\n> Sermon : \"Questions Et Réponses Sur Les Sceaux\"\n\n> 1. Maintenant, nous allons aborder une étude très profonde ce matin. Les questions et les réponses sont toujours une partie essentielle de l'enseignement. Cela nous permet de clarifier les points qui auraient pu être mal compris pendant les réunions du soir.\n\n\n*Mode hors-ligne actif — Traitement 100% local.*",
+        "validCitations": 0,
+        "invalidCitations": 0,
+        "invalidDetails": [],
+        "error": null
+      }
+    },
+    {
+      "questionId": "Q009",
+      "question": "Quel est le thème biblique de la lumière du soir prophétisée par Zacharie ?",
+      "category": "theme_biblique",
+      "isExpectedAnswerable": true,
+      "legacy": {
+        "retrievedCount": 4,
+        "retrievalTimeMs": 3,
+        "geminiTimeMs": 5,
+        "totalTimeMs": 8,
+        "responseText": "> ℹ️ **Mode Secours Local** : *Connexion à Google Gemini indisponible (Serveurs Google occupés ou micro-coupure réseau temporaire). Analyse produite automatiquement par le moteur local pour ne pas bloquer votre recherche.*\n\n### Synthèse Locale Hors-Ligne\n\nVoici les extraits pertinents identifiés dans le texte sélectionné pour votre requête **\"Quel est le thème biblique de la lumière du soir prophétisée par Zacharie ?\"** :\n\n> 3. Remarquez bien la profondeur de cette révélation. Tout au long des âges de l'Église, le mystère de l'iniquité a agi sous des formes très subtiles. Au début, c'était un esprit d'antichrist luttant contre l'Église primitive; puis cet esprit s'est incarné dans un système religieux puissant, trompant les nations et imposant des dogmes humains à la place du pur \"Ainsi dit le Seigneur\". Mais lorsque le Septième Ange sonne du clairon, tous les mystères cachés depuis la fondation du monde doivent s'accomplir. Dieu rassemble Ses élus hors de la confusion babylonienne pour les amener dans la lumière parfaite du soir, selon le prophète Zacharie : \"Au temps du soir, la lumière paraîtra.\"\n\n> 1. C'est un immense privilège d'être assemblés ici ce soir pour ce précieux service de communion. La communion n'est pas simplement manger un morceau de pain sans levain et boire un peu de jus de cep. C'est une union spirituelle profonde et vivante entre le croyant racheté et son Seigneur glorieux.\n\n> 4. Que le Dieu de toute grâce nous accorde un cœur pur et des yeux spirituels oints du collyre divin pour reconnaître la Vérité et marcher dans Sa lumière.\n\n> 1. Maintenant, nous allons aborder une étude très profonde ce matin. Les questions et les réponses sont toujours une partie essentielle de l'enseignement. Cela nous permet de clarifier les points qui auraient pu être mal compris pendant les réunions du soir.\n\n\n*Mode hors-ligne actif — Traitement 100% local.*",
+        "validCitations": 0,
+        "invalidCitations": 0,
+        "error": null
+      },
+      "newPipeline": {
+        "answerable": true,
+        "confidenceScore": 0.85,
+        "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal).",
+        "evidenceCount": 5,
+        "evidenceSermons": [
+          {
+            "sermonId": "63-0324M",
+            "title": "Questions Et Réponses Sur Les Sceaux",
+            "paragraphIds": [
+              3
+            ]
+          },
+          {
+            "sermonId": "65-1212",
+            "title": "La Communion",
+            "paragraphIds": [
+              1,
+              2
+            ]
+          },
+          {
+            "sermonId": "65-0725M",
+            "title": "Les Oints Du Temps De La Fin",
+            "paragraphIds": [
+              3,
+              4
+            ]
+          },
+          {
+            "sermonId": "65-0725M",
+            "title": "Les Oints Du Temps De La Fin",
+            "paragraphIds": [
+              4
+            ]
+          },
+          {
+            "sermonId": "63-0324M",
+            "title": "Questions Et Réponses Sur Les Sceaux",
+            "paragraphIds": [
+              1,
+              2
+            ]
+          }
+        ],
+        "retrievalTimeMs": 284,
+        "geminiTimeMs": 2,
+        "totalTimeMs": 286,
+        "responseText": "> ℹ️ **Mode Secours Local** : *Connexion à Google Gemini indisponible (Serveurs Google occupés ou micro-coupure réseau temporaire). Analyse produite automatiquement par le moteur local pour ne pas bloquer votre recherche.*\n\n### Synthèse Locale Hors-Ligne\n\nVoici les extraits pertinents identifiés dans le texte sélectionné pour votre requête **\"Quel est le thème biblique de la lumière du soir prophétisée par Zacharie ?\"** :\n\n> 3. Remarquez bien la profondeur de cette révélation. Tout au long des âges de l'Église, le mystère de l'iniquité a agi sous des formes très subtiles. Au début, c'était un esprit d'antichrist luttant contre l'Église primitive; puis cet esprit s'est incarné dans un système religieux puissant, trompant les nations et imposant des dogmes humains à la place du pur \"Ainsi dit le Seigneur\". Mais lorsque le Septième Ange sonne du clairon, tous les mystères cachés depuis la fondation du monde doivent s'accomplir. Dieu rassemble Ses élus hors de la confusion babylonienne pour les amener dans la lumière parfaite du soir, selon le prophète Zacharie : \"Au temps du soir, la lumière paraîtra.\"\n\n> 1. C'est un immense privilège d'être assemblés ici ce soir pour ce précieux service de communion. La communion n'est pas simplement manger un morceau de pain sans levain et boire un peu de jus de cep. C'est une union spirituelle profonde et vivante entre le croyant racheté et son Seigneur glorieux.\n\n> 4. Que le Dieu de toute grâce nous accorde un cœur pur et des yeux spirituels oints du collyre divin pour reconnaître la Vérité et marcher dans Sa lumière.\n\n> 4. Que le Dieu de toute grâce nous accorde un cœur pur et des yeux spirituels oints du collyre divin pour reconnaître la Vérité et marcher dans Sa lumière.\n\n> 1. Maintenant, nous allons aborder une étude très profonde ce matin. Les questions et les réponses sont toujours une partie essentielle de l'enseignement. Cela nous permet de clarifier les points qui auraient pu être mal compris pendant les réunions du soir.\n\n\n*Mode hors-ligne actif — Traitement 100% local.*",
+        "validCitations": 0,
+        "invalidCitations": 0,
+        "invalidDetails": [],
+        "error": null
+      }
+    },
+    {
+      "questionId": "Q011",
+      "question": "Comment le thème biblique de la manne cachée s'applique-t-il à la Parole révélée aujourd'hui ?",
+      "category": "theme_biblique",
+      "isExpectedAnswerable": true,
+      "legacy": {
+        "retrievedCount": 5,
+        "retrievalTimeMs": 3,
+        "geminiTimeMs": 3,
+        "totalTimeMs": 6,
+        "responseText": "> ℹ️ **Mode Secours Local** : *Connexion à Google Gemini indisponible (Serveurs Google occupés ou micro-coupure réseau temporaire). Analyse produite automatiquement par le moteur local pour ne pas bloquer votre recherche.*\n\n### Synthèse Locale Hors-Ligne\n\nVoici les extraits pertinents identifiés dans le texte sélectionné pour votre requête **\"Comment le thème biblique de la manne cachée s'applique-t-il à la Parole révélée aujourd'hui ?\"** :\n\n> 3. La manne cachée dans l'Ancien Testament était réservée à l'intérieur du Lieu Très Saint. Aujourd'hui, cette manne spirituelle, c'est la Parole révélée de Dieu dispensée au peuple de la promesse. Restez dans cet esprit de prière et de grande humilité pendant que nous nous préparons pour cet acte sacré de la Sainte Cène.\n\n> 4. Frères et sœurs, nous vivons dans un temps solennel où le discernement spirituel est primordial pour chaque croyant. Ne vous laissez pas séduire par les apparences extérieures, l'éloquence humaine ou la grandeur des édifices. Regardez uniquement à la Parole écrites et révélée par le Saint-Esprit, car la Parole est la seule Vérité infaillible qui subsistera à jamais quand les cieux et la terre passeront.\n\n> 3. Comment donc faire la différence dans ce temps de grande séduction spirituelle ? Ce n'est pas par la manifestation des dons spirituels seuls, car l'ivraie peut manifester les dons. C'est par la comparaison stricte avec le Fruit et la Parole originale consommée dans Sa totalité. L'Épouse de Christ ne se laisse pas éblouir par des miracles spectaculaires si ceux-ci dévient d'un seul iota du pur \"Ainsi dit le Seigneur\". Elle se tient fermement attachée à la Parole promise pour son âge.\n\n> 2. Dans Matthieu chapitre 24, verset 24, le Seigneur Jésus avertit expressément : \"Car il s'élèvera de faux Christs et de faux prophètes; ils feront de grands prodiges et des miracles, au point de séduire, s'il était possible, même les élus.\" Observez le mot \"oint\". Ils sont réellement oints de l'Esprit de Dieu pour accomplir des signes, chasser des démons et prophétiser, tout comme la pluie de Dieu tombe indifféremment sur le bon blé et sur l'ivraie dans le même champ. Mais bien que l'esprit extérieur soit oint, leur âme intérieure n'est pas née de la Semence incorruptible de la Parole.\n\n> 5. Que le Seigneur bénisse chacun de vous dans l'écoute et la méditation de Sa Parole sacrée ce matin.\n\n\n*Mode hors-ligne actif — Traitement 100% local.*",
+        "validCitations": 0,
+        "invalidCitations": 0,
+        "error": null
+      },
+      "newPipeline": {
+        "answerable": true,
+        "confidenceScore": 0.85,
+        "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal).",
+        "evidenceCount": 5,
+        "evidenceSermons": [
+          {
+            "sermonId": "65-1212",
+            "title": "La Communion",
+            "paragraphIds": [
+              2,
+              3
+            ]
+          },
+          {
+            "sermonId": "65-1212",
+            "title": "La Communion",
+            "paragraphIds": [
+              3
+            ]
+          },
+          {
+            "sermonId": "63-0324M",
+            "title": "Questions Et Réponses Sur Les Sceaux",
+            "paragraphIds": [
+              4,
+              5
+            ]
+          },
+          {
+            "sermonId": "65-0725M",
+            "title": "Les Oints Du Temps De La Fin",
+            "paragraphIds": [
+              3,
+              4
+            ]
+          },
+          {
+            "sermonId": "65-0725M",
+            "title": "Les Oints Du Temps De La Fin",
+            "paragraphIds": [
+              1,
+              2
+            ]
+          }
+        ],
+        "retrievalTimeMs": 285,
+        "geminiTimeMs": 3,
+        "totalTimeMs": 288,
+        "responseText": "> ℹ️ **Mode Secours Local** : *Connexion à Google Gemini indisponible (Serveurs Google occupés ou micro-coupure réseau temporaire). Analyse produite automatiquement par le moteur local pour ne pas bloquer votre recherche.*\n\n### Synthèse Locale Hors-Ligne\n\nVoici les extraits pertinents identifiés dans le texte sélectionné pour votre requête **\"Comment le thème biblique de la manne cachée s'applique-t-il à la Parole révélée aujourd'hui ?\"** :\n\n> 3. La manne cachée dans l'Ancien Testament était réservée à l'intérieur du Lieu Très Saint. Aujourd'hui, cette manne spirituelle, c'est la Parole révélée de Dieu dispensée au peuple de la promesse. Restez dans cet esprit de prière et de grande humilité pendant que nous nous préparons pour cet acte sacré de la Sainte Cène.\n\n> 3. La manne cachée dans l'Ancien Testament était réservée à l'intérieur du Lieu Très Saint. Aujourd'hui, cette manne spirituelle, c'est la Parole révélée de Dieu dispensée au peuple de la promesse. Restez dans cet esprit de prière et de grande humilité pendant que nous nous préparons pour cet acte sacré de la Sainte Cène.\n\n> 4. Frères et sœurs, nous vivons dans un temps solennel où le discernement spirituel est primordial pour chaque croyant. Ne vous laissez pas séduire par les apparences extérieures, l'éloquence humaine ou la grandeur des édifices. Regardez uniquement à la Parole écrites et révélée par le Saint-Esprit, car la Parole est la seule Vérité infaillible qui subsistera à jamais quand les cieux et la terre passeront.\n\n> 5. Que le Seigneur bénisse chacun de vous dans l'écoute et la méditation de Sa Parole sacrée ce matin.\n\n> 3. Comment donc faire la différence dans ce temps de grande séduction spirituelle ? Ce n'est pas par la manifestation des dons spirituels seuls, car l'ivraie peut manifester les dons. C'est par la comparaison stricte avec le Fruit et la Parole originale consommée dans Sa totalité. L'Épouse de Christ ne se laisse pas éblouir par des miracles spectaculaires si ceux-ci dévient d'un seul iota du pur \"Ainsi dit le Seigneur\". Elle se tient fermement attachée à la Parole promise pour son âge.\n\n\n*Mode hors-ligne actif — Traitement 100% local.*",
+        "validCitations": 0,
+        "invalidCitations": 0,
+        "invalidDetails": [],
+        "error": null
+      }
+    },
+    {
+      "questionId": "Q025",
+      "question": "Quelle est la doctrine enseignée sur la véritable identité du cavalier sur le cheval blanc ?",
+      "category": "doctrine",
+      "isExpectedAnswerable": true,
+      "legacy": {
+        "retrievedCount": 1,
+        "retrievalTimeMs": 3,
+        "geminiTimeMs": 2,
+        "totalTimeMs": 5,
+        "responseText": "> ℹ️ **Mode Secours Local** : *Connexion à Google Gemini indisponible (Serveurs Google occupés ou micro-coupure réseau temporaire). Analyse produite automatiquement par le moteur local pour ne pas bloquer votre recherche.*\n\n### Synthèse Locale Hors-Ligne\n\nVoici les extraits pertinents identifiés dans le texte sélectionné pour votre requête **\"Quelle est la doctrine enseignée sur la véritable identité du cavalier sur le cheval blanc ?\"** :\n\n> 2. Le premier sceau a été ouvert, et nous avons clairement vu que le cavalier sur le cheval blanc n'était pas le Seigneur Jésus-Christ, mais bien l'antichrist imitant le Véritable. Il portait un arc, mais n'avait aucune flèche. C'est le grand bluff religieux du temps de la fin. L'esprit de l'antichrist est sorti conquérant pour séduire le monde entier par une fausse paix et un faux dogme. Mais l'Épouse de Christ a l'Esprit de Dieu pour discerner ces choses avec une précision divine.\n\n\n*Mode hors-ligne actif — Traitement 100% local.*",
+        "validCitations": 0,
+        "invalidCitations": 0,
+        "error": null
+      },
+      "newPipeline": {
+        "answerable": true,
+        "confidenceScore": 0.85,
+        "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal).",
+        "evidenceCount": 2,
+        "evidenceSermons": [
+          {
+            "sermonId": "63-0324M",
+            "title": "Questions Et Réponses Sur Les Sceaux",
+            "paragraphIds": [
+              1,
+              2
+            ]
+          },
+          {
+            "sermonId": "63-0324M",
+            "title": "Questions Et Réponses Sur Les Sceaux",
+            "paragraphIds": [
+              2
+            ]
+          }
+        ],
+        "retrievalTimeMs": 437,
+        "geminiTimeMs": 1,
+        "totalTimeMs": 438,
+        "responseText": "> ℹ️ **Mode Secours Local** : *Connexion à Google Gemini indisponible (Serveurs Google occupés ou micro-coupure réseau temporaire). Analyse produite automatiquement par le moteur local pour ne pas bloquer votre recherche.*\n\n### Synthèse Locale Hors-Ligne\n\nVoici les extraits pertinents identifiés dans le texte sélectionné pour votre requête **\"Quelle est la doctrine enseignée sur la véritable identité du cavalier sur le cheval blanc ?\"** :\n\n> 2. Le premier sceau a été ouvert, et nous avons clairement vu que le cavalier sur le cheval blanc n'était pas le Seigneur Jésus-Christ, mais bien l'antichrist imitant le Véritable. Il portait un arc, mais n'avait aucune flèche. C'est le grand bluff religieux du temps de la fin. L'esprit de l'antichrist est sorti conquérant pour séduire le monde entier par une fausse paix et un faux dogme. Mais l'Épouse de Christ a l'Esprit de Dieu pour discerner ces choses avec une précision divine.\n\n> 2. Le premier sceau a été ouvert, et nous avons clairement vu que le cavalier sur le cheval blanc n'était pas le Seigneur Jésus-Christ, mais bien l'antichrist imitant le Véritable. Il portait un arc, mais n'avait aucune flèche. C'est le grand bluff religieux du temps de la fin. L'esprit de l'antichrist est sorti conquérant pour séduire le monde entier par une fausse paix et un faux dogme. Mais l'Épouse de Christ a l'Esprit de Dieu pour discerner ces choses avec une précision divine.\n\n\n*Mode hors-ligne actif — Traitement 100% local.*",
+        "validCitations": 0,
+        "invalidCitations": 0,
+        "invalidDetails": [],
+        "error": null
+      }
+    },
+    {
+      "questionId": "Q033",
+      "question": "Quel rôle le prophète Zacharie joue-t-il dans la prédication des Sceaux ?",
+      "category": "personne_biblique",
+      "isExpectedAnswerable": true,
+      "legacy": {
+        "retrievedCount": 4,
+        "retrievalTimeMs": 3,
+        "geminiTimeMs": 1,
+        "totalTimeMs": 4,
+        "responseText": "> ℹ️ **Mode Secours Local** : *Connexion à Google Gemini indisponible (Serveurs Google occupés ou micro-coupure réseau temporaire). Analyse produite automatiquement par le moteur local pour ne pas bloquer votre recherche.*\n\n### Synthèse Locale Hors-Ligne\n\nVoici les extraits pertinents identifiés dans le texte sélectionné pour votre requête **\"Quel rôle le prophète Zacharie joue-t-il dans la prédication des Sceaux ?\"** :\n\n> EXTRAITS DES SERMONS RETROUVÉS DANS LA BIBLIOTHÈQUE POUR CETTE QUESTION :\n\n> Sermon : \"Questions Et Réponses Sur Les Sceaux\"\n\n> 3. Remarquez bien la profondeur de cette révélation. Tout au long des âges de l'Église, le mystère de l'iniquité a agi sous des formes très subtiles. Au début, c'était un esprit d'antichrist luttant contre l'Église primitive; puis cet esprit s'est incarné dans un système religieux puissant, trompant les nations et imposant des dogmes humains à la place du pur \"Ainsi dit le Seigneur\". Mais lorsque le Septième Ange sonne du clairon, tous les mystères cachés depuis la fondation du monde doivent s'accomplir. Dieu rassemble Ses élus hors de la confusion babylonienne pour les amener dans la lumière parfaite du soir, selon le prophète Zacharie : \"Au temps du soir, la lumière paraîtra.\"\n\n> Sermon : \"Questions Et Réponses Sur Les Sceaux\"\n\n> 4. Frères et sœurs, nous vivons dans un temps solennel où le discernement spirituel est primordial pour chaque croyant. Ne vous laissez pas séduire par les apparences extérieures, l'éloquence humaine ou la grandeur des édifices. Regardez uniquement à la Parole écrites et révélée par le Saint-Esprit, car la Parole est la seule Vérité infaillible qui subsistera à jamais quand les cieux et la terre passeront.\n\n\n*Mode hors-ligne actif — Traitement 100% local.*",
+        "validCitations": 0,
+        "invalidCitations": 0,
+        "error": null
+      },
+      "newPipeline": {
+        "answerable": true,
+        "confidenceScore": 0.85,
+        "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal).",
+        "evidenceCount": 5,
+        "evidenceSermons": [
+          {
+            "sermonId": "63-0324M",
+            "title": "Questions Et Réponses Sur Les Sceaux",
+            "paragraphIds": [
+              3
+            ]
+          },
+          {
+            "sermonId": "65-0725M",
+            "title": "Les Oints Du Temps De La Fin",
+            "paragraphIds": [
+              1,
+              2
+            ]
+          },
+          {
+            "sermonId": "65-0725M",
+            "title": "Les Oints Du Temps De La Fin",
+            "paragraphIds": [
+              2
+            ]
+          },
+          {
+            "sermonId": "63-0324M",
+            "title": "Questions Et Réponses Sur Les Sceaux",
+            "paragraphIds": [
+              4,
+              5
+            ]
+          },
+          {
+            "sermonId": "63-0324M",
+            "title": "Questions Et Réponses Sur Les Sceaux",
+            "paragraphIds": [
+              5
+            ]
+          }
+        ],
+        "retrievalTimeMs": 329,
+        "geminiTimeMs": 1,
+        "totalTimeMs": 330,
+        "responseText": "> ℹ️ **Mode Secours Local** : *Connexion à Google Gemini indisponible (Serveurs Google occupés ou micro-coupure réseau temporaire). Analyse produite automatiquement par le moteur local pour ne pas bloquer votre recherche.*\n\n### Synthèse Locale Hors-Ligne\n\nVoici les extraits pertinents identifiés dans le texte sélectionné pour votre requête **\"Quel rôle le prophète Zacharie joue-t-il dans la prédication des Sceaux ?\"** :\n\n> PREUVES DOCUMENTAIRES SÉLECTIONNÉES DANS LA BIBLIOTHÈQUE POUR CETTE QUESTION :\n\n> Sermon : \"Questions Et Réponses Sur Les Sceaux\"\n\n> 3. Remarquez bien la profondeur de cette révélation. Tout au long des âges de l'Église, le mystère de l'iniquité a agi sous des formes très subtiles. Au début, c'était un esprit d'antichrist luttant contre l'Église primitive; puis cet esprit s'est incarné dans un système religieux puissant, trompant les nations et imposant des dogmes humains à la place du pur \"Ainsi dit le Seigneur\". Mais lorsque le Septième Ange sonne du clairon, tous les mystères cachés depuis la fondation du monde doivent s'accomplir. Dieu rassemble Ses élus hors de la confusion babylonienne pour les amener dans la lumière parfaite du soir, selon le prophète Zacharie : \"Au temps du soir, la lumière paraîtra.\"\n\n> 2. Dans Matthieu chapitre 24, verset 24, le Seigneur Jésus avertit expressément : \"Car il s'élèvera de faux Christs et de faux prophètes; ils feront de grands prodiges et des miracles, au point de séduire, s'il était possible, même les élus.\" Observez le mot \"oint\". Ils sont réellement oints de l'Esprit de Dieu pour accomplir des signes, chasser des démons et prophétiser, tout comme la pluie de Dieu tombe indifféremment sur le bon blé et sur l'ivraie dans le même champ. Mais bien que l'esprit extérieur soit oint, leur âme intérieure n'est pas née de la Semence incorruptible de la Parole.\n\n> 2. Dans Matthieu chapitre 24, verset 24, le Seigneur Jésus avertit expressément : \"Car il s'élèvera de faux Christs et de faux prophètes; ils feront de grands prodiges et des miracles, au point de séduire, s'il était possible, même les élus.\" Observez le mot \"oint\". Ils sont réellement oints de l'Esprit de Dieu pour accomplir des signes, chasser des démons et prophétiser, tout comme la pluie de Dieu tombe indifféremment sur le bon blé et sur l'ivraie dans le même champ. Mais bien que l'esprit extérieur soit oint, leur âme intérieure n'est pas née de la Semence incorruptible de la Parole.\n\n\n*Mode hors-ligne actif — Traitement 100% local.*",
+        "validCitations": 0,
+        "invalidCitations": 0,
+        "invalidDetails": [],
+        "error": null
+      }
+    },
+    {
+      "questionId": "Q041",
+      "question": "Quel événement biblique marque l'ouverture du premier sceau ?",
+      "category": "evenement_biblique",
+      "isExpectedAnswerable": true,
+      "legacy": {
+        "retrievedCount": 2,
+        "retrievalTimeMs": 4,
+        "geminiTimeMs": 2,
+        "totalTimeMs": 6,
+        "responseText": "> ℹ️ **Mode Secours Local** : *Connexion à Google Gemini indisponible (Serveurs Google occupés ou micro-coupure réseau temporaire). Analyse produite automatiquement par le moteur local pour ne pas bloquer votre recherche.*\n\n### Synthèse Locale Hors-Ligne\n\nVoici les extraits pertinents identifiés dans le texte sélectionné pour votre requête **\"Quel événement biblique marque l'ouverture du premier sceau ?\"** :\n\n> Sermon : \"Questions Et Réponses Sur Les Sceaux\"\n\n> 2. Le premier sceau a été ouvert, et nous avons clairement vu que le cavalier sur le cheval blanc n'était pas le Seigneur Jésus-Christ, mais bien l'antichrist imitant le Véritable. Il portait un arc, mais n'avait aucune flèche. C'est le grand bluff religieux du temps de la fin. L'esprit de l'antichrist est sorti conquérant pour séduire le monde entier par une fausse paix et un faux dogme. Mais l'Épouse de Christ a l'Esprit de Dieu pour discerner ces choses avec une précision divine.\n\n> Sermon : \"Questions Et Réponses Sur Les Sceaux\"\n\n> 3. Remarquez bien la profondeur de cette révélation. Tout au long des âges de l'Église, le mystère de l'iniquité a agi sous des formes très subtiles. Au début, c'était un esprit d'antichrist luttant contre l'Église primitive; puis cet esprit s'est incarné dans un système religieux puissant, trompant les nations et imposant des dogmes humains à la place du pur \"Ainsi dit le Seigneur\". Mais lorsque le Septième Ange sonne du clairon, tous les mystères cachés depuis la fondation du monde doivent s'accomplir. Dieu rassemble Ses élus hors de la confusion babylonienne pour les amener dans la lumière parfaite du soir, selon le prophète Zacharie : \"Au temps du soir, la lumière paraîtra.\"\n\n\n*Mode hors-ligne actif — Traitement 100% local.*",
+        "validCitations": 0,
+        "invalidCitations": 0,
+        "error": null
+      },
+      "newPipeline": {
+        "answerable": true,
+        "confidenceScore": 0.85,
+        "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal).",
+        "evidenceCount": 3,
+        "evidenceSermons": [
+          {
+            "sermonId": "63-0324M",
+            "title": "Questions Et Réponses Sur Les Sceaux",
+            "paragraphIds": [
+              1,
+              2
+            ]
+          },
+          {
+            "sermonId": "63-0324M",
+            "title": "Questions Et Réponses Sur Les Sceaux",
+            "paragraphIds": [
+              2
+            ]
+          },
+          {
+            "sermonId": "63-0324M",
+            "title": "Questions Et Réponses Sur Les Sceaux",
+            "paragraphIds": [
+              3
+            ]
+          }
+        ],
+        "retrievalTimeMs": 300,
+        "geminiTimeMs": 1,
+        "totalTimeMs": 301,
+        "responseText": "> ℹ️ **Mode Secours Local** : *Connexion à Google Gemini indisponible (Serveurs Google occupés ou micro-coupure réseau temporaire). Analyse produite automatiquement par le moteur local pour ne pas bloquer votre recherche.*\n\n### Synthèse Locale Hors-Ligne\n\nVoici les extraits pertinents identifiés dans le texte sélectionné pour votre requête **\"Quel événement biblique marque l'ouverture du premier sceau ?\"** :\n\n> Sermon : \"Questions Et Réponses Sur Les Sceaux\"\n\n> 2. Le premier sceau a été ouvert, et nous avons clairement vu que le cavalier sur le cheval blanc n'était pas le Seigneur Jésus-Christ, mais bien l'antichrist imitant le Véritable. Il portait un arc, mais n'avait aucune flèche. C'est le grand bluff religieux du temps de la fin. L'esprit de l'antichrist est sorti conquérant pour séduire le monde entier par une fausse paix et un faux dogme. Mais l'Épouse de Christ a l'Esprit de Dieu pour discerner ces choses avec une précision divine.\n\n> Sermon : \"Questions Et Réponses Sur Les Sceaux\"\n\n> 2. Le premier sceau a été ouvert, et nous avons clairement vu que le cavalier sur le cheval blanc n'était pas le Seigneur Jésus-Christ, mais bien l'antichrist imitant le Véritable. Il portait un arc, mais n'avait aucune flèche. C'est le grand bluff religieux du temps de la fin. L'esprit de l'antichrist est sorti conquérant pour séduire le monde entier par une fausse paix et un faux dogme. Mais l'Épouse de Christ a l'Esprit de Dieu pour discerner ces choses avec une précision divine.\n\n> Sermon : \"Questions Et Réponses Sur Les Sceaux\"\n\n\n*Mode hors-ligne actif — Traitement 100% local.*",
+        "validCitations": 0,
+        "invalidCitations": 0,
+        "invalidDetails": [],
+        "error": null
+      }
+    },
+    {
+      "questionId": "Q057",
+      "question": "Comment l'avertissement contre la séduction du premier sceau (63-0324M) complète-t-il celui sur les faux oints (65-0725M) ?",
+      "category": "multi_sermons",
+      "isExpectedAnswerable": true,
+      "legacy": {
+        "retrievedCount": 4,
+        "retrievalTimeMs": 3,
+        "geminiTimeMs": 3,
+        "totalTimeMs": 6,
+        "responseText": "> ℹ️ **Mode Secours Local** : *Connexion à Google Gemini indisponible (Serveurs Google occupés ou micro-coupure réseau temporaire). Analyse produite automatiquement par le moteur local pour ne pas bloquer votre recherche.*\n\n### Synthèse Locale Hors-Ligne\n\nVoici les extraits pertinents identifiés dans le texte sélectionné pour votre requête **\"Comment l'avertissement contre la séduction du premier sceau (63-0324M) complète-t-il celui sur les faux oints (65-0725M) ?\"** :\n\n> Sermon : \"Questions Et Réponses Sur Les Sceaux\"\n\n> 2. Le premier sceau a été ouvert, et nous avons clairement vu que le cavalier sur le cheval blanc n'était pas le Seigneur Jésus-Christ, mais bien l'antichrist imitant le Véritable. Il portait un arc, mais n'avait aucune flèche. C'est le grand bluff religieux du temps de la fin. L'esprit de l'antichrist est sorti conquérant pour séduire le monde entier par une fausse paix et un faux dogme. Mais l'Épouse de Christ a l'Esprit de Dieu pour discerner ces choses avec une précision divine.\n\n> Sermon : \"Les Oints Du Temps De La Fin\"\n\n> Sermon : \"Les Oints Du Temps De La Fin\"\n\n> 3. Comment donc faire la différence dans ce temps de grande séduction spirituelle ? Ce n'est pas par la manifestation des dons spirituels seuls, car l'ivraie peut manifester les dons. C'est par la comparaison stricte avec le Fruit et la Parole originale consommée dans Sa totalité. L'Épouse de Christ ne se laisse pas éblouir par des miracles spectaculaires si ceux-ci dévient d'un seul iota du pur \"Ainsi dit le Seigneur\". Elle se tient fermement attachée à la Parole promise pour son âge.\n\n\n*Mode hors-ligne actif — Traitement 100% local.*",
+        "validCitations": 0,
+        "invalidCitations": 0,
+        "error": null
+      },
+      "newPipeline": {
+        "answerable": true,
+        "confidenceScore": 0.85,
+        "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal).",
+        "evidenceCount": 5,
+        "evidenceSermons": [
+          {
+            "sermonId": "63-0324M",
+            "title": "Questions Et Réponses Sur Les Sceaux",
+            "paragraphIds": [
+              1,
+              2
+            ]
+          },
+          {
+            "sermonId": "63-0324M",
+            "title": "Questions Et Réponses Sur Les Sceaux",
+            "paragraphIds": [
+              2
+            ]
+          },
+          {
+            "sermonId": "65-0725M",
+            "title": "Les Oints Du Temps De La Fin",
+            "paragraphIds": [
+              1,
+              2
+            ]
+          },
+          {
+            "sermonId": "65-0725M",
+            "title": "Les Oints Du Temps De La Fin",
+            "paragraphIds": [
+              3,
+              4
+            ]
+          },
+          {
+            "sermonId": "63-0324M",
+            "title": "Questions Et Réponses Sur Les Sceaux",
+            "paragraphIds": [
+              3
+            ]
+          }
+        ],
+        "retrievalTimeMs": 289,
+        "geminiTimeMs": 1,
+        "totalTimeMs": 290,
+        "responseText": "> ℹ️ **Mode Secours Local** : *Connexion à Google Gemini indisponible (Serveurs Google occupés ou micro-coupure réseau temporaire). Analyse produite automatiquement par le moteur local pour ne pas bloquer votre recherche.*\n\n### Synthèse Locale Hors-Ligne\n\nVoici les extraits pertinents identifiés dans le texte sélectionné pour votre requête **\"Comment l'avertissement contre la séduction du premier sceau (63-0324M) complète-t-il celui sur les faux oints (65-0725M) ?\"** :\n\n> Sermon : \"Questions Et Réponses Sur Les Sceaux\"\n\n> 1. Maintenant, nous allons aborder une étude très profonde ce matin. Les questions et les réponses sont toujours une partie essentielle de l'enseignement. Cela nous permet de clarifier les points qui auraient pu être mal compris pendant les réunions du soir.\n\n> 2. Le premier sceau a été ouvert, et nous avons clairement vu que le cavalier sur le cheval blanc n'était pas le Seigneur Jésus-Christ, mais bien l'antichrist imitant le Véritable. Il portait un arc, mais n'avait aucune flèche. C'est le grand bluff religieux du temps de la fin. L'esprit de l'antichrist est sorti conquérant pour séduire le monde entier par une fausse paix et un faux dogme. Mais l'Épouse de Christ a l'Esprit de Dieu pour discerner ces choses avec une précision divine.\n\n> Sermon : \"Questions Et Réponses Sur Les Sceaux\"\n\n> 2. Le premier sceau a été ouvert, et nous avons clairement vu que le cavalier sur le cheval blanc n'était pas le Seigneur Jésus-Christ, mais bien l'antichrist imitant le Véritable. Il portait un arc, mais n'avait aucune flèche. C'est le grand bluff religieux du temps de la fin. L'esprit de l'antichrist est sorti conquérant pour séduire le monde entier par une fausse paix et un faux dogme. Mais l'Épouse de Christ a l'Esprit de Dieu pour discerner ces choses avec une précision divine.\n\n\n*Mode hors-ligne actif — Traitement 100% local.*",
+        "validCitations": 0,
+        "invalidCitations": 0,
+        "invalidDetails": [],
+        "error": null
+      }
+    },
+    {
+      "questionId": "Q065",
+      "question": "Et que portait cet imposteur monté sur le cheval ?",
+      "category": "ambigue",
+      "isExpectedAnswerable": true,
+      "legacy": {
+        "retrievedCount": 1,
+        "retrievalTimeMs": 3,
+        "geminiTimeMs": 2,
+        "totalTimeMs": 5,
+        "responseText": "> ℹ️ **Mode Secours Local** : *Connexion à Google Gemini indisponible (Serveurs Google occupés ou micro-coupure réseau temporaire). Analyse produite automatiquement par le moteur local pour ne pas bloquer votre recherche.*\n\n### Synthèse Locale Hors-Ligne\n\nVoici les extraits pertinents identifiés dans le texte sélectionné pour votre requête **\"Et que portait cet imposteur monté sur le cheval ?\"** :\n\n> 2. Le premier sceau a été ouvert, et nous avons clairement vu que le cavalier sur le cheval blanc n'était pas le Seigneur Jésus-Christ, mais bien l'antichrist imitant le Véritable. Il portait un arc, mais n'avait aucune flèche. C'est le grand bluff religieux du temps de la fin. L'esprit de l'antichrist est sorti conquérant pour séduire le monde entier par une fausse paix et un faux dogme. Mais l'Épouse de Christ a l'Esprit de Dieu pour discerner ces choses avec une précision divine.\n\n\n*Mode hors-ligne actif — Traitement 100% local.*",
+        "validCitations": 0,
+        "invalidCitations": 0,
+        "error": null
+      },
+      "newPipeline": {
+        "answerable": true,
+        "confidenceScore": 0.85,
+        "reason": "Recoupement documentaire validé (Signal lexical et/ou multi-modal).",
+        "evidenceCount": 2,
+        "evidenceSermons": [
+          {
+            "sermonId": "63-0324M",
+            "title": "Questions Et Réponses Sur Les Sceaux",
+            "paragraphIds": [
+              1,
+              2
+            ]
+          },
+          {
+            "sermonId": "63-0324M",
+            "title": "Questions Et Réponses Sur Les Sceaux",
+            "paragraphIds": [
+              2
+            ]
+          }
+        ],
+        "retrievalTimeMs": 296,
+        "geminiTimeMs": 1,
+        "totalTimeMs": 297,
+        "responseText": "> ℹ️ **Mode Secours Local** : *Connexion à Google Gemini indisponible (Serveurs Google occupés ou micro-coupure réseau temporaire). Analyse produite automatiquement par le moteur local pour ne pas bloquer votre recherche.*\n\n### Synthèse Locale Hors-Ligne\n\nVoici les extraits pertinents identifiés dans le texte sélectionné pour votre requête **\"Et que portait cet imposteur monté sur le cheval ?\"** :\n\n> 2. Le premier sceau a été ouvert, et nous avons clairement vu que le cavalier sur le cheval blanc n'était pas le Seigneur Jésus-Christ, mais bien l'antichrist imitant le Véritable. Il portait un arc, mais n'avait aucune flèche. C'est le grand bluff religieux du temps de la fin. L'esprit de l'antichrist est sorti conquérant pour séduire le monde entier par une fausse paix et un faux dogme. Mais l'Épouse de Christ a l'Esprit de Dieu pour discerner ces choses avec une précision divine.\n\n> 2. Le premier sceau a été ouvert, et nous avons clairement vu que le cavalier sur le cheval blanc n'était pas le Seigneur Jésus-Christ, mais bien l'antichrist imitant le Véritable. Il portait un arc, mais n'avait aucune flèche. C'est le grand bluff religieux du temps de la fin. L'esprit de l'antichrist est sorti conquérant pour séduire le monde entier par une fausse paix et un faux dogme. Mais l'Épouse de Christ a l'Esprit de Dieu pour discerner ces choses avec une précision divine.\n\n\n*Mode hors-ligne actif — Traitement 100% local.*",
+        "validCitations": 0,
+        "invalidCitations": 0,
+        "invalidDetails": [],
+        "error": null
+      }
+    },
+    {
+      "questionId": "Q073",
+      "question": "Que dit William Branham sur la construction de la Tour Eiffel à Paris ?",
+      "category": "hors_corpus",
+      "isExpectedAnswerable": false,
+      "legacy": {
+        "retrievedCount": 1,
+        "retrievalTimeMs": 3,
+        "geminiTimeMs": 2,
+        "totalTimeMs": 5,
+        "responseText": "> ℹ️ **Mode Secours Local** : *Connexion à Google Gemini indisponible (Serveurs Google occupés ou micro-coupure réseau temporaire). Analyse produite automatiquement par le moteur local pour ne pas bloquer votre recherche.*\n\n### Synthèse Locale Hors-Ligne\n\nVoici les extraits pertinents identifiés dans le texte sélectionné pour votre requête **\"Que dit William Branham sur la construction de la Tour Eiffel à Paris ?\"** :\n\n> 1. Bonjour mes amis, c'est bon d'être de retour dans la maison du Seigneur en ce beau dimanche matin.\n\n\n*Mode hors-ligne actif — Traitement 100% local.*",
+        "validCitations": 0,
+        "invalidCitations": 0,
+        "error": null
+      },
+      "newPipeline": {
+        "answerable": false,
+        "confidenceScore": 0.1,
+        "reason": "Sujet hors du champ doctrinal des sermons : eiffel, paris.",
+        "evidenceCount": 0,
+        "evidenceSermons": [],
+        "retrievalTimeMs": 305,
+        "geminiTimeMs": 0,
+        "totalTimeMs": 305,
+        "responseText": "Les documents disponibles dans la base documentaire de l'application ne contiennent pas d'informations suffisantes pour répondre à cette question.",
+        "validCitations": 0,
+        "invalidCitations": 0,
+        "invalidDetails": [],
+        "error": null
+      }
+    }
+  ]
+}

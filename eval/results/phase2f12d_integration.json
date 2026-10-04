@@ -1,0 +1,97 @@
+{
+  "timestamp": "2026-10-04T15:51:21.322Z",
+  "phase": "2F.12D",
+  "title": "Intégration du Unified RAG dans le flux réel de l'Assistant IA",
+  "totalTests": 12,
+  "passCount": 12,
+  "failCount": 0,
+  "status": "READY_FOR_UNIFIED_RAG_SHADOW",
+  "featureFlags": {
+    "useLegacyRetrieval": true,
+    "useHybridRetrieval": false,
+    "useUnifiedRag": true,
+    "useEmbeddings": false,
+    "useQueryRewrite": false,
+    "useReranker": false,
+    "useCitationValidation": false,
+    "useQueryCache": false,
+    "useResponseCache": false
+  },
+  "metrics": {
+    "aiContextPropagation": "PASS",
+    "sermon": "PASS",
+    "expose": "PASS",
+    "bible": "PASS",
+    "chant": "PASS",
+    "multiSource": "PASS",
+    "outOfContextProtection": "PASS",
+    "answerability": "PASS",
+    "citationValidation": "PASS",
+    "legacyMode": "PASS",
+    "unifiedMode": "PASS",
+    "geminiFallbackProtection": "PASS",
+    "zeroQuotaConsumed": "PASS"
+  },
+  "tests": [
+    {
+      "title": "Flags initiaux stricts : useLegacyRetrieval=true, useHybridRetrieval=false, useUnifiedRag=true",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "title": "Sermon seul (63-0324M) : Retrieval + Gemini + Citations authentifiées",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "title": "Exposé seul (expose-ch-8) : Retrieval + Gemini + Citations authentifiées",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "title": "Bible seul (bible-jhn-3) : Jean 3:16 retrouvé + Gemini + Citations validées",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "title": "Chant seul (song-1) : Cantique retrouvé + Gemini + Citations validées",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "title": "Multi-sources : Pipeline unifié 4 ressources harmonisé sans collision",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "title": "Protection AI Context : Source absente -> answerable=false, Gemini NON appelé (0 quota)",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "title": "Citation validator : Rejet des citations de sources absentes du package",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "title": "Hors-domaine absolu : 0 preuve -> Gemini NON appelé",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "title": "Mode Shadow : Exécution comparative non-autoritaire réussie en arrière-plan",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "title": "Sécurité : Exposition technique de chunkId interceptée et flaggée",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "title": "Flags de production activés maintenus à la fin des tests",
+      "status": "PASS",
+      "details": ""
+    }
+  ]
+}

@@ -1,0 +1,143 @@
+{
+  "timestamp": "2026-10-04T15:51:02.956Z",
+  "environment": "development",
+  "featureFlags": {
+    "useLegacyRetrieval": true,
+    "useHybridRetrieval": false,
+    "useUnifiedRag": true,
+    "useEmbeddings": false,
+    "useQueryRewrite": false,
+    "useReranker": false,
+    "useCitationValidation": false,
+    "useQueryCache": false,
+    "useResponseCache": false
+  },
+  "testsSummary": {
+    "totalTests": 22,
+    "passed": 22,
+    "failed": 0,
+    "allPassed": true
+  },
+  "indexerPerformance": {
+    "dryRunWorked": true,
+    "caseADetected": true,
+    "caseBReuseWorked": true,
+    "caseCModificationWorked": true,
+    "caseDMissingEmbeddingWorked": true,
+    "float32ValidationPassed": true,
+    "resumptionPassed": true,
+    "sqliteReadBackPassed": true
+  },
+  "testResults": [
+    {
+      "id": 1,
+      "name": "Total chunks = 10 en Dry-Run",
+      "status": "PASS"
+    },
+    {
+      "id": 2,
+      "name": "0 chunk déjà indexé au départ",
+      "status": "PASS"
+    },
+    {
+      "id": 3,
+      "name": "10 embeddings requis calculés",
+      "status": "PASS"
+    },
+    {
+      "id": 4,
+      "name": "0 appel API effectué en Dry-Run",
+      "status": "PASS"
+    },
+    {
+      "id": 5,
+      "name": "10 chunks classés en Case A (nouveau)",
+      "status": "PASS"
+    },
+    {
+      "id": 6,
+      "name": "10 chunks enregistrés avec succès dans le stockage",
+      "status": "PASS"
+    },
+    {
+      "id": 7,
+      "name": "Chunk #0 relu depuis le stockage avec succès",
+      "status": "PASS"
+    },
+    {
+      "id": 8,
+      "name": "Embedding relu possède la dimension 3072",
+      "status": "PASS"
+    },
+    {
+      "id": 9,
+      "name": "Embedding relu passe la validation Float32 (pas de NaN/Infinity)",
+      "status": "PASS"
+    },
+    {
+      "id": 10,
+      "name": "Total chunks = 10 au second passage",
+      "status": "PASS"
+    },
+    {
+      "id": 11,
+      "name": "10/10 chunks détectés déjà indexés (Case B)",
+      "status": "PASS"
+    },
+    {
+      "id": 12,
+      "name": "0 embedding requis au second passage",
+      "status": "PASS"
+    },
+    {
+      "id": 13,
+      "name": "0 nouvel appel API effectué lors du second passage",
+      "status": "PASS"
+    },
+    {
+      "id": 14,
+      "name": "10/10 chunks classés en Case B",
+      "status": "PASS"
+    },
+    {
+      "id": 15,
+      "name": "7/10 chunks détectés déjà indexés après interruption",
+      "status": "PASS"
+    },
+    {
+      "id": 16,
+      "name": "3/10 chunks restants identifiés pour reprise",
+      "status": "PASS"
+    },
+    {
+      "id": 17,
+      "name": "7 chunks classés en Case B",
+      "status": "PASS"
+    },
+    {
+      "id": 18,
+      "name": "3 chunks manquants classés en Case A",
+      "status": "PASS"
+    },
+    {
+      "id": 19,
+      "name": "1 chunk modifié correctement détecté en Case C",
+      "status": "PASS"
+    },
+    {
+      "id": 20,
+      "name": "Les 9 autres chunks restent inchangés en Case B",
+      "status": "PASS"
+    },
+    {
+      "id": 21,
+      "name": "Uniquement 1 nouvel embedding requis pour le chunk modifié",
+      "status": "PASS"
+    },
+    {
+      "id": 22,
+      "name": "Chunk avec embedding NULL correctement classé en Case D",
+      "status": "PASS"
+    }
+  ]
+}

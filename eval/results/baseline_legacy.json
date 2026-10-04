@@ -1,0 +1,5205 @@
+{
+  "timestamp": "2026-10-03T15:32:09.454Z",
+  "engine": "Legacy Auto-RAG",
+  "environment": "Node / Web In-Memory",
+  "statistical_scope": {
+    "total_questions": 88,
+    "categories_count": 11,
+    "questions_per_category": 8,
+    "is_preliminary_baseline": true,
+    "statistical_statement": "Cet ensemble de 88 questions (8 par catégorie) constitue la baseline initiale comparative du projet. Bien qu'il couvre rigoureusement 11 dimensions documentaires, un échantillon de 8 questions par catégorie ne constitue pas une validation statistique définitive à grande échelle mais une base de comparaison objective, déterministe et reproductible pour le futur moteur Hybrid RAG."
+  },
+  "metrics": {
+    "total_questions": 88,
+    "answerable_questions": 80,
+    "unanswerable_questions": 8,
+    "recall_at_5": 90,
+    "recall_at_10": 90,
+    "recall_at_20": 90,
+    "source_coverage_at_5": 93.1,
+    "source_coverage_at_10": 93.1,
+    "source_coverage_at_20": 93.1,
+    "mrr": 0.881,
+    "success_rate": 92.5,
+    "correct_refusal_rate": 50,
+    "citation_authenticity_rate": 100,
+    "citation_relevance_rate": 26.1,
+    "retrieval_latency_p50_ms": 0.31,
+    "retrieval_latency_p95_ms": 0.76,
+    "latency_documentation_note": "Les latences retrieval_latency_p50_ms et retrieval_latency_p95_ms mesurent exclusivement le temps d'exécution de la recherche documentaire locale (in-memory / SQLite FTS5) et n'incluent pas les appels réseau LLM Gemini ni le rendu UI."
+  },
+  "by_category": {
+    "enseignement_precis": {
+      "total": 8,
+      "answerable": 8,
+      "recall_at_5": 100,
+      "recall_at_10": 100,
+      "recall_at_20": 100,
+      "source_coverage_at_5": 100,
+      "source_coverage_at_10": 100,
+      "source_coverage_at_20": 100,
+      "mrr": 1,
+      "success_rate": 100,
+      "avg_retrieval_latency_ms": 0.97
+    },
+    "theme_biblique": {
+      "total": 8,
+      "answerable": 8,
+      "recall_at_5": 100,
+      "recall_at_10": 100,
+      "recall_at_20": 100,
+      "source_coverage_at_5": 100,
+      "source_coverage_at_10": 100,
+      "source_coverage_at_20": 100,
+      "mrr": 1,
+      "success_rate": 100,
+      "avg_retrieval_latency_ms": 0.32
+    },
+    "phrase_expression": {
+      "total": 8,
+      "answerable": 8,
+      "recall_at_5": 100,
+      "recall_at_10": 100,
+      "recall_at_20": 100,
+      "source_coverage_at_5": 100,
+      "source_coverage_at_10": 100,
+      "source_coverage_at_20": 100,
+      "mrr": 0.938,
+      "success_rate": 100,
+      "avg_retrieval_latency_ms": 0.3
+    },
+    "doctrine": {
+      "total": 8,
+      "answerable": 8,
+      "recall_at_5": 93.8,
+      "recall_at_10": 93.8,
+      "recall_at_20": 93.8,
+      "source_coverage_at_5": 100,
+      "source_coverage_at_10": 100,
+      "source_coverage_at_20": 100,
+      "mrr": 0.938,
+      "success_rate": 100,
+      "avg_retrieval_latency_ms": 0.31
+    },
+    "personne_biblique": {
+      "total": 8,
+      "answerable": 8,
+      "recall_at_5": 100,
+      "recall_at_10": 100,
+      "recall_at_20": 100,
+      "source_coverage_at_5": 100,
+      "source_coverage_at_10": 100,
+      "source_coverage_at_20": 100,
+      "mrr": 0.938,
+      "success_rate": 100,
+      "avg_retrieval_latency_ms": 0.38
+    },
+    "evenement_biblique": {
+      "total": 8,
+      "answerable": 8,
+      "recall_at_5": 87.5,
+      "recall_at_10": 87.5,
+      "recall_at_20": 87.5,
+      "source_coverage_at_5": 87.5,
+      "source_coverage_at_10": 87.5,
+      "source_coverage_at_20": 87.5,
+      "mrr": 0.75,
+      "success_rate": 87.5,
+      "avg_retrieval_latency_ms": 0.3
+    },
+    "relations_passages": {
+      "total": 8,
+      "answerable": 8,
+      "recall_at_5": 100,
+      "recall_at_10": 100,
+      "recall_at_20": 100,
+      "source_coverage_at_5": 100,
+      "source_coverage_at_10": 100,
+      "source_coverage_at_20": 100,
+      "mrr": 0.938,
+      "success_rate": 100,
+      "avg_retrieval_latency_ms": 0.32
+    },
+    "multi_sermons": {
+      "total": 8,
+      "answerable": 8,
+      "recall_at_5": 56.3,
+      "recall_at_10": 56.3,
+      "recall_at_20": 56.3,
+      "source_coverage_at_5": 81.3,
+      "source_coverage_at_10": 81.3,
+      "source_coverage_at_20": 81.3,
+      "mrr": 0.75,
+      "success_rate": 75,
+      "avg_retrieval_latency_ms": 0.34
+    },
+    "ambigue": {
+      "total": 8,
+      "answerable": 8,
+      "recall_at_5": 75,
+      "recall_at_10": 75,
+      "recall_at_20": 75,
+      "source_coverage_at_5": 75,
+      "source_coverage_at_10": 75,
+      "source_coverage_at_20": 75,
+      "mrr": 0.688,
+      "success_rate": 75,
+      "avg_retrieval_latency_ms": 0.29
+    },
+    "hors_corpus": {
+      "total": 8,
+      "answerable": 0,
+      "recall_at_5": "N/A",
+      "recall_at_10": "N/A",
+      "recall_at_20": "N/A",
+      "source_coverage_at_5": "N/A",
+      "source_coverage_at_10": "N/A",
+      "source_coverage_at_20": "N/A",
+      "mrr": "N/A",
+      "success_rate": "N/A",
+      "avg_retrieval_latency_ms": 0.43
+    },
+    "citation_precise": {
+      "total": 8,
+      "answerable": 8,
+      "recall_at_5": 87.5,
+      "recall_at_10": 87.5,
+      "recall_at_20": 87.5,
+      "source_coverage_at_5": 87.5,
+      "source_coverage_at_10": 87.5,
+      "source_coverage_at_20": 87.5,
+      "mrr": 0.875,
+      "success_rate": 87.5,
+      "avg_retrieval_latency_ms": 0.44
+    }
+  },
+  "details": [
+    {
+      "id": "Q001",
+      "question": "Que portait le cavalier sur le cheval blanc et quel élément crucial lui manquait-il ?",
+      "category": "enseignement_precis",
+      "difficulty": "easy",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 65,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 2,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.5,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 1.93
+    },
+    {
+      "id": "Q002",
+      "question": "Pourquoi les questions et les réponses sont-elles qualifiées de partie essentielle de l'enseignement ?",
+      "category": "enseignement_precis",
+      "difficulty": "easy",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 1
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 1,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 100,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 1,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 1.59
+    },
+    {
+      "id": "Q003",
+      "question": "De quoi la communion n'est-elle pas simplement faite selon Frère Branham ?",
+      "category": "enseignement_precis",
+      "difficulty": "easy",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1,
+          "title": "La Communion",
+          "score": 45,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.5,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.95
+    },
+    {
+      "id": "Q004",
+      "question": "Où était réservée la manne cachée dans l'Ancien Testament selon le sermon sur La Communion ?",
+      "category": "enseignement_precis",
+      "difficulty": "easy",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3,
+          "title": "La Communion",
+          "score": 105,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2,
+          "title": "La Fête Des Trompettes",
+          "score": 50,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.2,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.67
+    },
+    {
+      "id": "Q005",
+      "question": "Que sonnait la fête des trompettes dans l'Ancien Testament sous la loi mosaïque ?",
+      "category": "enseignement_precis",
+      "difficulty": "easy",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2,
+          "title": "La Fête Des Trompettes",
+          "score": 150,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3,
+          "title": "La Fête Des Trompettes",
+          "score": 40,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3,
+          "title": "La Communion",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.333,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.5
+    },
+    {
+      "id": "Q006",
+      "question": "Quel symbole végétal et quel drapeau attestent du rétablissement d'Israël ?",
+      "category": "enseignement_precis",
+      "difficulty": "easy",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3,
+          "title": "La Fête Des Trompettes",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2,
+          "title": "La Fête Des Trompettes",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.5,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 1.2
+    },
+    {
+      "id": "Q007",
+      "question": "Sur quoi la pluie de Dieu tombe-t-elle indifféremment dans le même champ ?",
+      "category": "enseignement_precis",
+      "difficulty": "easy",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 80,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 2,
+          "title": "La Communion",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3,
+          "title": "La Fête Des Trompettes",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 4,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 4,
+          "title": "La Fête Des Trompettes",
+          "score": 15,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.111,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.56
+    },
+    {
+      "id": "Q008",
+      "question": "De quoi les yeux spirituels des croyants doivent-ils être oints selon la prière finale de 65-0725M ?",
+      "category": "enseignement_precis",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 4
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 4,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 60,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 30,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 30,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 1,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3,
+          "title": "La Fête Des Trompettes",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.167,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.35
+    },
+    {
+      "id": "Q009",
+      "question": "Quel est le thème biblique de la lumière du soir prophétisée par Zacharie ?",
+      "category": "theme_biblique",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 50,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 1,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 4,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.25,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.29
+    },
+    {
+      "id": "Q010",
+      "question": "Comment le thème du discernement spirituel est-il opposé aux apparences extérieures ?",
+      "category": "theme_biblique",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 65,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 4,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.2,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.3
+    },
+    {
+      "id": "Q011",
+      "question": "Comment le thème biblique de la manne cachée s'applique-t-il à la Parole révélée aujourd'hui ?",
+      "category": "theme_biblique",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3,
+          "title": "La Communion",
+          "score": 95,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 5,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.2,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.36
+    },
+    {
+      "id": "Q012",
+      "question": "Quel est le thème biblique du Calvaire et de l'identification spirituelle à Christ ?",
+      "category": "theme_biblique",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 2,
+          "title": "La Communion",
+          "score": 50,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.143,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.51
+    },
+    {
+      "id": "Q013",
+      "question": "Comment le thème biblique du figuier qui reverdit annonce-t-il la proximité du retour du Seigneur ?",
+      "category": "theme_biblique",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3,
+          "title": "La Fête Des Trompettes",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 1,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.25
+    },
+    {
+      "id": "Q014",
+      "question": "Quel est le thème du rassemblement des cent quarante-quatre mille Juifs scellés ?",
+      "category": "theme_biblique",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2,
+          "title": "La Fête Des Trompettes",
+          "score": 95,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 1,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.26
+    },
+    {
+      "id": "Q015",
+      "question": "Comment le thème biblique de la pluie tombant sur le blé et l'ivraie explique-t-il les faux prophètes ?",
+      "category": "theme_biblique",
+      "difficulty": "hard",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 80,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2,
+          "title": "La Fête Des Trompettes",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.143,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.35
+    },
+    {
+      "id": "Q016",
+      "question": "Quel est le thème de la Semence incorruptible de la Parole face aux dons spirituels temporaires ?",
+      "category": "theme_biblique",
+      "difficulty": "hard",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 50,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 50,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 5,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 2,
+      "citation_relevance_precision": 0.4,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.28
+    },
+    {
+      "id": "Q017",
+      "question": "Dans quel contexte l'expression « grand bluff religieux du temps de la fin » est-elle employée ?",
+      "category": "phrase_expression",
+      "difficulty": "easy",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 80,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 55,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2,
+          "title": "La Fête Des Trompettes",
+          "score": 50,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 40,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.143,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.33
+    },
+    {
+      "id": "Q018",
+      "question": "Où trouve-t-on l'expression « Au temps du soir, la lumière paraîtra » et quel prophète l'a dite ?",
+      "category": "phrase_expression",
+      "difficulty": "easy",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 80,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 30,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 4,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 30,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 1,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2,
+          "title": "La Fête Des Trompettes",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.125,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.34
+    },
+    {
+      "id": "Q019",
+      "question": "Quelle phrase résume le témoignage du croyant crucifié avec Christ lors du service de communion ?",
+      "category": "phrase_expression",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1,
+          "title": "La Communion",
+          "score": 60,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 2,
+          "title": "La Communion",
+          "score": 45,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 2,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.143,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.35
+    },
+    {
+      "id": "Q020",
+      "question": "Dans quel sermon trouve-t-on la phrase « manger un morceau de pain sans levain et boire un peu de jus de cep » ?",
+      "category": "phrase_expression",
+      "difficulty": "easy",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1,
+          "title": "La Communion",
+          "score": 125,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 1,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.26
+    },
+    {
+      "id": "Q021",
+      "question": "Que signifie l'expression « le figuier a repoussé ses feuilles » dans La Fête des Trompettes ?",
+      "category": "phrase_expression",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3,
+          "title": "La Fête Des Trompettes",
+          "score": 85,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2,
+          "title": "La Fête Des Trompettes",
+          "score": 55,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.5,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.26
+    },
+    {
+      "id": "Q022",
+      "question": "Dans quel contexte Branham parle-t-il du « drapeau à l'étoile de David » flottant à Jérusalem ?",
+      "category": "phrase_expression",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3,
+          "title": "La Fête Des Trompettes",
+          "score": 65,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 1,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.25
+    },
+    {
+      "id": "Q023",
+      "question": "À propos de quoi Branham emploie-t-il l'expression « dévient d'un seul iota du pur Ainsi dit le Seigneur » ?",
+      "category": "phrase_expression",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 95,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.5,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.28
+    },
+    {
+      "id": "Q024",
+      "question": "Que désigne l'expression « collyre divin » dans Les Oints du Temps de la Fin ?",
+      "category": "phrase_expression",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 4
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 4,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 80,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 50,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 50,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 50,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2,
+          "title": "La Fête Des Trompettes",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 1,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.125,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.32
+    },
+    {
+      "id": "Q025",
+      "question": "Quelle est la doctrine enseignée sur la véritable identité du cavalier sur le cheval blanc ?",
+      "category": "doctrine",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 65,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 1,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.44
+    },
+    {
+      "id": "Q026",
+      "question": "Quelle doctrine Branham expose-t-il sur l'infaillibilité de la Parole divine face aux dogmes humains ?",
+      "category": "doctrine",
+      "difficulty": "hard",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 5,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 2,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.167,
+      "recall_at_5": 0.5,
+      "recall_at_10": 0.5,
+      "recall_at_20": 0.5,
+      "retrieval_latency_ms": 0.3
+    },
+    {
+      "id": "Q027",
+      "question": "Quelle est la doctrine biblique de la Sainte Cène comme union vivante plutôt que simple rite commémoratif ?",
+      "category": "doctrine",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1,
+          "title": "La Communion",
+          "score": 60,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3,
+          "title": "La Communion",
+          "score": 45,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 1,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.333,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.27
+    },
+    {
+      "id": "Q028",
+      "question": "Comment la doctrine de la manne du sanctuaire est-elle reliée à la nourriture spirituelle de l'Épouse ?",
+      "category": "doctrine",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3,
+          "title": "La Communion",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 1,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.26
+    },
+    {
+      "id": "Q029",
+      "question": "Quelle doctrine régit le calendrier prophétique du réveil d'Israël après l'Enlèvement de l'Épouse ?",
+      "category": "doctrine",
+      "difficulty": "hard",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2,
+          "title": "La Fête Des Trompettes",
+          "score": 80,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3,
+          "title": "La Fête Des Trompettes",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.5,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.26
+    },
+    {
+      "id": "Q030",
+      "question": "Quelle doctrine régit le scellement des 144 000 Juifs par les deux témoins ?",
+      "category": "doctrine",
+      "difficulty": "hard",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2,
+          "title": "La Fête Des Trompettes",
+          "score": 50,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 1,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.23
+    },
+    {
+      "id": "Q031",
+      "question": "Quelle doctrine fondamentale sépare l'onction de l'Esprit extérieur de la régénération intérieure ?",
+      "category": "doctrine",
+      "difficulty": "hard",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 50,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.2,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.31
+    },
+    {
+      "id": "Q032",
+      "question": "Quelle doctrine établit le Fruit et la Parole originale comme unique test de vérité spirituelle ?",
+      "category": "doctrine",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 65,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 50,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3,
+          "title": "La Communion",
+          "score": 50,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 5,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.2,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.44
+    },
+    {
+      "id": "Q033",
+      "question": "Quel rôle le prophète Zacharie joue-t-il dans la prédication des Sceaux ?",
+      "category": "personne_biblique",
+      "difficulty": "easy",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 45,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 30,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 5,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 30,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.167,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.3
+    },
+    {
+      "id": "Q034",
+      "question": "Comment le Seigneur Jésus-Christ est-il distingué du cavalier imposteur dans le premier sceau ?",
+      "category": "personne_biblique",
+      "difficulty": "easy",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 90,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 30,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 5,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 30,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 1,
+          "title": "La Fête Des Trompettes",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3,
+          "title": "La Fête Des Trompettes",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 1,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.111,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.32
+    },
+    {
+      "id": "Q035",
+      "question": "Quelle déclaration de Jésus dans l'Évangile de Jean est citée dans le sermon sur La Communion ?",
+      "category": "personne_biblique",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 2,
+          "title": "La Communion",
+          "score": 45,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1,
+          "title": "La Communion",
+          "score": 30,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.25,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.3
+    },
+    {
+      "id": "Q036",
+      "question": "Qui sont les deux témoins prophétiques d'Apocalypse 11 mentionnés dans La Fête des Trompettes ?",
+      "category": "personne_biblique",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2,
+          "title": "La Fête Des Trompettes",
+          "score": 115,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 1,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.55
+    },
+    {
+      "id": "Q037",
+      "question": "Quel rôle la loi de Moïse joue-t-elle dans l'institution de la fête des trompettes ?",
+      "category": "personne_biblique",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2,
+          "title": "La Fête Des Trompettes",
+          "score": 70,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 5,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.167,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.29
+    },
+    {
+      "id": "Q038",
+      "question": "Quelle parole d'avertissement de Jésus dans Matthieu 24 est citée dans Les Oints du Temps de la Fin ?",
+      "category": "personne_biblique",
+      "difficulty": "easy",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 95,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 65,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 50,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 1,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 50,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 4,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 50,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 1,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 5,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.111,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.76
+    },
+    {
+      "id": "Q039",
+      "question": "Quel roi d'Israël dont le symbole flotte à Jérusalem est mentionné dans La Fête des Trompettes ?",
+      "category": "personne_biblique",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3,
+          "title": "La Fête Des Trompettes",
+          "score": 85,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2,
+          "title": "La Fête Des Trompettes",
+          "score": 70,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.5,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.3
+    },
+    {
+      "id": "Q040",
+      "question": "Quelle figure messianique vit dans le croyant qui participe à la communion par Sa résurrection ?",
+      "category": "personne_biblique",
+      "difficulty": "easy",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1,
+          "title": "La Communion",
+          "score": 45,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 2,
+          "title": "La Communion",
+          "score": 45,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 2,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.333,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.25
+    },
+    {
+      "id": "Q041",
+      "question": "Quel événement biblique marque l'ouverture du premier sceau ?",
+      "category": "evenement_biblique",
+      "difficulty": "easy",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 45,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 30,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.5,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.24
+    },
+    {
+      "id": "Q042",
+      "question": "Quel événement prophétique survient lorsque le Septième Ange sonne du clairon ?",
+      "category": "evenement_biblique",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 80,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2,
+          "title": "La Fête Des Trompettes",
+          "score": 50,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 2,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3,
+          "title": "La Fête Des Trompettes",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.2,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.3
+    },
+    {
+      "id": "Q043",
+      "question": "Quel événement historique et spirituel au Calvaire fonde le mémorial de la communion ?",
+      "category": "evenement_biblique",
+      "difficulty": "easy",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1,
+          "title": "La Communion",
+          "score": 60,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 2,
+          "title": "La Communion",
+          "score": 30,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3,
+          "title": "La Communion",
+          "score": 30,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 1,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 4,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 2,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.125,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.29
+    },
+    {
+      "id": "Q044",
+      "question": "Quel événement biblique de l'Ancien Testament correspondait au jour du grand pardon ?",
+      "category": "evenement_biblique",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2,
+          "title": "La Fête Des Trompettes",
+          "score": 80,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3,
+          "title": "La Communion",
+          "score": 65,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 1,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 1,
+          "title": "La Fête Des Trompettes",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3,
+          "title": "La Fête Des Trompettes",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 1,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.167,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.44
+    },
+    {
+      "id": "Q045",
+      "question": "Quel événement glorieux concernant l'Épouse des Nations précède immédiatement le réveil d'Israël ?",
+      "category": "evenement_biblique",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2,
+          "title": "La Fête Des Trompettes",
+          "score": 65,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3,
+          "title": "La Fête Des Trompettes",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.167,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.33
+    },
+    {
+      "id": "Q046",
+      "question": "Quel événement contemporain a permis de ramener le peuple juif dans sa patrie d'origine ?",
+      "category": "evenement_biblique",
+      "difficulty": "hard",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3,
+          "title": "La Fête Des Trompettes",
+          "score": 65,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2,
+          "title": "La Fête Des Trompettes",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.333,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.27
+    },
+    {
+      "id": "Q047",
+      "question": "Quel événement de séduction spirituelle mondiale Jésus a-t-il annoncé pour la fin des temps dans Matthieu 24 ?",
+      "category": "evenement_biblique",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 70,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 55,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 50,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 2,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.2,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.28
+    },
+    {
+      "id": "Q048",
+      "question": "Quel événement solennel final est annoncé par la sonnerie prochaine de la trompette de Dieu ?",
+      "category": "evenement_biblique",
+      "difficulty": "easy",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 4
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 1,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 0,
+      "retrieved_source_count_at_10": 0,
+      "retrieved_source_count_at_20": 0,
+      "source_coverage_at_5": 0,
+      "source_coverage_at_10": 0,
+      "source_coverage_at_20": 0,
+      "rank": null,
+      "citation_authenticity": true,
+      "citation_relevance_count": 0,
+      "citation_relevance_precision": 0,
+      "recall_at_5": 0,
+      "recall_at_10": 0,
+      "recall_at_20": 0,
+      "retrieval_latency_ms": 0.25
+    },
+    {
+      "id": "Q049",
+      "question": "Quelle relation le sermon sur les Sceaux établit-il entre le Septième Ange et Zacharie ?",
+      "category": "relations_passages",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 60,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1,
+          "title": "La Communion",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2,
+          "title": "La Fête Des Trompettes",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 2,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.25,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.3
+    },
+    {
+      "id": "Q050",
+      "question": "Comment le passage de l'Évangile de Jean sur la chair et le sang est-il relié au Calvaire ?",
+      "category": "relations_passages",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 2,
+          "title": "La Communion",
+          "score": 80,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 1,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.24
+    },
+    {
+      "id": "Q051",
+      "question": "Quelle relation existe-t-il entre la loi mosaïque et le ministère des deux témoins d'Apocalypse 11 ?",
+      "category": "relations_passages",
+      "difficulty": "hard",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2,
+          "title": "La Fête Des Trompettes",
+          "score": 110,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.5,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.5
+    },
+    {
+      "id": "Q052",
+      "question": "Quel lien est établi entre Matthieu 24:24 et la métaphore de la pluie sur le blé et l'ivraie ?",
+      "category": "relations_passages",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 65,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1,
+          "title": "La Communion",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2,
+          "title": "La Fête Des Trompettes",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.333,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.3
+    },
+    {
+      "id": "Q053",
+      "question": "Comment la manne cachée du Lieu Très Saint est-elle mise en rapport avec la Parole révélée actuelle ?",
+      "category": "relations_passages",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3,
+          "title": "La Communion",
+          "score": 95,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 50,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.333,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.31
+    },
+    {
+      "id": "Q054",
+      "question": "Quelle relation unit la persécution des Juifs à travers les nations et le rassemblement prophétique des Trompettes ?",
+      "category": "relations_passages",
+      "difficulty": "hard",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2,
+          "title": "La Fête Des Trompettes",
+          "score": 90,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3,
+          "title": "La Fête Des Trompettes",
+          "score": 60,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 2,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.333,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.29
+    },
+    {
+      "id": "Q055",
+      "question": "Quel lien direct unit le discernement spirituel de l'Épouse à la Parole infaillible de Dieu ?",
+      "category": "relations_passages",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 65,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3,
+          "title": "La Communion",
+          "score": 50,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 50,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 2,
+          "title": "La Communion",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 4,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2,
+          "title": "La Fête Des Trompettes",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.125,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.35
+    },
+    {
+      "id": "Q056",
+      "question": "Comment la manifestation des dons spirituels est-elle subordonnée au Fruit et à la Parole totale ?",
+      "category": "relations_passages",
+      "difficulty": "hard",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 80,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 4,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.5,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.25
+    },
+    {
+      "id": "Q057",
+      "question": "Comment l'avertissement contre la séduction du premier sceau (63-0324M) complète-t-il celui sur les faux oints (65-0725M) ?",
+      "category": "multi_sermons",
+      "difficulty": "hard",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 2,
+      "retrieved_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 60,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 30,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 1,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 30,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 30,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 2,
+      "retrieved_source_count_at_10": 2,
+      "retrieved_source_count_at_20": 2,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.25,
+      "recall_at_5": 0.5,
+      "recall_at_10": 0.5,
+      "recall_at_20": 0.5,
+      "retrieval_latency_ms": 0.44
+    },
+    {
+      "id": "Q058",
+      "question": "En quoi l'Épouse de Christ décrite dans les Sceaux diffère-t-elle des séducteurs démasqués dans Les Oints du Temps de la Fin ?",
+      "category": "multi_sermons",
+      "difficulty": "hard",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 2,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 80,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 75,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 65,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2,
+          "title": "La Fête Des Trompettes",
+          "score": 50,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 45,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 2,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 2,
+      "retrieved_source_count_at_10": 2,
+      "retrieved_source_count_at_20": 2,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 2,
+      "citation_relevance_precision": 0.333,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.39
+    },
+    {
+      "id": "Q059",
+      "question": "Quel rôle central la Parole révélée joue-t-elle à la fois dans La Communion (65-1212) et dans les Sceaux (63-0324M) ?",
+      "category": "multi_sermons",
+      "difficulty": "hard",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4
+        }
+      ],
+      "expected_source_count": 2,
+      "retrieved_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 60,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3,
+          "title": "La Communion",
+          "score": 60,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 5,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 45,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 2,
+          "title": "La Communion",
+          "score": 30,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 2,
+      "retrieved_source_count_at_10": 2,
+      "retrieved_source_count_at_20": 2,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 2,
+      "citation_relevance_precision": 0.333,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.29
+    },
+    {
+      "id": "Q060",
+      "question": "Comment l'Enlèvement de l'Épouse est-il articulé entre La Fête des Trompettes (64-0719M) et l'appel hors de Babylone (63-0324M) ?",
+      "category": "multi_sermons",
+      "difficulty": "hard",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 2,
+      "retrieved_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2,
+          "title": "La Fête Des Trompettes",
+          "score": 85,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 4,
+          "title": "La Fête Des Trompettes",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 2,
+      "retrieved_source_count_at_10": 2,
+      "retrieved_source_count_at_20": 2,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.2,
+      "recall_at_5": 0.5,
+      "recall_at_10": 0.5,
+      "recall_at_20": 0.5,
+      "retrieval_latency_ms": 0.32
+    },
+    {
+      "id": "Q061",
+      "question": "De quelle façon la manne cachée de l'Ancien Testament (65-1212) fait-elle écho aux mystères dévoilés par le Septième Ange (63-0324M) ?",
+      "category": "multi_sermons",
+      "difficulty": "hard",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 2,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3,
+          "title": "La Communion",
+          "score": 65,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2,
+          "title": "La Fête Des Trompettes",
+          "score": 50,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 0.5,
+      "source_coverage_at_10": 0.5,
+      "source_coverage_at_20": 0.5,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.5,
+      "recall_at_5": 0.5,
+      "recall_at_10": 0.5,
+      "recall_at_20": 0.5,
+      "retrieval_latency_ms": 0.26
+    },
+    {
+      "id": "Q062",
+      "question": "Quelle distinction de calendrier prophétique existe-t-il entre le salut des Nations (64-0719M) et l'appel des élus (63-0324M) ?",
+      "category": "multi_sermons",
+      "difficulty": "hard",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 2,
+      "retrieved_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2,
+          "title": "La Fête Des Trompettes",
+          "score": 50,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 0.5,
+      "source_coverage_at_10": 0.5,
+      "source_coverage_at_20": 0.5,
+      "rank": null,
+      "citation_authenticity": true,
+      "citation_relevance_count": 0,
+      "citation_relevance_precision": 0,
+      "recall_at_5": 0,
+      "recall_at_10": 0,
+      "recall_at_20": 0,
+      "retrieval_latency_ms": 0.31
+    },
+    {
+      "id": "Q063",
+      "question": "Comment la sainteté requise pour la communion (65-1212) fait-elle écho à la pureté de cœur demandée dans les faux oints (65-0725M) ?",
+      "category": "multi_sermons",
+      "difficulty": "hard",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 4
+        }
+      ],
+      "expected_source_count": 2,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1,
+          "title": "La Communion",
+          "score": 30,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 0.5,
+      "source_coverage_at_10": 0.5,
+      "source_coverage_at_20": 0.5,
+      "rank": null,
+      "citation_authenticity": true,
+      "citation_relevance_count": 0,
+      "citation_relevance_precision": 0,
+      "recall_at_5": 0,
+      "recall_at_10": 0,
+      "recall_at_20": 0,
+      "retrieval_latency_ms": 0.26
+    },
+    {
+      "id": "Q064",
+      "question": "Pourquoi ni les grands édifices (63-0324M) ni les miracles spectaculaires (65-0725M) ne prouvent-ils la vérité divine ?",
+      "category": "multi_sermons",
+      "difficulty": "hard",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 2,
+      "retrieved_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        }
+      ],
+      "retrieved_source_count_at_5": 2,
+      "retrieved_source_count_at_10": 2,
+      "retrieved_source_count_at_20": 2,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 2,
+      "citation_relevance_precision": 0.667,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.44
+    },
+    {
+      "id": "Q065",
+      "question": "Et que portait cet imposteur monté sur le cheval ?",
+      "category": "ambigue",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 1,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.22
+    },
+    {
+      "id": "Q066",
+      "question": "Où cette nourriture sacrée était-elle gardée autrefois ?",
+      "category": "ambigue",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 5,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 0,
+      "retrieved_source_count_at_10": 0,
+      "retrieved_source_count_at_20": 0,
+      "source_coverage_at_5": 0,
+      "source_coverage_at_10": 0,
+      "source_coverage_at_20": 0,
+      "rank": null,
+      "citation_authenticity": true,
+      "citation_relevance_count": 0,
+      "citation_relevance_precision": 0,
+      "recall_at_5": 0,
+      "recall_at_10": 0,
+      "recall_at_20": 0,
+      "retrieval_latency_ms": 0.22
+    },
+    {
+      "id": "Q067",
+      "question": "Et combien sont-ils à être scellés à ce moment précis ?",
+      "category": "ambigue",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 2,
+          "title": "La Fête Des Trompettes",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 2,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.5,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.24
+    },
+    {
+      "id": "Q068",
+      "question": "Pourquoi les miracles seuls ne suffisent-ils pas à les reconnaître ?",
+      "category": "ambigue",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 4,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.333,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.23
+    },
+    {
+      "id": "Q069",
+      "question": "Quel prophète de l'Écriture a annoncé cette clarté vespérale ?",
+      "category": "ambigue",
+      "difficulty": "easy",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 2,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.333,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.25
+    },
+    {
+      "id": "Q070",
+      "question": "Et quel étendard flotte aujourd'hui au-dessus de cette ville ?",
+      "category": "ambigue",
+      "difficulty": "easy",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3,
+          "title": "La Fête Des Trompettes",
+          "score": 50,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3,
+          "title": "La Communion",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.5,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.23
+    },
+    {
+      "id": "Q071",
+      "question": "De quelle semence leur être intérieur doit-il obligatoirement naître ?",
+      "category": "ambigue",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 3,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 4,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.333,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.5
+    },
+    {
+      "id": "Q072",
+      "question": "Et pourquoi ne faut-il pas regarder à la magnificence de leurs temples ?",
+      "category": "ambigue",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [],
+      "retrieved_source_count_at_5": 0,
+      "retrieved_source_count_at_10": 0,
+      "retrieved_source_count_at_20": 0,
+      "source_coverage_at_5": 0,
+      "source_coverage_at_10": 0,
+      "source_coverage_at_20": 0,
+      "rank": null,
+      "citation_authenticity": true,
+      "citation_relevance_count": 0,
+      "citation_relevance_precision": 0,
+      "recall_at_5": 0,
+      "recall_at_10": 0,
+      "recall_at_20": 0,
+      "retrieval_latency_ms": 0.44
+    },
+    {
+      "id": "Q073",
+      "question": "Que dit William Branham sur la construction de la Tour Eiffel à Paris ?",
+      "category": "hors_corpus",
+      "difficulty": "hard",
+      "answerable": false,
+      "expected_sources": [],
+      "expected_source_count": 0,
+      "retrieved_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 1,
+          "title": "La Fête Des Trompettes",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 0,
+      "retrieved_source_count_at_10": 0,
+      "retrieved_source_count_at_20": 0,
+      "source_coverage_at_5": 0,
+      "source_coverage_at_10": 0,
+      "source_coverage_at_20": 0,
+      "rank": null,
+      "citation_authenticity": true,
+      "citation_relevance_count": 0,
+      "citation_relevance_precision": 0,
+      "recall_at_5": 0,
+      "recall_at_10": 0,
+      "recall_at_20": 0,
+      "retrieval_latency_ms": 0.21
+    },
+    {
+      "id": "Q074",
+      "question": "Quelle est la date exacte de l'invention d'Internet selon les sermons disponibles ?",
+      "category": "hors_corpus",
+      "difficulty": "hard",
+      "answerable": false,
+      "expected_sources": [],
+      "expected_source_count": 0,
+      "retrieved_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3,
+          "title": "La Fête Des Trompettes",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 0,
+      "retrieved_source_count_at_10": 0,
+      "retrieved_source_count_at_20": 0,
+      "source_coverage_at_5": 0,
+      "source_coverage_at_10": 0,
+      "source_coverage_at_20": 0,
+      "rank": null,
+      "citation_authenticity": true,
+      "citation_relevance_count": 0,
+      "citation_relevance_precision": 0,
+      "recall_at_5": 0,
+      "recall_at_10": 0,
+      "recall_at_20": 0,
+      "retrieval_latency_ms": 0.27
+    },
+    {
+      "id": "Q075",
+      "question": "Comment réparer une pompe à injection diesel sur un tracteur agricole ?",
+      "category": "hors_corpus",
+      "difficulty": "hard",
+      "answerable": false,
+      "expected_sources": [],
+      "expected_source_count": 0,
+      "retrieved_sources": [],
+      "retrieved_source_count_at_5": 0,
+      "retrieved_source_count_at_10": 0,
+      "retrieved_source_count_at_20": 0,
+      "source_coverage_at_5": 0,
+      "source_coverage_at_10": 0,
+      "source_coverage_at_20": 0,
+      "rank": null,
+      "citation_authenticity": true,
+      "citation_relevance_count": 0,
+      "citation_relevance_precision": 0,
+      "recall_at_5": 0,
+      "recall_at_10": 0,
+      "recall_at_20": 0,
+      "retrieval_latency_ms": 0.41
+    },
+    {
+      "id": "Q076",
+      "question": "Dans quel sermon Branham affirme-t-il que le cavalier noir maniait une épée laser ?",
+      "category": "hors_corpus",
+      "difficulty": "hard",
+      "answerable": false,
+      "expected_sources": [],
+      "expected_source_count": 0,
+      "retrieved_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 0,
+      "retrieved_source_count_at_10": 0,
+      "retrieved_source_count_at_20": 0,
+      "source_coverage_at_5": 0,
+      "source_coverage_at_10": 0,
+      "source_coverage_at_20": 0,
+      "rank": null,
+      "citation_authenticity": true,
+      "citation_relevance_count": 0,
+      "citation_relevance_precision": 0,
+      "recall_at_5": 0,
+      "recall_at_10": 0,
+      "recall_at_20": 0,
+      "retrieval_latency_ms": 0.23
+    },
+    {
+      "id": "Q077",
+      "question": "Quel est le résultat de la finale de la coupe du monde de football de 1998 ?",
+      "category": "hors_corpus",
+      "difficulty": "hard",
+      "answerable": false,
+      "expected_sources": [],
+      "expected_source_count": 0,
+      "retrieved_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 2,
+          "title": "La Communion",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 0,
+      "retrieved_source_count_at_10": 0,
+      "retrieved_source_count_at_20": 0,
+      "source_coverage_at_5": 0,
+      "source_coverage_at_10": 0,
+      "source_coverage_at_20": 0,
+      "rank": null,
+      "citation_authenticity": true,
+      "citation_relevance_count": 0,
+      "citation_relevance_precision": 0,
+      "recall_at_5": 0,
+      "recall_at_10": 0,
+      "recall_at_20": 0,
+      "retrieval_latency_ms": 0.7
+    },
+    {
+      "id": "Q078",
+      "question": "Quelle est la formule mathématique de la relativité générale énoncée par Einstein selon les textes ?",
+      "category": "hors_corpus",
+      "difficulty": "hard",
+      "answerable": false,
+      "expected_sources": [],
+      "expected_source_count": 0,
+      "retrieved_sources": [],
+      "retrieved_source_count_at_5": 0,
+      "retrieved_source_count_at_10": 0,
+      "retrieved_source_count_at_20": 0,
+      "source_coverage_at_5": 0,
+      "source_coverage_at_10": 0,
+      "source_coverage_at_20": 0,
+      "rank": null,
+      "citation_authenticity": true,
+      "citation_relevance_count": 0,
+      "citation_relevance_precision": 0,
+      "recall_at_5": 0,
+      "recall_at_10": 0,
+      "recall_at_20": 0,
+      "retrieval_latency_ms": 0.61
+    },
+    {
+      "id": "Q079",
+      "question": "Combien de chapitres compte la sourate Al-Baqara selon William Branham ?",
+      "category": "hors_corpus",
+      "difficulty": "hard",
+      "answerable": false,
+      "expected_sources": [],
+      "expected_source_count": 0,
+      "retrieved_sources": [],
+      "retrieved_source_count_at_5": 0,
+      "retrieved_source_count_at_10": 0,
+      "retrieved_source_count_at_20": 0,
+      "source_coverage_at_5": 0,
+      "source_coverage_at_10": 0,
+      "source_coverage_at_20": 0,
+      "rank": null,
+      "citation_authenticity": true,
+      "citation_relevance_count": 0,
+      "citation_relevance_precision": 0,
+      "recall_at_5": 0,
+      "recall_at_10": 0,
+      "recall_at_20": 0,
+      "retrieval_latency_ms": 0.52
+    },
+    {
+      "id": "Q080",
+      "question": "Quelle est la température d'ébullition de l'azote liquide selon les sermons de Jeffersonville ?",
+      "category": "hors_corpus",
+      "difficulty": "hard",
+      "answerable": false,
+      "expected_sources": [],
+      "expected_source_count": 0,
+      "retrieved_sources": [],
+      "retrieved_source_count_at_5": 0,
+      "retrieved_source_count_at_10": 0,
+      "retrieved_source_count_at_20": 0,
+      "source_coverage_at_5": 0,
+      "source_coverage_at_10": 0,
+      "source_coverage_at_20": 0,
+      "rank": null,
+      "citation_authenticity": true,
+      "citation_relevance_count": 0,
+      "citation_relevance_precision": 0,
+      "recall_at_5": 0,
+      "recall_at_10": 0,
+      "recall_at_20": 0,
+      "retrieval_latency_ms": 0.45
+    },
+    {
+      "id": "Q081",
+      "question": "Citer exactement la phrase décrivant l'armement et la supercherie du cavalier sur le cheval blanc.",
+      "category": "citation_precise",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3,
+          "title": "La Fête Des Trompettes",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 0,
+      "retrieved_source_count_at_10": 0,
+      "retrieved_source_count_at_20": 0,
+      "source_coverage_at_5": 0,
+      "source_coverage_at_10": 0,
+      "source_coverage_at_20": 0,
+      "rank": null,
+      "citation_authenticity": true,
+      "citation_relevance_count": 0,
+      "citation_relevance_precision": 0,
+      "recall_at_5": 0,
+      "recall_at_10": 0,
+      "recall_at_20": 0,
+      "retrieval_latency_ms": 0.3
+    },
+    {
+      "id": "Q082",
+      "question": "Citer la prophétie de Zacharie telle qu'elle est retranscrite mot à mot dans le sermon des Sceaux.",
+      "category": "citation_precise",
+      "difficulty": "easy",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 30,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.5,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.35
+    },
+    {
+      "id": "Q083",
+      "question": "Citer exactement les paroles de Jésus dans l'Évangile de Jean mentionnées dans La Communion.",
+      "category": "citation_precise",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 2,
+          "title": "La Communion",
+          "score": 45,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3,
+          "title": "La Fête Des Trompettes",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.25,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.69
+    },
+    {
+      "id": "Q084",
+      "question": "Citer textuellement la déclaration de foi et d'identification avec Christ lors de la Sainte Cène.",
+      "category": "citation_precise",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 2,
+          "title": "La Communion",
+          "score": 50,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 3,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 35,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 2,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.2,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.49
+    },
+    {
+      "id": "Q085",
+      "question": "Citer le passage de Matthieu 24:24 textuellement consigné dans Les Oints du Temps de la Fin.",
+      "category": "citation_precise",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 65,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 4,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 50,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 1,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.333,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.48
+    },
+    {
+      "id": "Q086",
+      "question": "Citer la phrase exacte définissant ce que la communion n'est pas simplement.",
+      "category": "citation_precise",
+      "difficulty": "easy",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-1212",
+          "paragraphIndex": 1,
+          "title": "La Communion",
+          "score": 45,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3,
+          "title": "La Fête Des Trompettes",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.5,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.42
+    },
+    {
+      "id": "Q087",
+      "question": "Citer la mise en garde textuelle concernant l'attachement au « pur Ainsi dit le Seigneur » face aux miracles.",
+      "category": "citation_precise",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 3,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 80,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "63-0324M",
+          "paragraphIndex": 4,
+          "title": "Questions Et Réponses Sur Les Sceaux",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.5,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.42
+    },
+    {
+      "id": "Q088",
+      "question": "Citer la description exacte des signes visibles à Jérusalem prouvant que le figuier a reverdi.",
+      "category": "citation_precise",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3
+        }
+      ],
+      "expected_source_count": 1,
+      "retrieved_sources": [
+        {
+          "sermonId": "64-0719M",
+          "paragraphIndex": 3,
+          "title": "La Fête Des Trompettes",
+          "score": 50,
+          "citation_authenticity": true,
+          "citation_relevance": true
+        },
+        {
+          "sermonId": "65-0725M",
+          "paragraphIndex": 2,
+          "title": "Les Oints Du Temps De La Fin",
+          "score": 20,
+          "citation_authenticity": true,
+          "citation_relevance": false
+        }
+      ],
+      "retrieved_source_count_at_5": 1,
+      "retrieved_source_count_at_10": 1,
+      "retrieved_source_count_at_20": 1,
+      "source_coverage_at_5": 1,
+      "source_coverage_at_10": 1,
+      "source_coverage_at_20": 1,
+      "rank": 1,
+      "citation_authenticity": true,
+      "citation_relevance_count": 1,
+      "citation_relevance_precision": 0.5,
+      "recall_at_5": 1,
+      "recall_at_10": 1,
+      "recall_at_20": 1,
+      "retrieval_latency_ms": 0.4
+    }
+  ]
+}

@@ -1,0 +1,221 @@
+{
+  "timestamp": "2026-10-04T08:46:50.598Z",
+  "phase": "2F.12F",
+  "title": "Validation réelle de la génération Gemini",
+  "finalStatus": "GEMINI_VALIDATION_BLOCKED_BY_QUOTA",
+  "summary": {
+    "realGenerationsSuccessful": 4,
+    "quotaErrors": 1,
+    "otherErrors": 4,
+    "fallbackUsed": 0
+  },
+  "featureFlags": {
+    "useLegacyRetrieval": true,
+    "useHybridRetrieval": false,
+    "useUnifiedRag": false,
+    "useEmbeddings": false,
+    "useQueryRewrite": false,
+    "useReranker": false,
+    "useCitationValidation": false,
+    "useQueryCache": false,
+    "useResponseCache": false
+  },
+  "results": [
+    {
+      "id": 1,
+      "category": "Sermon seul",
+      "query": "premier sceau cavalier cheval blanc",
+      "aiContext": [
+        "63-0324M"
+      ],
+      "answerable": true,
+      "evidenceCount": 2,
+      "geminiAttempted": true,
+      "model": "gemini-3.8-flash",
+      "status": "SUCCESS",
+      "answerText": "Concernant le premier sceau et le cavalier sur le cheval blanc, les enseignements apportent les précisions suivantes :\n\nLe cavalier sur le cheval blanc ne représente pas le Seigneur Jésus-Christ, mais l'antichrist :\n> « Le premier sceau a été ouvert, et nous avons clairement vu que le cavalier sur le cheval blanc n'était pas le Seigneur Jésus-Christ, mais bien l'antichrist imitant le Véritable. » [Réf: 63-0324M, §2]\n\nCe cavalier est caractérisé par un esprit de séduction et une imposture religieuse :\n> « Il portait un arc, mais n'avait aucune flèche. C'est le grand bluff religieux du temps de la fin. L'esprit de l'antichrist est sorti conquérant pour séduire le monde entier par une fausse paix et un faux dogme. » [Réf: 63-0324M, §2]\n\nNéanmoins, l'Épouse de Christ est pourvue du discernement nécessaire face à cette séduction :\n> « Mais l'Épouse de Christ a l'Esprit de Dieu pour discerner ces choses avec une précision divine. » [Réf: 63-0324M, §2]\n\n---\n\n### Sources consultées\n- **63-0324M** : *Questions Et Réponses Sur Les Sceaux*, §2.",
+      "validCitations": 3,
+      "invalidCitations": 0,
+      "chunkIdExposed": false,
+      "latencyMs": 4911,
+      "errorCode": null
+    },
+    {
+      "id": 2,
+      "category": "Exposé seul",
+      "query": "Que signifie le nom Philadelphie d'après l'Exposé ?",
+      "aiContext": [
+        "expose-ch-8"
+      ],
+      "answerable": true,
+      "evidenceCount": 5,
+      "geminiAttempted": true,
+      "model": "gemini-3.8-flash",
+      "status": "SUCCESS",
+      "answerText": "D'après l'Exposé des Sept Âges de l'Église, le nom Philadelphie signifie « amour fraternel » :\n\n> « À cause de la signification du nom de la ville, cet âge a été appelé l’Âge de l’amour fraternel, car Philadelphie signifie “amour fraternel”. » [Réf: expose-ch-8, §15]\n\nLe texte précise également que la ville existe toujours sous le nom turc d'Alasehir, qui signifie « Cité de Dieu » :\n\n> « En fait, elle existe toujours sous le nom turc d’Alasehir, c’est-à-dire la “Cité de Dieu”. » [Réf: expose-ch-8, §9]\n\n### Sources consultées\n- expose-ch-8 : \"Chapitre 8 - L'Âge de l'Église de Philadelphie\", paragraphes §9 et §15.",
+      "validCitations": 2,
+      "invalidCitations": 0,
+      "chunkIdExposed": false,
+      "latencyMs": 3235,
+      "errorCode": null
+    },
+    {
+      "id": 3,
+      "category": "Bible seule",
+      "query": "Car Dieu a tant aimé le monde qu'il a donné son Fils unique",
+      "aiContext": [
+        "bible-jhn-3"
+      ],
+      "answerable": true,
+      "evidenceCount": 5,
+      "geminiAttempted": true,
+      "model": "gemini-3.8-flash",
+      "status": "SUCCESS",
+      "answerText": "Ce passage correspond textuellement à la déclaration suivante :\n\n> « Car Dieu a tant aimé le monde qu’il a donné son Fils unique, afin que quiconque croit en lui ne périsse point, mais qu’il ait la vie éternelle. » [Réf: Jean 3:16]\n\nLes textes fournis apportent les précisions suivantes sur le dessein et la portée de cette venue du Fils :\n\n1. **Le but de l'envoi du Fils** :\n> « Dieu, en effet, n’a pas envoyé son Fils dans le monde pour qu’il juge le monde, mais pour que le monde soit sauvé par lui. » [Réf: Jean 3:17]\n\n2. **La conséquence de la foi ou de l'incrédulité** :\n> « Celui qui croit en lui n’est point jugé ; mais celui qui ne croit pas est déjà jugé, parce qu’il n’a pas cru au nom du Fils unique de Dieu. » [Réf: Jean 3:18]\n\n3. **La nature du jugement** :\n> « Et ce jugement c’est que, la lumière étant venue dans le monde, les hommes ont préféré les ténèbres à la lumière, parce que leurs œuvres étaient mauvaises. » [Réf: Jean 3:19]\n\n### Sources consultées\n- Jean 3, §16 [Réf: Jean 3:16]\n- Jean 3, §17 [Réf: Jean 3:17]\n- Jean 3, §18 [Réf: Jean 3:18]\n- Jean 3, §19 [Réf: Jean 3:19]",
+      "validCitations": 8,
+      "invalidCitations": 0,
+      "chunkIdExposed": false,
+      "latencyMs": 5422,
+      "errorCode": null
+    },
+    {
+      "id": 4,
+      "category": "Chant seul",
+      "query": "Come to my soul blessed Jesus heart like Thine Savior divine",
+      "aiContext": [
+        "song-1"
+      ],
+      "answerable": true,
+      "evidenceCount": 5,
+      "geminiAttempted": true,
+      "model": null,
+      "status": "ERROR",
+      "answerText": null,
+      "validCitations": 0,
+      "invalidCitations": 0,
+      "chunkIdExposed": false,
+      "latencyMs": 3139,
+      "errorCode": "SERVICE_UNAVAILABLE"
+    },
+    {
+      "id": 5,
+      "category": "Sermon + Bible",
+      "query": "premier sceau et Fils unique donné par amour",
+      "aiContext": [
+        "63-0324M",
+        "bible-jhn-3"
+      ],
+      "answerable": false,
+      "evidenceCount": 0,
+      "geminiAttempted": false,
+      "model": null,
+      "status": "ERROR",
+      "answerText": null,
+      "validCitations": 0,
+      "invalidCitations": 0,
+      "chunkIdExposed": false,
+      "latencyMs": 5,
+      "errorCode": "NOT_ANSWERABLE"
+    },
+    {
+      "id": 6,
+      "category": "Sermon + Exposé",
+      "query": "premier sceau et âge de Philadelphie",
+      "aiContext": [
+        "63-0324M",
+        "expose-ch-8"
+      ],
+      "answerable": true,
+      "evidenceCount": 5,
+      "geminiAttempted": true,
+      "model": null,
+      "status": "ERROR",
+      "answerText": null,
+      "validCitations": 0,
+      "invalidCitations": 0,
+      "chunkIdExposed": false,
+      "latencyMs": 4453,
+      "errorCode": "SERVICE_UNAVAILABLE"
+    },
+    {
+      "id": 7,
+      "category": "Multi-source (4 types)",
+      "query": "premier sceau et Philadelphie et Fils unique et heart like Thine",
+      "aiContext": [
+        "63-0324M",
+        "expose-ch-8",
+        "bible-jhn-3",
+        "song-1"
+      ],
+      "answerable": true,
+      "evidenceCount": 5,
+      "geminiAttempted": true,
+      "model": "gemini-3.8-flash",
+      "status": "SUCCESS",
+      "answerText": "Les documents disponibles dans la base documentaire de l'application ne contiennent pas d'informations suffisantes pour répondre à cette question.",
+      "validCitations": 0,
+      "invalidCitations": 0,
+      "chunkIdExposed": false,
+      "latencyMs": 5910,
+      "errorCode": null
+    },
+    {
+      "id": 8,
+      "category": "Citation précise",
+      "query": "Quel est l'âge de l'amour fraternel et quelle porte est ouverte ?",
+      "aiContext": [
+        "expose-ch-8"
+      ],
+      "answerable": true,
+      "evidenceCount": 5,
+      "geminiAttempted": true,
+      "model": null,
+      "status": "QUOTA_ERROR",
+      "answerText": null,
+      "validCitations": 0,
+      "invalidCitations": 0,
+      "chunkIdExposed": false,
+      "latencyMs": 191,
+      "errorCode": "RESOURCE_EXHAUSTED"
+    },
+    {
+      "id": 9,
+      "category": "Question ambiguë",
+      "query": "sceau et amour",
+      "aiContext": [
+        "63-0324M",
+        "expose-ch-8"
+      ],
+      "answerable": false,
+      "evidenceCount": 0,
+      "geminiAttempted": false,
+      "model": null,
+      "status": "ERROR",
+      "answerText": null,
+      "validCitations": 0,
+      "invalidCitations": 0,
+      "chunkIdExposed": false,
+      "latencyMs": 18,
+      "errorCode": "NOT_ANSWERABLE"
+    },
+    {
+      "id": 10,
+      "category": "Question hors-contexte (Isolement)",
+      "query": "Que dit la rencontre nocturne de Nicodème avec Jésus au chapitre 3 selon saint Jean ?",
+      "aiContext": [
+        "63-0324M"
+      ],
+      "answerable": false,
+      "evidenceCount": 0,
+      "geminiAttempted": false,
+      "model": null,
+      "status": "SUCCESS_ISOLATION_PASSED",
+      "answerText": null,
+      "validCitations": 0,
+      "invalidCitations": 0,
+      "chunkIdExposed": false,
+      "latencyMs": 2,
+      "errorCode": "NOT_ANSWERABLE"
+    }
+  ]
+}

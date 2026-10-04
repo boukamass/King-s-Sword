@@ -1,0 +1,82 @@
+{
+  "timestamp": "2026-10-04T15:51:48.160Z",
+  "phase": "2F.15",
+  "title": "UX de Première Indexation",
+  "status": "INDEXING_UX_READY",
+  "totalTests": 10,
+  "passCount": 10,
+  "failCount": 0,
+  "uiComponentCreated": "components/CorpusIndexingIndicator.tsx",
+  "mountedIn": "components/AIAssistant.tsx",
+  "frenchMessagesValidated": {
+    "SCANNING": "Analyse de votre bibliothèque...",
+    "CHUNKING": "Préparation des sermons...",
+    "EMBEDDING": "Optimisation de la recherche intelligente...",
+    "PARTIAL": "La préparation a été interrompue. Elle reprendra automatiquement.",
+    "READY": "Votre bibliothèque est prête.",
+    "ERROR_429_503": "L'optimisation de la recherche est temporairement suspendue. Elle reprendra automatiquement."
+  },
+  "featureFlags": {
+    "useLegacyRetrieval": true,
+    "useHybridRetrieval": false,
+    "useUnifiedRag": true,
+    "useEmbeddings": false,
+    "useQueryRewrite": false,
+    "useReranker": false,
+    "useCitationValidation": false,
+    "useQueryCache": false,
+    "useResponseCache": false
+  },
+  "scenariosTested": [
+    {
+      "title": "SCANNING : \"Analyse de votre bibliothèque...\"",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "title": "CHUNKING : \"Préparation des sermons...\"",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "title": "EMBEDDING : \"Optimisation de la recherche intelligente...\"",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "title": "PARTIAL : \"La préparation a été interrompue. Elle reprendra automatiquement.\"",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "title": "READY : \"Votre bibliothèque est prête.\"",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "title": "ERROR 429/503 : Message bienveillant \"L'optimisation de la recherche est temporairement suspendue. Elle reprendra automatiquement.\"",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "title": "ERROR Générique : Message clair \"Impossible de terminer la préparation...\"",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "title": "Progression dynamique : 16 200 / 60 000 chunks = 27% calculé exactement",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "title": "Persistance : État d'indexation restauré sans remise à zéro artificielle",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "title": "Sécurité RAG : Source non indexée -> answerable=false, Gemini non appelé",
+      "status": "PASS",
+      "details": ""
+    }
+  ]
+}

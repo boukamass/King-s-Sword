@@ -27,6 +27,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Key-Value Store
     getKV: (key) => ipcRenderer.invoke('db:getKV', key),
     setKV: (key, value) => ipcRenderer.invoke('db:setKV', key, value),
+    // Chunks
+    saveChunks: (chunks) => ipcRenderer.invoke('db:saveChunks', chunks),
+    getChunk: (chunkId) => ipcRenderer.invoke('db:getChunk', chunkId),
+    getChunksBySermon: (sermonId) => ipcRenderer.invoke('db:getChunksBySermon', sermonId),
+    getAllChunks: () => ipcRenderer.invoke('db:getAllChunks'),
+    deleteChunksBySermon: (sermonId) => ipcRenderer.invoke('db:deleteChunksBySermon', sermonId),
     // Backup & Restore
     exportBackup: () => ipcRenderer.invoke('backup:exportUserData'),
     importBackup: (backupData) => ipcRenderer.invoke('backup:importUserData', backupData),
