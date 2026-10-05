@@ -1,0 +1,2116 @@
+{
+  "generatedAt": "2026-10-05T08:58:39.805Z",
+  "calibration": {
+    "hash": "bc83b84000a4eac71720f57fe93674318a3964703c648fab8abe12e48dca8884",
+    "totalQuestions": 20,
+    "calibratedCosThreshold": 0.68,
+    "minAnsScore": 0.6909377713239021,
+    "avgAnsScore": 0.7597113161062001,
+    "maxUnansScore": 0.6594905309173357,
+    "avgUnansScore": 0.5621344727167201
+  },
+  "ablation50": {
+    "totalQuestions": 50,
+    "answerable": 35,
+    "unanswerable": 15,
+    "pipelines": {
+      "bm25_seul": {
+        "pipeline": "bm25_seul",
+        "recallAt5": 94.3,
+        "recallAt10": 94.3,
+        "recallAt20": 97.1,
+        "r5Hits": "33/35",
+        "r10Hits": "33/35",
+        "r20Hits": "34/35",
+        "mrr": 0.812,
+        "ndcgAt10": 0.843,
+        "falseRefusals": {
+          "count": 0,
+          "total": 35,
+          "interval": {
+            "point": 0,
+            "lower": 0,
+            "upper": 9.9,
+            "text": "0.0% [0.0% - 9.9%]"
+          }
+        },
+        "falseAcceptances": {
+          "count": 15,
+          "total": 15,
+          "interval": {
+            "point": 100,
+            "lower": 79.6,
+            "upper": 100,
+            "text": "100.0% [79.6% - 100.0%]"
+          }
+        },
+        "vectorMethod": "cosine_768d_int8",
+        "perQuestion": [
+          {
+            "id": "EXP_001",
+            "question": "Quelle est la définition et la signification des œuvres des Nicolaïtes dans l'Âge d'Éphèse ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 161.6540415920765,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_002",
+            "question": "Qui est le messager désigné pour l'Âge de l'Église de Smyrne selon l'Exposé ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 135.5048670766492,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_003",
+            "question": "À quoi correspondent prophétiquement les dix jours de tribulation mentionnés pour l'Église de Smyrne sous l'empereur Dioclétien ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 141.37178518168565,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_004",
+            "question": "Qui est le messager suscité par Dieu pour l'Âge de l'Église de Sardes ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 160.36710883293816,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_005",
+            "question": "Quel a été le rôle de saint Martin de Tours en tant que messager dans l'Âge de Pergame ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 165.83255973274024,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_006",
+            "question": "Comment l'esprit de Jézabel est-il décrit et identifié dans l'Âge de l'Église de Thyatire ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 113.04622674511887,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_007",
+            "question": "De quelle manière l'alliance néfaste entre l'institution religieuse et l'empire séculier s'est-elle concrétisée au concile de Nicée en 325 ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 43.31072319880682,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_008",
+            "question": "En quoi consiste la porte ouverte que personne ne peut fermer accordée à l'âge de l'amour fraternel ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 155.97989336659907,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_009",
+            "question": "Comment l'Exposé démontre-t-il la Divinité suprême de Jésus-Christ en tant que Seul Vrai Dieu, Alpha et Oméga ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 116.80147727796816,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_010",
+            "question": "Qu'est-ce que la doctrine de Balaam enseignée dans l'Âge de Pergame ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 118.50336358911909,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_011",
+            "question": "Quelle est la portée spirituelle de la manne cachée et du caillou blanc promis au vainqueur ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 77.5370068282619,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_012",
+            "question": "Quelle est la racine étymologique et la signification exacte du nom Smyrne selon l'Exposé ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 79.89604525182142,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_013",
+            "question": "Que signifie littéralement le mot Pergame dans le contexte de l'histoire de l'Église ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 114.9937382559152,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_014",
+            "question": "Quelle est la définition littérale du terme Laodicée et que traduit-elle sur l'état du peuple ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 90.05651185302386,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_015",
+            "question": "Que signifie le nom Sardes selon l'Exposé des Sept Âges ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 119.86190435029805,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_016",
+            "question": "Comment les Nicolaïtes sont-ils passés du stade d'œuvres dans Éphèse au stade de doctrine établie dans Pergame ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 132.9471525023921,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_017",
+            "question": "Comment le conflit entre la vraie vigne spirituelle et la fausse vigne charnelle se développe-t-il à travers les âges ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 125.69743936498755,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_018",
+            "question": "Quels sont les sept messagers des sept âges de l'Église décrits dans l'Exposé ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 176.1326629969982,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_019",
+            "question": "Quelle est la particularité commune aux Églises de Smyrne et de Philadelphie quant aux reproches du Seigneur ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 97.70522783319115,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_020",
+            "question": "Que représente la vision de l'Étoile du Matin donnée à l'Église de Thyatire ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 92.69779320633668,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_021",
+            "question": "Qui sont les sept étoiles tenues dans la main droite du Fils de l'Homme ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 155.85999621602355,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_022",
+            "question": "Comment l'Exposé explique-t-il la ceinture d'or que portait le Christ sur la poitrine dans la vision de Patmos ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 104.82902493637697,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_031",
+            "question": "Quel était le messager de Dieu pour le premier Âge de l'Église selon l'Exposé ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 152.4959361965434,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_032",
+            "question": "Qui était le messager pour l'Âge de l'Église de Philadelphie selon l'Exposé ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 123.37633680686056,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_033",
+            "question": "Quel est le reproche majeur fait par le Seigneur à l'Église de Laodicée concernant sa tiédeur ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 129.2608956980627,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_034",
+            "question": "Comment l'Exposé décrit-il les yeux comme une flamme de feu dans la vision de Christ à Patmos ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 148.88703797021282,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_035",
+            "question": "En quoi consiste le vêtement blanc promis à ceux qui n'ont pas souillé leurs vêtements dans l'Église de Sardes ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 168.609596695125,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_036",
+            "question": "Quelle est la signification de l'épée aiguë à deux tranchants qui sort de la bouche du Fils de l'Homme ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 111.29160487393855,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_037",
+            "question": "Que signifie le nom Philadelphie d'après l'Exposé des Sept Âges ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 105.01318976835616,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_040",
+            "question": "Comment le baptême d'eau au Nom du Seigneur Jésus-Christ est-il expliqué et défendu dans l'Exposé ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 83.50219624084046,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_041",
+            "question": "Quelle est la véritable nature de la séduction en Éden et de la semence du serpent ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 66.56822197034307,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_042",
+            "question": "Qui est le cavalier sur le cheval blanc dans le premier sceau et que portait-il ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 163.83117894400735,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_043",
+            "question": "Comment Frère Branham définit-il l'étoile du matin et le chandelier d'or ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 43.13060450249259,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_044",
+            "question": "Comment l'Esprit d'Élie doit-il restaurer la foi transmise aux saints au temps de la fin ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 66.16681793151804,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_045",
+            "question": "Quelle est la signification du baptême d'eau et de la formule apostolique selon l'Exposé ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 52.468559082975226,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_023",
+            "question": "Quelle est la vitesse maximale et la puissance moteur d'un tracteur agricole diesel moderne ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 55.27204208212296,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_024",
+            "question": "Qui a marqué les buts lors de la finale de la Coupe du Monde de football en 1998 à Paris ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 77.18537536546754,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_025",
+            "question": "À quelle température l'azote liquide entre-t-il en ébullition sous pression atmosphérique standard ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 26.554822334972954,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_026",
+            "question": "Quelles sont les formules mathématiques d'Albert Einstein expliquant la relativité restreinte ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 61.03041978603187,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_027",
+            "question": "Quelle est l'exégèse coranique traditionnelle des versets de la sourate Al-Baqara ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 74.72758859033586,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_028",
+            "question": "Quelles sont les résolutions votées lors de la quatrième session du Concile Vatican II en 1965 selon l'Exposé ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 70.23929379189207,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_029",
+            "question": "Que prescrit le droit canonique du Concile de Trente au sujet du commerce des indulgences d'après l'Exposé ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 86.53006612045967,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_030",
+            "question": "Quels sont les détails architecturaux de Gustave Eiffel pour l'érection de la tour métallique à Paris mentionnés dans l'Exposé ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 87.71159279593493,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_038",
+            "question": "Quelles sont les directives sur le déploiement du réseau internet mondial données dans l'Exposé ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 84.36911067149798,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_039",
+            "question": "Quelle est la composition chimique de l'atmosphère terrestre en pourcentage d'azote et d'oxygène ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 42.54305674142329,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_046",
+            "question": "Quel est le protocole de chiffrement quantique utilisé par les satellites géostationnaires ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 96.92623625061685,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_047",
+            "question": "Quelle est la recette traditionnelle du cassoulet de Castelnaudary ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 42.86703605465652,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_048",
+            "question": "Comment diagnostiquer une panne d'alternateur sur un moteur hybride rechargeable ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 51.35568352037009,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_049",
+            "question": "Quelles sont les cotes boursières du CAC 40 le 15 mars 2024 selon William Branham ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 61.03041978603187,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_050",
+            "question": "Que déclare l'Exposé des Sept Âges sur l'exploration spatiale de la planète Mars par la NASA ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0,
+            "topLexScore": 124.37414937311388,
+            "vectorMethod": "cosine_768d_int8"
+          }
+        ]
+      },
+      "vecteur_seul": {
+        "pipeline": "vecteur_seul",
+        "recallAt5": 62.9,
+        "recallAt10": 62.9,
+        "recallAt20": 62.9,
+        "r5Hits": "22/35",
+        "r10Hits": "22/35",
+        "r20Hits": "22/35",
+        "mrr": 0.545,
+        "ndcgAt10": 0.566,
+        "falseRefusals": {
+          "count": 0,
+          "total": 35,
+          "interval": {
+            "point": 0,
+            "lower": 0,
+            "upper": 9.9,
+            "text": "0.0% [0.0% - 9.9%]"
+          }
+        },
+        "falseAcceptances": {
+          "count": 1,
+          "total": 15,
+          "interval": {
+            "point": 6.7,
+            "lower": 1.2,
+            "upper": 29.8,
+            "text": "6.7% [1.2% - 29.8%]"
+          }
+        },
+        "vectorMethod": "cosine_768d_int8",
+        "perQuestion": [
+          {
+            "id": "EXP_001",
+            "question": "Quelle est la définition et la signification des œuvres des Nicolaïtes dans l'Âge d'Éphèse ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.8335557269252455,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_002",
+            "question": "Qui est le messager désigné pour l'Âge de l'Église de Smyrne selon l'Exposé ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.806089154360403,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_003",
+            "question": "À quoi correspondent prophétiquement les dix jours de tribulation mentionnés pour l'Église de Smyrne sous l'empereur Dioclétien ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.8557011115053479,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_004",
+            "question": "Qui est le messager suscité par Dieu pour l'Âge de l'Église de Sardes ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7454612754464089,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_005",
+            "question": "Quel a été le rôle de saint Martin de Tours en tant que messager dans l'Âge de Pergame ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7939033369333262,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_006",
+            "question": "Comment l'esprit de Jézabel est-il décrit et identifié dans l'Âge de l'Église de Thyatire ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7052933524059468,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_007",
+            "question": "De quelle manière l'alliance néfaste entre l'institution religieuse et l'empire séculier s'est-elle concrétisée au concile de Nicée en 325 ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.72672512082664,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_008",
+            "question": "En quoi consiste la porte ouverte que personne ne peut fermer accordée à l'âge de l'amour fraternel ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.6821485042000135,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_009",
+            "question": "Comment l'Exposé démontre-t-il la Divinité suprême de Jésus-Christ en tant que Seul Vrai Dieu, Alpha et Oméga ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7456899789157049,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_010",
+            "question": "Qu'est-ce que la doctrine de Balaam enseignée dans l'Âge de Pergame ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7868868134860986,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_011",
+            "question": "Quelle est la portée spirituelle de la manne cachée et du caillou blanc promis au vainqueur ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.8552315163847263,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_012",
+            "question": "Quelle est la racine étymologique et la signification exacte du nom Smyrne selon l'Exposé ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7430751911597206,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_013",
+            "question": "Que signifie littéralement le mot Pergame dans le contexte de l'histoire de l'Église ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.8055244611416861,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_014",
+            "question": "Quelle est la définition littérale du terme Laodicée et que traduit-elle sur l'état du peuple ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.6875432814634677,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_015",
+            "question": "Que signifie le nom Sardes selon l'Exposé des Sept Âges ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7387610085013889,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_016",
+            "question": "Comment les Nicolaïtes sont-ils passés du stade d'œuvres dans Éphèse au stade de doctrine établie dans Pergame ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.8225107623172312,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_017",
+            "question": "Comment le conflit entre la vraie vigne spirituelle et la fausse vigne charnelle se développe-t-il à travers les âges ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7604288533492197,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_018",
+            "question": "Quels sont les sept messagers des sept âges de l'Église décrits dans l'Exposé ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.8149213892735798,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_019",
+            "question": "Quelle est la particularité commune aux Églises de Smyrne et de Philadelphie quant aux reproches du Seigneur ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7505710956140752,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_020",
+            "question": "Que représente la vision de l'Étoile du Matin donnée à l'Église de Thyatire ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7471553495041597,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_021",
+            "question": "Qui sont les sept étoiles tenues dans la main droite du Fils de l'Homme ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.801792337748904,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_022",
+            "question": "Comment l'Exposé explique-t-il la ceinture d'or que portait le Christ sur la poitrine dans la vision de Patmos ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7535850152803935,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_031",
+            "question": "Quel était le messager de Dieu pour le premier Âge de l'Église selon l'Exposé ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7233915067092243,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_032",
+            "question": "Qui était le messager pour l'Âge de l'Église de Philadelphie selon l'Exposé ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7603676845096193,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_033",
+            "question": "Quel est le reproche majeur fait par le Seigneur à l'Église de Laodicée concernant sa tiédeur ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7110083051676235,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_034",
+            "question": "Comment l'Exposé décrit-il les yeux comme une flamme de feu dans la vision de Christ à Patmos ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7455356473888234,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_035",
+            "question": "En quoi consiste le vêtement blanc promis à ceux qui n'ont pas souillé leurs vêtements dans l'Église de Sardes ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.6880452823446155,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_036",
+            "question": "Quelle est la signification de l'épée aiguë à deux tranchants qui sort de la bouche du Fils de l'Homme ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.8260803958207472,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_037",
+            "question": "Que signifie le nom Philadelphie d'après l'Exposé des Sept Âges ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.6945351697113231,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_040",
+            "question": "Comment le baptême d'eau au Nom du Seigneur Jésus-Christ est-il expliqué et défendu dans l'Exposé ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7498991657607024,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_041",
+            "question": "Quelle est la véritable nature de la séduction en Éden et de la semence du serpent ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7835433260621115,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_042",
+            "question": "Qui est le cavalier sur le cheval blanc dans le premier sceau et que portait-il ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.682320227948466,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_043",
+            "question": "Comment Frère Branham définit-il l'étoile du matin et le chandelier d'or ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7679813158755213,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_044",
+            "question": "Comment l'Esprit d'Élie doit-il restaurer la foi transmise aux saints au temps de la fin ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7229719328186234,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_045",
+            "question": "Quelle est la signification du baptême d'eau et de la formule apostolique selon l'Exposé ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7042680507097719,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_023",
+            "question": "Quelle est la vitesse maximale et la puissance moteur d'un tracteur agricole diesel moderne ?",
+            "answerable": false,
+            "predictedAnswerable": false,
+            "topVectorScore": 0.5715266928830225,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_024",
+            "question": "Qui a marqué les buts lors de la finale de la Coupe du Monde de football en 1998 à Paris ?",
+            "answerable": false,
+            "predictedAnswerable": false,
+            "topVectorScore": 0.5572628165836728,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_025",
+            "question": "À quelle température l'azote liquide entre-t-il en ébullition sous pression atmosphérique standard ?",
+            "answerable": false,
+            "predictedAnswerable": false,
+            "topVectorScore": 0.5439658333643693,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_026",
+            "question": "Quelles sont les formules mathématiques d'Albert Einstein expliquant la relativité restreinte ?",
+            "answerable": false,
+            "predictedAnswerable": false,
+            "topVectorScore": 0.5596491030466544,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_027",
+            "question": "Quelle est l'exégèse coranique traditionnelle des versets de la sourate Al-Baqara ?",
+            "answerable": false,
+            "predictedAnswerable": false,
+            "topVectorScore": 0.6007517430036554,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_028",
+            "question": "Quelles sont les résolutions votées lors de la quatrième session du Concile Vatican II en 1965 selon l'Exposé ?",
+            "answerable": false,
+            "predictedAnswerable": false,
+            "topVectorScore": 0.585554937407862,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_029",
+            "question": "Que prescrit le droit canonique du Concile de Trente au sujet du commerce des indulgences d'après l'Exposé ?",
+            "answerable": false,
+            "predictedAnswerable": false,
+            "topVectorScore": 0.608375785014953,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_030",
+            "question": "Quels sont les détails architecturaux de Gustave Eiffel pour l'érection de la tour métallique à Paris mentionnés dans l'Exposé ?",
+            "answerable": false,
+            "predictedAnswerable": false,
+            "topVectorScore": 0.5486563826710551,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_038",
+            "question": "Quelles sont les directives sur le déploiement du réseau internet mondial données dans l'Exposé ?",
+            "answerable": false,
+            "predictedAnswerable": false,
+            "topVectorScore": 0.5597994315542256,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_039",
+            "question": "Quelle est la composition chimique de l'atmosphère terrestre en pourcentage d'azote et d'oxygène ?",
+            "answerable": false,
+            "predictedAnswerable": false,
+            "topVectorScore": 0.5530196398501681,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_046",
+            "question": "Quel est le protocole de chiffrement quantique utilisé par les satellites géostationnaires ?",
+            "answerable": false,
+            "predictedAnswerable": false,
+            "topVectorScore": 0.537236078893437,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_047",
+            "question": "Quelle est la recette traditionnelle du cassoulet de Castelnaudary ?",
+            "answerable": false,
+            "predictedAnswerable": false,
+            "topVectorScore": 0.5397626095332129,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_048",
+            "question": "Comment diagnostiquer une panne d'alternateur sur un moteur hybride rechargeable ?",
+            "answerable": false,
+            "predictedAnswerable": false,
+            "topVectorScore": 0.536882619140029,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_049",
+            "question": "Quelles sont les cotes boursières du CAC 40 le 15 mars 2024 selon William Branham ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7089922513550999,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_050",
+            "question": "Que déclare l'Exposé des Sept Âges sur l'exploration spatiale de la planète Mars par la NASA ?",
+            "answerable": false,
+            "predictedAnswerable": false,
+            "topVectorScore": 0.6257538969998663,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          }
+        ]
+      },
+      "hybride_rrf": {
+        "pipeline": "hybride_rrf",
+        "recallAt5": 82.9,
+        "recallAt10": 91.4,
+        "recallAt20": 94.3,
+        "r5Hits": "29/35",
+        "r10Hits": "32/35",
+        "r20Hits": "33/35",
+        "mrr": 0.729,
+        "ndcgAt10": 0.772,
+        "falseRefusals": {
+          "count": 4,
+          "total": 35,
+          "interval": {
+            "point": 11.4,
+            "lower": 4.5,
+            "upper": 26,
+            "text": "11.4% [4.5% - 26.0%]"
+          }
+        },
+        "falseAcceptances": {
+          "count": 8,
+          "total": 15,
+          "interval": {
+            "point": 53.3,
+            "lower": 30.1,
+            "upper": 75.2,
+            "text": "53.3% [30.1% - 75.2%]"
+          }
+        },
+        "vectorMethod": "cosine_768d_int8",
+        "perQuestion": [
+          {
+            "id": "EXP_001",
+            "question": "Quelle est la définition et la signification des œuvres des Nicolaïtes dans l'Âge d'Éphèse ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.6983993820681091,
+            "topLexScore": 149.14444182775046,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_002",
+            "question": "Qui est le messager désigné pour l'Âge de l'Église de Smyrne selon l'Exposé ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.806089154360403,
+            "topLexScore": 125.72124868660988,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_003",
+            "question": "À quoi correspondent prophétiquement les dix jours de tribulation mentionnés pour l'Église de Smyrne sous l'empereur Dioclétien ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.8557011115053479,
+            "topLexScore": 141.37178518168565,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_004",
+            "question": "Qui est le messager suscité par Dieu pour l'Âge de l'Église de Sardes ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7000123563208731,
+            "topLexScore": 150.11482640154435,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_005",
+            "question": "Quel a été le rôle de saint Martin de Tours en tant que messager dans l'Âge de Pergame ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7939033369333262,
+            "topLexScore": 165.83255973274024,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_006",
+            "question": "Comment l'esprit de Jézabel est-il décrit et identifié dans l'Âge de l'Église de Thyatire ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.6811314732988165,
+            "topLexScore": 95.06211804986972,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_007",
+            "question": "De quelle manière l'alliance néfaste entre l'institution religieuse et l'empire séculier s'est-elle concrétisée au concile de Nicée en 325 ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.6913221447553177,
+            "topLexScore": 28.82096069868996,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_008",
+            "question": "En quoi consiste la porte ouverte que personne ne peut fermer accordée à l'âge de l'amour fraternel ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.6366929113130981,
+            "topLexScore": 75.66174138819059,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_009",
+            "question": "Comment l'Exposé démontre-t-il la Divinité suprême de Jésus-Christ en tant que Seul Vrai Dieu, Alpha et Oméga ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7443168421105476,
+            "topLexScore": 101.32659732059489,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_010",
+            "question": "Qu'est-ce que la doctrine de Balaam enseignée dans l'Âge de Pergame ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7341228018121477,
+            "topLexScore": 95.41115698872693,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_011",
+            "question": "Quelle est la portée spirituelle de la manne cachée et du caillou blanc promis au vainqueur ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.8552315163847263,
+            "topLexScore": 75.30043246821013,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_012",
+            "question": "Quelle est la racine étymologique et la signification exacte du nom Smyrne selon l'Exposé ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7409694703249294,
+            "topLexScore": 79.89604525182142,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_013",
+            "question": "Que signifie littéralement le mot Pergame dans le contexte de l'histoire de l'Église ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.8055244611416861,
+            "topLexScore": 85.68954850441406,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_014",
+            "question": "Quelle est la définition littérale du terme Laodicée et que traduit-elle sur l'état du peuple ?",
+            "answerable": true,
+            "predictedAnswerable": false,
+            "topVectorScore": 0,
+            "topLexScore": 90.05651185302386,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_015",
+            "question": "Que signifie le nom Sardes selon l'Exposé des Sept Âges ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.6885049195203952,
+            "topLexScore": 90.43860813620805,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_016",
+            "question": "Comment les Nicolaïtes sont-ils passés du stade d'œuvres dans Éphèse au stade de doctrine établie dans Pergame ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7604115036477878,
+            "topLexScore": 88.01950139173596,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_017",
+            "question": "Comment le conflit entre la vraie vigne spirituelle et la fausse vigne charnelle se développe-t-il à travers les âges ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.710044221806346,
+            "topLexScore": 96.97812849852603,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_018",
+            "question": "Quels sont les sept messagers des sept âges de l'Église décrits dans l'Exposé ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7326582319638076,
+            "topLexScore": 176.1326629969982,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_019",
+            "question": "Quelle est la particularité commune aux Églises de Smyrne et de Philadelphie quant aux reproches du Seigneur ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7376566488197224,
+            "topLexScore": 76.80886502674834,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_020",
+            "question": "Que représente la vision de l'Étoile du Matin donnée à l'Église de Thyatire ?",
+            "answerable": true,
+            "predictedAnswerable": false,
+            "topVectorScore": 0,
+            "topLexScore": 92.69779320633668,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_021",
+            "question": "Qui sont les sept étoiles tenues dans la main droite du Fils de l'Homme ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.801792337748904,
+            "topLexScore": 132.21384491610507,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_022",
+            "question": "Comment l'Exposé explique-t-il la ceinture d'or que portait le Christ sur la poitrine dans la vision de Patmos ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7535850152803935,
+            "topLexScore": 103.95442891700709,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_031",
+            "question": "Quel était le messager de Dieu pour le premier Âge de l'Église selon l'Exposé ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7006305349780018,
+            "topLexScore": 149.63245561276148,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_032",
+            "question": "Qui était le messager pour l'Âge de l'Église de Philadelphie selon l'Exposé ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7211052037857167,
+            "topLexScore": 115.68403083901153,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_033",
+            "question": "Quel est le reproche majeur fait par le Seigneur à l'Église de Laodicée concernant sa tiédeur ?",
+            "answerable": true,
+            "predictedAnswerable": false,
+            "topVectorScore": 0,
+            "topLexScore": 129.2608956980627,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_034",
+            "question": "Comment l'Exposé décrit-il les yeux comme une flamme de feu dans la vision de Christ à Patmos ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7455356473888234,
+            "topLexScore": 134.95343621498017,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_035",
+            "question": "En quoi consiste le vêtement blanc promis à ceux qui n'ont pas souillé leurs vêtements dans l'Église de Sardes ?",
+            "answerable": true,
+            "predictedAnswerable": false,
+            "topVectorScore": 0,
+            "topLexScore": 168.609596695125,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_036",
+            "question": "Quelle est la signification de l'épée aiguë à deux tranchants qui sort de la bouche du Fils de l'Homme ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.8260803958207472,
+            "topLexScore": 111.29160487393855,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_037",
+            "question": "Que signifie le nom Philadelphie d'après l'Exposé des Sept Âges ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.6499201675510968,
+            "topLexScore": 90.43860813620805,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_040",
+            "question": "Comment le baptême d'eau au Nom du Seigneur Jésus-Christ est-il expliqué et défendu dans l'Exposé ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7498991657607024,
+            "topLexScore": 80.33984686104336,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_041",
+            "question": "Quelle est la véritable nature de la séduction en Éden et de la semence du serpent ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7811775153851933,
+            "topLexScore": 66.56822197034307,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_042",
+            "question": "Qui est le cavalier sur le cheval blanc dans le premier sceau et que portait-il ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.682320227948466,
+            "topLexScore": 92.28790663033169,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_043",
+            "question": "Comment Frère Branham définit-il l'étoile du matin et le chandelier d'or ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7679813158755213,
+            "topLexScore": 33.11197744856954,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_044",
+            "question": "Comment l'Esprit d'Élie doit-il restaurer la foi transmise aux saints au temps de la fin ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.6950566033968674,
+            "topLexScore": 46.28889079398056,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_045",
+            "question": "Quelle est la signification du baptême d'eau et de la formule apostolique selon l'Exposé ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.6731905409650815,
+            "topLexScore": 49.228338059273405,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_023",
+            "question": "Quelle est la vitesse maximale et la puissance moteur d'un tracteur agricole diesel moderne ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.5244038183381496,
+            "topLexScore": 40.72248699212886,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_024",
+            "question": "Qui a marqué les buts lors de la finale de la Coupe du Monde de football en 1998 à Paris ?",
+            "answerable": false,
+            "predictedAnswerable": false,
+            "topVectorScore": 0,
+            "topLexScore": 77.18537536546754,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_025",
+            "question": "À quelle température l'azote liquide entre-t-il en ébullition sous pression atmosphérique standard ?",
+            "answerable": false,
+            "predictedAnswerable": false,
+            "topVectorScore": 0.5032335638101028,
+            "topLexScore": 15.233479032327867,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_026",
+            "question": "Quelles sont les formules mathématiques d'Albert Einstein expliquant la relativité restreinte ?",
+            "answerable": false,
+            "predictedAnswerable": false,
+            "topVectorScore": 0,
+            "topLexScore": 61.03041978603187,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_027",
+            "question": "Quelle est l'exégèse coranique traditionnelle des versets de la sourate Al-Baqara ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.5680634054548472,
+            "topLexScore": 72.15038157238038,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_028",
+            "question": "Quelles sont les résolutions votées lors de la quatrième session du Concile Vatican II en 1965 selon l'Exposé ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.5571695147843465,
+            "topLexScore": 54.04906415719251,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_029",
+            "question": "Que prescrit le droit canonique du Concile de Trente au sujet du commerce des indulgences d'après l'Exposé ?",
+            "answerable": false,
+            "predictedAnswerable": false,
+            "topVectorScore": 0,
+            "topLexScore": 86.53006612045967,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_030",
+            "question": "Quels sont les détails architecturaux de Gustave Eiffel pour l'érection de la tour métallique à Paris mentionnés dans l'Exposé ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.5143688178986431,
+            "topLexScore": 73.03352945586884,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_038",
+            "question": "Quelles sont les directives sur le déploiement du réseau internet mondial données dans l'Exposé ?",
+            "answerable": false,
+            "predictedAnswerable": false,
+            "topVectorScore": 0,
+            "topLexScore": 84.36911067149798,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_039",
+            "question": "Quelle est la composition chimique de l'atmosphère terrestre en pourcentage d'azote et d'oxygène ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.5530196398501681,
+            "topLexScore": 32.22156353080247,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_046",
+            "question": "Quel est le protocole de chiffrement quantique utilisé par les satellites géostationnaires ?",
+            "answerable": false,
+            "predictedAnswerable": false,
+            "topVectorScore": 0,
+            "topLexScore": 96.92623625061685,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_047",
+            "question": "Quelle est la recette traditionnelle du cassoulet de Castelnaudary ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.5124895227796388,
+            "topLexScore": 31.516156992287122,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_048",
+            "question": "Comment diagnostiquer une panne d'alternateur sur un moteur hybride rechargeable ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.4774477316522494,
+            "topLexScore": 40.06234304619923,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_049",
+            "question": "Quelles sont les cotes boursières du CAC 40 le 15 mars 2024 selon William Branham ?",
+            "answerable": false,
+            "predictedAnswerable": false,
+            "topVectorScore": 0,
+            "topLexScore": 61.03041978603187,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_050",
+            "question": "Que déclare l'Exposé des Sept Âges sur l'exploration spatiale de la planète Mars par la NASA ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.5925508740204644,
+            "topLexScore": 100.99110515024041,
+            "vectorMethod": "cosine_768d_int8"
+          }
+        ]
+      },
+      "hybride_rerank": {
+        "pipeline": "hybride_rerank",
+        "recallAt5": 71.4,
+        "recallAt10": 88.6,
+        "recallAt20": 94.3,
+        "r5Hits": "25/35",
+        "r10Hits": "31/35",
+        "r20Hits": "33/35",
+        "mrr": 0.631,
+        "ndcgAt10": 0.688,
+        "falseRefusals": {
+          "count": 0,
+          "total": 35,
+          "interval": {
+            "point": 0,
+            "lower": 0,
+            "upper": 9.9,
+            "text": "0.0% [0.0% - 9.9%]"
+          }
+        },
+        "falseAcceptances": {
+          "count": 9,
+          "total": 15,
+          "interval": {
+            "point": 60,
+            "lower": 35.7,
+            "upper": 80.2,
+            "text": "60.0% [35.7% - 80.2%]"
+          }
+        },
+        "vectorMethod": "cosine_768d_int8",
+        "perQuestion": [
+          {
+            "id": "EXP_001",
+            "question": "Quelle est la définition et la signification des œuvres des Nicolaïtes dans l'Âge d'Éphèse ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.6983993820681091,
+            "topLexScore": 149.14444182775046,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_002",
+            "question": "Qui est le messager désigné pour l'Âge de l'Église de Smyrne selon l'Exposé ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.806089154360403,
+            "topLexScore": 125.72124868660988,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_003",
+            "question": "À quoi correspondent prophétiquement les dix jours de tribulation mentionnés pour l'Église de Smyrne sous l'empereur Dioclétien ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.8557011115053479,
+            "topLexScore": 141.37178518168565,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_004",
+            "question": "Qui est le messager suscité par Dieu pour l'Âge de l'Église de Sardes ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7000123563208731,
+            "topLexScore": 150.11482640154435,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_005",
+            "question": "Quel a été le rôle de saint Martin de Tours en tant que messager dans l'Âge de Pergame ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7939033369333262,
+            "topLexScore": 165.83255973274024,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_006",
+            "question": "Comment l'esprit de Jézabel est-il décrit et identifié dans l'Âge de l'Église de Thyatire ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.6811314732988165,
+            "topLexScore": 95.06211804986972,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_007",
+            "question": "De quelle manière l'alliance néfaste entre l'institution religieuse et l'empire séculier s'est-elle concrétisée au concile de Nicée en 325 ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.6913221447553177,
+            "topLexScore": 28.82096069868996,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_008",
+            "question": "En quoi consiste la porte ouverte que personne ne peut fermer accordée à l'âge de l'amour fraternel ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.6366929113130981,
+            "topLexScore": 75.66174138819059,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_009",
+            "question": "Comment l'Exposé démontre-t-il la Divinité suprême de Jésus-Christ en tant que Seul Vrai Dieu, Alpha et Oméga ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7443168421105476,
+            "topLexScore": 101.32659732059489,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_010",
+            "question": "Qu'est-ce que la doctrine de Balaam enseignée dans l'Âge de Pergame ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7341228018121477,
+            "topLexScore": 95.41115698872693,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_011",
+            "question": "Quelle est la portée spirituelle de la manne cachée et du caillou blanc promis au vainqueur ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.8552315163847263,
+            "topLexScore": 75.30043246821013,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_012",
+            "question": "Quelle est la racine étymologique et la signification exacte du nom Smyrne selon l'Exposé ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7409694703249294,
+            "topLexScore": 79.89604525182142,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_013",
+            "question": "Que signifie littéralement le mot Pergame dans le contexte de l'histoire de l'Église ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.8055244611416861,
+            "topLexScore": 85.68954850441406,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_014",
+            "question": "Quelle est la définition littérale du terme Laodicée et que traduit-elle sur l'état du peuple ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.6875432814634677,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_015",
+            "question": "Que signifie le nom Sardes selon l'Exposé des Sept Âges ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.6885049195203952,
+            "topLexScore": 90.43860813620805,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_016",
+            "question": "Comment les Nicolaïtes sont-ils passés du stade d'œuvres dans Éphèse au stade de doctrine établie dans Pergame ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7604115036477878,
+            "topLexScore": 88.01950139173596,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_017",
+            "question": "Comment le conflit entre la vraie vigne spirituelle et la fausse vigne charnelle se développe-t-il à travers les âges ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.710044221806346,
+            "topLexScore": 96.97812849852603,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_018",
+            "question": "Quels sont les sept messagers des sept âges de l'Église décrits dans l'Exposé ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7722950894291876,
+            "topLexScore": 139.09530900784202,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_019",
+            "question": "Quelle est la particularité commune aux Églises de Smyrne et de Philadelphie quant aux reproches du Seigneur ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7376566488197224,
+            "topLexScore": 76.80886502674834,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_020",
+            "question": "Que représente la vision de l'Étoile du Matin donnée à l'Église de Thyatire ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7471553495041597,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_021",
+            "question": "Qui sont les sept étoiles tenues dans la main droite du Fils de l'Homme ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.801792337748904,
+            "topLexScore": 132.21384491610507,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_022",
+            "question": "Comment l'Exposé explique-t-il la ceinture d'or que portait le Christ sur la poitrine dans la vision de Patmos ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7535850152803935,
+            "topLexScore": 103.95442891700709,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_031",
+            "question": "Quel était le messager de Dieu pour le premier Âge de l'Église selon l'Exposé ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7006305349780018,
+            "topLexScore": 149.63245561276148,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_032",
+            "question": "Qui était le messager pour l'Âge de l'Église de Philadelphie selon l'Exposé ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7211052037857167,
+            "topLexScore": 115.68403083901153,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_033",
+            "question": "Quel est le reproche majeur fait par le Seigneur à l'Église de Laodicée concernant sa tiédeur ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7110083051676235,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_034",
+            "question": "Comment l'Exposé décrit-il les yeux comme une flamme de feu dans la vision de Christ à Patmos ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7455356473888234,
+            "topLexScore": 134.95343621498017,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_035",
+            "question": "En quoi consiste le vêtement blanc promis à ceux qui n'ont pas souillé leurs vêtements dans l'Église de Sardes ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.6880452823446155,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_036",
+            "question": "Quelle est la signification de l'épée aiguë à deux tranchants qui sort de la bouche du Fils de l'Homme ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.8260803958207472,
+            "topLexScore": 111.29160487393855,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_037",
+            "question": "Que signifie le nom Philadelphie d'après l'Exposé des Sept Âges ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.6499201675510968,
+            "topLexScore": 90.43860813620805,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_040",
+            "question": "Comment le baptême d'eau au Nom du Seigneur Jésus-Christ est-il expliqué et défendu dans l'Exposé ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7498991657607024,
+            "topLexScore": 80.33984686104336,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_041",
+            "question": "Quelle est la véritable nature de la séduction en Éden et de la semence du serpent ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7811775153851933,
+            "topLexScore": 66.56822197034307,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_042",
+            "question": "Qui est le cavalier sur le cheval blanc dans le premier sceau et que portait-il ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.682320227948466,
+            "topLexScore": 92.28790663033169,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_043",
+            "question": "Comment Frère Branham définit-il l'étoile du matin et le chandelier d'or ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7679813158755213,
+            "topLexScore": 33.11197744856954,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_044",
+            "question": "Comment l'Esprit d'Élie doit-il restaurer la foi transmise aux saints au temps de la fin ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.6950566033968674,
+            "topLexScore": 46.28889079398056,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_045",
+            "question": "Quelle est la signification du baptême d'eau et de la formule apostolique selon l'Exposé ?",
+            "answerable": true,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.6994439674268905,
+            "topLexScore": 44.966953979929556,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_023",
+            "question": "Quelle est la vitesse maximale et la puissance moteur d'un tracteur agricole diesel moderne ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.5244038183381496,
+            "topLexScore": 40.72248699212886,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_024",
+            "question": "Qui a marqué les buts lors de la finale de la Coupe du Monde de football en 1998 à Paris ?",
+            "answerable": false,
+            "predictedAnswerable": false,
+            "topVectorScore": 0,
+            "topLexScore": 77.18537536546754,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_025",
+            "question": "À quelle température l'azote liquide entre-t-il en ébullition sous pression atmosphérique standard ?",
+            "answerable": false,
+            "predictedAnswerable": false,
+            "topVectorScore": 0.5032335638101028,
+            "topLexScore": 15.233479032327867,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_026",
+            "question": "Quelles sont les formules mathématiques d'Albert Einstein expliquant la relativité restreinte ?",
+            "answerable": false,
+            "predictedAnswerable": false,
+            "topVectorScore": 0,
+            "topLexScore": 61.03041978603187,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_027",
+            "question": "Quelle est l'exégèse coranique traditionnelle des versets de la sourate Al-Baqara ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.5680634054548472,
+            "topLexScore": 72.15038157238038,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_028",
+            "question": "Quelles sont les résolutions votées lors de la quatrième session du Concile Vatican II en 1965 selon l'Exposé ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.5571695147843465,
+            "topLexScore": 54.04906415719251,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_029",
+            "question": "Que prescrit le droit canonique du Concile de Trente au sujet du commerce des indulgences d'après l'Exposé ?",
+            "answerable": false,
+            "predictedAnswerable": false,
+            "topVectorScore": 0,
+            "topLexScore": 86.53006612045967,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_030",
+            "question": "Quels sont les détails architecturaux de Gustave Eiffel pour l'érection de la tour métallique à Paris mentionnés dans l'Exposé ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.5143688178986431,
+            "topLexScore": 73.03352945586884,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_038",
+            "question": "Quelles sont les directives sur le déploiement du réseau internet mondial données dans l'Exposé ?",
+            "answerable": false,
+            "predictedAnswerable": false,
+            "topVectorScore": 0,
+            "topLexScore": 84.36911067149798,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_039",
+            "question": "Quelle est la composition chimique de l'atmosphère terrestre en pourcentage d'azote et d'oxygène ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.5530196398501681,
+            "topLexScore": 32.22156353080247,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_046",
+            "question": "Quel est le protocole de chiffrement quantique utilisé par les satellites géostationnaires ?",
+            "answerable": false,
+            "predictedAnswerable": false,
+            "topVectorScore": 0,
+            "topLexScore": 96.92623625061685,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_047",
+            "question": "Quelle est la recette traditionnelle du cassoulet de Castelnaudary ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.5124895227796388,
+            "topLexScore": 31.516156992287122,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_048",
+            "question": "Comment diagnostiquer une panne d'alternateur sur un moteur hybride rechargeable ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.4774477316522494,
+            "topLexScore": 40.06234304619923,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_049",
+            "question": "Quelles sont les cotes boursières du CAC 40 le 15 mars 2024 selon William Branham ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.7089922513550999,
+            "topLexScore": 0,
+            "vectorMethod": "cosine_768d_int8"
+          },
+          {
+            "id": "EXP_050",
+            "question": "Que déclare l'Exposé des Sept Âges sur l'exploration spatiale de la planète Mars par la NASA ?",
+            "answerable": false,
+            "predictedAnswerable": true,
+            "topVectorScore": 0.5925508740204644,
+            "topLexScore": 100.99110515024041,
+            "vectorMethod": "cosine_768d_int8"
+          }
+        ]
+      }
+    }
+  },
+  "frozenUnseen": {
+    "hash": "959c539e21f2ef546c27258488734160b94f3e70e2c3b7547aadbbf3567b719b",
+    "totalQuestions": 20,
+    "answerable": 14,
+    "unanswerable": 6,
+    "pipelines": {
+      "bm25_seul": {
+        "pipeline": "bm25_seul",
+        "recallAt5": 78.6,
+        "recallAt10": 85.7,
+        "recallAt20": 92.9,
+        "r5Hits": "11/14",
+        "r10Hits": "12/14",
+        "r20Hits": "13/14",
+        "mrr": 0.627,
+        "ndcgAt10": 0.679,
+        "falseRefusals": {
+          "count": 0,
+          "total": 14,
+          "interval": {
+            "point": 0,
+            "lower": 0,
+            "upper": 21.5,
+            "text": "0.0% [0.0% - 21.5%]"
+          }
+        },
+        "falseAcceptances": {
+          "count": 6,
+          "total": 6,
+          "interval": {
+            "point": 100,
+            "lower": 61,
+            "upper": 100,
+            "text": "100.0% [61.0% - 100.0%]"
+          }
+        },
+        "vectorMethod": "cosine_768d_int8"
+      },
+      "vecteur_seul": {
+        "pipeline": "vecteur_seul",
+        "recallAt5": 42.9,
+        "recallAt10": 42.9,
+        "recallAt20": 42.9,
+        "r5Hits": "6/14",
+        "r10Hits": "6/14",
+        "r20Hits": "6/14",
+        "mrr": 0.336,
+        "ndcgAt10": 0.358,
+        "falseRefusals": {
+          "count": 1,
+          "total": 14,
+          "interval": {
+            "point": 7.1,
+            "lower": 1.3,
+            "upper": 31.5,
+            "text": "7.1% [1.3% - 31.5%]"
+          }
+        },
+        "falseAcceptances": {
+          "count": 0,
+          "total": 6,
+          "interval": {
+            "point": 0,
+            "lower": 0,
+            "upper": 39,
+            "text": "0.0% [0.0% - 39.0%]"
+          }
+        },
+        "vectorMethod": "cosine_768d_int8"
+      },
+      "hybride_rrf": {
+        "pipeline": "hybride_rrf",
+        "recallAt5": 85.7,
+        "recallAt10": 92.9,
+        "recallAt20": 92.9,
+        "r5Hits": "12/14",
+        "r10Hits": "13/14",
+        "r20Hits": "13/14",
+        "mrr": 0.598,
+        "ndcgAt10": 0.679,
+        "falseRefusals": {
+          "count": 3,
+          "total": 14,
+          "interval": {
+            "point": 21.4,
+            "lower": 7.6,
+            "upper": 47.6,
+            "text": "21.4% [7.6% - 47.6%]"
+          }
+        },
+        "falseAcceptances": {
+          "count": 5,
+          "total": 6,
+          "interval": {
+            "point": 83.3,
+            "lower": 43.6,
+            "upper": 97,
+            "text": "83.3% [43.6% - 97.0%]"
+          }
+        },
+        "vectorMethod": "cosine_768d_int8"
+      },
+      "hybride_rerank": {
+        "pipeline": "hybride_rerank",
+        "recallAt5": 64.3,
+        "recallAt10": 85.7,
+        "recallAt20": 92.9,
+        "r5Hits": "9/14",
+        "r10Hits": "12/14",
+        "r20Hits": "13/14",
+        "mrr": 0.492,
+        "ndcgAt10": 0.573,
+        "falseRefusals": {
+          "count": 0,
+          "total": 14,
+          "interval": {
+            "point": 0,
+            "lower": 0,
+            "upper": 21.5,
+            "text": "0.0% [0.0% - 21.5%]"
+          }
+        },
+        "falseAcceptances": {
+          "count": 5,
+          "total": 6,
+          "interval": {
+            "point": 83.3,
+            "lower": 43.6,
+            "upper": 97,
+            "text": "83.3% [43.6% - 97.0%]"
+          }
+        },
+        "vectorMethod": "cosine_768d_int8"
+      }
+    }
+  },
+  "dimensionComparison": {
+    "float32_3072": {
+      "bytesPerVector": 12288,
+      "corpusSizeMB": 16.99,
+      "latencyMs": 12.2,
+      "recallAt5": 71.4
+    },
+    "float32_768": {
+      "bytesPerVector": 3072,
+      "corpusSizeMB": 4.25,
+      "latencyMs": 3.05,
+      "recallAt5": 71.4
+    },
+    "int8_768": {
+      "bytesPerVector": 768,
+      "corpusSizeMB": 1.06,
+      "latencyMs": 2.71,
+      "recallAt5": 71.4
+    }
+  },
+  "corpusMetrics": {
+    "totalChunks": 1450,
+    "int8BinarySizeMB": 1.06,
+    "latencyMs": 2.71
+  }
+}

@@ -883,9 +883,17 @@ export const useAppStore = create<AppState>((set, get) => ({
   setShowOnlyQuery: (active) => set({ showOnlyQuery: active, showOnlySynonyms: active ? false : get().showOnlySynonyms, selectedSynonym: null }),
   setActiveSynonyms: (syns) => set({ activeSynonyms: syns }),
   setSelectedSynonym: (syn) => set({ selectedSynonym: syn }),
-  addNotification: (message, type) => set(state => ({
-    notifications: [{ id: generateUUID(), message, type }, ...state.notifications]
-  })),
+  addNotification: (message, type) => {
+    const id = generateUUID();
+    set(state => ({
+      notifications: [{ id, message, type }, ...state.notifications.slice(0, 3)]
+    }));
+    // Filet de sécurité garanti : suppression automatique calibrée aux standards UX
+    const autoDismissMs = type === 'error' ? 3200 : (type === 'info' ? 2000 : 1800);
+    setTimeout(() => {
+      get().removeNotification(id);
+    }, autoDismissMs + 200);
+  },
   removeNotification: (id) => set(state => ({
     notifications: state.notifications.filter(n => n.id !== id)
   })),

@@ -221,7 +221,7 @@ export interface SermonChunk {
   characterCount: number;
   wordCount: number;
   contentHash?: string;
-  embedding?: number[] | null;
+  embedding?: number[] | Float32Array | Int8Array | null;
   createdAt?: string;
   updatedAt?: string;
   // Generic Document Abstraction Extensions (Phase 2F.11)
@@ -361,6 +361,7 @@ export interface RetrievalEvidencePackage {
   query: string;
   totalCandidates?: number;
   rejectedCount?: number;
+  vectorMethod?: string;
 }
 
 export interface ValidatedCitationDetail {

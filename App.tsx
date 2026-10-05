@@ -12,6 +12,7 @@ import { ProjectionView, MaskView } from './components/ProjectionView';
 import { ImageProjectionModal } from './components/ImageProjectionModal';
 import { AnnouncementModal } from './components/AnnouncementModal';
 import { QuickAccessModal } from './components/QuickAccessModal';
+import GlobalContextMenu from './components/GlobalContextMenu';
 
 const GlobalTooltip = memo(() => {
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -209,12 +210,27 @@ const App: React.FC = () => {
         if (w < 60) { if (notesOpen) setNotesOpen(false); }
         else { if (!notesOpen && w > 40) setNotesOpen(true); setNotesWidth(w); }
       } else if (activeHandle.current === 'ai') {
-        const w = Math.max(40, Math.min(800, window.innerWidth - clientX));
-        if (w < 60) { if (aiOpen) setAiOpen(false); }
-        else { if (!aiOpen && w > 40) setAiWidth(w); }
+        // Permet d'élargir le panneau pour occuper au moins 2/3 (67%) et jusqu'à 75% de l'écran
+        const maxAiWidth = Math.min(
+          Math.floor(window.innerWidth * 0.75),
+          window.innerWidth - 200
+        );
+        const w = Math.max(280, Math.min(maxAiWidth, window.innerWidth - clientX));
+        
+        // Si l'utilisateur élargit le panneau au-delà de 52% de l'écran et que la barre latérale est ouverte, fermer la barre latérale
+        if (w > window.innerWidth * 0.52 && sidebarOpen) {
+          setSidebarOpen(false);
+        }
+
+        if (w < 80) { 
+          if (aiOpen) setAiOpen(false); 
+        } else { 
+          if (!aiOpen && w > 80) setAiOpen(true); 
+          setAiWidth(w); 
+        }
       }
     });
-  }, [aiOpen, notesOpen, aiWidth, setAiWidth, setNotesWidth, setAiOpen, setNotesOpen]);
+  }, [aiOpen, notesOpen, aiWidth, sidebarOpen, notesWidth, setAiWidth, setNotesWidth, setAiOpen, setNotesOpen, setSidebarOpen]);
 
   useEffect(() => {
     if (isResizing) { window.addEventListener('mousemove', handleResizingMove); window.addEventListener('mouseup', stopResizing); }
@@ -269,7 +285,7 @@ const App: React.FC = () => {
         <div style={{ width: effectiveSidebarWidth }} className={`flex-shrink-0 overflow-hidden h-full flex relative z-30 ${transitionClass} no-print`}>
           <div className="w-[400px] min-w-[400px] h-full"><Sidebar /></div>
         </div>
-        <div className={`flex-1 flex flex-col min-w-[300px] relative z-10 border-x border-zinc-100 dark:border-zinc-900 shadow-sm ${transitionClass}`}>
+        <div className={`flex-1 flex flex-col min-w-[180px] relative z-10 border-x border-zinc-100 dark:border-zinc-900 shadow-sm ${transitionClass}`}>
           <MainContent activeNoteId={activeNoteId} />
 
           {/* Floating Side Buttons for Notes & AI */}
@@ -313,11 +329,20 @@ const App: React.FC = () => {
           <div className="w-full h-full"><NotesPanel /></div>
         </div>
         <div style={{ width: effectiveAiWidth }} className={`flex-shrink-0 overflow-hidden h-full flex relative z-30 ${transitionClass} no-print`}>
-          {aiOpen && !isFullscreen && <div onMouseDown={startResizing('ai')} className="absolute left-0 top-0 w-1.5 h-full hover:bg-teal-600/40 cursor-col-resize z-50 transition-colors" />}
+          {aiOpen && !isFullscreen && (
+            <div 
+              onMouseDown={startResizing('ai')} 
+              className="absolute left-0 top-0 w-3.5 h-full hover:bg-teal-600/30 cursor-col-resize z-50 transition-colors group/ai-resize flex items-center justify-center -ml-1.5" 
+              data-tooltip="Glisser pour redimensionner le panneau IA"
+            >
+              <div className="w-1 h-10 bg-zinc-300 dark:bg-zinc-700 rounded-full group-hover/ai-resize:bg-teal-500 transition-colors shadow-xs" />
+            </div>
+          )}
           <div className="w-full h-full"><AIAssistant /></div>
         </div>
       </div>
       <Notifications />
+      <GlobalContextMenu />
       <GlobalTooltip />
       <ImageProjectionModal />
       <AnnouncementModal />

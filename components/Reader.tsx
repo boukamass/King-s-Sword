@@ -2546,7 +2546,7 @@ const Reader: React.FC = () => {
         {/* Menu vertical de sélection des versets / paragraphes (Pleine hauteur, toggable & responsive horizontalement) */}
         {isNavPanelOpen && structuredSegments.length > 0 && (
           <aside 
-            className="h-full flex flex-col shrink-0 border-r border-zinc-200/90 dark:border-zinc-800/90 bg-slate-50/95 dark:bg-zinc-950/95 backdrop-blur-2xl transition-all duration-200 select-none z-30 shadow-sm w-20 sm:w-28 md:w-36 lg:w-40 overflow-hidden no-print"
+            className="h-full flex flex-col shrink-0 border-r border-zinc-200/90 dark:border-zinc-800/90 bg-slate-50/95 dark:bg-zinc-950/95 backdrop-blur-2xl transition-all duration-200 select-none z-40 relative shadow-sm w-20 sm:w-28 md:w-36 lg:w-40 overflow-hidden no-print"
             aria-label="Sélecteur vertical de versets et paragraphes"
           >
             {/* En-tête du sélecteur vertical */}
@@ -2602,7 +2602,7 @@ const Reader: React.FC = () => {
             </div>
 
             {/* Grille responsive des numéros */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-1 sm:p-1.5">
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-1 sm:p-1.5 pb-16 sm:pb-20">
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
                 {filteredSegments.map(({ seg, idx, num }) => {
                   const isProjected = projectedSegmentIndex === idx;
@@ -2939,9 +2939,9 @@ const Reader: React.FC = () => {
           )}
         </div>
         {sermon.audio_url && (
-          <div className="absolute bottom-6 left-0 right-0 flex justify-center no-print z-50 overflow-visible-important">
+          <div className="absolute bottom-6 left-0 right-0 flex justify-center no-print z-50 overflow-visible-important pointer-events-none">
               <audio ref={audioRef} src={sermon.audio_url} onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)} onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)} onEnded={() => setIsPlaying(false)} onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)} />
-              <div onMouseEnter={() => setIsPlayerExpanded(true)} onMouseLeave={() => setIsPlayerExpanded(false)} className={`transition-all duration-500 flex items-center bg-slate-50/95 dark:bg-zinc-900/95 backdrop-blur-2xl border border-zinc-200/50 dark:border-zinc-800/50 shadow-2xl rounded-full ${isPlayerExpanded ? 'w-[320px] sm:w-[620px] h-12 px-4' : 'w-10 h-10'} ${isOSFullscreen ? 'opacity-40 hover:opacity-100' : ''}`}>
+              <div onMouseEnter={() => setIsPlayerExpanded(true)} onMouseLeave={() => setIsPlayerExpanded(false)} className={`transition-all duration-500 flex items-center bg-slate-50/95 dark:bg-zinc-900/95 backdrop-blur-2xl border border-zinc-200/50 dark:border-zinc-800/50 shadow-2xl rounded-full pointer-events-auto ${isPlayerExpanded ? 'w-[320px] sm:w-[620px] h-12 px-4' : 'w-10 h-10'} ${isOSFullscreen ? 'opacity-40 hover:opacity-100' : ''}`}>
                 {!isPlayerExpanded ? <div className="w-full h-full flex items-center justify-center text-zinc-400"><Headphones className="w-4 h-4 text-teal-600/40" /></div> : (
                   <div className="flex items-center gap-4 w-full h-full animate-in fade-in zoom-in-95 overflow-visible-important">
                     <div className="flex items-center gap-0.5">

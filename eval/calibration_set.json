@@ -1,0 +1,168 @@
+[
+  {
+    "id": "CAL_001",
+    "category": "information_explicite",
+    "question": "Quel ange de l'Église a reçu la promesse de manger de l'arbre de vie qui est dans le paradis de Dieu ?",
+    "expectedDocuments": [
+      "expose-ch-3"
+    ],
+    "answerable": true
+  },
+  {
+    "id": "CAL_002",
+    "category": "paraphrase",
+    "question": "Où se trouve l'enseignement sur le baptême au Nom de Jésus-Christ et l'erreur trinitaire dans l'introduction ?",
+    "expectedDocuments": [
+      "expose-ch-1"
+    ],
+    "answerable": true
+  },
+  {
+    "id": "CAL_003",
+    "category": "doctrine",
+    "question": "Comment l'auteur explique-t-il la relation entre la semence du serpent et Caïn ?",
+    "expectedDocuments": [
+      "expose-ch-3",
+      "expose-ch-4"
+    ],
+    "answerable": true
+  },
+  {
+    "id": "CAL_004",
+    "category": "recherche_passage_precis",
+    "question": "Dans quel âge l'esprit de Jézabel a-t-il séduit les serviteurs de Dieu ?",
+    "expectedDocuments": [
+      "expose-ch-6"
+    ],
+    "answerable": true
+  },
+  {
+    "id": "CAL_005",
+    "category": "information_explicite",
+    "question": "Quel messager correspond à l'Église de Philadelphie ?",
+    "expectedDocuments": [
+      "expose-ch-8"
+    ],
+    "answerable": true
+  },
+  {
+    "id": "CAL_006",
+    "category": "reformulation",
+    "question": "Que symbolisent les pieds semblables à de l'airain incandescent dans la vision de Patmos ?",
+    "expectedDocuments": [
+      "expose-ch-2"
+    ],
+    "answerable": true
+  },
+  {
+    "id": "CAL_007",
+    "category": "doctrine",
+    "question": "Quelle est la condition spirituelle de l'Église de Laodicée décrite comme aveugle et nue ?",
+    "expectedDocuments": [
+      "expose-ch-9"
+    ],
+    "answerable": true
+  },
+  {
+    "id": "CAL_008",
+    "category": "enseignement_precis",
+    "question": "Quelle est la doctrine de Balaam enseignée sous l'âge de Pergame ?",
+    "expectedDocuments": [
+      "expose-ch-5"
+    ],
+    "answerable": true
+  },
+  {
+    "id": "CAL_009",
+    "category": "paraphrase",
+    "question": "Que signifie le nom Sardes selon l'étude des sept âges ?",
+    "expectedDocuments": [
+      "expose-ch-7"
+    ],
+    "answerable": true
+  },
+  {
+    "id": "CAL_010",
+    "category": "doctrine",
+    "question": "Comment la fausse vigne s'oppose-t-elle à la vraie vigne depuis Genèse jusqu'à l'Apocalypse ?",
+    "expectedDocuments": [
+      "expose-ch-3",
+      "expose-ch-10"
+    ],
+    "answerable": true
+  },
+  {
+    "id": "CAL_011",
+    "category": "recherche_passage_precis",
+    "question": "Pourquoi l'Église de Smyrne n'a-t-elle reçu aucun blâme du Seigneur ?",
+    "expectedDocuments": [
+      "expose-ch-4"
+    ],
+    "answerable": true
+  },
+  {
+    "id": "CAL_012",
+    "category": "enseignement_precis",
+    "question": "Quel est le mystère des sept chandeliers d'or vu par Jean ?",
+    "expectedDocuments": [
+      "expose-ch-2"
+    ],
+    "answerable": true
+  },
+  {
+    "id": "CAL_013",
+    "category": "hors_corpus",
+    "question": "Quel est le prix au mètre carré de l'immobilier résidentiel à Tokyo ?",
+    "expectedDocuments": [],
+    "answerable": false
+  },
+  {
+    "id": "CAL_014",
+    "category": "hors_corpus",
+    "question": "Comment installer une distribution Debian Linux sur une machine virtuelle ?",
+    "expectedDocuments": [],
+    "answerable": false
+  },
+  {
+    "id": "CAL_015",
+    "category": "hors_corpus",
+    "question": "Quelles sont les règles du jeu d'échecs concernant la prise en passant ?",
+    "expectedDocuments": [],
+    "answerable": false
+  },
+  {
+    "id": "CAL_016",
+    "category": "hors_corpus",
+    "question": "Quel compositeur baroque a écrit les Quatre Saisons ?",
+    "expectedDocuments": [],
+    "answerable": false
+  },
+  {
+    "id": "CAL_017",
+    "category": "refus_obligatoire",
+    "question": "Quelles sont les prévisions météorologiques pour la ville de New York demain ?",
+    "expectedDocuments": [],
+    "answerable": false
+  },
+  {
+    "id": "CAL_018",
+    "category": "refus_obligatoire",
+    "question": "Quelle marque de pneu automobile est recommandée par Frère Branham ?",
+    "expectedDocuments": [],
+    "answerable": false
+  },
+  {
+    "id": "CAL_019",
+    "category": "refus_obligatoire",
+    "question": "Comment fonctionne la technologie Bluetooth Low Energy selon les sermons ?",
+    "expectedDocuments": [],
+    "answerable": false
+  },
+  {
+    "id": "CAL_020",
+    "category": "hors_corpus",
+    "question": "Quelle est la distance moyenne entre la Terre et la planète Jupiter en kilomètres ?",
+    "expectedDocuments": [],
+    "answerable": false
+  }
+]

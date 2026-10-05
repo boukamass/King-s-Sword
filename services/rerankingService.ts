@@ -79,7 +79,23 @@ const QUESTION_STRUCTURAL_WORDS = new Set([
   'montre', 'montrer', 'montre-moi', 'recherche', 'rechercher', 'question', 'questions', 'reponse', 'reponses',
   'repondre', 'pense', 'penser', 'penses', 'pensez', 'crois', 'croire', 'croyez', 'connais', 'connaitre',
   'connaissez', 'veux', 'peux', 'pouvez', 'aider', 'aide', 'aide-moi', 'salut', 'bonjour', 'bonsoir', 'coucou',
-  'hello', 'merci', 'sacre', 'sacree', 'sacres'
+  'hello', 'merci', 'sacre', 'sacree', 'sacres',
+  'elaborer', 'elabore', 'elabores', 'elaborant', 'elaboration',
+  'developper', 'developpe', 'developpes', 'developpement',
+  'approfondir', 'approfondi', 'approfondis', 'approfondissement',
+  'detailler', 'detaille', 'detailles', 'detaillant',
+  'preciser', 'precise', 'precises', 'precision', 'precisions',
+  'clarifier', 'clarifie', 'clarification',
+  'analyser', 'analyse', 'analyses', 'analysant',
+  'discuter', 'discute', 'discussion',
+  'traiter', 'traite', 'traitant',
+  'aborder', 'aborde', 'abordant',
+  'comprendre', 'comprends', 'compris',
+  'apprendre', 'apprends', 'appris',
+  'poursuivre', 'poursuis', 'poursuit',
+  'continuer', 'continue', 'continuant',
+  'ajouter', 'ajoute', 'ajoutant',
+  'avantage', 'davantage', 'plus'
 ]);
 
 /**
@@ -216,6 +232,27 @@ export function extractSubstantiveQueryTerms(query: string): string[] {
 }
 
 /**
+ * Détecte si la requête est une demande d'aperçu, de synthèse ou de résumé global sur le document actif.
+ */
+export function isOverviewOrSummaryQuery(query: string): boolean {
+  if (!query || typeof query !== 'string') return false;
+  const norm = normalizeText(query).toLowerCase();
+  
+  const overviewPatterns = [
+    /de quoi (ca|ça|cela|il|ce|cet|cette|le|la|les)\b/,
+    /\b(resume|resumer|resumez|synthese|apercu|survol)\b/,
+    /\b(sujet|theme|titre|contenu|message principal)\b/,
+    /\b(explique|expliquer|presente|presenter|presentation)\b/,
+    /\bqu'est[- ]ce que (ca|ça|cela|ce|cet|cette|ce sermon|ce livre|ce texte|ce chapitre)\b/,
+    /\b(parle[- ]moi|dis[- ]moi|de quoi traite)\b/
+  ];
+
+  if (overviewPatterns.some(pat => pat.test(norm))) return true;
+  const substantive = extractSubstantiveQueryTerms(query);
+  return substantive.length === 0 && norm.split(/\s+/).filter(w => w.length > 1).length >= 2;
+}
+
+/**
  * Analyse d'Answerability / Abstention.
  * Détermine si la requête est couverte par le corpus documentaire
  * et détecte les questions hors-corpus pour éviter les hallucinations.
@@ -234,6 +271,18 @@ export function assessAnswerability(params: {
       reason: 'Aucun candidat documentaire disponible.',
       topScore: 0,
       evidenceCount: 0
+    };
+  }
+
+  // Si c'est une demande de résumé / aperçu global sur les documents actifs du Dock
+  if (isOverviewOrSummaryQuery(query) && candidates.length > 0) {
+    return {
+      answerable: true,
+      confidenceScore: 0.95,
+      reason: 'Demande d\'aperçu et de synthèse sur les documents actifs.',
+      topScore: 1.0,
+      evidenceCount: candidates.length,
+      absentKeywords: []
     };
   }
 
@@ -305,7 +354,10 @@ export function assessAnswerability(params: {
   }
 
   // Règle 1b : Concepts substantiels entièrement absents du corpus avec similarité vectorielle non exceptionnelle (< 0.60)
-  if (absentSubstantiveTerms.length > 0 && topVectorScore < 0.60) {
+  const presentSubstantiveTerms = substantiveTerms.filter(t => !absentSubstantiveTerms.includes(t));
+  const hasStrongPresentTerms = presentSubstantiveTerms.length >= 2 && (topLexScore >= 20 || topCandidateCoverage >= 0.35);
+
+  if (absentSubstantiveTerms.length > 0 && !hasStrongPresentTerms && (presentSubstantiveTerms.length === 0 || absentSubstantiveTerms.length >= presentSubstantiveTerms.length) && topVectorScore < 0.60) {
     return {
       answerable: false,
       confidenceScore: 0.15,
@@ -318,12 +370,14 @@ export function assessAnswerability(params: {
 
   // Règle 2 : Recoupement multi-modal ou lexical solide avec couverture documentaire minimale
   // Évite qu'une simple coïncidence lexicale isolée ne valide indûment une question hors-corpus
-  const isValidMultiModal = isMultiModal && absentSubstantiveTerms.length === 0 && (
-    (topVectorScore >= 0.50 && topCandidateCoverage >= 0.30) ||
+  const hasAcceptableAbsentTerms = absentSubstantiveTerms.length === 0 || hasStrongPresentTerms;
+  const isValidMultiModal = isMultiModal && hasAcceptableAbsentTerms && (
+    (topVectorScore >= 0.66) ||
+    (topVectorScore >= 0.50 && topCandidateCoverage >= 0.35) ||
     (topLexScore >= 35 && topCandidateCoverage >= 0.55) ||
     (topLexScore >= 40 && topVectorScore >= 0.30 && isCrossSourceMatch)
   );
-  const isValidStrongLexical = hasLexicalHit && absentSubstantiveTerms.length === 0 && topLexScore >= 35 && (topCandidateCoverage >= 0.55 || (distinctSourcesCount >= 2 && collectiveCoverage >= 0.80));
+  const isValidStrongLexical = hasLexicalHit && hasAcceptableAbsentTerms && topLexScore >= 35 && (topCandidateCoverage >= 0.55 || (distinctSourcesCount >= 2 && collectiveCoverage >= 0.80));
 
   if (isValidMultiModal || isValidStrongLexical) {
     const confidence = Math.min(1.0, 0.85 + Math.max(0, (topVectorScore - 0.50) * 0.3));
@@ -344,6 +398,19 @@ export function assessAnswerability(params: {
       answerable: true,
       confidenceScore: Math.round(confidence * 100) / 100,
       reason: 'Similarité sémantique vectorielle in-domain validée.',
+      topScore: topVectorScore,
+      evidenceCount: candidates.length,
+      absentKeywords: []
+    };
+  }
+
+  // Règle 3b : Question in-domain sans terme étranger avec signal documentaire exploitable
+  if (absentSubstantiveTerms.length === 0 && (topCandidateCoverage >= 0.10 || topLexScore >= 15 || topVectorScore >= 0.38 || isOverviewOrSummaryQuery(query))) {
+    const confidence = Math.min(1.0, 0.75 + Math.max(0, topVectorScore * 0.2));
+    return {
+      answerable: true,
+      confidenceScore: Math.round(confidence * 100) / 100,
+      reason: 'Passages pertinents identifiés dans les documents sélectionnés.',
       topScore: topVectorScore,
       evidenceCount: candidates.length,
       absentKeywords: []

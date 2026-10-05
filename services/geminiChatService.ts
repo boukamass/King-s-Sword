@@ -28,6 +28,7 @@ export interface AskGeminiChatOptions {
   mode?: 'auto-rag' | 'dock';
   retrievedParagraphs?: RetrievedParagraph[];
   evidencePackage?: RetrievalEvidencePackage;
+  onStreamChunk?: (token: string) => void;
 }
 
 /**
@@ -257,18 +258,20 @@ export const askGeminiChat = async (
     let userPromptWithContext = '';
 
     if (isAutoRag) {
-      systemInstruction = `Tu es l'assistant d'étude théologique de King's Sword, expert des sermons de William Marrion Branham.
+      systemInstruction = `Tu es l'assistant d'étude théologique de King's Sword, expert des sermons de William Marrion Branham et de l'Exposé des Sept Âges.
 
 DIRECTIVES STRICTES DE RÉPONSE FONDÉE EXCLUSIVEMENT SUR LES SOURCES FOURNIES DANS L'APPLICATION :
 1. Réponds à la question posée en te basant EXCLUSIVEMENT sur les extraits de sermons et documents fournis ci-dessous.
-2. N'extrapole pas, n'utilise AUCUNE source web externe, et n'invente aucune doctrine ou interprétation qui ne figure pas expressément dans ces extraits.
-3. Pour chaque affirmation ou citation tirée d'un extrait, insère obligatoirement la référence exacte au format :
+2. Si les extraits couvrent plusieurs dates ou documents, structure ton exposé selon la progression chronologique et prophétique de l'enseignement au fil des ans.
+3. N'extrapole pas, n'utilise AUCUNE source web externe, et n'invente aucune doctrine ou interprétation qui ne figure pas expressément dans ces extraits.
+4. Pour chaque affirmation ou citation tirée d'un extrait, insère obligatoirement la référence exacte au format :
    > « ... » [Réf: ID_SERMON, Para. N]
-   (Exemple : > « Le premier sceau a été ouvert... » [Réf: 63-0324M, Para. 2])
-4. N'invente JAMAIS d'identifiant de sermon ni de numéro de paragraphe. Utilise UNIQUEMENT les références fournies dans le texte source.
-5. Si les extraits fournis ne contiennent pas d'éléments suffisants pour répondre à la question, réponds très exactement :
+   (Exemple : > « Le premier sceau a été ouvert... » [Réf: 63-0324M, Para. 2] ou [Réf: expose-ch-4, §12])
+5. N'invente JAMAIS d'identifiant de sermon ni de numéro de paragraphe. Utilise UNIQUEMENT les références fournies dans le texte source.
+6. Si les extraits fournis ne contiennent pas d'éléments suffisants pour répondre à la question, réponds très exactement :
    « Les documents disponibles dans la base documentaire de l'application ne contiennent pas d'informations suffisantes pour répondre à cette question. »
-6. Regroupe toujours en fin de réponse une section "### Sources consultées" listant clairement les sermons et paragraphes cités.`;
+7. Regroupe toujours en fin de réponse une section "### Sources consultées" listant clairement les sermons et paragraphes cités.
+8. Ajoute ensuite une section "### 💡 Pistes d'approfondissement" proposant 2 à 3 questions d'étude biblique pertinentes.`;
 
       userPromptWithContext = `${contextText.substring(0, aiConfig.models.dockMaxChars)}
 
@@ -280,11 +283,13 @@ QUESTION DU CHERCHEUR :
     
 DIRECTIVES STRICTES DE RÉPONSE FONDÉE EXCLUSIVEMENT SUR LES SOURCES DE L'APPLICATION :
 1. Tes réponses doivent provenir EXCLUSIVEMENT des documents sources fournis dans le contexte ci-dessous (sermons, passages bibliques, Dock IA). N'utilise aucune source web externe.
-2. Séparation claire du contenu et des sources : Ne mélange jamais les références ou les numéros de paragraphe dans les phrases du corps du texte.
-3. Pour les passages bibliques cités : Présente la citation dans un bloc (> « ... ») suivi immédiatement de la référence exacte (ex : **Genèse 2:5 — LSG 1910**).
-4. Pour les enseignements/sermons cités : Présente la citation dans un bloc (> « ... ») suivi de **Source :** *Titre du Sermon* — Date, §N.
-5. Analyse et prends en compte l'ENSEMBLE de toutes les ressources fournies dans le contexte ci-dessous sans te limiter aux premières.
-6. Regroupe toujours en fin de réponse une section "### Sources" numérotée ([1], [2]...) listant clairement les références utilisées.`;
+2. Si plusieurs sermons ou documents sont présents, mets en valeur la continuité chronologique et prophétique entre les périodes.
+3. Séparation claire du contenu et des sources : Ne mélange jamais les références ou les numéros de paragraphe dans les phrases du corps du texte.
+4. Pour les passages bibliques cités : Présente la citation dans un bloc (> « ... ») suivi immédiatement de la référence exacte (ex : **Genèse 2:5 — LSG 1910**).
+5. Pour les enseignements/sermons cités : Présente la citation dans un bloc (> « ... ») suivi de **Source :** *Titre du Sermon* — Date, §N.
+6. Analyse et prends en compte l'ENSEMBLE de toutes les ressources fournies dans le contexte ci-dessous sans te limiter aux premières.
+7. Regroupe toujours en fin de réponse une section "### Sources" numérotée ([1], [2]...) listant clairement les références utilisées.
+8. Termine par une section "### 💡 Pistes d'approfondissement" proposant 2 à 3 questions de recherche complémentaires.`;
 
       userPromptWithContext = `DOCUMENTS SOURCES FOURNIS DANS L'APPLICATION (Dock IA / Sermons actifs) :
 ============================================================
@@ -332,11 +337,29 @@ QUESTION DU CHERCHEUR :
         
         for (const model of CANDIDATE_MODELS) {
           try {
-            successfulResponse = await callWithRetry(() => ai.models.generateContent({
-              model: model,
-              contents: contents,
-              config
-            }));
+            if (typeof options.onStreamChunk === 'function') {
+              const streamRes = await ai.models.generateContentStream({
+                model: model,
+                contents: contents,
+                config
+              });
+              let fullText = '';
+              for await (const chunk of streamRes) {
+                const chunkText = chunk.text || '';
+                if (chunkText) {
+                  fullText += chunkText;
+                  options.onStreamChunk(chunkText);
+                }
+              }
+              successfulResponse = { text: fullText };
+            } else {
+              successfulResponse = await callWithRetry(() => ai.models.generateContent({
+                model: model,
+                contents: contents,
+                config
+              }));
+            }
+
             if (successfulResponse && (successfulResponse.text || successfulResponse.candidates?.length)) {
               break;
             }

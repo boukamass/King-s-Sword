@@ -112,15 +112,38 @@ export const TermsModal: React.FC<TermsModalProps> = ({ isOpen, onClose }) => {
             </p>
           </div>
 
-          {/* Section 5: Assistant IA */}
+          {/* Section 5: Assistant IA, Recherche Algorithmique & Responsabilités */}
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100 font-bold uppercase tracking-wider text-[11px]">
               <Sparkles className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-              <span>5. Assistant IA & Recherche Algorithmique</span>
+              <span>5. Assistant IA, Limites Technologiques & Précautions Obligatoires</span>
             </div>
-            <p className="pl-6 text-[11px] text-zinc-600 dark:text-zinc-400">
-              L'assistant de recherche IA est un outil d'aide à la recherche textuelle et à la synthèse. Les réponses générées servent de repère d'étude et doivent systématiquement être vérifiées avec les textes officiels originaux.
-            </p>
+            <div className="pl-6 space-y-2 text-[11px] text-zinc-600 dark:text-zinc-400">
+              <p>
+                • <strong>Nature & Limites de l'IA :</strong> L'Assistant IA est un outil algorithmique d'indexation, de recherche RAG (*Retrieval-Augmented Generation*) et de synthèse textuelle. Il ne possède ni discernement spirituel, ni inspiration divine, ni autorité doctrinale. Les réponses produites sont des synthèses automatisées et ne constituent en aucun cas une révélation ni un enseignement officiel.
+              </p>
+
+              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-1.5 text-zinc-800 dark:text-zinc-200">
+                <p className="font-bold text-[11px] text-amber-700 dark:text-amber-400 flex items-center gap-1.5 uppercase tracking-wide">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>Obligations Permanentes de l'Utilisateur :</span>
+                </p>
+                <ul className="list-disc pl-4 space-y-1 text-[10.5px]">
+                  <li>
+                    <strong>Vérification systématique à la source :</strong> L'utilisateur doit <u>TOUJOURS</u> cliquer sur les références fournies (ex: <code className="px-1 py-0.5 bg-zinc-200 dark:bg-zinc-800 rounded font-mono text-[9.5px]">[Réf: ID, §N]</code>) pour lire l'intégralité du paragraphe original dans son contexte authentique.
+                  </li>
+                  <li>
+                    <strong>Primauté absolue du texte d'origine :</strong> En cas de doute ou de nuance, la lettre exacte de la prédication du frère William Marrion Branham ou des Saintes Écritures prévaut de manière absolue sur toute formulation générée par l'IA.
+                  </li>
+                  <li>
+                    <strong>Prudence avant toute diffusion :</strong> L'utilisateur s'engage à ne jamais enseigner, prêcher ou partager publiquement une affirmation de l'IA sans avoir relu et confirmé les paragraphes originaux dans le Lecteur.
+                  </li>
+                  <li>
+                    <strong>Discernement spirituel :</strong> L'étude de la Parole requiert la prière, la méditation personnelle et l'assistance du Saint-Esprit, qu'aucun algorithme ne peut remplacer.
+                  </li>
+                </ul>
+              </div>
+            </div>
           </div>
 
           {/* Section 6: Mode Projection */}

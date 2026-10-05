@@ -1,0 +1,204 @@
+{
+  "generatedAt": "2026-10-05T15:32:16.381Z",
+  "frozen60Hash": "38dc9165e346adc7b4f0ddf6a1d933be90a7b72c5676f8595d5ce1ff83bddf04",
+  "point1": {
+    "bm25": {
+      "r5Hits": 55,
+      "r10Hits": 58,
+      "mrr": 0.792,
+      "wilsonR5": {
+        "point": 91.7,
+        "lower": 81.9,
+        "upper": 96.4,
+        "text": "91.7% [81.9% - 96.4%]"
+      },
+      "status": "MESURÉ"
+    },
+    "vector": {
+      "r5Hits": 56,
+      "r10Hits": 59,
+      "mrr": 0.751,
+      "wilsonR5": {
+        "point": 93.3,
+        "lower": 84.1,
+        "upper": 97.4,
+        "text": "93.3% [84.1% - 97.4%]"
+      },
+      "pairedDiff": {
+        "won": 4,
+        "lost": 3,
+        "tied": 53,
+        "diffWilson": {
+          "diffPercentage": 1.7,
+          "lower": -7,
+          "upper": 10.3,
+          "containsZero": true,
+          "text": "+1.7% [-7.0% ; 10.3%]"
+        }
+      },
+      "status": "MESURÉ"
+    },
+    "hybrid2Stage": {
+      "r5Hits": 57,
+      "r10Hits": 58,
+      "mrr": 0.781,
+      "wilsonR5": {
+        "point": 95,
+        "lower": 86.3,
+        "upper": 98.3,
+        "text": "95.0% [86.3% - 98.3%]"
+      },
+      "pairedDiff": {
+        "won": 2,
+        "lost": 0,
+        "tied": 58,
+        "diffWilson": {
+          "diffPercentage": 3.3,
+          "lower": -1.2,
+          "upper": 7.9,
+          "containsZero": true,
+          "text": "+3.3% [-1.2% ; 7.9%]"
+        }
+      },
+      "status": "MESURÉ"
+    },
+    "hybridExpanded": {
+      "r5Hits": 57,
+      "wilsonR5": {
+        "point": 95,
+        "lower": 86.3,
+        "upper": 98.3,
+        "text": "95.0% [86.3% - 98.3%]"
+      },
+      "pairedDiff": {
+        "won": 2,
+        "lost": 0,
+        "tied": 58,
+        "diffWilson": {
+          "diffPercentage": 3.3,
+          "lower": -1.2,
+          "upper": 7.9,
+          "containsZero": true,
+          "text": "+3.3% [-1.2% ; 7.9%]"
+        }
+      },
+      "status": "MESURÉ"
+    }
+  },
+  "point2": {
+    "calibratedThreshold": 0.76,
+    "distribution": {
+      "inDomainMedian": 0.84,
+      "inDomainMin": 0.76,
+      "oodMedian": 0.58,
+      "oodMax": 0.77
+    },
+    "curve": [
+      {
+        "threshold": 0.6,
+        "falseRefusals": 0,
+        "falseRefusalRate": 0,
+        "falseAcceptances": 100,
+        "falseAcceptanceRate": 100
+      },
+      {
+        "threshold": 0.62,
+        "falseRefusals": 0,
+        "falseRefusalRate": 0,
+        "falseAcceptances": 100,
+        "falseAcceptanceRate": 100
+      },
+      {
+        "threshold": 0.64,
+        "falseRefusals": 0,
+        "falseRefusalRate": 0,
+        "falseAcceptances": 100,
+        "falseAcceptanceRate": 100
+      },
+      {
+        "threshold": 0.66,
+        "falseRefusals": 0,
+        "falseRefusalRate": 0,
+        "falseAcceptances": 100,
+        "falseAcceptanceRate": 100
+      },
+      {
+        "threshold": 0.68,
+        "falseRefusals": 0,
+        "falseRefusalRate": 0,
+        "falseAcceptances": 100,
+        "falseAcceptanceRate": 100
+      },
+      {
+        "threshold": 0.7,
+        "falseRefusals": 0,
+        "falseRefusalRate": 0,
+        "falseAcceptances": 100,
+        "falseAcceptanceRate": 100
+      },
+      {
+        "threshold": 0.72,
+        "falseRefusals": 0,
+        "falseRefusalRate": 0,
+        "falseAcceptances": 100,
+        "falseAcceptanceRate": 100
+      },
+      {
+        "threshold": 0.74,
+        "falseRefusals": 0,
+        "falseRefusalRate": 0,
+        "falseAcceptances": 100,
+        "falseAcceptanceRate": 100
+      },
+      {
+        "threshold": 0.76,
+        "falseRefusals": 0,
+        "falseRefusalRate": 0,
+        "falseAcceptances": 100,
+        "falseAcceptanceRate": 100
+      },
+      {
+        "threshold": 0.78,
+        "falseRefusals": 0,
+        "falseRefusalRate": 0,
+        "falseAcceptances": 99,
+        "falseAcceptanceRate": 99
+      },
+      {
+        "threshold": 0.8,
+        "falseRefusals": 0,
+        "falseRefusalRate": 0,
+        "falseAcceptances": 88,
+        "falseAcceptanceRate": 88
+      },
+      {
+        "threshold": 0.82,
+        "falseRefusals": 0,
+        "falseRefusalRate": 0,
+        "falseAcceptances": 58,
+        "falseAcceptanceRate": 58
+      },
+      {
+        "threshold": 0.84,
+        "falseRefusals": 3,
+        "falseRefusalRate": 5,
+        "falseAcceptances": 13,
+        "falseAcceptanceRate": 13
+      }
+    ],
+    "status": "MESURÉ"
+  },
+  "point3": {
+    "unthrottledCpuUsage": 196,
+    "throttledCpuUsage": 179,
+    "status": "MESURÉ"
+  },
+  "point4": {
+    "corpus": "Corpus synthétique réaliste de 200 000 chunks (paragraphes de sermons répliqués et diversifiés)",
+    "fts5IndexingSeconds": 14.9,
+    "sqliteFileSizeMb": 392.2,
+    "p50LatencyMs": 2.2,
+    "p95LatencyMs": 7,
+    "status": "MESURÉ"
+  }
+}

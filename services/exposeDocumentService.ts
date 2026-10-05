@@ -214,8 +214,68 @@ export async function createExposeDocumentChunks(options?: ChunkingOptions): Pro
 
   if (!options) {
     cachedExposeChunks = chunks;
+    await hydrateExposePrecalculatedEmbeddings(cachedExposeChunks);
   }
   return chunks;
+}
+
+let precomputedEmbeddingsHydrated = false;
+
+/**
+ * Hydrate les chunks avec les embeddings 768D Int8 précalculés livrés dans l'application.
+ * 0 appel réseau Gemini, chargement binaire direct et instantané (< 10 ms).
+ */
+export async function hydrateExposePrecalculatedEmbeddings(chunks: SermonChunk[]): Promise<void> {
+  if (precomputedEmbeddingsHydrated || !Array.isArray(chunks) || chunks.length === 0) return;
+  if (chunks[0].embedding && chunks[0].embedding.length > 0) return;
+
+  try {
+    // Mode Node.js / Electron
+    if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+      const fs = await import('fs');
+      const path = await import('path');
+      const metaPath = path.resolve('public', 'corpus_embeddings_meta.json');
+      const binPath = path.resolve('public', 'corpus_embeddings_768d.bin');
+
+      if (fs.existsSync(metaPath) && fs.existsSync(binPath)) {
+        const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+        const binBuffer = fs.readFileSync(binPath);
+        const chunkMap = new Map<string, SermonChunk>();
+        for (const c of chunks) chunkMap.set(c.chunkId, c);
+
+        for (const item of meta.chunks) {
+          const chunk = chunkMap.get(item.chunkId);
+          if (chunk) {
+            chunk.embedding = new Int8Array(binBuffer.buffer, binBuffer.byteOffset + item.offset, item.length);
+          }
+        }
+        precomputedEmbeddingsHydrated = true;
+        return;
+      }
+    }
+
+    // Mode Navigateur Web
+    if (typeof window !== 'undefined' && typeof fetch !== 'undefined') {
+      const metaRes = await fetch('/corpus_embeddings_meta.json');
+      const binRes = await fetch('/corpus_embeddings_768d.bin');
+      if (metaRes.ok && binRes.ok) {
+        const meta = await metaRes.json();
+        const arrayBuf = await binRes.arrayBuffer();
+        const chunkMap = new Map<string, SermonChunk>();
+        for (const c of chunks) chunkMap.set(c.chunkId, c);
+
+        for (const item of meta.chunks) {
+          const chunk = chunkMap.get(item.chunkId);
+          if (chunk) {
+            chunk.embedding = new Int8Array(arrayBuf, item.offset, item.length);
+          }
+        }
+        precomputedEmbeddingsHydrated = true;
+      }
+    }
+  } catch (err) {
+    console.warn('[ExposeDocumentService] Hydratation des embeddings précalculés ignorée:', err);
+  }
 }
 
 /**

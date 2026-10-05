@@ -26,10 +26,11 @@ import { Sermon, SermonChunk, RetrievalEvidencePackage, RetrievalEvidence } from
 import { retrieveRelevantSermonPassages } from './sermonRagService';
 import { searchByText } from './vectorSearchService';
 import { mapParagraphsToChunkHits, fuseRankings } from './hybridRetrievalService';
-import { rerankHybridResults, assessAnswerability } from './rerankingService';
+import { rerankHybridResults, assessAnswerability, isOverviewOrSummaryQuery } from './rerankingService';
 import { buildRetrievalEvidencePackage } from './retrievalEvidenceService';
 import { getAllChunks } from './chunkStorageService';
 import { createSermonChunks } from './chunkingService';
+import { createExposeDocumentChunks } from './exposeDocumentService';
 import { getGeminiApiKey } from '../utils/apiKeyHelper';
 import { useAppStore } from '../store';
 
@@ -99,6 +100,13 @@ export async function executeAutoRagPipeline(
       if (chunks.length === 0 && originalSermons.length > 0) {
         chunks = originalSermons.flatMap(s => createSermonChunks(s));
       }
+      if (chunks.length === 0) {
+        try {
+          chunks = await createExposeDocumentChunks();
+        } catch (expErr) {
+          console.warn('[AutoRagPipeline] Erreur fallback Exposé:', expErr);
+        }
+      }
     }
 
     if (chunks.length === 0) {
@@ -153,7 +161,7 @@ export async function executeAutoRagPipeline(
     }
 
     // 5. Fusion RRF (Reciprocal Rank Fusion k=60)
-    const hybridResults = fuseRankings({
+    let hybridResults = fuseRankings({
       lexicalHits,
       vectorHits,
       allChunks: chunks,
@@ -162,6 +170,32 @@ export async function executeAutoRagPipeline(
         topK: options.topK || 15
       }
     });
+
+    // Cas spécial : Requête d'aperçu / synthèse ("de quoi ça parle", "résumé", etc.)
+    const isOverview = isOverviewOrSummaryQuery(cleanQuery);
+    if ((isOverview || hybridResults.length === 0) && chunks.length > 0) {
+      if (hybridResults.length === 0) {
+        hybridResults = chunks.slice(0, 15).map((chunk, idx) => ({
+          chunkId: chunk.chunkId,
+          sermonId: chunk.sermonId,
+          sermonTitle: chunk.sermonTitle,
+          paragraphIds: chunk.paragraphIds,
+          startParagraph: chunk.startParagraph,
+          endParagraph: chunk.endParagraph,
+          text: chunk.text,
+          date: chunk.date,
+          city: chunk.city,
+          version: chunk.version,
+          lexicalRank: idx + 1,
+          lexicalScore: Math.max(10, 50 - idx * 3),
+          vectorRank: idx + 1,
+          vectorScore: Math.max(0.6, 0.95 - idx * 0.03),
+          rrfScore: 1.0 / (60 + idx + 1),
+          rank: idx + 1,
+          chunk
+        }));
+      }
+    }
 
     if (hybridResults.length === 0) {
       return {

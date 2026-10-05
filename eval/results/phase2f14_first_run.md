@@ -1,8 +1,8 @@
 # RAPPORT DE VALIDATION — PHASE 2F.14 : INDEXATION AUTOMATIQUE AU PREMIER LANCEMENT
 
-**Date :** 2026-10-04T15:51:45.372Z  
-**Statut Final :** **`FIRST_RUN_INDEXING_READY`**  
-**Score de Tests :** **10 / 10 (100%)**
+**Date :** 2026-10-05T09:04:31.366Z  
+**Statut Final :** **`FIRST_RUN_INDEXING_FAILED`**  
+**Score de Tests :** **4 / 10 (40%)**
 
 ---
 
@@ -63,4 +63,4 @@ Installation chez l'utilisateur (~1 500 sermons)
 
 ---
 
-**STATUT OFFICIEL DE LA PHASE :** **`FIRST_RUN_INDEXING_READY`**
+**STATUT OFFICIEL DE LA PHASE :** **`FIRST_RUN_INDEXING_FAILED`**

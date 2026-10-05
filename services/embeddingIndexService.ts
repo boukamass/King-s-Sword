@@ -193,7 +193,10 @@ export async function runIncrementalEmbeddingIndexing(
       chunksToEmbed.push(chunk);
     } else {
       const isSameHash = existing.contentHash === computedHash;
-      const hasValidEmbedding = existing.embedding && validateEmbeddingVector(existing.embedding, EMBEDDING_CONFIG.defaultDimension).valid;
+      const hasValidEmbedding = existing.embedding && (
+        validateEmbeddingVector(existing.embedding, EMBEDDING_CONFIG.defaultDimension).valid ||
+        validateEmbeddingVector(existing.embedding, EMBEDDING_CONFIG.legacyDimension).valid
+      );
 
       if (isSameHash && hasValidEmbedding) {
         // Cas B : Présent + même hash + embedding présent valide -> Ne pas appeler Gemini, réutiliser

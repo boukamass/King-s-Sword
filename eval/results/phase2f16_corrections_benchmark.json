@@ -1,0 +1,216 @@
+{
+  "generatedAt": "2026-10-05T09:18:58.604Z",
+  "point1": {
+    "recallAt5_3072D": 62.9,
+    "recallAt5_768D_Float": 62.9,
+    "recallAt5_768D_Int8": 62.9,
+    "mrr_3072D": 0.547,
+    "mrr_768D_Float": 0.547,
+    "mrr_768D_Int8": 0.548,
+    "categoryBreakdown": {
+      "information_explicite": {
+        "total": 7,
+        "r5": 4,
+        "r10": 4
+      },
+      "reformulation": {
+        "total": 3,
+        "r5": 2,
+        "r10": 2
+      },
+      "paraphrase": {
+        "total": 3,
+        "r5": 0,
+        "r10": 0
+      },
+      "question_thematique": {
+        "total": 4,
+        "r5": 4,
+        "r10": 4
+      },
+      "recherche_passage_precis": {
+        "total": 5,
+        "r5": 2,
+        "r10": 2
+      },
+      "plusieurs_passages": {
+        "total": 3,
+        "r5": 3,
+        "r10": 3
+      },
+      "plusieurs_exposes": {
+        "total": 2,
+        "r5": 1,
+        "r10": 1
+      },
+      "question_ambigue": {
+        "total": 3,
+        "r5": 2,
+        "r10": 2
+      },
+      "enseignement_precis": {
+        "total": 3,
+        "r5": 3,
+        "r10": 3
+      },
+      "doctrine": {
+        "total": 2,
+        "r5": 1,
+        "r10": 1
+      }
+    }
+  },
+  "point2": {
+    "tunedParameters": {
+      "wBm25": 0.85,
+      "wVec": 0.15,
+      "k": 30
+    },
+    "dev24": {
+      "bm25": {
+        "recallAt5": 100,
+        "recallAt10": 100,
+        "mrr": 1,
+        "hits5": "24/24"
+      },
+      "weightedRrf": {
+        "recallAt5": 100,
+        "recallAt10": 100,
+        "mrr": 0.979,
+        "hits5": "24/24"
+      },
+      "normalizedScores": {
+        "recallAt5": 100,
+        "recallAt10": 100,
+        "mrr": 0.979,
+        "hits5": "24/24"
+      }
+    },
+    "main50": {
+      "bm25": {
+        "recallAt5": 94.3,
+        "recallAt10": 94.3,
+        "mrr": 0.812,
+        "hits5": "33/35"
+      },
+      "weightedRrf": {
+        "recallAt5": 94.3,
+        "recallAt10": 94.3,
+        "mrr": 0.808,
+        "hits5": "33/35"
+      },
+      "normalizedScores": {
+        "recallAt5": 88.6,
+        "recallAt10": 94.3,
+        "mrr": 0.786,
+        "hits5": "31/35"
+      }
+    },
+    "frozenUnseen20": {
+      "bm25": {
+        "recallAt5": 78.6,
+        "recallAt10": 85.7,
+        "mrr": 0.627,
+        "hits5": "11/14"
+      },
+      "weightedRrf": {
+        "recallAt5": 85.7,
+        "recallAt10": 92.9,
+        "mrr": 0.676,
+        "hits5": "12/14"
+      },
+      "normalizedScores": {
+        "recallAt5": 92.9,
+        "recallAt10": 92.9,
+        "mrr": 0.58,
+        "hits5": "13/14"
+      }
+    }
+  },
+  "point3": {
+    "noRerank": {
+      "recallAt5": 85.7,
+      "recallAt10": 92.9,
+      "mrr": 0.69,
+      "hits5": "12/14"
+    },
+    "legacyLocalRerank": {
+      "recallAt5": 92.9,
+      "recallAt10": 92.9,
+      "mrr": 0.604,
+      "hits5": "13/14"
+    },
+    "fastCrossScorer": {
+      "recallAt5": 92.9,
+      "recallAt10": 92.9,
+      "mrr": 0.637,
+      "hits5": "13/14"
+    }
+  },
+  "point4": {
+    "threshold": 0.66,
+    "falseRefusals": {
+      "count": 0,
+      "total": 35,
+      "interval": {
+        "point": 0,
+        "lower": 0,
+        "upper": 9.9,
+        "text": "0.0% [0.0% - 9.9%]"
+      }
+    },
+    "falseAcceptances": {
+      "count": 2,
+      "total": 100,
+      "interval": {
+        "point": 2,
+        "lower": 0.6,
+        "upper": 7,
+        "text": "2.0% [0.6% - 7.0%]"
+      },
+      "nearDomainCount": 1,
+      "generalOodCount": 1
+    }
+  },
+  "point5": {
+    "fileSizePrecomputedBytes": 1113600,
+    "totalChunks": 1450,
+    "bytesPerVector": 768,
+    "explanation": "481 Ko = 641 chunks x 768 B initialement exportés. 1.06 Mo = 1450 chunks x 768 B = 1,113,600 B (100% complet)."
+  },
+  "point6": {
+    "sermonsDev24": {
+      "bm25": {
+        "recallAt5": 100,
+        "recallAt10": 100,
+        "mrr": 1,
+        "hits5": "24/24"
+      },
+      "weightedRrf": {
+        "recallAt5": 100,
+        "recallAt10": 100,
+        "mrr": 0.979,
+        "hits5": "24/24"
+      }
+    },
+    "sermonsTest36": {
+      "bm25": {
+        "recallAt5": 100,
+        "recallAt10": 100,
+        "mrr": 0.972,
+        "hits5": "36/36"
+      },
+      "weightedRrf": {
+        "recallAt5": 100,
+        "recallAt10": 100,
+        "mrr": 0.968,
+        "hits5": "36/36"
+      }
+    },
+    "metrology": {
+      "totalChunks": 1450,
+      "vectorRamMb": 1.06,
+      "latencyMs": 3.51
+    }
+  }
+}

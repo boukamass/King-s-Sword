@@ -15,12 +15,12 @@ import { SermonChunk, VectorSearchResult, VectorSearchOptions, LexicalChunkHit, 
 import { searchByVector, searchByText } from './vectorSearchService';
 
 export const DEFAULT_HYBRID_OPTIONS: Required<HybridSearchOptions> = {
-  k: 60,
+  k: 40,
   topK: 10,
   minRrfScore: 0,
   sermonIdFilter: [],
-  vectorWeight: 1.0,
-  lexicalWeight: 1.0
+  vectorWeight: 0.20,
+  lexicalWeight: 0.80
 };
 
 /**
@@ -30,9 +30,9 @@ export const DEFAULT_HYBRID_OPTIONS: Required<HybridSearchOptions> = {
 export function computeRrfScore(
   lexicalRank: number | null | undefined,
   vectorRank: number | null | undefined,
-  k: number = 60,
-  lexicalWeight: number = 1.0,
-  vectorWeight: number = 1.0
+  k: number = 40,
+  lexicalWeight: number = 0.80,
+  vectorWeight: number = 0.20
 ): number {
   if (k <= 0) k = 60;
   let rrf = 0;

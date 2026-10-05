@@ -170,7 +170,7 @@ console.log('=================================================================='
           generateContent: async () => {
             geminiCalled5 = true;
             return {
-              text: `L'étude combine le premier sceau du sermon, Philadelphie de l'Exposé et le Fils unique de la Bible.\n\n> « Le premier sceau... » [Réf: 63-0324M, Para. 2]\n> « Philadelphie... » [Réf: expose-ch-8, §15]\n> « Car Dieu a tant aimé... » [Réf: bible-jhn-3, §16]`
+              text: `L'étude combine le premier sceau du sermon, Philadelphie de l'Exposé et le Fils unique de la Bible.\n\n> « Le premier sceau... » [Réf: 63-0324M, §2]\n> « Philadelphie... » [Réf: expose-ch-8, §145]\n> « Car Dieu a tant aimé... » [Réf: bible-jhn-3, §16]`
             };
           }
         }

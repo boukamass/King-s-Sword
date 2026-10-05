@@ -32,7 +32,11 @@ import { loadExposeAsCanonicalDocuments, createExposeDocumentChunks } from './ex
 import { createSermonChunks } from './chunkingService';
 import { getSermonById } from './db';
 import { mapParagraphsToChunkHits, fuseRankings } from './hybridRetrievalService';
-import { rerankHybridResults, assessAnswerability, extractSignificantQueryTerms, extractSubstantiveQueryTerms } from './rerankingService';
+import { rerankHybridResults, assessAnswerability, extractSignificantQueryTerms, extractSubstantiveQueryTerms, isOverviewOrSummaryQuery } from './rerankingService';
+import { expandTheologicalQuery } from './theologicalQueryService';
+import { searchByVector, embedQueryText } from './vectorSearchService';
+import { getChunksBySermonId } from './chunkStorageService';
+import { getGeminiApiKey } from '../utils/apiKeyHelper';
 import { normalizeText, splitSermonIntoParagraphs, extractLeadingParagraphNumber } from '../utils/textUtils';
 
 // Mots vides généraux pour l'analyse lexicale
@@ -71,6 +75,8 @@ export interface UnifiedRagOptions {
   bibleVersion?: BibleVersion;
   mockVectorHits?: any[];
   loadedSermonsMap?: Map<string, Sermon | Omit<Sermon, 'text'>> | Map<string, any>;
+  apiKey?: string;
+  queryVector?: number[] | Float32Array;
 }
 
 /**
@@ -283,6 +289,17 @@ export async function resolveAIContextChunks(
 
       if (sermon && sermon.text) {
         const sermonChunks = createSermonChunks(sermon);
+        try {
+          const stored = await getChunksBySermonId(cleanSourceId);
+          if (stored && stored.length > 0) {
+            const embMap = new Map(stored.filter(s => Array.isArray(s.embedding) && s.embedding.length > 0).map(s => [s.chunkId, s.embedding]));
+            for (const c of sermonChunks) {
+              const foundEmb = embMap.get(c.chunkId);
+              if (foundEmb) c.embedding = foundEmb;
+            }
+          }
+        } catch {}
+
         for (const c of sermonChunks) {
           c.documentType = 'sermon';
           c.documentId = cleanSourceId; // Conserve l'ID sélectionné par l'utilisateur (avec suffixe) pour la synchronisation de l'IHM
@@ -304,6 +321,16 @@ export async function resolveAIContextChunks(
     // -------------------------------------------------------------
     else if (src.sourceType === 'expose') {
       const allExposeChunks = await createExposeDocumentChunks();
+      try {
+        const stored = await getChunksBySermonId(src.sourceId);
+        if (stored && stored.length > 0) {
+          const embMap = new Map(stored.filter(s => Array.isArray(s.embedding) && s.embedding.length > 0).map(s => [s.chunkId, s.embedding]));
+          for (const c of allExposeChunks) {
+            const foundEmb = embMap.get(c.chunkId);
+            if (foundEmb) c.embedding = foundEmb;
+          }
+        }
+      } catch {}
       
       for (const c of allExposeChunks) {
         // Filtrage par chapitre (ex: expose-ch-8 ou ch "8")
@@ -506,9 +533,22 @@ export async function executeUnifiedRagPipeline(
 
   // Concaténation du texte intégral du contexte actif pour l'évaluation d'Answerability
   const contextCorpusText = allowedChunks.map(c => c.text).join(' ');
-  const queryTerms = extractUnifiedQueryTerms(cleanQuery);
+
+  // Expansion doctrinale & décomposition Multi-Hop
+  const queryExpansion = await expandTheologicalQuery(cleanQuery, options.apiKey);
+  const effectiveQuery = queryExpansion.expandedQuery || cleanQuery;
+  const queryTerms = extractUnifiedQueryTerms(effectiveQuery);
   const normalizedQuery = normalizeText(cleanQuery);
   const queryWords = normalizedQuery.split(/\s+/).filter(w => w.length > 2);
+
+  // Termes additionnels issus des sous-requêtes multi-hop
+  if (queryExpansion.isMultiHop && queryExpansion.subQueries.length > 1) {
+    for (const sq of queryExpansion.subQueries) {
+      for (const t of extractUnifiedQueryTerms(sq)) {
+        if (!queryTerms.includes(t)) queryTerms.push(t);
+      }
+    }
+  }
 
   // Bigrammes de la requête pour détecter les syntagmes doctrinaux précis
   const bigrams: string[] = [];
@@ -570,51 +610,126 @@ export async function executeUnifiedRagPipeline(
 
   // 3. Recherche vectorielle / sémantique STRICTEMENT sur les chunks autorisés
   let vectorHits: Array<{ chunk: SermonChunk; score: number; rank: number }> = [];
+  let vectorMethod: 'cosine_768d_int8' | 'cosine_768d_float32' | 'cosine_3072d' | 'deterministic_overlap' = 'deterministic_overlap';
 
   if (Array.isArray(options.mockVectorHits) && options.mockVectorHits.length > 0) {
     const allowedIds = new Set(allowedChunks.map(c => c.chunkId));
     vectorHits = options.mockVectorHits.filter(h => allowedIds.has(h.chunk?.chunkId));
+    vectorMethod = 'cosine_3072d';
   } else {
-    // Calcul déterministe de similarité sémantique sur le scope autorisé
-    const normQ = cleanQuery.toLowerCase();
-    const qWords = queryTerms.length > 0 ? queryTerms : normQ.split(/\s+/).filter(w => w.length > 3);
-    vectorHits = allowedChunks
-      .map((chunk) => {
-        let sim = 0;
-        const t = normalizeText(chunk.text);
-        if (chunk.sectionTitle && normQ.includes(chunk.sectionTitle.toLowerCase())) sim += 0.20;
-        if (chunk.sermonTitle && normQ.includes(chunk.sermonTitle.toLowerCase())) sim += 0.15;
-        let wordMatches = 0;
-        for (const w of qWords) {
-          if (w.length > 2 && t.includes(w)) wordMatches++;
+    // 3A. VRAI VECTOR RETRIEVAL (768D Int8/Float32 ou 3072D Float32)
+    const chunksWithEmbeddings = allowedChunks.filter(c => 
+      (Array.isArray(c.embedding) && (c.embedding.length === 768 || c.embedding.length === 3072)) ||
+      (c.embedding instanceof Float32Array && (c.embedding.length === 768 || c.embedding.length === 3072)) ||
+      (c.embedding instanceof Int8Array && c.embedding.length === 768)
+    );
+    const activeApiKey = options.apiKey || (typeof window !== 'undefined' ? getGeminiApiKey() : '') || process.env.API_KEY || '';
+
+    let vectorSearchSuccess = false;
+
+    if (chunksWithEmbeddings.length > 0 && (options.queryVector || activeApiKey)) {
+      try {
+        let qVec: number[] | Float32Array | Int8Array | null = options.queryVector || null;
+        const sampleEmb = chunksWithEmbeddings[0].embedding;
+        const targetDim = sampleEmb ? sampleEmb.length : 768;
+
+        if (!qVec && activeApiKey) {
+          qVec = await embedQueryText(cleanQuery, activeApiKey, {
+            dimension: targetDim,
+            taskType: 'RETRIEVAL_QUERY'
+          });
         }
-        let bgMatches = 0;
-        for (const bg of bigrams) {
-          if (t.includes(bg)) bgMatches++;
+
+        if (qVec && (qVec.length === 768 || qVec.length === 3072)) {
+          const vecResults = searchByVector(qVec, chunksWithEmbeddings, {
+            topK: 20
+          });
+          if (vecResults.length > 0) {
+            vectorHits = vecResults.map((item, idx) => ({
+              chunk: item.chunk,
+              score: item.score,
+              rank: idx + 1
+            }));
+            vectorSearchSuccess = true;
+            const isInt8 = chunksWithEmbeddings[0].embedding instanceof Int8Array;
+            vectorMethod = isInt8 ? 'cosine_768d_int8' : (qVec.length === 768 ? 'cosine_768d_float32' : 'cosine_3072d');
+          }
         }
-        const matchRatio = wordMatches / Math.max(1, qWords.length);
-        sim += matchRatio * 0.60;
-        if (bgMatches > 0) sim += 0.15 * Math.min(bgMatches, 2) * matchRatio;
-        if (matchRatio >= 0.70) sim += 0.20;
-        if (t.includes(normalizedQuery)) sim += 0.30;
-        return { chunk, score: Math.min(1.0, Math.round(sim * 100) / 100) };
-      })
-      .filter(h => h.score > 0.1)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 20)
-      .map((item, idx) => ({
-        ...item,
-        rank: idx + 1
-      }));
+      } catch (err) {
+        console.warn('[UnifiedRAG] Erreur appel embedding, repli déterministe immédiat:', err);
+      }
+    }
+
+    // 3B. FALLBACK DÉTERMINISTE LOCAL (si pas d'embeddings précalculés, hors-ligne ou erreur API)
+    if (!vectorSearchSuccess) {
+      const normQ = cleanQuery.toLowerCase();
+      const qWords = queryTerms.length > 0 ? queryTerms : normQ.split(/\s+/).filter(w => w.length > 3);
+      vectorHits = allowedChunks
+        .map((chunk) => {
+          let sim = 0;
+          const t = normalizeText(chunk.text);
+          if (chunk.sectionTitle && normQ.includes(chunk.sectionTitle.toLowerCase())) sim += 0.20;
+          if (chunk.sermonTitle && normQ.includes(chunk.sermonTitle.toLowerCase())) sim += 0.15;
+          let wordMatches = 0;
+          for (const w of qWords) {
+            if (w.length > 2 && t.includes(w)) wordMatches++;
+          }
+          let bgMatches = 0;
+          for (const bg of bigrams) {
+            if (t.includes(bg)) bgMatches++;
+          }
+          const matchRatio = wordMatches / Math.max(1, qWords.length);
+          sim += matchRatio * 0.60;
+          if (bgMatches > 0) sim += 0.15 * Math.min(bgMatches, 2) * matchRatio;
+          if (matchRatio >= 0.70) sim += 0.20;
+          if (t.includes(normalizedQuery)) sim += 0.30;
+          return { chunk, score: Math.min(1.0, Math.round(sim * 100) / 100) };
+        })
+        .filter(h => h.score > 0.1)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 20)
+        .map((item, idx) => ({
+          ...item,
+          rank: idx + 1
+        }));
+      vectorMethod = 'deterministic_overlap';
+    }
   }
 
   // 4. Fusion Hybride RRF (k=60)
-  const hybridResults = fuseRankings({
+  let hybridResults = fuseRankings({
     lexicalHits,
     vectorHits,
     allChunks: allowedChunks,
     options: { k: options.k || 60, topK: 20 }
   });
+
+  // Cas spécial : Requête d'aperçu / synthèse ("de quoi ça parle", "résumé", etc.) ou absence de hit strict
+  const isOverview = isOverviewOrSummaryQuery(cleanQuery);
+  if ((isOverview || hybridResults.length === 0) && allowedChunks.length > 0) {
+    if (hybridResults.length === 0) {
+      // Sélection des chunks initiaux et représentatifs des ressources autorisées dans l'AI Context
+      hybridResults = allowedChunks.slice(0, 15).map((chunk, idx) => ({
+        chunkId: chunk.chunkId,
+        sermonId: chunk.sermonId,
+        sermonTitle: chunk.sermonTitle,
+        paragraphIds: chunk.paragraphIds,
+        startParagraph: chunk.startParagraph,
+        endParagraph: chunk.endParagraph,
+        text: chunk.text,
+        date: chunk.date,
+        city: chunk.city,
+        version: chunk.version,
+        lexicalRank: idx + 1,
+        lexicalScore: Math.max(10, 50 - idx * 3),
+        vectorRank: idx + 1,
+        vectorScore: Math.max(0.6, 0.95 - idx * 0.03),
+        rrfScore: 1.0 / (60 + idx + 1),
+        rank: idx + 1,
+        chunk
+      }));
+    }
+  }
 
   // 5. Reranking local multi-signaux
   const rerankedResults = rerankHybridResults({
@@ -683,6 +798,7 @@ export async function executeUnifiedRagPipeline(
       resolvedChunksCount: allowedChunks.length,
       lexicalHitsCount: lexicalHits.length,
       vectorHitsCount: vectorHits.length,
+      vectorMethod,
       rrfHitsCount: hybridResults.length,
       rerankedHitsCount: rerankedResults.length,
       confidenceScore: assessment.confidenceScore,
@@ -699,6 +815,7 @@ export async function executeUnifiedRagPipeline(
     evidence,
     query: cleanQuery,
     totalCandidates: rerankedResults.length,
-    rejectedCount: Math.max(0, rerankedResults.length - evidence.length)
+    rejectedCount: Math.max(0, rerankedResults.length - evidence.length),
+    vectorMethod
   };
 }
