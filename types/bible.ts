@@ -1,4 +1,4 @@
-export type BibleVersion = 'lsg1910' | 'darby' | 'kjv';
+export type BibleVersion = 'lsg1910' | 'darby' | 'kjv' | 'amp';
 
 export interface BibleVersionMeta {
   id: BibleVersion;
@@ -14,7 +14,7 @@ export const BIBLE_VERSIONS_META: Record<BibleVersion, BibleVersionMeta> = {
   lsg1910: {
     id: 'lsg1910',
     label: 'Louis Segond 1910',
-    shortName: 'LSG 1910',
+    shortName: 'LSG',
     lang: 'fr',
     subtext: 'Français • Version classique',
     file: '/bible-lsg1910.json',
@@ -37,6 +37,15 @@ export const BIBLE_VERSIONS_META: Record<BibleVersion, BibleVersionMeta> = {
     subtext: 'English • Authorized Version',
     file: '/bible-kjv.json',
     apiCode: 'kjv'
+  },
+  amp: {
+    id: 'amp',
+    label: 'Amplified Bible (AMP)',
+    shortName: 'AMP',
+    lang: 'en',
+    subtext: 'English • Lockman Amplified Edition',
+    file: '/bible-amp.json',
+    apiCode: 'amp'
   }
 };
 

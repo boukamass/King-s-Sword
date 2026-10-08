@@ -270,17 +270,27 @@ export function formatEvidenceContextForGemini(
       .map(cp => `  - Paragraphe §${cp.paragraphIndex} -> Citation obligatoire : ${cp.formattedCitation}`)
       .join('\n');
 
+    const isExpose = ev.sermonId.startsWith('expose-');
+    const isBible = ev.sermonId.startsWith('bible-');
+    const isSong = ev.sermonId.startsWith('song-');
+    const docLabel = isExpose ? 'Exposé des Sept Âges' : (isBible ? 'Sainte Bible' : (isSong ? 'Cantique' : 'Sermon'));
+    const idLabel = isExpose || isBible || isSong ? 'Identifiant document' : 'Identifiant sermon';
+
+    const fullParasText = ev.citationParagraphs
+      .map(cp => `[§${cp.paragraphIndex}] ${cp.fullParagraphText || cp.textSnippet}`)
+      .join('\n\n');
+
     return `[SOURCE ${idx + 1}]
-Sermon : "${ev.sermonTitle}"
+${docLabel} : "${ev.sermonTitle}"
 Date : ${ev.date || 'Non daté'} | Lieu : ${ev.city || 'Inconnu'} | Version : ${ev.version || 'Standard'}
-Identifiant sermon : ${ev.sermonId}
+${idLabel} : ${ev.sermonId}
 Paragraphes couverts : §${ev.startParagraph} à §${ev.endParagraph}
 Références de citations valides pour cette source :
 ${citationsList}
 
-TEXTE AUTHENTIQUE DES PARAGRAPHES :
+TEXTE AUTHENTIQUE DES PARAGRAPHES INTÉGRAUX (PARAGRAPHES COMPLETS) :
 """
-${ev.text}
+${fullParasText || ev.text}
 """`;
   }).join('\n\n------------------------------------------------------------\n\n');
 
@@ -292,8 +302,10 @@ ${sourcesList}
 DIRECTIVES DE RÉPONSE STRICTES POUR L'ASSISTANT THÉOLOGIQUE :
 1. Réponds à la question en t'appuyant EXCLUSIVEMENT sur les preuves documentaires ci-dessus.
 2. Pour chaque affirmation ou citation, cite la référence du paragraphe correspondant sous la forme exacte :
-   > « Extrait textuel... » [Réf: ID_SERMON, Para. N]
-3. N'utilise AUCUNE information extérieure et n'extrapole pas au-delà des extraits fournis.
-4. Si les extraits ci-dessus ne permettent pas de répondre précisément à la question, déclare :
+   > « Extrait textuel intégral... » [Réf: ID, Para. N]
+3. INTÉGRITÉ DES CITATIONS : Cite toujours la phrase ou le passage entier du paragraphe. Ne tronque JAMAIS une citation aux limites de chunks et ne coupe pas une phrase en deux fragments disjoints.
+4. N'utilise AUCUNE information extérieure et n'extrapole pas au-delà des extraits fournis.
+5. Dans la section finale '### Pistes d'approfondissement', formule uniquement des questions ouvertes de réflexion et n'inclus AUCUNE balise de référence [Réf: ...].
+6. Si les extraits ci-dessus ne permettent pas de répondre précisément à la question, déclare :
    « Les documents disponibles dans la base documentaire ne contiennent pas d'informations suffisantes pour répondre à cette question. »`;
 }

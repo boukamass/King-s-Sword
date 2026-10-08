@@ -11,6 +11,13 @@
 import { GoogleGenAI } from '@google/genai';
 import { getGeminiApiKey } from '../utils/apiKeyHelper';
 import { normalizeText } from '../utils/textUtils';
+import { aiConfig } from '../config/aiConfig';
+
+export interface ChronologicalContext {
+  year?: number;
+  period?: 'pre-seals' | 'post-seals' | 'early-ministry';
+  location?: string;
+}
 
 export interface ExpandedTheologicalQuery {
   originalQuery: string;
@@ -18,28 +25,122 @@ export interface ExpandedTheologicalQuery {
   doctrinalKeywords: string[];
   subQueries: string[];
   isMultiHop: boolean;
+  chronologicalFilter?: ChronologicalContext;
 }
 
 // Table d'équivalence lexicale et doctrinale rapide locale (0 ms, 100% hors-ligne)
+// Couvre l'ensemble des thèmes capitaux du Message du Temps de la Fin et de l'Exposé complet
 const LOCAL_THEOLOGICAL_LEXICON: Record<string, string[]> = {
+  // Le Saint-Esprit, le Jeton et la Nouvelle Naissance
   'saint-esprit': ['jeton', 'token', 'bapteme du saint-esprit', 'sceau de dieu', 'nouvelle naissance', 'vie de christ'],
   'saint esprit': ['jeton', 'token', 'bapteme du saint-esprit', 'sceau de dieu', 'nouvelle naissance'],
-  'nouvelle naissance': ['bapteme du saint-esprit', 'jeton', 'token', 'conversion', 'troisieme pull'],
-  'sceaux': ['sept sceaux', 'ouverture des sceaux', 'agneau', 'livre de redemption', '1963'],
+  'jeton': ['token', 'sang applique', 'saint-esprit lui-meme', 'vie de christ', 'signe requis', 'passeport du croyant'],
+  'token': ['jeton', 'sang applique', 'vie de christ', 'bapteme du saint-esprit', 'sceau'],
+  'nouvelle naissance': ['bapteme du saint-esprit', 'jeton', 'token', 'conversion', 'troisieme pull', 'genes de dieu'],
+
+  // La Divinité, Elohim, Logos et Théophanie
+  'divinite': ['elohim', 'logos', 'unite de dieu', 'jesus est dieu', 'monotheisme', 'yahweh en christ'],
+  'elohim': ['dieu auto-existant', 'avant la creation', 'pensees eternelles', 'logos', 'theophanie'],
+  'logos': ['parole sortie d\'elohim', 'theophanie', 'corps de parole', 'lumiere', 'christ avant l\'incarnation'],
+  'theophanie': ['corps de parole', 'sixieme dimension', 'corps celeste', 'apparition', 'avant le corps de chair'],
+  'théophanie': ['corps de parole', 'sixieme dimension', 'corps celeste', 'logos', 'demeure de l\'ame'],
+  'melchisedek': ['roi de salem', 'sacrificateur du tres-haut', 'sans pere sans mere', 'theophanie', 'elohim en homme'],
+  'melchisédek': ['roi de salem', 'sacrificateur du tres-haut', 'sans pere sans mere', 'theophanie', 'elohim en homme'],
+  'melchisedec': ['roi de salem', 'sacrificateur du tres-haut', 'theophanie', 'elohim'],
+
+  // Les Sept Sceaux et la Rédemption
+  'sceaux': ['sept sceaux', 'ouverture des sceaux', 'agneau', 'livre de redemption', '1963', 'mystere de dieu'],
   'sceau': ['sept sceaux', 'ouverture des sceaux', 'agneau', 'livre de redemption'],
-  'septieme sceau': ['septieme sceau', 'silence au ciel', 'sept trompettes', 'troisieme pull', 'retour du seigneur'],
-  'ages': ['sept ages de l\'eglise', 'messagers', 'ephese', 'smyrne', 'pergame', 'thyatire', 'sardes', 'philadelphie', 'laodicee'],
-  'ephese': ['paul', 'premier age', 'arbre de vie', 'nicolaïsme'],
-  'laodicee': ['dernier age', 'messager du septieme age', 'elu', 'apostasie', 'vomir'],
-  'colonne de feu': ['lumiere surnaturelle', 'ange du seigneur', 'ange de l\'alliance', 'apparition', 'photo houston 1950'],
-  'nuee': ['nuage surnaturel', 'sunset mountain', 'sept anges', 'arizona', 'fevrier 1963'],
-  'pyramide': ['pierre de faite', 'chapeau de la pyramide', 'stature d\'un homme parfait', 'vertus'],
-  'troisieme pull': ['epopee', 'petite chambre', 'parole parlee', 'creation', 'troisieme phase'],
-  'semence du serpent': ['serpent', 'sedution', 'eve', 'cain', 'arbre de la connaissance du bien et du mal'],
-  'enlevement': ['depart', 'epouse', 'trompette de dieu', 'resurrection des morts', 'changement de corps'],
-  'epouse': ['corps mystique de christ', 'vierge pure', 'parole faite chair', 'membres de son corps'],
-  'guerison': ['foi', 'discernement', 'don de guerison', 'vision', 'crois seulement']
+  'sept sceaux': ['ouverture des sceaux 1963', 'livre de redemption', 'livre scelle de sept sceaux', 'agneau immole', 'apocalypse 5 et 6'],
+  '7 sceaux': ['ouverture des sceaux 1963', 'livre de redemption', 'apocalypse 5', 'sept sceaux'],
+  'septieme sceau': ['septieme sceau', 'silence au ciel', 'sept trompettes', 'troisieme pull', 'retour du seigneur', 'fin du mystere'],
+  '7eme sceau': ['septieme sceau', 'silence au ciel', 'troisieme pull', 'retour du seigneur'],
+  'livre de redemption': ['livre de vie de l\'agneau', 'titre de propriete', 'apocalypse 5', 'rachat'],
+
+  // Les Sept Âges de l'Église et l'Exposé complet
+  'sept ages': ['expose des sept ages', 'messagers des sept ages', 'sept eglises', 'apocalypse 2 et 3'],
+  '7 ages': ['sept ages de l\'eglise', 'messagers', 'expose des sept ages'],
+  'ephese': ['paul', 'premier age', 'arbre de vie', 'nicolaisme', '33-170'],
+  'smyrne': ['irenee', 'deuxieme age', 'persecution', 'couronne de vie', '170-312'],
+  'pergame': ['martin', 'troisieme age', 'mariage de l\'eglise et de l\'etat', 'concile de nicee', '312-606'],
+  'thyatire': ['colomban', 'quatrieme age', 'jezabel', 'age des tenebres', 'pape', '606-1520'],
+  'sardes': ['luther', 'cinquieme age', 'justification', 'reforme', 'nom de vivre mais mort', '1520-1750'],
+  'philadelphie': ['wesley', 'sixieme age', 'sanctification', 'porte ouverte', 'amour fraternel', '1750-1906'],
+  'laodicee': ['dernier age', 'messager du septieme age', 'elu', 'apostasie', 'vomir', 'branham', 'malachie 4', '1906-enlevement'],
+  'laodicée': ['dernier age', 'messager du septieme age', 'elu', 'apostasie', 'vomir', 'branham', 'malachie 4'],
+  'messager': ['ange de l\'age', 'etoile dans sa main', 'paul', 'irenee', 'martin', 'colomban', 'luther', 'wesley', 'branham'],
+  'nicolaisme': ['conquerir les laics', 'hierarchie', 'clerge', 'dogme denominational'],
+
+  // Les Signes surnaturels et Manifestations prophétiques
+  'colonne de feu': ['lumiere surnaturelle', 'ange du seigneur', 'ange de l\'alliance', 'apparition', 'photo houston 1950', 'buisson ardent'],
+  'nuee': ['nuage surnaturel', 'sunset mountain', 'sept anges', 'arizona', 'fevrier 1963', 'apocalypse 10:1', 'face comme le soleil'],
+  'nuée': ['nuage surnaturel', 'sunset mountain', 'sept anges', 'arizona', 'fevrier 1963', 'apocalypse 10:1'],
+  'pyramide': ['pierre de faite', 'chapeau de la pyramide', 'stature d\'un homme parfait', 'vertus', 'sept vertus'],
+  'pierre de faite': ['pierre de faite', 'capstone', 'chapeau de la pyramide', 'amour divin', 'couronnement'],
+  'pierre de faîte': ['pierre de faite', 'capstone', 'amour divin', 'stature d\'un homme parfait'],
+  'troisieme pull': ['troisieme etape', 'petite chambre', 'parole parlee', 'creation', 'troisieme phase', 'cureuils', 'poisson'],
+  '3e pull': ['troisieme pull', 'petite chambre', 'parole parlee', 'creation'],
+
+  // Doctrines et Révélations spécifiques
+  'semence du serpent': ['serpent', 'seduction', 'eve', 'cain', 'arbre de la connaissance du bien et du mal', 'genese 3'],
+  'predestination': ['election eternelle', 'livre de vie de l\'agneau', 'avant la fondation du monde', 'genes de dieu', 'foreordination'],
+  'prédestination': ['election eternelle', 'livre de vie de l\'agneau', 'avant la fondation du monde', 'genes de dieu'],
+  'bapteme d eau': ['bapteme au nom de jesus-christ', 'actes 2:38', 'immersion', 'titres pere fils saint-esprit'],
+  'baptême': ['bapteme au nom de jesus-christ', 'actes 2:38', 'immersion'],
+  'deux ames': ['l\'ame', 'corps esprit ame', 'nature de l\'ame', 'siege de la foi ou du doute'],
+  'enlevement': ['depart', 'epouse', 'trompette de dieu', 'resurrection des morts', 'changement de corps', 'cri voix trompette'],
+  'enlèvement': ['depart', 'epouse', 'trompette de dieu', 'resurrection des morts', 'changement de corps', 'cri voix trompette'],
+  'cri': ['le cri est le message', 'voix de l\'archange', 'trompette de dieu', '1 thessaloniciens 4:16', 'reveil'],
+  'voix de l\'archange': ['voix de l\'archange', 'resurrection', 'le cri la voix la trompette', '1 thessaloniciens 4:16'],
+  'epouse': ['corps mystique de christ', 'vierge pure', 'parole faite chair', 'membres de son corps', 'union invisible'],
+  'épouse': ['corps mystique de christ', 'vierge pure', 'parole faite chair', 'membres de son corps', 'union invisible'],
+  'mariage de l\'agneau': ['repas des noces', 'epouse', 'union invisible de l\'epouse de christ'],
+  'guerison': ['foi', 'discernement', 'don de guerison', 'vision', 'crois seulement', 'expiation'],
+  'guérison': ['foi', 'discernement', 'don de guerison', 'vision', 'crois seulement', 'expiation'],
+  'absolu': ['l\'ancre de l\'ame', 'parole de dieu', 'poteau d\'amarrage', 'la parole et rien d\'autre'],
+  'aigle': ['nourriture emmagasinee', 'vision d\'aigle', 'prophete messager', 'la ou sera le corps mort'],
+  'dynamis': ['mecanique et dynamique', 'foi parfaite', 'saint-esprit en action', 'puissance divine']
 };
+
+/**
+ * Extrait les filtres chronologiques et géographiques éventuels de la requête
+ */
+export function extractChronologicalAndGeographicalContext(query: string): ChronologicalContext | undefined {
+  if (!query || typeof query !== 'string') return undefined;
+  const norm = normalizeText(query).toLowerCase();
+  const context: ChronologicalContext = {};
+
+  // 1. Détection de l'année (1933 à 1965 dans le ministère du frère Branham)
+  const yearMatch = norm.match(/\b(19[3-6][0-9])\b/);
+  if (yearMatch) {
+    context.year = parseInt(yearMatch[1], 10);
+  }
+
+  // 2. Détection de période historique
+  if (/\b(avant les sceaux|avant 1963|premier ministere|premiere etape)\b/.test(norm)) {
+    context.period = 'pre-seals';
+  } else if (/\b(apres les sceaux|ouverture des sceaux|apres 1963|ministere parfait)\b/.test(norm)) {
+    context.period = 'post-seals';
+  } else if (/\b(debut du ministere|annees 40|annees 50)\b/.test(norm)) {
+    context.period = 'early-ministry';
+  }
+
+  // 3. Détection des villes ou lieux clés
+  const keyLocations = [
+    'jeffersonville', 'chicago', 'shreveport', 'tucson', 'phoenix', 
+    'los angeles', 'houston', 'sunset mountain', 'branham tabernacle',
+    'zurich', 'lausanne', 'dallas', 'indiana', 'arizona'
+  ];
+
+  for (const loc of keyLocations) {
+    if (norm.includes(loc)) {
+      context.location = loc;
+      break;
+    }
+  }
+
+  return (context.year || context.period || context.location) ? context : undefined;
+}
 
 /**
  * Détecte si une requête comporte plusieurs facettes nécessitant une décomposition Multi-Hop.
@@ -66,9 +167,14 @@ export function expandLocally(query: string): ExpandedTheologicalQuery {
   const norm = normalizeText(query).toLowerCase();
   const addedKeywords: string[] = [];
 
-  for (const [key, equivalents] of Object.entries(LOCAL_THEOLOGICAL_LEXICON)) {
-    if (norm.includes(key)) {
-      addedKeywords.push(...equivalents);
+  // Tri par longueur décroissante pour privilégier les expressions spécifiques sur les termes génériques
+  const sortedKeys = Object.keys(LOCAL_THEOLOGICAL_LEXICON).sort((a, b) => b.length - a.length);
+
+  for (const key of sortedKeys) {
+    const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(^|\\s|[.,;!?'"()\\-])${escaped}($|\\s|[.,;!?'"()\\-])`, 'i');
+    if (regex.test(norm)) {
+      addedKeywords.push(...LOCAL_THEOLOGICAL_LEXICON[key]);
     }
   }
 

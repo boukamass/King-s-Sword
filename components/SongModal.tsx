@@ -3,13 +3,14 @@ import { createPortal } from 'react-dom';
 import { Song } from '../types';
 import { saveSong, getSongById } from '../services/songService';
 import { useAppStore } from '../store';
+import { useModalActive } from '../utils/modalUtils';
 import { 
   Music, 
   X, 
   Save, 
   Eye, 
   Edit3, 
-  Sparkles, 
+  MonitorPlay, 
   Loader2, 
   Plus, 
   Trash2, 
@@ -185,6 +186,8 @@ export const SongModal: React.FC<SongModalProps> = ({
   onSaved,
   onSongSaved
 }) => {
+  useModalActive(isOpen);
+
   const [songNumber, setSongNumber] = useState<string>('');
   const [title, setTitle] = useState<string>('');
   const [language, setLanguage] = useState<string>('fr');
@@ -431,7 +434,7 @@ export const SongModal: React.FC<SongModalProps> = ({
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[200000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-[250000] bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200"
       onMouseDown={handleBackdropMouseDown}
       onClick={handleBackdropClick}
     >
@@ -754,7 +757,7 @@ export const SongModal: React.FC<SongModalProps> = ({
             /* --- PREVIEW TAB --- */
             <div className="space-y-3">
               <div className="p-3 bg-teal-50/50 dark:bg-teal-950/20 border border-teal-200/50 dark:border-teal-800/40 rounded-2xl flex items-center gap-2.5">
-                <Sparkles className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
+                <MonitorPlay className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
                 <p className="text-[11px] font-bold text-teal-800 dark:text-teal-300">
                   Voici comment chaque strophe et refrain apparaîtra dans le lecteur et lors de la projection sur grand écran :
                 </p>

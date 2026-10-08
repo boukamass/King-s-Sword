@@ -40,7 +40,14 @@ import { generateNewRagResponse, GeminiCaller, GenerationResult } from './genera
 import { validateResponseCitations } from './citationValidationService';
 import { detectTechnicalIdentifierExposure } from './generationAdapter';
 import { getCachedRagResponse, setCachedRagResponse } from './semanticCacheService';
-import { isDeepDiveStudyRequest, getDeepDiveSystemInstruction } from './theologicalExegesisService';
+import { 
+  isDeepDiveStudyRequest, 
+  detectExhaustiveStudyIntent,
+  isAllPassagesRequest, 
+  getDeepDiveSystemInstruction, 
+  formatCoverageSummary, 
+  cleanPistesDapprofondissement 
+} from './theologicalExegesisService';
 import { aiConfig } from '../config/aiConfig';
 
 export interface UnifiedRagIntegrationOptions extends UnifiedRagOptions {
@@ -122,9 +129,17 @@ export async function executeUnifiedRagAssistantFlow(
   }
 
   // 1. Exécution du Retrieval Unified RAG sous contrainte stricte de l'AI Context
+  const isStudy = await detectExhaustiveStudyIntent(cleanQuery, {
+    apiKey: options.apiKey,
+    geminiClient: options.geminiClient
+  });
+  const isAllPassages = isAllPassagesRequest(cleanQuery);
+  const effectiveTopK = isAllPassages ? Math.max(options.topK || 10, 50) : (isStudy ? Math.max(options.topK || 10, 35) : (options.topK || 10));
+  const effectiveMaxEvidence = isAllPassages ? Math.max(options.maxEvidenceCount || 5, 25) : (isStudy ? Math.max(options.maxEvidenceCount || 5, 20) : (options.maxEvidenceCount || 5));
+
   const evidencePackage = await executeUnifiedRagPipeline(cleanQuery, aiContext, {
-    topK: options.topK,
-    maxEvidenceCount: options.maxEvidenceCount || 5,
+    topK: effectiveTopK,
+    maxEvidenceCount: effectiveMaxEvidence,
     k: options.k,
     vectorWeight: options.vectorWeight,
     lexicalWeight: options.lexicalWeight,
@@ -219,9 +234,26 @@ export async function executeUnifiedRagAssistantFlow(
     evidencePackage
   });
 
+  let finalAnswerText = cleanPistesDapprofondissement(genResult.answerText);
+  if ((isStudy || isAllPassages) && evidencePackage.evidence.length > 0) {
+    const docIds = Array.from(new Set(evidencePackage.evidence.map(e => e.sermonId)));
+    const uniqueDocsCount = docIds.length;
+    const passagesCount = evidencePackage.evidence.length;
+    const totalFound = evidencePackage.totalCandidates;
+    const coverageHeader = `${formatCoverageSummary({
+      uniqueDocsCount,
+      passagesCount,
+      docIds,
+      totalFoundCount: totalFound
+    })}\n\n`;
+    if (!finalAnswerText.includes('Couverture documentaire')) {
+      finalAnswerText = coverageHeader + finalAnswerText;
+    }
+  }
+
   return {
     status: 'success',
-    answerText: genResult.answerText,
+    answerText: finalAnswerText,
     evidencePackage,
     generationResult: genResult,
     citationsValidation,

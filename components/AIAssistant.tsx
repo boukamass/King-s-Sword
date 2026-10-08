@@ -397,11 +397,14 @@ const AIAssistant: React.FC = () => {
 
   // Transforme les balises de référence [Réf: ID_SERMON, Para. N], [Réf: expose-ch-N, §P], etc. en liens interactifs cliquables
   const formatAIResponse = (text: string) => {
+    // Supprimer la section "💡 Pistes d'approfondissement" du corps du message pour ne pas l'inclure dans la réponse texte
+    const textWithoutPistes = (text || '').replace(/(?:#{1,4}\s*(?:💡\s*)?(?:Pistes d'approfondissement|Pistes d'etude|Questions de reflexion|Pistes d'exploration|Pistes d'approfondissement suggérées)[\s\S]*)/i, '').trim();
+
     // Regex universelle pour capturer toutes les variantes de citations dans le corps du texte
     // Exemples: [Réf: 63-0324M, §2], [Réf: expose-ch-4, §151], [Réf: expose-ch-8, Para. 98], (Réf: 65-1212, §10), [63-0324M, §5], etc.
     const refRegex = /(?:\[|\()(?:\s*Réf\.?\s*:\s*)?([a-zA-Z0-9_-]+)(?:[,\s]+(?:§|Para\.?|Paragraphe|Page|p\.|v\.|verset)?\s*(\d+))?\s*(?:\]|\))/gi;
 
-    const formattedText = text.replace(refRegex, (match, rawDocId, rawParaNum) => {
+    const formattedText = textWithoutPistes.replace(refRegex, (match, rawDocId, rawParaNum) => {
       const cleanId = (rawDocId || '').trim();
       const pNum = rawParaNum ? parseInt(rawParaNum, 10) : 1;
       
@@ -618,9 +621,24 @@ const AIAssistant: React.FC = () => {
           });
 
           if (unifiedResult.status === 'not_answerable' || !unifiedResult.evidencePackage.answerable) {
+            const pkg = unifiedResult.evidencePackage;
+            const isUnreliableClose = pkg.refusalCategory === 'unreliable_close_passages' || (pkg.closestPassages && pkg.closestPassages.length > 0);
+
+            let refusalText = '';
+            if (isUnreliableClose) {
+              refusalText = `⚠️ **Passages proches trouvés mais peu fiables (signal partiel)** :\n${pkg.reason || "Des passages proches ont été trouvés dans le corpus, mais le signal documentaire reste trop partiel pour garantir une réponse doctrinale certaine."}`;
+              if (pkg.closestPassages && pkg.closestPassages.length > 0) {
+                refusalText += `\n\n📌 **Passages les plus proches trouvés dans le corpus :**\n` + 
+                  pkg.closestPassages.slice(0, 3).map((cp, idx) => `> **${idx + 1}. ${cp.title}**\n> « ${cp.textSnippet} »`).join('\n\n');
+              }
+              refusalText += `\n\n💡 *Souhaitez-vous que je réponde avec réserve sur la base de ces extraits proches, ou préférez-vous reformuler votre question / élargir votre sélection documentaire ?*`;
+            } else {
+              refusalText = `🔍 **Aucun passage lié trouvé** :\n${pkg.reason || "Aucun passage lié à cette question n'a été trouvé dans les documents sélectionnés. Le sujet demandé ne figure pas dans le corpus indexé."}\n\n💡 *Vérifiez les termes employés ou ajoutez des documents appropriés à l'étude.*`;
+            }
+
             const abstentionMsg: ChatMessageWithSources = {
               role: 'assistant',
-              content: `🔍 **Information documentaire** : ${unifiedResult.evidencePackage.reason || "Les documents disponibles dans la base documentaire de l'application ne contiennent pas d'informations suffisantes pour répondre à cette question."}`,
+              content: refusalText,
               timestamp: new Date().toISOString(),
             };
             addChatMessage(chatKey, abstentionMsg);
@@ -720,9 +738,24 @@ const AIAssistant: React.FC = () => {
 
           // RÈGLE : Non-answerable strict
           if (unifiedResult.status === 'not_answerable' || !unifiedResult.evidencePackage.answerable) {
+            const pkg = unifiedResult.evidencePackage;
+            const isUnreliableClose = pkg.refusalCategory === 'unreliable_close_passages' || (pkg.closestPassages && pkg.closestPassages.length > 0);
+
+            let refusalText = '';
+            if (isUnreliableClose) {
+              refusalText = `⚠️ **Passages proches trouvés mais peu fiables (signal partiel)** :\n${pkg.reason || "Les ressources sélectionnées dans le Dock IA contiennent des passages proches, mais le signal documentaire reste trop partiel pour garantir une réponse doctrinale certaine."}`;
+              if (pkg.closestPassages && pkg.closestPassages.length > 0) {
+                refusalText += `\n\n📌 **Passages les plus proches trouvés dans le contexte :**\n` + 
+                  pkg.closestPassages.slice(0, 3).map((cp, idx) => `> **${idx + 1}. ${cp.title}**\n> « ${cp.textSnippet} »`).join('\n\n');
+              }
+              refusalText += `\n\n💡 *Souhaitez-vous que je réponde avec réserve sur la base de ces extraits proches, ou préférez-vous reformuler votre question / ajouter d'autres documents au Dock IA ?*`;
+            } else {
+              refusalText = `🔍 **Aucun passage lié trouvé** :\n${pkg.reason || "Aucun passage lié à cette question n'a été trouvé dans les documents sélectionnés. Le sujet demandé ne figure pas dans les ressources choisies."}\n\n💡 *Vérifiez les termes employés ou ajoutez d'autres documents pertinents au Dock IA.*`;
+            }
+
             const abstentionMsg: ChatMessageWithSources = {
               role: 'assistant',
-              content: `🔍 **Information documentaire** : ${unifiedResult.evidencePackage.reason || "Les ressources sélectionnées dans le Dock IA ne contiennent pas d'informations suffisantes pour répondre à cette question."}`,
+              content: refusalText,
               timestamp: new Date().toISOString(),
             };
             addChatMessage(chatKey, abstentionMsg);
@@ -790,8 +823,8 @@ const AIAssistant: React.FC = () => {
       }
     } catch (e: any) {
       let displayMessage = e?.message || "Une erreur est survenue lors de l'analyse.";
-      if (displayMessage.includes("Failed to call the Gemini API")) {
-        displayMessage = "❌ Impossible de joindre les serveurs Google Gemini. Veuillez vérifier votre connexion Internet ou votre clé API.";
+      if (displayMessage.includes("Failed to call the Gemini API") || displayMessage.includes("Google Gemini")) {
+        displayMessage = "❌ Connexion au service d'analyse IA impossible. Veuillez vérifier votre connexion Internet ou votre clé d'accès.";
       }
       addChatMessage(chatKey, { 
         role: 'assistant', 
@@ -823,56 +856,10 @@ const AIAssistant: React.FC = () => {
           </div>
           <div className="flex items-center gap-2">
             <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-900 dark:text-zinc-50 leading-none group-hover/ai-title:text-teal-600 transition-colors">ASSISTANT IA</h2>
-            {retrievalStats.lastMethod && (
-              <span 
-                className={`px-1.5 py-0.5 rounded text-[7.5px] font-black tracking-normal border transition-colors ${
-                  retrievalStats.lastMethod.startsWith('cosine')
-                    ? 'bg-teal-500/10 text-teal-700 dark:text-teal-300 border-teal-500/20'
-                    : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20'
-                }`}
-                data-tooltip={retrievalStats.lastMethod.startsWith('cosine') ? "Mode Sémantique Actif (Embeddings 768D)" : "Mode Lexical de Repli (Déterministe)"}
-              >
-                {retrievalStats.lastMethod.startsWith('cosine') ? 'SÉMANTIQUE 768D' : 'REPLI LEXICAL'}
-              </span>
-            )}
           </div>
         </div>
         
         <div className="flex items-center gap-1.5">
-          {/* Bouton Nouveau Chat (+) */}
-          <button 
-            onClick={handleCreateNewChat}
-            data-tooltip="Nouveau chat (+)"
-            className="w-7 h-7 flex items-center justify-center text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/50 hover:bg-teal-100 dark:hover:bg-teal-900/50 border border-teal-200 dark:border-teal-800 transition-all rounded-lg active:scale-95 cursor-pointer shadow-2xs"
-          >
-            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-          </button>
-
-          {/* Bouton Liste des discussions */}
-          <button 
-            onClick={() => setIsConversationsDrawerOpen(prev => !prev)}
-            data-tooltip="Toutes les discussions"
-            className={`w-7 h-7 flex items-center justify-center transition-all rounded-lg border active:scale-90 cursor-pointer ${
-              isConversationsDrawerOpen 
-                ? 'bg-teal-600 text-white border-teal-600 shadow-xs' 
-                : 'text-zinc-500 hover:text-teal-600 bg-zinc-100 dark:bg-zinc-800/80 border-zinc-200 dark:border-zinc-700'
-            }`}
-          >
-            <MessageSquare className="w-3.5 h-3.5" />
-          </button>
-
-          {/* Bouton Effacer la discussion courante */}
-          {history.length > 0 && (
-            <button 
-              onClick={() => handleClearChat(activeConvId)}
-              data-tooltip="Effacer cette discussion"
-              data-tooltip-icon="trash"
-              className="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-red-500 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 active:scale-90 cursor-pointer"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          )}
-
           <button 
             onClick={() => setIsApiKeyModalOpen(true)}
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-bold transition-all border ${
@@ -880,7 +867,7 @@ const AIAssistant: React.FC = () => {
                 ? 'bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800' 
                 : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800 animate-pulse'
             }`}
-            data-tooltip="Configurer ma clé Google Gemini"
+            data-tooltip="Gérer la clé d'accès IA"
           >
             <Key className="w-3 h-3" />
             <span>{hasKey ? 'Clé Active' : 'Activer IA'}</span>
@@ -951,13 +938,14 @@ const AIAssistant: React.FC = () => {
           </div>
         )}
 
+        {/* Bouton + pour démarrer une nouvelle discussion */}
         <button
+          type="button"
           onClick={handleCreateNewChat}
-          data-tooltip="Créer un nouveau chat (+)"
-          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-[10px] font-bold shadow-xs active:scale-95 cursor-pointer shrink-0"
+          data-tooltip="Démarrer une nouvelle discussion"
+          className="w-7 h-7 flex items-center justify-center bg-teal-600 hover:bg-teal-500 text-white rounded-lg transition-colors cursor-pointer shrink-0 shadow-sm active:scale-95 ml-1"
         >
-          <Plus className="w-3 h-3 stroke-[2.5]" />
-          <span>Nouveau</span>
+          <Plus className="w-4 h-4" />
         </button>
       </div>
 
@@ -971,9 +959,19 @@ const AIAssistant: React.FC = () => {
             <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500">
               Discussions sauvegardées ({conversations.length})
             </span>
-            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-              Disponible hors-ligne
-            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={handleCreateNewChat}
+                className="flex items-center gap-1 px-2 py-0.5 rounded bg-teal-600/10 text-teal-600 dark:text-teal-400 border border-teal-600/20 text-[9px] font-bold hover:bg-teal-600 hover:text-white hover:border-teal-600 transition-all cursor-pointer"
+                data-tooltip="Créer une nouvelle discussion"
+              >
+                <Plus className="w-2.5 h-2.5" />
+                <span>Nouveau</span>
+              </button>
+              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                Disponible hors-ligne
+              </span>
+            </div>
           </div>
 
           {conversations.length > 3 && (
@@ -1089,50 +1087,9 @@ const AIAssistant: React.FC = () => {
         </div>
       )}
 
-      {/* Connection & Engine Status Banner */}
-      <div className="px-5 py-2 bg-zinc-100/70 dark:bg-zinc-900/60 border-b border-zinc-200/50 dark:border-zinc-800/50 flex items-center justify-between text-[10px]">
-        <div className="flex items-center gap-2">
-          {isOnline ? (
-            <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
-              <Wifi className="w-3 h-3" />
-              <span>En ligne</span>
-            </span>
-          ) : (
-            <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-semibold">
-              <WifiOff className="w-3 h-3" />
-              <span>Hors-ligne</span>
-            </span>
-          )}
-          <span className="text-zinc-300 dark:text-zinc-700">•</span>
-          <span className="text-zinc-500 dark:text-zinc-400">
-            {isOnline && hasKey ? 'Moteur : Gemini Flash' : 'Moteur : Index Local'}
-          </span>
-        </div>
-        <button 
-          onClick={() => setIsApiKeyModalOpen(true)}
-          data-tooltip="Gérer les clés API Google Gemini"
-          className="text-teal-600 dark:text-teal-400 hover:underline font-bold text-[9px] uppercase tracking-wider"
-        >
-          {hasKey ? 'Gérer' : '+ Clé Google'}
-        </button>
-      </div>
-
-      {/* Sélecteur de Mode : Bibliothèque Entière (Auto RAG) vs Dock IA (Manuel) */}
+      {/* Sélecteur de Mode : Dock IA (Manuel) */}
       <div className="p-2 border-b border-zinc-200/60 dark:border-zinc-800/60 bg-white/40 dark:bg-zinc-900/40">
         <div className="flex p-1 bg-zinc-200/70 dark:bg-zinc-800/70 rounded-xl gap-1">
-          <button
-            onClick={() => setAssistantMode('auto-rag')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-              assistantMode === 'auto-rag'
-                ? 'bg-white dark:bg-zinc-900 text-teal-700 dark:text-teal-300 shadow-sm'
-                : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
-            }`}
-            data-tooltip="Recherche automatique dans tous les sermons de la bibliothèque"
-          >
-            <Library className="w-3.5 h-3.5 text-teal-600" />
-            <span>Tous les sermons (Auto RAG)</span>
-          </button>
-          
           <button
             onClick={() => setAssistantMode('dock')}
             className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
@@ -1147,17 +1104,7 @@ const AIAssistant: React.FC = () => {
           </button>
         </div>
 
-        {assistantMode === 'auto-rag' ? (
-          <div className="mt-1.5 px-2 flex items-center justify-between text-[9px] text-zinc-500">
-            <span className="flex items-center gap-1">
-              <Search className="w-2.5 h-2.5 text-teal-600" />
-              Recherche FTS5 automatique sur l'ensemble des sermons
-            </span>
-            <span className="font-semibold text-teal-600 dark:text-teal-400">
-              {sermons.length} sermons indexés
-            </span>
-          </div>
-        ) : (
+        {assistantMode === 'auto-rag' ? null : (
           <div className="mt-2 shrink-0">
             <div className="flex items-center justify-between mb-1.5 px-1">
               <div className="flex items-center gap-2 min-w-0">
@@ -1185,7 +1132,7 @@ const AIAssistant: React.FC = () => {
             <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
               {selectedSermonsMetadata.length === 0 ? (
                 <div className="w-full py-2 px-3 bg-zinc-100/50 dark:bg-zinc-800/40 rounded-xl text-[10px] text-zinc-400 italic text-center">
-                  Aucun sermon dans le dock. Ajoutez-en un depuis la bibliothèque ou basculez sur "Tous les sermons".
+                  Aucun document dans le dock. Ajoutez un sermon ou un passage biblique depuis la bibliothèque.
                 </div>
               ) : (
                 selectedSermonsMetadata.map((s) => {

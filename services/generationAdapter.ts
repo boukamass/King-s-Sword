@@ -16,6 +16,7 @@ import { RetrievalEvidencePackage, CitationValidationResult } from '../types';
 import { formatEvidenceContextForGemini } from './autoRagRetrievalService';
 import { validateResponseCitations } from './citationValidationService';
 import { getGeminiApiKey } from '../utils/apiKeyHelper';
+import { extractRequestedLineCount } from './queryIntentService';
 import { GoogleGenAI } from '@google/genai';
 
 export interface GeminiCaller {
@@ -113,7 +114,9 @@ export async function generateNewRagResponse(
 
   // Formatage déterministe du contexte documentaire
   const context = formatEvidenceContextForGemini(evidencePackage, query);
-  const promptContents = `${context}\n\n============================================================\nQUESTION DU CHERCHEUR :\n"${query}"`;
+  const reqLines = extractRequestedLineCount(query);
+  const lineInstruction = reqLines ? `\n\nCONSIGNE STRICTE DE LONGUEUR : L'utilisateur exige un résumé / résultat de sa demande en exactement ${reqLines} lignes. Rédige ta réponse de façon concise et synthétique en respectant rigoureusement la limite de ${reqLines} lignes.` : '';
+  const promptContents = `${context}\n\n============================================================\nQUESTION DU CHERCHEUR :\n"${query}"${lineInstruction}`;
 
   // Résolution du client Gemini
   let client = geminiClient;
@@ -153,7 +156,7 @@ DIRECTIVES D'EXCELLENCE POUR UNE ÉTUDE SIMPLE COMME APPROFONDIE :
 5. INTÉGRITÉ DES IDENTIFIANTS : N'invente JAMAIS d'identifiant ni de numéro de paragraphe. Utilise UNIQUEMENT les références exactes mentionnées dans les extraits.
 6. CAS D'INSUFFISANCE : Si les extraits fournis ne contiennent pas d'éléments suffisants pour répondre à la question, explique clairement et poliment à l'utilisateur ce que traitent les extraits consultés pour l'aider à réorienter sa sélection, sans rien inventer.
 7. SOURCES CONSULTÉES : Termine toujours par une section "### Sources consultées" listant clairement tous les documents et paragraphes cités.
-8. PISTES D'APPROFONDISSEMENT : Après les sources, suggère systématiquement une courte section "### 💡 Pistes d'approfondissement" proposant 2 à 3 questions de recherche complémentaires pertinentes pour poursuivre l'étude.`;
+8. PISTES D'APPROFONDISSEMENT : Après les sources, suggère systématiquement une courte section "### Pistes d'approfondissement" proposant 2 à 3 questions de recherche complémentaires pertinentes pour poursuivre l'étude.`;
 
   const t0 = Date.now();
 

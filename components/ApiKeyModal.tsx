@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { useModalActive } from '../utils/modalUtils';
 import { Key, Sparkles, Check, ExternalLink, X, CheckCircle2, AlertCircle, Loader2, Wifi, WifiOff } from 'lucide-react';
 import { getGeminiApiKey, setGeminiApiKey, cleanApiKey } from '../utils/apiKeyHelper';
 import { testGeminiApiKey } from '../services/geminiChatService';
@@ -10,6 +12,8 @@ interface ApiKeyModalProps {
 }
 
 export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSaved }) => {
+  useModalActive(isOpen);
+
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [isSaved, setIsSaved] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -89,8 +93,10 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
     }, 500);
   };
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+  if (!isOpen) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[250000] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
       <div 
         className="w-full max-w-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
@@ -103,7 +109,6 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
             </div>
             <div>
               <h3 className="text-sm font-black uppercase tracking-wider text-zinc-900 dark:text-zinc-50">Configuration IA</h3>
-              <p className="text-[11px] text-zinc-500 font-medium">Clé Personnelle Google Gemini</p>
             </div>
           </div>
           <button 
@@ -117,24 +122,8 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
 
         {/* Body */}
         <div className="p-6 space-y-4">
-          {/* Status Network Badge */}
-          <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800/50 text-xs">
-            <span className="text-zinc-600 dark:text-zinc-400 font-medium">État de la machine :</span>
-            {isOnline ? (
-              <span className="inline-flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400">
-                <Wifi className="w-3.5 h-3.5" />
-                En Ligne (Prêt pour Gemini)
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 font-bold text-amber-600 dark:text-amber-400">
-                <WifiOff className="w-3.5 h-3.5" />
-                Hors-Ligne (Mode local)
-              </span>
-            )}
-          </div>
-
           <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
-            Pour activer la recherche intelligente et l'analyse exégétique avec votre compte gratuit Google AI Studio :
+            Pour activer la recherche intelligente et l'analyse approfondie de vos sermons :
           </p>
 
           <a 
@@ -145,7 +134,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
           >
             <div className="flex items-center gap-2.5">
               <Key className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-              <span className="text-xs font-bold">1. Ouvrir Google AI Studio (Gratuit)</span>
+              <span className="text-xs font-bold">1. Obtenir une clé d'accès gratuite</span>
             </div>
             <ExternalLink className="w-4 h-4 text-teal-600 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
           </a>
@@ -153,20 +142,19 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
           {/* Guide multi-clés */}
           <div className="p-3 bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-900/40 rounded-2xl text-[11px] space-y-1.5 text-amber-900 dark:text-amber-200">
             <p className="font-bold flex items-center gap-1.5 text-amber-800 dark:text-amber-300">
-              💡 Astuce pour avoir des clés & quotas illimités :
+              💡 Astuce pour un accès continu :
             </p>
             <ol className="list-decimal list-inside space-y-1 text-[10.5px] leading-relaxed opacity-90 pl-0.5">
-              <li>Sur Google AI Studio, cliquez sur <strong>« Create API key »</strong>.</li>
-              <li>Choisissez <strong>« Create API key in new project »</strong> (Nouveau projet).</li>
-              <li>Répétez pour créer 2 ou 3 clés (chaque projet dispose de son propre quota quotidien séparé).</li>
-              <li>Collez-les toutes ci-dessous (une par ligne) : l'application alternera automatiquement !</li>
+              <li>Cliquez sur le lien ci-dessus pour générer une clé d'accès.</li>
+              <li>Collez la clé obtenue dans la zone ci-dessous.</li>
+              <li>Vous pouvez coller plusieurs clés (une par ligne) pour une bascule automatique.</li>
             </ol>
           </div>
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">
-                2. Collez votre clé API (ou clés de secours)
+                2. Collez votre clé d'accès
               </label>
               {apiKeyInput.trim() && (
                 <span className="text-[10px] font-bold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/50 px-2 py-0.5 rounded-md">
@@ -177,7 +165,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
             <div className="relative">
               <textarea 
                 rows={2}
-                placeholder="AIzaSy... (Vous pouvez coller plusieurs clés séparées par un retour à la ligne pour une rotation automatique)"
+                placeholder="AIzaSy... (Collez une ou plusieurs clés séparées par un retour à la ligne)"
                 value={apiKeyInput}
                 onChange={(e) => {
                   setApiKeyInput(e.target.value);
@@ -187,7 +175,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
               />
             </div>
             <p className="text-[10px] text-zinc-400 leading-tight">
-              🔒 Stockage sécurisé 100% local sur votre appareil. Si votre projet gratuit Google atteint sa limite journalière, collez simplement une 2ᵉ clé d'un nouveau projet pour basculer dessus automatiquement.
+              🔒 Stockage 100% sécurisé et privé sur votre appareil. Vos données restent confidentielles.
             </p>
           </div>
 
@@ -203,17 +191,17 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
                 {isTesting ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin text-teal-600" />
-                    <span>Vérification avec Google...</span>
+                    <span>Vérification en cours...</span>
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-3.5 h-3.5 text-teal-600" />
-                    <span>Tester la connexion</span>
+                    <Wifi className="w-3.5 h-3.5 text-teal-600" />
+                    <span>Tester la clé</span>
                   </>
                 )}
               </button>
               <span className="text-[10px] text-zinc-400">
-                (Envoie une micro-requête de test sans entamer votre quota)
+                (Vérifie la validité de votre clé)
               </span>
             </div>
 
@@ -268,6 +256,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

@@ -7,9 +7,9 @@
 
 export const EMBEDDING_CONFIG = {
   model: 'gemini-embedding-2-preview',
-  defaultDimension: 768,
+  defaultDimension: 3072,
   legacyDimension: 3072,
-  bytesPerVectorFloat32: 768 * 4, // 3 072 octets en Float32
+  bytesPerVectorFloat32: 3072 * 4, // 12 288 octets en Float32
   bytesPerVectorInt8: 768 * 1     // 768 octets en Int8
 };
 

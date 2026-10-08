@@ -57,7 +57,7 @@ export const classifyGeminiError = (error: any): { type: string; userMessage: st
   ) {
     return {
       type: 'API_KEY_INVALID',
-      userMessage: 'La clé API Google Gemini saisie est invalide ou non reconnue par Google AI Studio. Veuillez vérifier la clé collée dans la configuration.'
+      userMessage: 'La clé d\'accès saisie est invalide. Veuillez vérifier la clé collée dans la configuration IA.'
     };
   }
 
@@ -73,8 +73,8 @@ export const classifyGeminiError = (error: any): { type: string; userMessage: st
     return {
       type: 'QUOTA_EXHAUSTED',
       userMessage: isDaily 
-        ? "Le quota journalier gratuit de ce projet Google Cloud a été atteint pour aujourd'hui. Solution immédiate : Cliquez sur 'Obtenir ma clé gratuite' ci-dessus, créez un nouveau projet dans Google AI Studio et collez la nouvelle clé (ou ajoutez-la en clé de secours)."
-        : "Le quota de requêtes de cette clé Google Gemini est temporairement saturé. Si le message persiste, le quota journalier du projet Google est atteint : créez simplement un nouveau projet gratuit dans Google AI Studio pour obtenir une clé fraîche."
+        ? "Le quota journalier gratuit de cette clé a été atteint pour aujourd'hui. Vous pouvez ajouter une seconde clé dans la configuration IA pour poursuivre sans interruption."
+        : "Le quota de requêtes de cette clé est temporairement saturé. Si le message persiste, ajoutez une clé de secours dans la configuration IA."
     };
   }
 
@@ -85,7 +85,7 @@ export const classifyGeminiError = (error: any): { type: string; userMessage: st
   ) {
     return {
       type: 'PERMISSION_DENIED',
-      userMessage: "Accès non autorisé ou API Google Generative Language non activée sur votre compte/projet Google Cloud."
+      userMessage: "Accès non autorisé ou service d'analyse IA non activé sur cette clé."
     };
   }
 
@@ -96,7 +96,7 @@ export const classifyGeminiError = (error: any): { type: string; userMessage: st
   ) {
     return {
       type: 'MODEL_UNAVAILABLE',
-      userMessage: "Le modèle sélectionné n'est pas accessible avec cette clé sur cette région géographique."
+      userMessage: "Le service d'analyse n'est pas accessible avec cette clé."
     };
   }
 
@@ -108,7 +108,7 @@ export const classifyGeminiError = (error: any): { type: string; userMessage: st
   ) {
     return {
       type: 'SERVICE_UNAVAILABLE',
-      userMessage: "Les serveurs de Google Gemini subissent une forte affluence temporaire (Erreur 503). Veuillez patienter quelques secondes et relancer."
+      userMessage: "Les serveurs d'analyse subissent une forte affluence temporaire (Erreur 503). Veuillez patienter quelques secondes et relancer."
     };
   }
 
@@ -121,13 +121,13 @@ export const classifyGeminiError = (error: any): { type: string; userMessage: st
   ) {
     return {
       type: 'NETWORK_ERROR',
-      userMessage: 'Impossible de joindre les serveurs Google (connexion réseau interrompue ou bloquée).'
+      userMessage: 'Impossible de joindre les serveurs d\'analyse (connexion réseau interrompue ou bloquée).'
     };
   }
 
   return {
     type: 'GENERIC_API_ERROR',
-    userMessage: `Erreur API Google Gemini : ${rawMsg.slice(0, 150)}`
+    userMessage: `Erreur du service d'analyse IA : ${rawMsg.slice(0, 150)}`
   };
 };
 
@@ -184,7 +184,7 @@ export const testGeminiApiKey = async (
               success: true,
               message: keys.length > 1 
                 ? `Connexion réussie ! ${keys.length} clé(s) active(s) configurée(s) (modèle opérationnel : ${model}).`
-                : `Connexion réussie ! Votre clé Google Gemini (${model}) est active et opérationnelle.`
+                : `Connexion réussie ! Votre clé d'accès est active et opérationnelle.`
             };
           }
         } catch (modelErr: any) {
@@ -271,7 +271,7 @@ DIRECTIVES STRICTES DE RÉPONSE FONDÉE EXCLUSIVEMENT SUR LES SOURCES FOURNIES D
 6. Si les extraits fournis ne contiennent pas d'éléments suffisants pour répondre à la question, réponds très exactement :
    « Les documents disponibles dans la base documentaire de l'application ne contiennent pas d'informations suffisantes pour répondre à cette question. »
 7. Regroupe toujours en fin de réponse une section "### Sources consultées" listant clairement les sermons et paragraphes cités.
-8. Ajoute ensuite une section "### 💡 Pistes d'approfondissement" proposant 2 à 3 questions d'étude biblique pertinentes.`;
+8. Ajoute ensuite une section "### Pistes d'approfondissement" proposant 2 à 3 questions d'étude biblique pertinentes.`;
 
       userPromptWithContext = `${contextText.substring(0, aiConfig.models.dockMaxChars)}
 
@@ -289,7 +289,7 @@ DIRECTIVES STRICTES DE RÉPONSE FONDÉE EXCLUSIVEMENT SUR LES SOURCES DE L'APPLI
 5. Pour les enseignements/sermons cités : Présente la citation dans un bloc (> « ... ») suivi de **Source :** *Titre du Sermon* — Date, §N.
 6. Analyse et prends en compte l'ENSEMBLE de toutes les ressources fournies dans le contexte ci-dessous sans te limiter aux premières.
 7. Regroupe toujours en fin de réponse une section "### Sources" numérotée ([1], [2]...) listant clairement les références utilisées.
-8. Termine par une section "### 💡 Pistes d'approfondissement" proposant 2 à 3 questions de recherche complémentaires.`;
+8. Termine par une section "### Pistes d'approfondissement" proposant 2 à 3 questions de recherche complémentaires.`;
 
       userPromptWithContext = `DOCUMENTS SOURCES FOURNIS DANS L'APPLICATION (Dock IA / Sermons actifs) :
 ============================================================
@@ -425,14 +425,14 @@ QUESTION DU CHERCHEUR :
       // mais que le moteur RAG local a déjà trouvé les extraits exacts des sermons :
       // On affiche directement ces extraits locaux à l'utilisateur pour ne pas bloquer son étude !
       if ((classified.type === 'QUOTA_EXHAUSTED' || classified.type === 'SERVICE_UNAVAILABLE') && options.retrievedParagraphs && options.retrievedParagraphs.length > 0) {
-        let fallbackText = `> ⏱️ **Information Quota Google AI Studio** : *${classified.userMessage}*\n\n*Voici les extraits exacts sélectionnés directement dans vos sermons locaux pour votre question :*\n\n`;
+        let fallbackText = `> ⏱️ **Information Quota d'analyse** : *${classified.userMessage}*\n\n*Voici les extraits exacts sélectionnés directement dans vos sermons locaux pour votre question :*\n\n`;
 
         options.retrievedParagraphs.forEach((p, idx) => {
           fallbackText += `### Extrait ${idx + 1} : *${p.title}* (${p.date || 'Non daté'}) — §${p.paragraphIndex}\n`;
           fallbackText += `> « ${p.content} » [Réf: ${p.sermonId}, Para. ${p.paragraphIndex}]\n\n`;
         });
 
-        fallbackText += `\n---\n*💡 Astuce : Vous pouvez ajouter une seconde clé gratuite dans la fenêtre "+ Clé Google" pour basculer dessus automatiquement en cas de saturation de quota.*`;
+        fallbackText += `\n---\n*💡 Astuce : Vous pouvez ajouter une seconde clé dans la fenêtre "Clé Active" pour basculer dessus automatiquement en cas de saturation de quota.*`;
 
         const sources: GeminiSource[] = options.retrievedParagraphs.map(p => ({
           title: `${p.title} (${p.date || 'Non daté'}) — §${p.paragraphIndex}`,
@@ -455,7 +455,7 @@ QUESTION DU CHERCHEUR :
 
       if (classified.type === 'API_KEY_INVALID' || classified.type === 'PERMISSION_DENIED') {
         return {
-          text: `❌ **Erreur d'accès à Google Gemini**\n\n${classified.userMessage}\n\n*Pour vérifier votre clé, cliquez sur l'icône de clé en haut de l'Assistant IA.*`,
+          text: `❌ **Erreur de clé d'accès IA**\n\n${classified.userMessage}\n\n*Pour vérifier votre clé, cliquez sur "Clé Active" en haut de l'Assistant IA.*`,
           sources: [],
           engineUsed: 'gemini',
           errorDetails: {
@@ -465,11 +465,11 @@ QUESTION DU CHERCHEUR :
         };
       }
 
-      console.warn("Panne réseau ou saturation quota Gemini, passage au secours local:", classified.type);
+      console.warn("Panne réseau ou saturation quota, passage au secours local:", classified.type);
     }
   }
 
-  // 2. Si Gemini est hors-ligne ou injoignable, tester Ollama local (signalé explicitement)
+  // 2. Si le service est hors-ligne ou injoignable, tester le serveur local si présent
   try {
     const ollamaActive = await isOllamaAvailable();
     if (ollamaActive) {
@@ -481,23 +481,23 @@ QUESTION DU CHERCHEUR :
             sermonId: p.sermonId,
             paragraphIndex: p.paragraphIndex
           }))
-        : (ollamaRes.sources || [{ title: 'Ollama Local (Hors-Ligne)', uri: 'local://ollama' }]);
+        : (ollamaRes.sources || [{ title: 'Moteur Local Hors-Ligne', uri: 'local://ollama' }]);
 
       return {
-        text: `> ℹ️ **Mode Local (Ollama)** : *Réponse générée par votre serveur local Ollama (Google Gemini non sollicité ou inaccessible).*\n\n${ollamaRes.text}`,
+        text: `> ℹ️ **Mode Local** : *Réponse générée par votre serveur local.*\n\n${ollamaRes.text}`,
         sources: fallbackSources,
         retrievedParagraphs: options.retrievedParagraphs,
         engineUsed: 'ollama'
       };
     }
   } catch (ollamaErr) {
-    console.warn("Ollama non joignable:", ollamaErr);
+    console.warn("Moteur local non joignable:", ollamaErr);
   }
 
-  // 3. Fallback d'analyse locale textuelle 100% autonome (signalé explicitement et avec précision)
-  let lastGeminiReason = "";
+  // 3. Fallback d'analyse locale textuelle 100% autonome
+  let lastReason = "";
   if (apiKey) {
-    lastGeminiReason = " (Serveurs Google occupés ou micro-coupure réseau temporaire)";
+    lastReason = " (Serveurs occupés ou micro-coupure réseau temporaire)";
   }
 
   const localAnalysis = offlineLocalSearchAnalysis(prompt, contextText);
@@ -511,8 +511,8 @@ QUESTION DU CHERCHEUR :
     : (localAnalysis.sources || [{ title: 'Index Local Hors-Ligne', uri: 'local://search' }]);
 
   const notice = !apiKey 
-    ? `> ℹ️ **Mode Index Local** : *Aucune clé Google Gemini configurée. Analyse produite par l'index documentaire local.* (Cliquez sur "+ Clé Google" en haut pour connecter Gemini)\n\n`
-    : `> ℹ️ **Mode Secours Local** : *Connexion à Google Gemini indisponible${lastGeminiReason}. Analyse produite automatiquement par le moteur local pour ne pas bloquer votre recherche.*\n\n`;
+    ? `> ℹ️ **Mode Index Local** : *Aucune clé d'accès configurée. Analyse produite par l'index documentaire local.* (Cliquez sur "Activer IA" en haut pour configurer une clé)\n\n`
+    : `> ℹ️ **Mode Secours Local** : *Connexion au service d'analyse indisponible${lastReason}. Analyse produite automatiquement par le moteur local pour ne pas bloquer votre recherche.*\n\n`;
 
   return {
     text: `${notice}${localAnalysis.text}`,

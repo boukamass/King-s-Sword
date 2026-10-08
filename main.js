@@ -671,11 +671,34 @@ ipcMain.handle('db:saveChunks', (event, chunks) => {
         } else {
           let embeddingBlob = null;
           if (hasIncomingEmbedding) {
-            if (c.embedding instanceof Int8Array) {
+            let vec = null;
+            if (Array.isArray(c.embedding)) {
+              vec = c.embedding;
+            } else if (c.embedding instanceof Float32Array || c.embedding instanceof Int8Array) {
+              vec = Array.from(c.embedding);
+            } else if (typeof c.embedding === 'object' && c.embedding !== null) {
+              vec = Object.values(c.embedding);
+            }
+
+            if (vec && vec.length === 3072) {
+              let isValid = true;
+              for (let i = 0; i < 3072; i++) {
+                const val = vec[i];
+                if (typeof val !== 'number' || !Number.isFinite(val) || Number.isNaN(val)) {
+                  isValid = false;
+                  break;
+                }
+              }
+              if (isValid) {
+                const float32 = new Float32Array(vec);
+                embeddingBlob = Buffer.from(float32.buffer, float32.byteOffset, float32.byteLength); // 12288 octets
+              } else {
+                console.warn(`[DB] Embedding invalide (NaN/Infinity) rejeté pour chunk ${c.chunkId}`);
+              }
+            } else if (vec && vec.length === 768 && c.embedding instanceof Int8Array) {
               embeddingBlob = Buffer.from(c.embedding.buffer, c.embedding.byteOffset, c.embedding.byteLength);
-            } else {
-              const float32 = c.embedding instanceof Float32Array ? c.embedding : new Float32Array(c.embedding);
-              embeddingBlob = Buffer.from(float32.buffer, float32.byteOffset, float32.byteLength);
+            } else if (vec) {
+              console.warn(`[DB] Dimension d'embedding invalide (${vec.length} != 3072) rejetée pour chunk ${c.chunkId}`);
             }
           }
 

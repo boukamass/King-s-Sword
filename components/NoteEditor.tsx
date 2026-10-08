@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useAppStore } from '../store';
+import { useModalActive } from '../utils/modalUtils';
 import { translations } from '../translations';
 import { marked } from 'marked';
 import { jsPDF } from 'jspdf';
@@ -43,13 +45,16 @@ import {
   Info,
   History,
   Languages,
-  Milestone
+  Milestone,
+  BookMarked,
+  Flame
 } from 'lucide-react';
 import { getDefinition, WordDefinition } from '../services/dictionaryService';
 import NoteSelectorModal from './NoteSelectorModal';
+import { StrongOccurrencesModal } from './StrongOccurrencesModal';
 import { Citation, NoteSeparator } from '../types';
 import { exportNoteToDocx } from '../services/docxExportService';
-import { processNoteData, cleanTextArtifacts, NoteSectionItem } from '../utils/noteFormatter';
+import { processNoteData, cleanTextArtifacts, stripMarkdown, NoteSectionItem, ProcessedStrongItem } from '../utils/noteFormatter';
 import { detectImageMeta } from '../services/imageMediaService';
 import { HighlightedQuote } from './HighlightedQuote';
 import { splitQuoteIntoHighlightedSegments, HIGHLIGHT_HEX_MAP } from '../utils/highlightUtils';
@@ -126,6 +131,13 @@ const NoteEditor: React.FC = () => {
     const [activeDefinition, setActiveDefinition] = useState<WordDefinition | null>(null);
     const [isDefining, setIsDefining] = useState(false);
     const [noteSelectorPayload, setNoteSelectorPayload] = useState<{ text: string; sermon: any; paragraphIndex?: number; highlights?: any[] } | null>(null);
+    const [consultingStrongItem, setConsultingStrongItem] = useState<ProcessedStrongItem | null>(null);
+
+    useModalActive(isGalleryPickerOpen);
+    useModalActive(!!activeDefinition);
+    useModalActive(!!previewImageUrl);
+    useModalActive(!!noteSelectorPayload);
+    useModalActive(!!consultingStrongItem);
 
     const handleTextSelection = useCallback((e?: any) => {
         if (e && (e.target as HTMLElement)?.closest && (e.target as HTMLElement).closest('.selection-menu-container')) {
@@ -725,7 +737,8 @@ const NoteEditor: React.FC = () => {
 
     const cleanPdfText = (str: string): string => {
         if (!str) return '';
-        return str
+        const stripped = stripMarkdown(str);
+        return stripped
             .replace(/[«»]/g, '"')
             .replace(/[’‘`]/g, "'")
             .replace(/[—–─━─]/g, '-')
@@ -1004,6 +1017,67 @@ const NoteEditor: React.FC = () => {
                 [51, 65, 85] // Slate
             );
 
+            // 4.5. Concordance & Exégèse Strong
+            if (processedNote.strongItems && processedNote.strongItems.length > 0) {
+                checkPageBreak(30);
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(11);
+                doc.setTextColor(13, 148, 136);
+                doc.text(`CONCORDANCE & EXÉGÈSE STRONG (${processedNote.strongItems.length})`, margin, y);
+                y += 8;
+
+                for (const item of processedNote.strongItems) {
+                    checkPageBreak(30);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(10);
+                    doc.setTextColor(15, 23, 42);
+                    const titleLine = cleanPdfText(`Strong ${item.strongNumber} : ${item.word} ${item.original ? `(${item.original})` : ''} - [${item.pronunciation}] (${item.type === 'hebrew' ? 'Hébreu' : 'Grec'})`);
+                    doc.text(titleLine, margin, y);
+                    y += 5;
+
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(9.5);
+                    doc.setTextColor(51, 65, 85);
+                    const defLine = cleanPdfText(`Définition : ${item.definition}`).replace(/\*\*/g, '').replace(/\*/g, '');
+                    const defLines = doc.splitTextToSize(defLine, maxLineWidth);
+                    checkPageBreak(defLines.length * 4.5 + 4);
+                    doc.text(defLines, margin, y);
+                    y += defLines.length * 4.5 + 2;
+
+                    if (item.messageContext) {
+                        doc.setFont('helvetica', 'italic');
+                        doc.setFontSize(9);
+                        doc.setTextColor(13, 148, 136);
+                        const msgLine = cleanPdfText(`Éclairage dans le Message : ${item.messageContext}`).replace(/\*\*/g, '').replace(/\*/g, '');
+                        const mLines = doc.splitTextToSize(msgLine, maxLineWidth);
+                        checkPageBreak(mLines.length * 4.5 + 3);
+                        doc.text(mLines, margin, y);
+                        y += mLines.length * 4.5 + 2;
+                    }
+
+                    if (item.originVerseRef && item.originVerseText) {
+                        doc.setFont('helvetica', 'normal');
+                        doc.setFontSize(8.5);
+                        doc.setTextColor(71, 85, 105);
+                        const vLine = cleanPdfText(`Verset d'origine (${item.originVerseRef}) : "${item.originVerseText}"`);
+                        const vLines = doc.splitTextToSize(vLine, maxLineWidth);
+                        checkPageBreak(vLines.length * 4 + 3);
+                        doc.text(vLines, margin, y);
+                        y += vLines.length * 4 + 2;
+                    }
+
+                    if (item.allOccurrences && item.allOccurrences.length > 1) {
+                        doc.setFont('helvetica', 'italic');
+                        doc.setFontSize(8);
+                        doc.setTextColor(148, 163, 184);
+                        doc.text(`(+ ${item.allOccurrences.length - 1} autre(s) occurrence(s) dans les Écritures)`, margin, y);
+                        y += 4;
+                    }
+
+                    y += 4;
+                }
+            }
+
             // 5. Dictionnaire & Lexique Biblique
             if (processedNote.definitionItems && processedNote.definitionItems.length > 0) {
                 checkPageBreak(30);
@@ -1075,6 +1149,20 @@ const NoteEditor: React.FC = () => {
                     doc.text(sLines, margin, y);
                     y += sLines.length * 4.5 + 3;
                 }
+            }
+
+            // Ajout universel des pieds de page (Numérotation & Titre) sur chaque page du PDF
+            const totalPages = doc.getNumberOfPages();
+            for (let pageIdx = 1; pageIdx <= totalPages; pageIdx++) {
+                doc.setPage(pageIdx);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(8);
+                doc.setTextColor(148, 163, 184);
+                doc.setDrawColor(226, 232, 240);
+                doc.setLineWidth(0.4);
+                doc.line(margin, pageHeight - 12, pageWidth - margin, pageHeight - 12);
+                doc.text(`King's Sword — ${cleanTitle}`, margin, pageHeight - 7);
+                doc.text(`Page ${pageIdx} sur ${totalPages}`, pageWidth - margin, pageHeight - 7, { align: 'right' });
             }
 
             doc.save(`${processedNote.title.toLowerCase().replace(/\s+/g, '_')}.pdf`);
@@ -1230,7 +1318,7 @@ const NoteEditor: React.FC = () => {
                         <div>
                             <h2 className="text-[12px] font-black uppercase tracking-[0.2em] text-zinc-800 dark:text-zinc-100 leading-none">Journal d'Étude</h2>
                             <div className="flex items-center gap-2 mt-1 opacity-60">
-                                <Sparkles className="w-2.5 h-2.5 text-teal-600" />
+                                <BookMarked className="w-2.5 h-2.5 text-teal-600" />
                                 <span className="text-[7px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">Chroniques Personnelles</span>
                             </div>
                         </div>
@@ -1604,7 +1692,7 @@ const NoteEditor: React.FC = () => {
                                               <div className="flex items-center gap-2 bg-teal-50/80 dark:bg-teal-950/40 border border-teal-600/30 dark:border-teal-500/30 px-4 py-1.5 rounded-full shadow-xs">
                                                 <Type className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
                                                 <span className="text-xs font-black uppercase tracking-wider text-teal-900 dark:text-teal-200">
-                                                  {item.text}
+                                                  {stripMarkdown(item.text)}
                                                 </span>
                                                 <div className="flex items-center gap-1 opacity-0 group-hover/sep:opacity-100 transition-opacity ml-2 border-l border-teal-500/20 pl-2">
                                                   <button
@@ -2436,7 +2524,7 @@ const NoteEditor: React.FC = () => {
                                               <div className="flex items-center gap-2 bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 px-4 py-1.5 rounded-full shadow-xs">
                                                 <Type className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
                                                 <span className="text-xs font-black uppercase tracking-wider text-zinc-800 dark:text-zinc-200">
-                                                  {item.text}
+                                                  {stripMarkdown(item.text)}
                                                 </span>
                                                 <div className="flex items-center gap-1 opacity-0 group-hover/sep:opacity-100 transition-opacity ml-2 border-l border-zinc-200 dark:border-zinc-700 pl-2">
                                                   <button
@@ -2701,6 +2789,246 @@ const NoteEditor: React.FC = () => {
                               </div>
                             )}
 
+                            {/* Section Concordance & Exégèse Strong */}
+                            {processedNote.strongItems && processedNote.strongItems.length > 0 && (
+                              <div className="space-y-4">
+                                <div className="flex items-center justify-between px-2">
+                                  <h4 className="text-xs font-black uppercase tracking-wider text-teal-600 dark:text-teal-400 flex items-center gap-2">
+                                    <Languages className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                                    <span>Concordance & Exégèse Strong ({processedNote.strongItems.length})</span>
+                                  </h4>
+                                </div>
+
+                                {processedNote.strongItems.map((item, idx) => {
+                                  const isDragging = draggedCitationId === item.citationId;
+                                  const isDragOver = dragOverCitationId === item.citationId;
+                                  const hasMultipleOccs = item.allOccurrences && item.allOccurrences.length > 1;
+
+                                  return (
+                                    <div 
+                                      key={item.citationId || idx}
+                                      data-citation-id={item.citationId}
+                                      onDragOver={(e) => {
+                                        e.preventDefault();
+                                        if (dragOverCitationId !== item.citationId) {
+                                          setDragOverCitationId(item.citationId);
+                                        }
+                                      }}
+                                      onDragLeave={() => {
+                                        if (dragOverCitationId === item.citationId) {
+                                          setDragOverCitationId(null);
+                                        }
+                                      }}
+                                      onDrop={(e) => {
+                                        e.preventDefault();
+                                        setDragOverCitationId(null);
+                                        if (draggedCitationId && item.citationId && draggedCitationId !== item.citationId) {
+                                          handleReorderCitations(draggedCitationId, item.citationId);
+                                        }
+                                      }}
+                                      className={`p-5 rounded-2xl border transition-all duration-300 relative group/card ${
+                                        isDragOver 
+                                          ? 'border-teal-500 bg-teal-500/10 ring-2 ring-teal-500/30' 
+                                          : isDragging 
+                                            ? 'opacity-40 border-dashed border-teal-500' 
+                                            : 'border-zinc-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 hover:border-teal-500/40 shadow-xs hover:shadow-md'
+                                      }`}
+                                    >
+                                      {/* Header of Strong Card */}
+                                      <div className="flex items-start justify-between gap-4 mb-3 border-b border-zinc-100 dark:border-zinc-800/80 pb-3">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                          <div className="w-10 h-10 rounded-2xl bg-teal-700 text-white dark:bg-teal-600 dark:text-white flex items-center justify-center border border-teal-600/40 shadow-xs shrink-0 font-mono text-xs font-black">
+                                            {item.strongNumber}
+                                          </div>
+                                          <div className="min-w-0">
+                                            <div className="text-[10px] font-black uppercase tracking-wider text-teal-600 dark:text-teal-400 flex items-center gap-1.5 mb-0.5">
+                                              <span>Exégèse Strong</span>
+                                              <span className="text-zinc-400">•</span>
+                                              <span className="font-mono text-zinc-500 dark:text-zinc-400">{item.type === 'hebrew' ? 'Hébreu' : 'Grec'}</span>
+                                              {item.sourceIndex && (
+                                                <span className="text-zinc-500 font-bold ml-1">[{item.sourceIndex}]</span>
+                                              )}
+                                            </div>
+                                            <h5 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight truncate flex items-center gap-2">
+                                              <span>{stripMarkdown(item.word)}</span>
+                                              {item.original && (
+                                                <span className="font-mono text-sm text-teal-700 dark:text-teal-300 font-medium">({stripMarkdown(item.original)})</span>
+                                              )}
+                                            </h5>
+                                            {item.pronunciation && (
+                                              <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 font-mono">
+                                                [{stripMarkdown(item.pronunciation)}]
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+
+                                        {/* Action buttons */}
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          {/* Drag Handle */}
+                                          <div 
+                                            draggable={Boolean(item.citationId)}
+                                            onDragStart={(e) => {
+                                              setDraggedCitationId(item.citationId);
+                                              e.dataTransfer.setData('text/plain', item.citationId);
+                                            }}
+                                            onDragEnd={() => {
+                                              setDraggedCitationId(null);
+                                              setDragOverCitationId(null);
+                                            }}
+                                            className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-grab active:cursor-grabbing transition-colors"
+                                            title="Glisser pour déplacer cette exégèse"
+                                          >
+                                            <GripVertical className="w-4 h-4" />
+                                          </div>
+
+                                          {/* Move Up */}
+                                          <button
+                                            type="button"
+                                            onClick={() => handleMoveCitation(item.citationId, 'up', processedNote.strongItems)}
+                                            disabled={idx === 0}
+                                            className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 disabled:opacity-20 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                                            title="Monter"
+                                          >
+                                            <ChevronUp className="w-4 h-4" />
+                                          </button>
+
+                                          {/* Move Down */}
+                                          <button
+                                            type="button"
+                                            onClick={() => handleMoveCitation(item.citationId, 'down', processedNote.strongItems)}
+                                            disabled={idx === processedNote.strongItems.length - 1}
+                                            className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 disabled:opacity-20 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                                            title="Descendre"
+                                          >
+                                            <ChevronDown className="w-4 h-4" />
+                                          </button>
+
+                                          {/* Copy */}
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              const copyText = `Strong ${item.strongNumber} — ${item.word} (${item.original}) [${item.pronunciation}]\n\nDéfinition : ${item.definition}${item.messageContext ? `\n\nÉclairage dans le Message : ${item.messageContext}` : ''}${item.originVerseRef ? `\n\nVerset d'origine (${item.originVerseRef}) : « ${item.originVerseText} »` : ''}`;
+                                              navigator.clipboard.writeText(copyText);
+                                              addNotification("Exégèse Strong copiée dans le presse-papiers.", "success");
+                                            }}
+                                            className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-teal-600 dark:hover:text-teal-400 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-950/30 transition-colors"
+                                            title="Copier l'exégèse"
+                                          >
+                                            <Copy className="w-4 h-4" />
+                                          </button>
+
+                                          {/* Delete */}
+                                          <button
+                                            type="button"
+                                            onClick={() => removeCitationFromNote(note.id, item.citationId)}
+                                            className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                                            title="Supprimer cette exégèse de la note"
+                                          >
+                                            <Trash2 className="w-4 h-4" />
+                                          </button>
+                                        </div>
+                                      </div>
+
+                                      {/* Metadata Details Section */}
+                                      {(item.partOfSpeech || item.etymology || item.translationsLSG || item.occurrencesCountStr) && (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs bg-slate-50/90 dark:bg-zinc-950/70 border border-slate-200/80 dark:border-zinc-800 rounded-xl p-3 mb-3">
+                                          {item.partOfSpeech && (
+                                            <div>
+                                              <span className="text-[10px] font-black uppercase tracking-wider text-teal-600 dark:text-teal-400 block">Nature</span>
+                                              <span className="text-zinc-800 dark:text-zinc-200 font-medium">{stripMarkdown(item.partOfSpeech)}</span>
+                                            </div>
+                                          )}
+                                          {item.etymology && (
+                                            <div>
+                                              <span className="text-[10px] font-black uppercase tracking-wider text-teal-600 dark:text-teal-400 block">Racine / Origine</span>
+                                              <span className="text-zinc-800 dark:text-zinc-200 font-medium">{stripMarkdown(item.etymology)}</span>
+                                            </div>
+                                          )}
+                                          {item.translationsLSG && (
+                                            <div className="sm:col-span-2 border-t border-slate-200/60 dark:border-zinc-800/60 pt-1.5 mt-0.5">
+                                              <span className="text-[10px] font-black uppercase tracking-wider text-teal-600 dark:text-teal-400 block">Traductions (LSG)</span>
+                                              <span className="text-zinc-800 dark:text-zinc-200 font-medium">{stripMarkdown(item.translationsLSG)}</span>
+                                            </div>
+                                          )}
+                                          {item.occurrencesCountStr && (
+                                            <div className="sm:col-span-2 border-t border-slate-200/60 dark:border-zinc-800/60 pt-1.5 mt-0.5">
+                                              <span className="text-[10px] font-black uppercase tracking-wider text-teal-600 dark:text-teal-400 block">Fréquence</span>
+                                              <span className="text-zinc-800 dark:text-zinc-200 font-medium">{stripMarkdown(item.occurrencesCountStr)}</span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+
+                                      {/* Definition Section */}
+                                      <div className="space-y-2 mb-3">
+                                        <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                                          <Info className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                                          <span>Définition Littérale</span>
+                                        </div>
+                                        <div className="p-4 bg-slate-50/80 dark:bg-zinc-950/60 border border-slate-200/80 dark:border-zinc-800/80 rounded-xl relative overflow-hidden group">
+                                          <div className="absolute top-0 left-0 w-1 h-full bg-teal-600 dark:bg-teal-500" />
+                                          <p className="text-zinc-800 dark:text-zinc-200 serif-text text-base leading-[1.8] select-text pl-1">
+                                            {stripMarkdown(item.definition)}
+                                          </p>
+                                        </div>
+                                      </div>
+
+                                      {/* Message Context Section */}
+                                      {item.messageContext && (
+                                        <div className="space-y-2 mb-3">
+                                          <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-teal-600 dark:text-teal-400">
+                                            <Flame className="w-3.5 h-3.5" />
+                                            <span>Éclairage dans le Message du Temps de la Fin</span>
+                                          </div>
+                                          <div className="p-4 bg-teal-500/5 dark:bg-teal-950/20 border border-teal-500/20 dark:border-teal-800/40 rounded-xl relative overflow-hidden">
+                                            <p className="text-zinc-800 dark:text-zinc-200 serif-text text-base leading-[1.8] italic select-text">
+                                              {stripMarkdown(item.messageContext)}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* Verset d'origine (Affichage unique et épuré) */}
+                                      {item.originVerseRef && item.originVerseText && (
+                                        <div className="space-y-2 mb-3">
+                                          <div className="flex items-center justify-between gap-2">
+                                            <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                                              <BookOpen className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                                              <span>Verset d'Origine — <strong className="text-teal-700 dark:text-teal-300">{item.originVerseRef}</strong></span>
+                                            </div>
+                                          </div>
+                                          <div className="p-4 bg-slate-50/70 dark:bg-zinc-950/40 border border-slate-200/80 dark:border-zinc-800 rounded-xl">
+                                            <p className="text-zinc-800 dark:text-zinc-200 serif-text text-base leading-[1.8] italic select-text">
+                                              « {stripMarkdown(item.originVerseText)} »
+                                            </p>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* Consultation des autres versets (Lien / Fenêtre popup consultable) */}
+                                      {hasMultipleOccs && (
+                                        <div className="pt-2 flex items-center justify-between border-t border-zinc-100 dark:border-zinc-800/80 mt-3 flex-wrap gap-2">
+                                          <button
+                                            type="button"
+                                            onClick={() => setConsultingStrongItem(item)}
+                                            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/40 dark:hover:bg-teal-900/60 border border-teal-200 dark:border-teal-800/80 transition-all cursor-pointer shadow-2xs group"
+                                          >
+                                            <BookOpen className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 group-hover:scale-110 transition-transform" />
+                                            <span>Consulter les {item.allOccurrences!.length - 1} autre{item.allOccurrences!.length - 1 > 1 ? 's' : ''} verset{item.allOccurrences!.length - 1 > 1 ? 's' : ''} dans les Écritures</span>
+                                            <ExternalLink className="w-3 h-3 opacity-60 ml-0.5" />
+                                          </button>
+                                          <span className="text-[10px] font-mono font-medium text-zinc-400">
+                                            {item.allOccurrences!.length} versets totaux
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
                             {/* Section Dictionnaire & Lexique Biblique */}
                             {processedNote.definitionItems && processedNote.definitionItems.length > 0 && (
                               <div className="space-y-4">
@@ -2829,8 +3157,8 @@ const NoteEditor: React.FC = () => {
                                       </div>
 
                                       {/* Definition Body */}
-                                      <div className="serif-text text-base leading-relaxed text-zinc-800 dark:text-zinc-200 select-text pl-1 py-1">
-                                        {item.definition}
+                                      <div className="serif-text text-base leading-[1.8] text-zinc-800 dark:text-zinc-200 select-text pl-1 py-1">
+                                        {stripMarkdown(item.definition)}
                                       </div>
 
                                       {/* Etymology */}
@@ -2838,7 +3166,7 @@ const NoteEditor: React.FC = () => {
                                         <div className="flex items-start gap-2.5 text-xs text-zinc-600 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-800/50 p-3 rounded-xl border border-zinc-100 dark:border-zinc-800 mt-3 select-text">
                                           <History className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 shrink-0 mt-0.5" />
                                           <div className="leading-relaxed">
-                                            <span className="font-bold text-zinc-700 dark:text-zinc-300">Étymologie :</span> {item.etymology}
+                                            <span className="font-bold text-zinc-700 dark:text-zinc-300">Étymologie :</span> {stripMarkdown(item.etymology)}
                                           </div>
                                         </div>
                                       )}
@@ -3067,7 +3395,7 @@ const NoteEditor: React.FC = () => {
                     <div className="mb-8 space-y-3">
                         <h3 className="text-sm font-bold uppercase text-teal-800 border-b border-teal-200 pb-1 mb-2">Contenu Principal</h3>
                         {processedNote.contentParagraphs.map((p, i) => (
-                            <p key={i} className="text-sm text-slate-800 leading-relaxed">{p}</p>
+                            <p key={i} className="text-sm text-slate-800 leading-relaxed">{stripMarkdown(p)}</p>
                         ))}
                     </div>
                 )}
@@ -3081,20 +3409,20 @@ const NoteEditor: React.FC = () => {
                                 if (item.separatorType === 'subtitle') {
                                     return (
                                         <div key={item.id || i} className="subtitle-separator page-break-inside-avoid">
-                                            <h4>{item.text}</h4>
+                                            <h4>{stripMarkdown(item.text)}</h4>
                                         </div>
                                     );
                                 }
                                 return (
                                     <div key={item.id || i} className="comment-box page-break-inside-avoid">
                                         <div className="comment-title">Remarque / Commentaire :</div>
-                                        <div className="comment-text">{item.text}</div>
+                                        <div className="comment-text">{stripMarkdown(item.text)}</div>
                                     </div>
                                 );
                             }
                             return (
                                 <div key={item.id || i} className="citation-box page-break-inside-avoid">
-                                    <p>« <HighlightedQuote quote={item.quote} highlights={item.highlights} isPrint /> »</p>
+                                    <p>« <HighlightedQuote quote={stripMarkdown(item.quote)} highlights={item.highlights} isPrint /> »</p>
                                     <p className="citation-ref">
                                         {item.reference || 'Bible'} {item.sourceIndex ? `[${item.sourceIndex}]` : ''}
                                     </p>
@@ -3113,20 +3441,20 @@ const NoteEditor: React.FC = () => {
                                 if (item.separatorType === 'subtitle') {
                                     return (
                                         <div key={item.id || i} className="subtitle-separator amber page-break-inside-avoid">
-                                            <h4>{item.text}</h4>
+                                            <h4>{stripMarkdown(item.text)}</h4>
                                         </div>
                                     );
                                 }
                                 return (
                                     <div key={item.id || i} className="comment-box amber page-break-inside-avoid">
                                         <div className="comment-title">Remarque / Commentaire :</div>
-                                        <div className="comment-text">{item.text}</div>
+                                        <div className="comment-text">{stripMarkdown(item.text)}</div>
                                     </div>
                                 );
                             }
                             return (
                                 <div key={item.id || i} className="citation-box page-break-inside-avoid">
-                                    <p>« <HighlightedQuote quote={item.quote} highlights={item.highlights} isPrint /> »</p>
+                                    <p>« <HighlightedQuote quote={stripMarkdown(item.quote)} highlights={item.highlights} isPrint /> »</p>
                                     <p className="citation-ref">
                                         {item.sourceTitle || "Exposé des Sept Âges"} {item.sourceMeta ? `— ${item.sourceMeta}` : ''} {item.sourceIndex ? `[${item.sourceIndex}]` : ''}
                                     </p>
@@ -3145,20 +3473,20 @@ const NoteEditor: React.FC = () => {
                                 if (item.separatorType === 'subtitle') {
                                     return (
                                         <div key={item.id || i} className="subtitle-separator slate page-break-inside-avoid">
-                                            <h4>{item.text}</h4>
+                                            <h4>{stripMarkdown(item.text)}</h4>
                                         </div>
                                     );
                                 }
                                 return (
                                     <div key={item.id || i} className="comment-box slate page-break-inside-avoid">
                                         <div className="comment-title">Remarque / Commentaire :</div>
-                                        <div className="comment-text">{item.text}</div>
+                                        <div className="comment-text">{stripMarkdown(item.text)}</div>
                                     </div>
                                 );
                             }
                             return (
                                 <div key={item.id || i} className="citation-box page-break-inside-avoid">
-                                    <p>« <HighlightedQuote quote={item.quote} highlights={item.highlights} isPrint /> »</p>
+                                    <p>« <HighlightedQuote quote={stripMarkdown(item.quote)} highlights={item.highlights} isPrint /> »</p>
                                     <p className="citation-ref">
                                         {item.sourceTitle || 'Enseignement'} {item.sourceMeta ? `— ${item.sourceMeta}` : ''} {item.sourceIndex ? `[${item.sourceIndex}]` : ''}
                                     </p>
@@ -3168,15 +3496,48 @@ const NoteEditor: React.FC = () => {
                     </div>
                 )}
 
+                {processedNote.strongItems && processedNote.strongItems.length > 0 && (
+                    <div className="mb-8 space-y-4">
+                        <h3 className="text-sm font-bold uppercase text-teal-800 border-b border-teal-200 pb-1 mb-2">Concordance & Exégèse Strong</h3>
+                        {processedNote.strongItems.map((item, i) => (
+                            <div key={item.citationId || i} className="citation-box page-break-inside-avoid">
+                                <p className="font-bold text-slate-900 not-italic text-sm">
+                                    Strong {item.strongNumber} : {stripMarkdown(item.word)} {item.original ? `(${stripMarkdown(item.original)})` : ''} — [{stripMarkdown(item.pronunciation)}] ({item.type === 'hebrew' ? 'Hébreu' : 'Grec'})
+                                </p>
+                                <div className="mt-1.5 text-slate-800">
+                                    <span className="font-semibold text-xs text-slate-700">Définition Littérale :</span> {stripMarkdown(item.definition)}
+                                </div>
+                                {item.messageContext && (
+                                    <div className="mt-1.5 text-slate-800 italic text-xs">
+                                        <span className="font-semibold text-teal-800 not-italic">Éclairage dans le Message :</span> {stripMarkdown(item.messageContext)}
+                                    </div>
+                                )}
+                                {item.originVerseRef && item.originVerseText && (
+                                    <div className="mt-2 pl-3 border-l-2 border-teal-600 py-1 bg-slate-50 text-xs">
+                                        <p className="font-semibold text-slate-700">Verset d'origine ({item.originVerseRef}) :</p>
+                                        <p className="italic text-slate-800 mt-0.5">« {stripMarkdown(item.originVerseText)} »</p>
+                                    </div>
+                                )}
+                                {item.allOccurrences && item.allOccurrences.length > 1 && (
+                                    <p className="text-[11px] text-slate-500 italic mt-1.5">
+                                        (+ {item.allOccurrences.length - 1} autre{item.allOccurrences.length - 1 > 1 ? 's' : ''} occurrence{item.allOccurrences.length - 1 > 1 ? 's' : ''} répertoriée{item.allOccurrences.length - 1 > 1 ? 's' : ''} dans les Écritures)
+                                    </p>
+                                )}
+                                <p className="citation-ref">Concordance Strong {item.sourceIndex ? `[${item.sourceIndex}]` : ''}</p>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
                 {processedNote.definitionItems && processedNote.definitionItems.length > 0 && (
                     <div className="mb-8 space-y-4">
                         <h3 className="text-sm font-bold uppercase text-teal-800 border-b border-teal-200 pb-1 mb-2">Dictionnaire & Lexique Biblique</h3>
                         {processedNote.definitionItems.map((item, i) => (
                             <div key={item.citationId || i} className="citation-box page-break-inside-avoid">
-                                <p className="font-bold text-slate-900 not-italic text-sm">{item.word}</p>
-                                <p className="mt-1 text-slate-800">{item.definition}</p>
+                                <p className="font-bold text-slate-900 not-italic text-sm">{stripMarkdown(item.word)}</p>
+                                <p className="mt-1 text-slate-800">{stripMarkdown(item.definition)}</p>
                                 {item.etymology && (
-                                    <p className="text-xs italic text-slate-500 mt-1">Étymologie : {item.etymology}</p>
+                                    <p className="text-xs italic text-slate-500 mt-1">Étymologie : {stripMarkdown(item.etymology)}</p>
                                 )}
                                 {item.synonyms && item.synonyms.length > 0 && (
                                     <p className="text-xs text-teal-700 mt-1 font-semibold">Synonymes : {item.synonyms.join(', ')}</p>
@@ -3216,8 +3577,8 @@ const NoteEditor: React.FC = () => {
             </div>
 
             {/* Modal Sélecteur d'Images de la Galerie */}
-            {isGalleryPickerOpen && (
-                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+            {isGalleryPickerOpen && createPortal(
+                <div className="fixed inset-0 z-[250000] bg-black/75 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
                     <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
                         <div className="p-5 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-950/50">
                             <div className="flex items-center gap-3">
@@ -3368,12 +3729,13 @@ const NoteEditor: React.FC = () => {
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* Modal Dictionnaire IA pour les définitions */}
-            {activeDefinition && (
-              <div className="fixed inset-0 z-[100000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200" onClick={() => setActiveDefinition(null)}>
+            {activeDefinition && createPortal(
+              <div className="fixed inset-0 z-[250000] bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200" onClick={() => setActiveDefinition(null)}>
                 <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl shadow-2xl flex flex-col overflow-hidden max-w-xl w-full max-h-[85vh] animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
                   <div className="px-5 sm:px-6 py-4 border-b border-slate-200 dark:border-zinc-800/80 flex items-center justify-between bg-slate-50/70 dark:bg-zinc-950/50 shrink-0">
                     <div className="flex items-center gap-3.5 min-w-0">
@@ -3466,7 +3828,8 @@ const NoteEditor: React.FC = () => {
                     </span>
                   </div>
                 </div>
-              </div>
+              </div>,
+              document.body
             )}
 
             {/* Modal de sélection de note si demandé depuis le journal */}
@@ -3481,10 +3844,10 @@ const NoteEditor: React.FC = () => {
             )}
 
             {/* Modal Aperçu Plein Écran de l'Image */}
-            {previewImageUrl && (
+            {previewImageUrl && createPortal(
                 <div 
                     onClick={() => setPreviewImageUrl(null)}
-                    className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200 cursor-zoom-out"
+                    className="fixed inset-0 z-[250000] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200 cursor-zoom-out"
                 >
                     <div className="relative max-w-5xl max-h-[90vh] flex flex-col items-center justify-center">
                         <button
@@ -3501,7 +3864,20 @@ const NoteEditor: React.FC = () => {
                             referrerPolicy="no-referrer"
                         />
                     </div>
-                </div>
+                </div>,
+                document.body
+            )}
+
+            {/* Modal de Consultation des Occurrences Bibliques Complètes Strong */}
+            {consultingStrongItem && (
+                <StrongOccurrencesModal
+                    isOpen={Boolean(consultingStrongItem)}
+                    onClose={() => setConsultingStrongItem(null)}
+                    strongNumber={consultingStrongItem.strongNumber}
+                    word={consultingStrongItem.word}
+                    original={consultingStrongItem.original}
+                    occurrences={consultingStrongItem.allOccurrences || []}
+                />
             )}
         </div>
     );

@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback, memo, startTransition } from 'react';
+import { createPortal } from 'react-dom';
 import { useAppStore } from '../store';
 import { translations } from '../translations';
 import { getDefinition, WordDefinition } from '../services/dictionaryService';
 import { getAccentInsensitiveRegex, getSearchHighlightRegex, splitSermonIntoParagraphs, extractLeadingParagraphNumber } from '../utils/textUtils';
-import { Sermon, Highlight, SearchMode, QuickAccessItemType, CitationHighlight } from '../types';
+import { Sermon, Highlight, SearchMode, QuickAccessItemType, CitationHighlight, Citation } from '../types';
 import { PALETTE_HIGHLIGHT_COLORS } from '../constants';
 import { formatSongContent } from '../services/songService';
 import NoteSelectorModal from './NoteSelectorModal';
@@ -36,7 +37,9 @@ import {
   Highlighter, 
   Sparkles, 
   NotebookPen, 
+  Check,
   X, 
+  Plus,
   Headphones, 
   Copy, 
   Sun, 
@@ -51,6 +54,7 @@ import {
   Loader2, 
   BookOpenCheck, 
   Sword,
+  Flame,
   Quote, 
   MapPin, 
   Calendar, 
@@ -65,7 +69,6 @@ import {
   History,
   Camera,
   Languages,
-  Plus,
   ChevronRight,
   PanelLeftOpen,
   Music,
@@ -77,6 +80,9 @@ import {
   Bookmark
 } from 'lucide-react';
 import SongModal from './SongModal';
+import { useModalActive } from '../utils/modalUtils';
+import { STRONG_LEXICON, findBibleOccurrences, getOrGenerateStrongEntry, asyncGetOrGenerateStrongEntry, lookupStrongNumber, getChapterVerseStrongs } from '../services/bibleExegesisService';
+import { findSermonOccurrencesForStrong, getOrGenerateStrongMessageContext } from '../services/strongLexiconService';
 import { 
   getFavorites, 
   addRecent, 
@@ -120,6 +126,16 @@ const ActionButton = memo(({ onClick, icon: Icon, tooltip, special = false, acti
   </div>
 ));
 
+const NT_BOOKS = new Set([
+  'MAT', 'MRK', 'LUK', 'JHN', 'ACT', 'ROM', '1CO', '2CO', 'GAL', 'EPH', 'PHP', 'COL',
+  '1TH', '2TH', '1TI', '2TI', 'TIT', 'PHM', 'HEB', 'JAS', '1PE', '2PE', '1JN', '2JN',
+  '3JN', 'JUD', 'REV'
+]);
+
+const getStrongNumber = (text: string, isNT: boolean = false) => {
+  return lookupStrongNumber(text, isNT);
+};
+
 const WordComponent = memo(({ 
   word, 
   isSearchResult, 
@@ -132,7 +148,11 @@ const WordComponent = memo(({
   onRemoveHighlight, 
   onRemoveJumpHighlight, 
   wordRef, 
-  onMouseUp 
+  onMouseUp,
+  showStrongs,
+  onStrongClick,
+  isNT,
+  strongNum: propStrongNum
 }: any) => {
   const highlightColorClass = highlight 
     ? PALETTE_HIGHLIGHT_COLORS[highlight.color || 'amber']
@@ -143,6 +163,8 @@ const WordComponent = memo(({
   const projectionUnderlineClass = isProjectionLastLine
     ? 'border-b-[2.5px] border-amber-500 dark:border-amber-400 bg-amber-500/15 font-semibold text-zinc-950 dark:text-white underline decoration-amber-500/80 decoration-[2px] underline-offset-[3px]'
     : '';
+
+  const strongNum = showStrongs ? (propStrongNum || null) : null;
 
   const content = (
     <span 
@@ -156,9 +178,22 @@ const WordComponent = memo(({
           : (isSearchResult || isJumpHighlight)
             ? 'px-0.5 rounded-sm font-bold'
             : ''
-      } ${isSearchResult ? 'underline decoration-amber-600/40 underline-offset-2' : ''}`}
+      } ${isSearchResult ? 'underline decoration-amber-600/40 underline-offset-2' : ''} ${
+        strongNum ? 'border-b border-dashed border-teal-500/50 pb-0.5 hover:text-teal-600 dark:hover:text-teal-400 cursor-pointer' : ''
+      }`}
+      onClick={(e) => {
+        if (strongNum && onStrongClick) {
+          e.stopPropagation();
+          onStrongClick(strongNum, word.text);
+        }
+      }}
     >
       {word.text}
+      {strongNum && (
+        <span className="inline-block text-[8px] font-black text-teal-900 dark:text-teal-200 bg-amber-200/90 dark:bg-zinc-800 border border-amber-400/80 dark:border-teal-500/50 px-1 py-0.2 rounded-md font-mono ml-0.5 align-baseline select-none pointer-events-none shadow-2xs">
+          {strongNum}
+        </span>
+      )}
     </span>
   );
 
@@ -273,6 +308,7 @@ const Reader: React.FC = () => {
   const libraryMode = useAppStore(s => s.libraryMode);
   const setLibraryMode = useAppStore(s => s.setLibraryMode);
   const manualContextIds = useAppStore(s => s.manualContextIds);
+  const setManualContextIds = useAppStore(s => s.setManualContextIds);
   const toggleContextSermon = useAppStore(s => s.toggleContextSermon);
   
   const activeSermon = useAppStore(s => s.activeSermon);
@@ -562,12 +598,184 @@ const Reader: React.FC = () => {
   }, [sermon?.id, projectedSegmentIndex, isProjectionOpen, recordProjectedItem]);
   
   const [activeDefinition, setActiveDefinition] = useState<WordDefinition | null>(null);
+  const [showStrongs, setShowStrongs] = useState(false);
+  const [selectedStrongInfo, setSelectedStrongInfo] = useState<{ strongNum: string; wordText: string } | null>(null);
+  const selectedStrongNumber = selectedStrongInfo?.strongNum || null;
+
+  const setSelectedStrongNumber = useCallback((val: string | { strongNum: string; wordText: string } | null, maybeWordText?: string) => {
+    if (!val) {
+      setSelectedStrongInfo(null);
+    } else if (typeof val === 'string') {
+      setSelectedStrongInfo({ strongNum: val, wordText: maybeWordText || '' });
+    } else {
+      setSelectedStrongInfo(val);
+    }
+  }, []);
+
+  const [strongOccurrences, setStrongOccurrences] = useState<Array<{ bookId: string; bookName: string; chapter: number; verse: number; text: string }>>([]);
+  const [isLoadingOccurrences, setIsLoadingOccurrences] = useState(false);
+  const [strongSermonOccurrences, setStrongSermonOccurrences] = useState<Array<{ sermonId: string; title: string; date: string; snippet: string; isExpose: boolean }>>([]);
+  const [isLoadingSermonOccurrences, setIsLoadingSermonOccurrences] = useState(false);
+  const [isSelectingNoteForStrong, setIsSelectingNoteForStrong] = useState(false);
+  const [strongNoteSearch, setStrongNoteSearch] = useState('');
+  const [currentStrongEntry, setCurrentStrongEntry] = useState<any | null>(null);
+  const [isLoadingStrongEntry, setIsLoadingStrongEntry] = useState(false);
+
+  const bibleVersion = useAppStore(s => s.bibleVersion);
+
+  // Index certifié des Strongs pour le chapitre biblique affiché
+  const [chapterVerseStrongsMap, setChapterVerseStrongsMap] = useState<Record<string, Array<[string, string]>> | null>(null);
+
+  useEffect(() => {
+    if (isBibleChapter && showStrongs && sermon?.id) {
+      const parts = sermon.id.split('-');
+      const bId = parts[1]?.toUpperCase() || '';
+      const ch = parts[2] || '1';
+      getChapterVerseStrongs(bId, ch).then(data => {
+        setChapterVerseStrongsMap(data);
+      }).catch(() => {
+        setChapterVerseStrongsMap(null);
+      });
+    } else {
+      setChapterVerseStrongsMap(null);
+    }
+  }, [isBibleChapter, showStrongs, sermon?.id]);
+
+  // Alignement séquentiel certifié des mots du verset avec leurs numéros Strong officiels
+  const wordStrongMap = useMemo(() => {
+    const map = new Map<number, string>();
+    if (!isBibleChapter || !showStrongs || !chapterVerseStrongsMap || structuredSegments.length === 0) {
+      return map;
+    }
+
+    structuredSegments.forEach((segment, segIdx) => {
+      const firstWordText = segment.words[0]?.text?.trim() || '';
+      const vMatch = firstWordText.match(/^(\d+)/);
+      const verseNum = vMatch ? vMatch[1] : String(segIdx + 1);
+
+      const taggedPairs = chapterVerseStrongsMap[verseNum];
+      if (!taggedPairs || taggedPairs.length === 0) return;
+
+      let pairIdx = 0;
+      for (let i = 0; i < segment.words.length; i++) {
+        const w = segment.words[i];
+        const cleanWord = w.text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/gi, "");
+        if (!cleanWord || cleanWord.length < 2) continue;
+
+        let foundPairIdx = -1;
+        for (let p = pairIdx; p < Math.min(pairIdx + 4, taggedPairs.length); p++) {
+          const cleanTagged = taggedPairs[p][0].toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/gi, "");
+          if (cleanWord === cleanTagged || cleanWord.endsWith(cleanTagged) || cleanTagged.endsWith(cleanWord) || cleanWord.includes(cleanTagged)) {
+            foundPairIdx = p;
+            break;
+          }
+        }
+
+        if (foundPairIdx !== -1) {
+          map.set(w.globalIndex, taggedPairs[foundPairIdx][1]);
+          pairIdx = foundPairIdx + 1;
+        }
+      }
+    });
+
+    return map;
+  }, [isBibleChapter, showStrongs, chapterVerseStrongsMap, structuredSegments]);
+
+  useEffect(() => {
+    if (selectedStrongInfo) {
+      setSidebarOpen(false);
+      setIsLoadingOccurrences(true);
+      setIsLoadingSermonOccurrences(true);
+      setIsLoadingStrongEntry(true);
+      setStrongOccurrences([]);
+      setStrongSermonOccurrences([]);
+      setCurrentStrongEntry(null);
+      setIsSelectingNoteForStrong(false);
+      setStrongNoteSearch('');
+
+      const parts = sermon?.id?.split('-');
+      const bookId = parts?.[1]?.toUpperCase() || '';
+      const isNT = NT_BOOKS.has(bookId);
+
+      let targetWord = selectedStrongInfo.wordText;
+      if (!targetWord && words && words.length > 0) {
+        const found = words.find(w => wordStrongMap.get(w.globalIndex) === selectedStrongInfo.strongNum);
+        if (found) targetWord = found.text;
+      }
+
+      asyncGetOrGenerateStrongEntry(selectedStrongInfo.strongNum, targetWord, isNT)
+        .then(entry => {
+          setCurrentStrongEntry(entry);
+          setIsLoadingStrongEntry(false);
+          
+          if (entry) {
+            // 1. Occurrences bibliques
+            findBibleOccurrences(entry.word, bibleVersion, selectedStrongInfo.strongNum)
+              .then(results => {
+                setStrongOccurrences(results);
+              })
+              .catch(() => {
+                setStrongOccurrences([]);
+              })
+              .finally(() => {
+                setIsLoadingOccurrences(false);
+              });
+
+            // 2. Extraits et mentions dans les sermons & l'Exposé complet
+            findSermonOccurrencesForStrong(entry.word, selectedStrongInfo.strongNum)
+              .then(sermonResults => {
+                setStrongSermonOccurrences(sermonResults);
+              })
+              .catch(() => {
+                setStrongSermonOccurrences([]);
+              })
+              .finally(() => {
+                setIsLoadingSermonOccurrences(false);
+              });
+
+            // 3. Compléter l'éclairage théologique du Message s'il est manquant
+            if (!entry.messageContext) {
+              getOrGenerateStrongMessageContext(selectedStrongInfo.strongNum, entry.word, entry.definition, entry.original)
+                .then(ctx => {
+                  if (ctx) {
+                    setCurrentStrongEntry((prev: any) => prev ? { ...prev, messageContext: ctx } : prev);
+                  }
+                })
+                .catch(() => {});
+            }
+          } else {
+            setIsLoadingOccurrences(false);
+            setIsLoadingSermonOccurrences(false);
+          }
+        })
+        .catch(err => {
+          console.error("Error loading strong entry:", err);
+          setCurrentStrongEntry(null);
+          setIsLoadingStrongEntry(false);
+          setIsLoadingOccurrences(false);
+          setIsLoadingSermonOccurrences(false);
+        });
+    } else {
+      setStrongOccurrences([]);
+      setStrongSermonOccurrences([]);
+      setCurrentStrongEntry(null);
+      setIsLoadingStrongEntry(false);
+      setIsSelectingNoteForStrong(false);
+      setStrongNoteSearch('');
+    }
+  }, [selectedStrongInfo, bibleVersion, words, sermon?.id]);
   const [isDefining, setIsDefining] = useState(false);
   const [jumpHighlightIndices, setJumpHighlightIndices] = useState<number[]>([]);
   const [syncToggle, setSyncToggle] = useState(0);
   const [isSongModalOpen, setIsSongModalOpen] = useState(false);
   const [isNavPanelOpen, setIsNavPanelOpen] = useState(() => typeof window !== 'undefined' ? window.innerWidth > 768 : true);
   const [navFilterText, setNavFilterText] = useState('');
+
+  // Enregistrement des fenêtres de popup pour isoler l'affichage et masquer barres et boutons superflus
+  useModalActive(!!selectedStrongNumber);
+  useModalActive(!!activeDefinition);
+  useModalActive(!!noteSelectorPayload);
+  useModalActive(isSongModalOpen);
 
   const filteredSegments = useMemo(() => {
     return structuredSegments.map((seg, idx) => {
@@ -585,7 +793,13 @@ const Reader: React.FC = () => {
 
   const isCurrentInDock = useMemo(() => {
     if (!activeSermon?.id) return false;
-    return manualContextIds.includes(activeSermon.id);
+    if (manualContextIds.includes(activeSermon.id)) return true;
+    if (activeSermon.id.startsWith('bible-')) {
+      const parts = activeSermon.id.split('-');
+      const bookId = parts[1];
+      if (bookId && manualContextIds.includes(`bible-${bookId}-all`)) return true;
+    }
+    return false;
   }, [activeSermon, manualContextIds]);
 
   const [projectionFontSize, setProjectionFontSize] = useState<number>(20);
@@ -1544,8 +1758,19 @@ const Reader: React.FC = () => {
     searchMatchWordIndices.forEach(idx => set.add(idx));
     jumpHighlightIndices.forEach(idx => set.add(idx));
     projectionLastVisibleSet.forEach(idx => set.add(idx));
+
+    // Si le mode Strong est actif dans la Bible, rendre interactifs absolument tous les mots sans exception
+    if (showStrongs && isBibleChapter && words) {
+      words.forEach(word => {
+        const cleanWord = word.text.trim().toLowerCase().replace(/[,.;:!?()'[\]»«’]+/g, '');
+        if (cleanWord.length > 0) {
+          set.add(word.globalIndex);
+        }
+      });
+    }
+
     return set;
-  }, [highlightMap, citationHighlightMap, searchMatchWordIndices, jumpHighlightIndices, projectionLastVisibleSet]);
+  }, [highlightMap, citationHighlightMap, searchMatchWordIndices, jumpHighlightIndices, projectionLastVisibleSet, showStrongs, isBibleChapter, words]);
 
   const handleProjectSegment = useCallback((idx: number, isExplicitToggle = false) => {
     // ONLY explicit projection buttons (verse projection icon, toolbar button, prev/next controls, or paragraph click in projection mode) trigger projection!
@@ -1886,6 +2111,10 @@ const Reader: React.FC = () => {
     const elements: React.ReactNode[] = [];
     let textBuffer = "";
 
+    const parts = sermon?.id?.split('-');
+    const bookId = parts?.[1]?.toUpperCase() || '';
+    const isNT = NT_BOOKS.has(bookId);
+
     segWords.forEach((word) => {
       if (interactiveIndices.has(word.globalIndex)) {
         if (textBuffer) { elements.push(textBuffer); textBuffer = ""; }
@@ -1905,13 +2134,17 @@ const Reader: React.FC = () => {
             onRemoveHighlight={handleRemoveHighlight} 
             onRemoveJumpHighlight={handleRemoveJumpHighlight} 
             onMouseUp={handleTextSelection} 
+            showStrongs={showStrongs && isBibleChapter}
+            onStrongClick={setSelectedStrongNumber}
+            isNT={isNT}
+            strongNum={wordStrongMap.get(word.globalIndex)}
           />
         );
       } else textBuffer += word.text;
     });
     if (textBuffer) elements.push(textBuffer);
     return elements;
-  }, [interactiveIndices, searchMatchWordIndices, searchResults, currentResultIndex, jumpHighlightIndices, citationHighlightMap, highlightMap, projectionLastVisibleSet, projectionBottomVisibleIndex, handleRemoveHighlight, handleRemoveJumpHighlight, handleTextSelection]);
+  }, [interactiveIndices, searchMatchWordIndices, searchResults, currentResultIndex, jumpHighlightIndices, citationHighlightMap, highlightMap, projectionLastVisibleSet, projectionBottomVisibleIndex, handleRemoveHighlight, handleRemoveJumpHighlight, handleTextSelection, showStrongs, isBibleChapter, setSelectedStrongNumber, sermon, wordStrongMap]);
 
   const handleSearchNext = () => {
     if (searchResults.length === 0) return;
@@ -1993,8 +2226,8 @@ const Reader: React.FC = () => {
         />
       )}
       
-      {activeDefinition && (
-        <div className="fixed inset-0 z-[100000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200" onClick={() => setActiveDefinition(null)}>
+      {activeDefinition && createPortal(
+        <div className="fixed inset-0 z-[250000] bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200" onClick={() => setActiveDefinition(null)}>
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl shadow-2xl flex flex-col overflow-hidden max-w-xl w-full max-h-[85vh] animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
             {/* Modal Header */}
             <div className="px-5 sm:px-6 py-4 border-b border-slate-200 dark:border-zinc-800/80 flex items-center justify-between bg-slate-50/70 dark:bg-zinc-950/50 shrink-0">
@@ -2092,10 +2325,541 @@ const Reader: React.FC = () => {
               </span>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
+
+      {selectedStrongInfo && (() => {
+        const parts = sermon?.id?.split('-');
+        const bookId = parts?.[1]?.toUpperCase() || '';
+        const isNT = NT_BOOKS.has(bookId);
+
+        let targetWord = selectedStrongInfo.wordText;
+        if (!targetWord && words && words.length > 0) {
+          const found = words.find(w => wordStrongMap.get(w.globalIndex) === selectedStrongInfo.strongNum);
+          if (found) targetWord = found.text;
+        }
+
+        const entry = currentStrongEntry || {
+          word: isLoadingStrongEntry ? "Chargement..." : "Fiche non disponible",
+          strong: selectedStrongInfo.strongNum,
+          original: isLoadingStrongEntry ? "Chargement..." : "Non disponible",
+          pronunciation: "",
+          type: isNT ? 'greek' : 'hebrew',
+          definition: isLoadingStrongEntry ? "Chargement de la fiche d'exégèse depuis le lexique officiel..." : "Fiche non disponible pour ce numéro.",
+          partOfSpeech: null,
+          etymology: null,
+          occurrencesCount: null,
+          translationsLSG: null,
+          messageContext: null
+        };
+        return createPortal(
+          <div className="fixed inset-0 z-[250000] bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200" onClick={() => setSelectedStrongNumber(null)}>
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl shadow-2xl flex flex-col overflow-hidden max-w-3xl sm:max-w-4xl w-full max-h-[90vh] animate-in zoom-in-95 duration-200 font-sans antialiased text-zinc-900 dark:text-zinc-100" onClick={e => e.stopPropagation()}>
+              {/* Modal Header */}
+              <div className="px-5 sm:px-6 py-4 border-b border-slate-200 dark:border-zinc-800/80 flex items-center justify-between bg-slate-50/70 dark:bg-zinc-950/50 shrink-0">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="w-10 h-10 rounded-2xl bg-teal-700 text-white dark:bg-teal-600 dark:text-white flex items-center justify-center border border-teal-600/40 shadow-xs shrink-0 font-mono text-xs font-bold tracking-tight">
+                    {selectedStrongNumber}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold text-teal-600 dark:text-teal-400 uppercase tracking-wider">
+                      Lexique d'Analyse Grec / Hébreu Strong
+                    </div>
+                    <h3 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white tracking-tight leading-snug truncate">
+                      {entry.word}
+                    </h3>
+                    {entry.original && entry.original !== "Non disponible" && (
+                      <div className="text-xs font-medium text-teal-700 dark:text-teal-300 mt-0.5">
+                        {entry.original} {entry.pronunciation ? `• [${entry.pronunciation}]` : ''}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {currentStrongEntry && (
+                    <button 
+                      onClick={() => setIsSelectingNoteForStrong(!isSelectingNoteForStrong)}
+                      data-tooltip="Choisir ou créer une note pour conserver cette exégèse"
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 ${
+                        isSelectingNoteForStrong 
+                          ? 'bg-teal-700 text-white' 
+                          : 'bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-500 hover:to-teal-400 text-white border border-teal-500/30'
+                      }`}
+                    >
+                      <NotebookPen className="w-3.5 h-3.5 text-white" />
+                      <span className="hidden sm:inline">{isSelectingNoteForStrong ? "Fermer notes" : "Ajouter aux notes"}</span>
+                    </button>
+                  )}
+                  <button 
+                    onClick={() => setSelectedStrongNumber(null)} 
+                    data-tooltip="Fermer la fenêtre"
+                    className="w-8 h-8 rounded-xl flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800 transition-all cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              
+              {/* Modal Content Body */}
+              {isSelectingNoteForStrong ? (
+                <div className="flex-1 px-5 sm:px-6 py-5 overflow-y-auto custom-scrollbar space-y-4 bg-white dark:bg-zinc-900">
+                  <div className="flex items-center justify-between gap-2">
+                    <button 
+                      onClick={() => setIsSelectingNoteForStrong(false)}
+                      className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      <span>Retour à l'exégèse</span>
+                    </button>
+                    <span className="text-xs font-mono font-medium text-zinc-400 uppercase tracking-wider">
+                      {notes.length} note{notes.length > 1 ? 's' : ''} disponible{notes.length > 1 ? 's' : ''}
+                    </span>
+                  </div>
+
+                  {/* Search Input */}
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input 
+                      type="text"
+                      placeholder="Rechercher un journal d'étude existant..."
+                      value={strongNoteSearch}
+                      onChange={e => setStrongNoteSearch(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-teal-500 text-zinc-900 dark:text-zinc-100 font-medium"
+                    />
+                  </div>
+
+                  {/* New Note Option */}
+                  <button
+                    onClick={() => {
+                      const originOcc = strongOccurrences.find(o => {
+                        if (sermon?.title && o.bookName && sermon.title.toLowerCase().includes(o.bookName.toLowerCase())) return true;
+                        return false;
+                      }) || strongOccurrences[0] || null;
+
+                      const strongPayload = {
+                        strongNumber: selectedStrongNumber,
+                        word: entry.word,
+                        original: entry.original || '',
+                        pronunciation: entry.pronunciation || '',
+                        type: entry.type === 'hebrew' ? 'hebrew' : 'greek',
+                        partOfSpeech: entry.partOfSpeech || '',
+                        etymology: entry.etymology || '',
+                        translationsLSG: entry.translationsLSG || '',
+                        occurrencesCountStr: entry.occurrencesCount || '',
+                        definition: entry.definition || '',
+                        messageContext: entry.messageContext || '',
+                        originVerseRef: originOcc ? `${originOcc.bookName} ${originOcc.chapter}:${originOcc.verse}` : '',
+                        originVerseText: originOcc ? originOcc.text.trim() : '',
+                        otherOccurrencesCount: strongOccurrences.length > 1 ? strongOccurrences.length - 1 : 0,
+                        allOccurrences: strongOccurrences.map(o => ({
+                          bookName: o.bookName,
+                          chapter: o.chapter,
+                          verse: o.verse,
+                          text: o.text.trim()
+                        }))
+                      };
+
+                      const strongCitation: Citation = {
+                        id: `strong-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+                        sermon_id: `strong-${selectedStrongNumber}`,
+                        sermon_title_snapshot: `Exégèse Strong ${selectedStrongNumber} — ${entry.word}`,
+                        sermon_date_snapshot: entry.type === 'hebrew' ? 'Hébreu' : 'Grec',
+                        sermon_version_snapshot: 'Concordance Strong',
+                        quoted_text: JSON.stringify(strongPayload),
+                        date_added: new Date().toISOString()
+                      };
+
+                      useAppStore.getState().addNote({
+                        title: `Exégèse Strong ${selectedStrongNumber} — ${entry.word}`,
+                        content: '', // Zone de commentaire vierge préservée pour les réflexions personnelles
+                        citations: [strongCitation],
+                        color: 'teal'
+                      });
+                      addNotification(`Nouvelle note "Exégèse Strong ${selectedStrongNumber}" créée !`, "success");
+                      setIsSelectingNoteForStrong(false);
+                      setSelectedStrongNumber(null);
+                    }}
+                    className="w-full p-3.5 bg-gradient-to-r from-teal-500/10 to-teal-600/10 hover:from-teal-500/20 hover:to-teal-600/20 border border-teal-500/30 rounded-2xl flex items-center gap-3 transition-all cursor-pointer group text-left"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <Plus className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-teal-800 dark:text-teal-300 group-hover:underline">
+                        Créer une nouvelle note d'étude
+                      </h4>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        Créer un journal dédié avec cette fiche d'exégèse complète
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Existing Notes List */}
+                  <div className="space-y-1.5 pt-1">
+                    <div className="text-xs font-semibold uppercase tracking-wider text-zinc-400 px-1">
+                      Ou ajouter à une note existante :
+                    </div>
+                    {notes.filter(n => !strongNoteSearch.trim() || n.title.toLowerCase().includes(strongNoteSearch.toLowerCase())).length > 0 ? (
+                      <div className="max-h-56 overflow-y-auto custom-scrollbar space-y-1.5 pr-1">
+                        {notes
+                          .filter(n => !strongNoteSearch.trim() || n.title.toLowerCase().includes(strongNoteSearch.toLowerCase()))
+                          .map((note) => (
+                            <button
+                              key={note.id}
+                              onClick={() => {
+                                const originOcc = strongOccurrences.find(o => {
+                                  if (sermon?.title && o.bookName && sermon.title.toLowerCase().includes(o.bookName.toLowerCase())) return true;
+                                  return false;
+                                }) || strongOccurrences[0] || null;
+
+                                const strongPayload = {
+                                  strongNumber: selectedStrongNumber,
+                                  word: entry.word,
+                                  original: entry.original || '',
+                                  pronunciation: entry.pronunciation || '',
+                                  type: entry.type === 'hebrew' ? 'hebrew' : 'greek',
+                                  partOfSpeech: entry.partOfSpeech || '',
+                                  etymology: entry.etymology || '',
+                                  translationsLSG: entry.translationsLSG || '',
+                                  occurrencesCountStr: entry.occurrencesCount || '',
+                                  definition: entry.definition || '',
+                                  messageContext: entry.messageContext || '',
+                                  originVerseRef: originOcc ? `${originOcc.bookName} ${originOcc.chapter}:${originOcc.verse}` : '',
+                                  originVerseText: originOcc ? originOcc.text.trim() : '',
+                                  otherOccurrencesCount: strongOccurrences.length > 1 ? strongOccurrences.length - 1 : 0,
+                                  allOccurrences: strongOccurrences.map(o => ({
+                                    bookName: o.bookName,
+                                    chapter: o.chapter,
+                                    verse: o.verse,
+                                    text: o.text.trim()
+                                  }))
+                                };
+
+                                const strongCitation: Citation = {
+                                  id: `strong-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+                                  sermon_id: `strong-${selectedStrongNumber}`,
+                                  sermon_title_snapshot: `Exégèse Strong ${selectedStrongNumber} — ${entry.word}`,
+                                  sermon_date_snapshot: entry.type === 'hebrew' ? 'Hébreu' : 'Grec',
+                                  sermon_version_snapshot: 'Concordance Strong',
+                                  quoted_text: JSON.stringify(strongPayload),
+                                  date_added: new Date().toISOString()
+                                };
+                                
+                                useAppStore.getState().addCitationToNote(note.id, strongCitation);
+                                addNotification(`Exégèse Strong ${selectedStrongNumber} ajoutée à la note "${note.title}" !`, "success");
+                                setIsSelectingNoteForStrong(false);
+                                setSelectedStrongNumber(null);
+                              }}
+                              className="w-full p-3 bg-slate-50 hover:bg-teal-50/60 dark:bg-zinc-950/40 dark:hover:bg-zinc-800/80 border border-slate-200/80 dark:border-zinc-800 rounded-xl flex items-center justify-between transition-all text-left cursor-pointer group"
+                            >
+                              <div className="min-w-0 flex-1 pr-2">
+                                <h5 className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 truncate group-hover:text-teal-600 dark:group-hover:text-teal-400">
+                                  {note.title}
+                                </h5>
+                                <p className="text-xs text-zinc-400 font-mono mt-0.5">
+                                  Modifiée le {new Date(note.updatedAt || note.date).toLocaleDateString('fr-FR')}
+                                </p>
+                              </div>
+                              <div className="px-2.5 py-1 bg-teal-500/10 text-teal-600 dark:text-teal-400 text-xs font-semibold rounded-lg shrink-0 group-hover:bg-teal-600 group-hover:text-white transition-all">
+                                Sélectionner +
+                              </div>
+                            </button>
+                          ))}
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-slate-50 dark:bg-zinc-950/40 border border-slate-200 dark:border-zinc-800 rounded-2xl text-center text-xs text-zinc-400 italic font-normal">
+                        Aucune note existante trouvée.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : isLoadingStrongEntry ? (
+                <div className="flex-1 px-5 sm:px-6 py-12 overflow-y-auto custom-scrollbar flex flex-col items-center justify-center gap-3 bg-white dark:bg-zinc-900 text-zinc-400">
+                  <Loader2 className="w-8 h-8 animate-spin text-teal-600 dark:text-teal-400" />
+                  <span className="text-sm font-medium">Téléchargement et traduction du lexique en cours...</span>
+                </div>
+              ) : !currentStrongEntry ? (
+                <div className="flex-1 px-5 sm:px-6 py-12 overflow-y-auto custom-scrollbar flex flex-col items-center justify-center gap-3 bg-white dark:bg-zinc-900 text-zinc-400 text-center">
+                  <Info className="w-8 h-8 text-zinc-400" />
+                  <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Fiche non disponible pour ce numéro</span>
+                  <p className="text-xs text-zinc-400 max-w-xs mt-1 leading-relaxed">
+                    Les données du lexique officiel d'OpenScriptures ne contiennent pas d'informations valides pour le numéro {selectedStrongNumber}.
+                  </p>
+                </div>
+              ) : (
+                <div className="flex-1 px-5 sm:px-6 py-5 overflow-y-auto custom-scrollbar space-y-4 bg-white dark:bg-zinc-900">
+                {/* Grammatical & Etymological Strong Details */}
+                {(entry.partOfSpeech || entry.etymology || entry.translationsLSG || entry.occurrencesCount) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs bg-slate-50/90 dark:bg-zinc-950/70 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-3.5 shadow-2xs">
+                    {entry.partOfSpeech && (
+                      <div className="flex flex-col">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400">Nature Grammaticale</span>
+                        <span className="text-zinc-800 dark:text-zinc-200 font-medium leading-normal mt-0.5">{entry.partOfSpeech}</span>
+                      </div>
+                    )}
+                    {entry.etymology && (
+                      <div className="flex flex-col">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400">Origine & Racine</span>
+                        <span className="text-zinc-800 dark:text-zinc-200 font-medium leading-normal mt-0.5">{entry.etymology}</span>
+                      </div>
+                    )}
+                    {entry.translationsLSG && (
+                      <div className="flex flex-col sm:col-span-2 border-t border-slate-200/60 dark:border-zinc-800/60 pt-2 mt-0.5">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400">Traductions Bibliques (LSG)</span>
+                        <span className="text-zinc-800 dark:text-zinc-200 font-medium leading-normal mt-0.5">{entry.translationsLSG}</span>
+                      </div>
+                    )}
+                    {entry.occurrencesCount && (
+                      <div className="flex flex-col sm:col-span-2 border-t border-slate-200/60 dark:border-zinc-800/60 pt-2 mt-0.5">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400">Fréquence d'apparition</span>
+                        <span className="text-zinc-800 dark:text-zinc-200 font-medium leading-normal mt-0.5">{entry.occurrencesCount}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Definition Section */}
+                <section className="space-y-2">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                    <Info className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                    <span>Définition Littérale</span>
+                  </div>
+                  <div className="p-4 sm:p-5 bg-slate-50/80 dark:bg-zinc-950/60 border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl relative overflow-hidden group shadow-2xs">
+                    <div className="absolute top-0 left-0 w-1.5 h-full bg-teal-600 dark:bg-teal-500 group-hover:bg-teal-500 transition-colors" />
+                    <p className="text-sm sm:text-base leading-relaxed text-zinc-800 dark:text-zinc-100 font-normal pl-2">
+                      {entry.definition}
+                    </p>
+                  </div>
+                </section>
+
+                {/* Section qui examine le mot dans le contexte des sermons du Message */}
+                <section className="space-y-2">
+                  <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                    <div className="flex items-center gap-1.5">
+                      <Flame className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                      <span>Éclairage & Contexte dans les Sermons du Message</span>
+                    </div>
+                    {strongSermonOccurrences.length > 0 && (
+                      <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 normal-case">
+                        {strongSermonOccurrences.length} extrait{strongSermonOccurrences.length > 1 ? 's' : ''} (Exposé & Sermons)
+                      </span>
+                    )}
+                  </div>
+
+                  {entry.messageContext ? (
+                    <div className="p-4 sm:p-5 bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 rounded-2xl relative overflow-hidden group shadow-2xs">
+                      <div className="absolute top-0 left-0 w-1.5 h-full bg-amber-500" />
+                      <p className="text-xs sm:text-sm leading-relaxed text-zinc-800 dark:text-zinc-200 font-normal pl-2">
+                        {entry.messageContext}
+                      </p>
+                    </div>
+                  ) : isLoadingStrongEntry ? (
+                    <div className="p-4 bg-amber-500/5 dark:bg-amber-500/10 border border-dashed border-amber-500/20 rounded-2xl flex items-center justify-center gap-2 text-zinc-400">
+                      <Loader2 className="w-4 h-4 animate-spin text-amber-600 dark:text-amber-400" />
+                      <span className="text-xs font-medium">Analyse du mot dans le corpus des sermons...</span>
+                    </div>
+                  ) : (
+                    <div className="p-3.5 bg-slate-50/60 dark:bg-zinc-950/40 border border-slate-200/80 dark:border-zinc-800 rounded-2xl text-zinc-500 dark:text-zinc-400 text-xs italic font-normal">
+                      Ce terme s'inscrit dans la révélation prophétique de la Parole prêchée par William Branham.
+                    </div>
+                  )}
+
+                  {/* Mentions / extraits réels dans le corpus complet de l'Exposé et des sermons */}
+                  {isLoadingSermonOccurrences ? (
+                    <div className="flex items-center justify-center py-3 gap-2 text-zinc-400 bg-slate-50/50 dark:bg-zinc-950/20 border border-dashed border-slate-200 dark:border-zinc-800 rounded-xl">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600" />
+                      <span className="text-xs font-medium">Recherche des extraits dans l'Exposé complet...</span>
+                    </div>
+                  ) : strongSermonOccurrences.length > 0 ? (
+                    <div className="space-y-1.5 pt-1">
+                      <div className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 px-0.5">
+                        Extraits dans l'Exposé des Sept Âges & les Sermons :
+                      </div>
+                      <div className="max-h-48 overflow-y-auto custom-scrollbar border border-amber-500/20 dark:border-amber-500/20 rounded-2xl divide-y divide-slate-100 dark:divide-zinc-850 bg-amber-50/20 dark:bg-amber-950/10">
+                        {strongSermonOccurrences.map((occ, idx) => (
+                          <div 
+                            key={idx}
+                            onClick={() => {
+                              setSelectedStrongNumber(null);
+                              setSidebarOpen(false);
+                              if (occ.isExpose) {
+                                useAppStore.setState({
+                                  libraryMode: 'expose',
+                                  selectedSermonId: occ.sermonId
+                                });
+                                setTimeout(() => {
+                                  useAppStore.getState().setSelectedSermonId(occ.sermonId);
+                                }, 50);
+                              } else {
+                                useAppStore.setState({
+                                  libraryMode: 'sermons',
+                                  selectedSermonId: occ.sermonId
+                                });
+                                setTimeout(() => {
+                                  useAppStore.getState().setSelectedSermonId(occ.sermonId);
+                                }, 50);
+                              }
+                            }}
+                            className="p-3 hover:bg-amber-100/50 dark:hover:bg-amber-950/40 transition-colors cursor-pointer group flex flex-col gap-1 text-left"
+                            title="Cliquer pour ouvrir ce passage dans l'Exposé / les Sermons"
+                          >
+                            <div className="flex items-center justify-between text-xs font-semibold text-amber-900 dark:text-amber-300">
+                              <span className="truncate group-hover:underline">
+                                {occ.title}
+                              </span>
+                              <span className="text-xs font-mono text-zinc-400 shrink-0 ml-2 font-normal">
+                                {occ.date || '1965'}
+                              </span>
+                            </div>
+                            <p 
+                              className="text-xs text-zinc-700 dark:text-zinc-300 line-clamp-2 leading-relaxed font-normal"
+                              dangerouslySetInnerHTML={{ __html: occ.snippet }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </section>
+
+                {/* Bible Occurrences Section */}
+                <section className="space-y-2">
+                  <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                    <div className="flex items-center gap-1.5">
+                      <BookOpen className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                      <span>Occurrences dans l'Écriture ({strongOccurrences.length})</span>
+                    </div>
+                  </div>
+                  
+                  {isLoadingOccurrences ? (
+                    <div className="flex items-center justify-center py-8 gap-2 text-zinc-400 bg-slate-50/50 dark:bg-zinc-950/20 border border-dashed border-slate-200 dark:border-zinc-800 rounded-2xl">
+                      <Loader2 className="w-4 h-4 animate-spin text-teal-600" />
+                      <span className="text-xs font-medium">Recherche des occurrences en cours...</span>
+                    </div>
+                  ) : strongOccurrences.length > 0 ? (
+                    <div className="max-h-60 overflow-y-auto custom-scrollbar border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl divide-y divide-slate-100 dark:divide-zinc-850 bg-slate-50/30 dark:bg-zinc-950/40">
+                      {strongOccurrences.map((occ, idx) => {
+                        // Highlighting logic for target word in orange
+                        const highlightOccText = (text: string, searchWord: string) => {
+                          if (!searchWord) return text;
+                          const clean = searchWord.trim().replace(/[,.;:!?()'[\]»«’]+/g, '');
+                          if (!clean) return text;
+                          const escaped = clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                          const regex = new RegExp(`(${escaped})`, 'gi');
+                          const parts = text.split(regex);
+
+                          return parts.map((part, i) =>
+                            regex.test(part) ? (
+                              <mark key={i} className="bg-amber-200 dark:bg-amber-950/80 text-amber-950 dark:text-amber-100 font-semibold px-1 py-0.5 rounded-md not-italic border border-amber-400/80 dark:border-amber-500/60 shadow-2xs">
+                                {part}
+                              </mark>
+                            ) : (
+                              part
+                            )
+                          );
+                        };
+
+                        return (
+                          <div 
+                            key={idx} 
+                            onClick={() => {
+                              setSelectedStrongNumber(null);
+                              setSidebarOpen(false);
+                              useAppStore.setState({
+                                libraryMode: 'bible',
+                                selectedBibleBookId: occ.bookId,
+                                selectedBibleChapter: occ.chapter,
+                                selectedBibleVerse: occ.verse
+                              });
+                              setTimeout(() => {
+                                const targetSermonId = `bible-${occ.bookId}-${occ.chapter}`;
+                                import('../services/db').then(({ getSermonById }) => {
+                                  getSermonById(targetSermonId).then(targetSermon => {
+                                    if (targetSermon) {
+                                      useAppStore.setState({
+                                        activeSermon: targetSermon,
+                                        selectedSermonId: targetSermon.id,
+                                        jumpToParagraph: occ.verse
+                                      });
+                                    }
+                                  });
+                                });
+                              }, 50);
+                            }}
+                            className="p-3.5 hover:bg-teal-500/5 transition-all text-left cursor-pointer group/occ"
+                          >
+                            <div className="flex items-center justify-between gap-2 mb-1.5">
+                              <span className="text-xs font-semibold text-teal-700 dark:text-teal-400 group-hover/occ:underline">
+                                {occ.bookName} {occ.chapter}:{occ.verse}
+                              </span>
+                              <span className="text-xs font-medium text-zinc-400 group-hover/occ:text-teal-600 dark:group-hover/occ:text-teal-400 tracking-normal">
+                                Aller au verset →
+                              </span>
+                            </div>
+                            <p className="text-xs sm:text-sm leading-relaxed text-zinc-600 dark:text-zinc-300 font-normal italic">
+                              {highlightOccText(occ.text, entry.word)}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-slate-50 dark:bg-zinc-950/40 border border-slate-200 dark:border-zinc-800 rounded-2xl text-center text-xs font-normal text-zinc-400 italic">
+                      Aucune autre occurrence répertoriée dans cette version.
+                    </div>
+                  )}
+                </section>
+
+                {/* AI Study / Search Shortcuts */}
+                <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <button
+                    onClick={() => {
+                      triggerStudyRequest(`Explore en profondeur la racine Strong ${selectedStrongNumber} (${entry.word} / ${entry.original}) et son articulation doctrinale dans le Message.`);
+                      setSelectedStrongNumber(null);
+                    }}
+                    className="flex-1 py-2.5 px-3.5 bg-gradient-to-r from-teal-600 to-teal-500 text-white font-bold text-xs rounded-xl shadow-md hover:shadow-lg transition-all active:scale-95 uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+                    <span>Étudier avec l'Assistant IA</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      startTransition(() => {
+                        setSidebarOpen(true);
+                        setIsFullTextSearch(true);
+                        setSearchQuery(entry.word);
+                        setNavigatedFromSearch(false);
+                      });
+                      setSelectedStrongNumber(null);
+                    }}
+                    className="py-2.5 px-3.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-bold text-xs rounded-xl transition-all active:scale-95 uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer border border-zinc-200 dark:border-zinc-700"
+                  >
+                    <Search className="w-3.5 h-3.5" />
+                    <span>Rechercher</span>
+                  </button>
+                </div>
+              </div>
+              )}
+              
+              {/* Modal Footer */}
+              <div className="px-5 sm:px-6 py-3 border-t border-slate-200 dark:border-zinc-800/80 bg-slate-50/70 dark:bg-zinc-950/50 flex items-center justify-between shrink-0">
+                <p className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest flex items-center gap-1.5">
+                  <Milestone className="w-3 h-3 text-teal-600 dark:text-teal-400" />
+                  <span>Concordance Strong Française & Hébreu/Grec</span>
+                </p>
+                <span className="text-[10px] font-semibold text-teal-600 dark:text-teal-400 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
+                  Lexique spirituel actif
+                </span>
+              </div>
+            </div>
+          </div>,
+          document.body
+        );
+      })()}
       
-      <div className={`px-4 md:px-8 border-b border-zinc-100 dark:border-zinc-900/50 flex items-center justify-between shrink-0 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-2xl z-[100001] no-print overflow-visible-important transition-all duration-300 ${isOSFullscreen ? 'min-h-[3.5rem] h-auto py-6' : 'h-14'}`}>
+      <div className={`px-4 md:px-8 border-b border-zinc-100 dark:border-zinc-900/50 flex items-center justify-between shrink-0 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-2xl z-20 no-print overflow-visible-important transition-all duration-300 ${isOSFullscreen ? 'min-h-[3.5rem] h-auto py-6' : 'h-14'}`}>
         <div className="flex items-center gap-4 min-w-0 flex-1 overflow-visible-important">
           {!sidebarOpen && (
             <button 
@@ -2181,6 +2945,21 @@ const Reader: React.FC = () => {
             )}
 
             {/* Document Content Tools */}
+            {isBibleChapter && (
+              <button
+                type="button"
+                onClick={() => setShowStrongs(!showStrongs)}
+                className={`h-9 px-3 flex items-center justify-center gap-1.5 rounded-xl border transition-all active:scale-95 cursor-pointer text-[10.5px] font-black select-none ${
+                  showStrongs
+                    ? 'bg-teal-600 border-teal-600 text-white shadow-md shadow-teal-600/20'
+                    : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-teal-500 hover:text-teal-600 dark:hover:text-teal-400'
+                }`}
+                data-tooltip={showStrongs ? "Masquer les numéros Strong (Lexique Grec/Hébreu)" : "Afficher les numéros Strong (Lexique Grec/Hébreu)"}
+              >
+                <Languages className={`w-3.5 h-3.5 ${showStrongs ? 'text-white' : 'text-teal-600 dark:text-teal-400'}`} />
+                <span className="font-mono tracking-tighter">STRONG [G/H]</span>
+              </button>
+            )}
             <ActionButton 
               onClick={() => setIsSearchVisible(!isSearchVisible)} 
               icon={Search} 
@@ -2223,19 +3002,30 @@ const Reader: React.FC = () => {
             <ActionButton 
               onClick={() => {
                 if (!activeSermon?.id) {
-                  addNotification("Aucun document ouvert à ajouter à l'assistant IA", "info");
+                  addNotification("Aucun document ouvert à ajouter au dock IA", "info");
                   return;
                 }
-                toggleContextSermon(activeSermon.id, true);
-                addNotification(
-                  isCurrentInDock 
-                    ? "Document retiré de l'assistant IA" 
-                    : "Document ajouté à l'assistant IA (Panneau ouvert)", 
-                  "success"
-                );
+                const isBible = activeSermon.id.startsWith('bible-');
+                const docLabel = isBible ? "Chapitre biblique" : isSong ? "Cantique" : isExpose ? "Page de l'Exposé" : "Sermon";
+                
+                if (isCurrentInDock) {
+                  let newManual = manualContextIds.filter(x => x !== activeSermon.id);
+                  if (isBible) {
+                    const parts = activeSermon.id.split('-');
+                    const bookId = parts[1];
+                    if (bookId) {
+                      newManual = newManual.filter(x => x !== `bible-${bookId}-all`);
+                    }
+                  }
+                  setManualContextIds(newManual);
+                  addNotification(`${docLabel} retiré du dock IA`, "info");
+                } else {
+                  toggleContextSermon(activeSermon.id, true);
+                  addNotification(`${docLabel} ajouté au dock IA (Assistant ouvert)`, "success");
+                }
               }} 
-              icon={Sparkles} 
-              tooltip={isCurrentInDock ? "Retirer ce document de l'assistant IA" : "Ajouter ce document à l'assistant IA"} 
+              icon={isCurrentInDock ? Check : Layers} 
+              tooltip={isCurrentInDock ? `Retirer ce ${isBibleChapter ? 'chapitre' : 'document'} du dock IA` : `Ajouter ce ${isBibleChapter ? 'chapitre' : 'document'} au dock IA`} 
               active={isCurrentInDock}
               special={isCurrentInDock}
               isFullscreen={isOSFullscreen} 
@@ -2824,14 +3614,24 @@ const Reader: React.FC = () => {
                         onClick={(e) => { 
                           e.stopPropagation(); 
                           if (activeSermon?.id) {
-                            const inDock = manualContextIds.includes(activeSermon.id);
-                            toggleContextSermon(activeSermon.id, true);
-                            addNotification(
-                              inDock 
-                                ? `Retiré du dock IA` 
-                                : `Ajouté au dock IA`, 
-                              "success"
-                            );
+                            const isBible = activeSermon.id.startsWith('bible-');
+                            const docLabel = isBible ? "Chapitre biblique" : isSong ? "Cantique" : isExpose ? "Page de l'Exposé" : "Sermon";
+                            
+                            if (isCurrentInDock) {
+                              let newManual = manualContextIds.filter(x => x !== activeSermon.id);
+                              if (isBible) {
+                                const parts = activeSermon.id.split('-');
+                                const bookId = parts[1];
+                                if (bookId) {
+                                  newManual = newManual.filter(x => x !== `bible-${bookId}-all`);
+                                }
+                              }
+                              setManualContextIds(newManual);
+                              addNotification(`${docLabel} retiré du dock IA`, "info");
+                            } else {
+                              toggleContextSermon(activeSermon.id, true);
+                              addNotification(`${docLabel} ajouté au dock IA`, "success");
+                            }
                           }
                         }}
                         className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer border ${
@@ -2839,10 +3639,9 @@ const Reader: React.FC = () => {
                             ? 'bg-teal-600 text-white border-teal-600'
                             : 'bg-white dark:bg-zinc-900 hover:bg-teal-600 text-teal-700 dark:text-teal-300 hover:text-white border-teal-600/40 dark:border-teal-500/40'
                         }`}
-                        data-tooltip={isCurrentInDock ? "Retirer ce sermon du dock IA" : "Ajouter ce sermon au dock IA"}
-                        data-tooltip-icon="sparkles"
+                        data-tooltip={isCurrentInDock ? `Retirer ce ${isBibleChapter ? 'chapitre' : 'sermon'} du dock IA` : `Ajouter ce ${isBibleChapter ? 'chapitre' : 'sermon'} au dock IA`}
                       >
-                        <Sparkles className="w-3 h-3" />
+                        {isCurrentInDock ? <Check className="w-3 h-3 stroke-[2.5]" /> : <Layers className="w-3 h-3" />}
                         <span>{isCurrentInDock ? "Dans le Dock IA" : "+ Dock IA"}</span>
                       </button>
                       {/* Bouton Favori Verset / Paragraphe */}

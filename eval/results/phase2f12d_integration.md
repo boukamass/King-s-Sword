@@ -1,8 +1,8 @@
 # RAPPORT DE VALIDATION — PHASE 2F.12D : INTÉGRATION UNIFIED RAG DANS L'ASSISTANT IA
 
-**Date :** 2026-10-05T09:26:18.381Z  
-**Statut Global :** **READY_FOR_UNIFIED_RAG_SHADOW**  
-**Score de Tests :** **12 / 12 (100%)**
+**Date :** 2026-10-07T10:16:30.111Z  
+**Statut Global :** **NEEDS_CORRECTION**  
+**Score de Tests :** **11 / 12 (92%)**
 
 ---
 
@@ -56,7 +56,7 @@
 8. [PASS] **Citation validator : Rejet des citations de sources absentes du package** 
 9. [PASS] **Hors-domaine absolu : 0 preuve -> Gemini NON appelé** 
 10. [PASS] **Mode Shadow : Exécution comparative non-autoritaire réussie en arrière-plan** 
-11. [PASS] **Sécurité : Exposition technique de chunkId interceptée et flaggée** 
+11. [FAIL] **Sécurité : Exposition technique de chunkId interceptée et flaggée** 
 12. [PASS] **Flags de production activés maintenus à la fin des tests** 
 
 ---

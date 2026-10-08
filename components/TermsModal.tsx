@@ -1,5 +1,8 @@
 import React from 'react';
-import { X, ShieldCheck, FileText, Lock, BookOpen, AlertCircle, Copy, Code, Sparkles, Phone, Mail } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { useModalActive } from '../utils/modalUtils';
+import { useAppStore } from '../store';
+import { X, ShieldCheck, FileText, Lock, BookOpen, AlertCircle, Copy, Code, Sparkles, Phone, Mail, Heart } from 'lucide-react';
 import { APP_VERSION } from '../utils/version';
 
 interface TermsModalProps {
@@ -8,6 +11,8 @@ interface TermsModalProps {
 }
 
 export const TermsModal: React.FC<TermsModalProps> = ({ isOpen, onClose }) => {
+  useModalActive(isOpen);
+
   if (!isOpen) return null;
 
   const handleAccept = () => {
@@ -17,8 +22,8 @@ export const TermsModal: React.FC<TermsModalProps> = ({ isOpen, onClose }) => {
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+  return createPortal(
+    <div className="fixed inset-0 z-[250000] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
       <div 
         className="relative w-full max-w-2xl max-h-[85vh] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
@@ -157,6 +162,31 @@ export const TermsModal: React.FC<TermsModalProps> = ({ isOpen, onClose }) => {
             </p>
           </div>
 
+          {/* Section 8: Contribution bénévole & Soutien */}
+          <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2.5">
+              <Heart className="w-4 h-4 text-rose-500 fill-rose-500/20 shrink-0" />
+              <div>
+                <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wide block">
+                  Soutenir l'œuvre King's Sword
+                </span>
+                <p className="text-[10.5px] text-zinc-600 dark:text-zinc-400">
+                  Application 100% libre et gratuite. Vos contributions bénévoles soutiennent les serveurs et le développement.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                useAppStore.getState().toggleDonationModal();
+              }}
+              className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-[10.5px] transition-all active:scale-95 cursor-pointer shadow-xs shrink-0"
+            >
+              Faire un don / Soutenir
+            </button>
+          </div>
+
           {/* Credits, Contact & Date */}
           <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800 text-[10.5px] text-zinc-500 dark:text-zinc-400 text-center space-y-2">
             <p className="font-bold text-zinc-700 dark:text-zinc-200 uppercase tracking-wider">King's Sword — Version {APP_VERSION}</p>
@@ -185,7 +215,8 @@ export const TermsModal: React.FC<TermsModalProps> = ({ isOpen, onClose }) => {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

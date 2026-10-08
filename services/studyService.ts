@@ -84,7 +84,7 @@ Chaque citation ou argument textuel DOIT obligatoirement être référencé sous
       const classified = classifyGeminiError(error);
       
       if (classified.type === 'API_KEY_INVALID' || classified.type === 'PERMISSION_DENIED' || classified.type === 'QUOTA_EXHAUSTED') {
-        throw new Error(`Erreur Google Gemini : ${classified.userMessage}`);
+        throw new Error(`Erreur d'analyse IA : ${classified.userMessage}`);
       }
 
       console.warn("Échec temporaire Gemini, basculement vers analyse locale:", classified.type);
@@ -119,5 +119,5 @@ Chaque citation ou argument textuel DOIT obligatoirement être référencé sous
 
 **Points clés repérés dans le texte :**
 - L'extrait se situe dans le contexte immédiat de l'enseignement sur *${currentSermon?.title}*.
-- Pour une analyse exégétique complète assistée par IA, activez votre clé Google Gemini en haut de l'écran.`;
+- Pour une analyse exégétique complète assistée par IA, activez votre clé d'accès en haut de l'écran.`;
 };

@@ -51,6 +51,29 @@ export interface ProcessedDefinitionItem {
   orderIndex: number;
 }
 
+export interface ProcessedStrongItem {
+  id: string;
+  citationId: string;
+  strongNumber: string;
+  word: string;
+  original: string;
+  pronunciation: string;
+  type: 'hebrew' | 'greek';
+  partOfSpeech?: string;
+  etymology?: string;
+  translationsLSG?: string;
+  occurrencesCountStr?: string;
+  definition: string;
+  messageContext?: string;
+  originVerseRef?: string;
+  originVerseText?: string;
+  otherOccurrencesCount?: number;
+  allOccurrences?: Array<{ bookName: string; chapter: number; verse: number; text: string }>;
+  rawText: string;
+  sourceIndex?: number;
+  orderIndex: number;
+}
+
 export interface FormattedNoteSection {
   title?: string;
   type: 'main_content' | 'scripture_quote' | 'teaching_quote' | 'sources';
@@ -67,6 +90,7 @@ export interface ProcessedNoteData {
   churchAgeItems: NoteSectionItem[];
   teachingItems: NoteSectionItem[];
   definitionItems: ProcessedDefinitionItem[];
+  strongItems: ProcessedStrongItem[];
   scriptureCitations: {
     citationId: string;
     sermonId?: string;
@@ -127,10 +151,7 @@ export function parseDefinitionText(rawQuote: string, title?: string): {
   etymology?: string;
   synonyms?: string[];
 } {
-  const clean = (rawQuote || '')
-    .replace(/\*\*/g, '')
-    .replace(/\*/g, '')
-    .trim();
+  const clean = stripMarkdown(rawQuote || '');
 
   let word = '';
   if (title && /Dictionnaire\s*:\s*(.+)/i.test(title)) {
@@ -181,10 +202,139 @@ export function parseDefinitionText(rawQuote: string, title?: string): {
   }
 
   return {
-    word: word ? word.charAt(0).toUpperCase() + word.slice(1) : 'Terme',
-    definition: definition || clean,
-    etymology: etymology && etymology !== 'Non spécifiée' && !etymology.includes('non répertoriés') ? etymology : undefined,
-    synonyms: synonyms && synonyms.length > 0 ? synonyms : undefined
+    word: stripMarkdown(word ? word.charAt(0).toUpperCase() + word.slice(1) : 'Terme'),
+    definition: stripMarkdown(definition || clean),
+    etymology: etymology && etymology !== 'Non spécifiée' && !etymology.includes('non répertoriés') ? stripMarkdown(etymology) : undefined,
+    synonyms: synonyms && synonyms.length > 0 ? synonyms.map(s => stripMarkdown(s)).filter(Boolean) : undefined
+  };
+}
+
+/**
+ * Analyse et structure le contenu d'une exégèse Strong (supporte le JSON sérialisé et le format Markdown historique).
+ */
+export function parseStrongText(rawQuote: string, title?: string, dateOrType?: string): {
+  strongNumber: string;
+  word: string;
+  original: string;
+  pronunciation: string;
+  type: 'hebrew' | 'greek';
+  partOfSpeech?: string;
+  etymology?: string;
+  translationsLSG?: string;
+  occurrencesCountStr?: string;
+  definition: string;
+  messageContext?: string;
+  originVerseRef?: string;
+  originVerseText?: string;
+  otherOccurrencesCount?: number;
+  allOccurrences?: Array<{ bookName: string; chapter: number; verse: number; text: string }>;
+} {
+  // 1. Détection format JSON structuré
+  try {
+    const data = JSON.parse(rawQuote);
+    if (data && (data.strongNumber || data.word)) {
+      const occs = Array.isArray(data.allOccurrences) ? data.allOccurrences : [];
+      const origRef = data.originVerseRef || (occs.length > 0 ? `${occs[0].bookName} ${occs[0].chapter}:${occs[0].verse}` : undefined);
+      const origText = data.originVerseText || (occs.length > 0 ? occs[0].text : undefined);
+      const otherCount = data.otherOccurrencesCount !== undefined 
+        ? data.otherOccurrencesCount 
+        : (occs.length > 1 ? occs.length - 1 : 0);
+
+      return {
+        strongNumber: data.strongNumber || (title?.match(/[HG]\d+/i)?.[0]?.toUpperCase() || 'H0000'),
+        word: data.word || 'Terme',
+        original: data.original || '',
+        pronunciation: data.pronunciation || '',
+        type: data.type === 'greek' ? 'greek' : 'hebrew',
+        partOfSpeech: data.partOfSpeech || undefined,
+        etymology: data.etymology || undefined,
+        translationsLSG: data.translationsLSG || undefined,
+        occurrencesCountStr: data.occurrencesCountStr || undefined,
+        definition: data.definition || '',
+        messageContext: data.messageContext || undefined,
+        originVerseRef: origRef,
+        originVerseText: origText,
+        otherOccurrencesCount: otherCount,
+        allOccurrences: occs
+      };
+    }
+  } catch {
+    // Si ce n'est pas du JSON, continuer avec l'analyseur textuel
+  }
+
+  // 2. Détection format Markdown ou textuel
+  const clean = (rawQuote || '').trim();
+  const strongNumMatch = title?.match(/[HG]\d+/i)?.[0]?.toUpperCase() || 
+                         clean.match(/[HG]\d+/i)?.[0]?.toUpperCase() || 
+                         'H0000';
+
+  let word = '';
+  let original = '';
+  let pronunciation = '';
+  let type: 'hebrew' | 'greek' = strongNumMatch.startsWith('G') || /Grec/i.test(dateOrType || '') ? 'greek' : 'hebrew';
+  let definition = '';
+  let messageContext: string | undefined = undefined;
+  let originVerseRef: string | undefined = undefined;
+  let originVerseText: string | undefined = undefined;
+  const allOccurrences: Array<{ bookName: string; chapter: number; verse: number; text: string }> = [];
+
+  const wordHeaderMatch = clean.match(/Exégèse Strong\s+[HG]\d+\s*—\s*\*\*([^*]+)\*\*\s*(?:\(([^)]+)\))?/i);
+  if (wordHeaderMatch) {
+    word = wordHeaderMatch[1].trim();
+    original = wordHeaderMatch[2]?.trim() || '';
+  } else if (title) {
+    const titleMatch = title.match(/Exégèse Strong\s+[HG]\d+\s*[:—\-]\s*(.+)/i);
+    if (titleMatch) word = titleMatch[1].trim();
+  }
+
+  const pronMatch = clean.match(/Prononciation\s*:\s*\*?\[([^\]]+)\]\*?/i);
+  if (pronMatch) pronunciation = pronMatch[1].trim();
+
+  const typeMatch = clean.match(/Type\s*:\s*\*?(Hébreu|Grec)\*?/i);
+  if (typeMatch) type = typeMatch[1].toLowerCase() === 'grec' ? 'greek' : 'hebrew';
+
+  const defMatch = clean.match(/(?:###\s*💡\s*Définition Littérale|\*\*Définition\s*:\*\*)\s*\n*([\s\S]+?)(?=\n*###|\n*\*\*Éclairage|\n*\*\*Occurrences|$)/i);
+  if (defMatch) {
+    definition = defMatch[1].replace(/\*\*/g, '').trim();
+  }
+
+  const msgMatch = clean.match(/(?:###\s*✨\s*Éclairage dans le Message|\*\*Éclairage du Message\s*:\*\*)\s*\n*([\s\S]+?)(?=\n*###|\n*\*\*Occurrences|$)/i);
+  if (msgMatch) {
+    messageContext = msgMatch[1].replace(/\*\*/g, '').trim();
+  }
+
+  // Extraire les occurrences si présentes
+  const occMatches = clean.matchAll(/\*\s*\*\*([^*:]+)\s+(\d+):(\d+)\*\*\s*:\s*\*?"?([^"\n*]+)"?\*?/g);
+  for (const m of occMatches) {
+    allOccurrences.push({
+      bookName: m[1].trim(),
+      chapter: parseInt(m[2], 10),
+      verse: parseInt(m[3], 10),
+      text: m[4].trim()
+    });
+  }
+
+  if (allOccurrences.length > 0) {
+    originVerseRef = `${allOccurrences[0].bookName} ${allOccurrences[0].chapter}:${allOccurrences[0].verse}`;
+    originVerseText = allOccurrences[0].text;
+  }
+
+  if (!definition) {
+    definition = clean.replace(/^[#*].+/gm, '').trim() || clean;
+  }
+
+  return {
+    strongNumber: strongNumMatch,
+    word: stripMarkdown(word || 'Terme biblique'),
+    original: stripMarkdown(original || ''),
+    pronunciation: stripMarkdown(pronunciation || ''),
+    type,
+    definition: stripMarkdown(definition.trim()),
+    messageContext: messageContext ? stripMarkdown(messageContext) : undefined,
+    originVerseRef,
+    originVerseText: originVerseText ? stripMarkdown(originVerseText) : undefined,
+    otherOccurrencesCount: allOccurrences.length > 1 ? allOccurrences.length - 1 : 0,
+    allOccurrences: allOccurrences.map(o => ({ ...o, text: stripMarkdown(o.text) }))
   };
 }
 
@@ -231,18 +381,19 @@ export function cleanTextArtifacts(rawText: string): string {
 export function stripMarkdown(text: string): string {
   if (!text) return '';
   return text
-    .replace(/#+\s+/g, '')
-    .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/\*([^*]+)\*/g, '$1')
-    .replace(/__([^_]+)__/g, '$1')
-    .replace(/_([^_]+)_/g, '$1')
-    .replace(/~~([^~]+)~~/g, '$1')
-    .replace(/^[\s\-\*\+]+/gm, '')
+    .replace(/#+/g, '')
+    .replace(/\*{1,3}/g, '')
+    .replace(/_{1,2}/g, '')
+    .replace(/~{1,2}/g, '')
+    .replace(/`{1,3}/g, '')
+    .replace(/^[\s\-\*\+\>]+/gm, '')
     .replace(/^\d+\.\s+/gm, '')
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
     .replace(/\[\[\[NOTE_EXTERNE\]\]\]/g, '')
     .replace(/\[Réf:\s*[^\]]+\]/gi, '')
     .replace(/\[Source:\s*[^\]]+\]/gi, '')
+    .replace(/\\/g, '')
+    .replace(/ {2,}/g, ' ')
     .trim();
 }
 
@@ -368,6 +519,7 @@ export function processNoteData(note: Note, sermons?: Array<Partial<Sermon>>): P
   const churchAgeCitations: ProcessedNoteData['churchAgeCitations'] = [];
   const teachingCitations: ProcessedNoteData['teachingCitations'] = [];
   const definitionItems: ProcessedDefinitionItem[] = [];
+  const strongItems: ProcessedStrongItem[] = [];
 
   if (note.citations && note.citations.length > 0) {
     const seenCitations = new Set<string>();
@@ -380,6 +532,48 @@ export function processNoteData(note: Note, sermons?: Array<Partial<Sermon>>): P
       const dateSnap = cleanTextArtifacts(citation.sermon_date_snapshot || '');
       const versionSnap = cleanTextArtifacts(citation.sermon_version_snapshot || '');
       const paraRef = formatParagraphRef(citation.paragraph_index);
+
+      // Détection de l'exégèse Strong (Prioritaire)
+      const isStrongSource = citation.sermon_id?.startsWith('strong') || 
+        /Exégèse Strong|Concordance Strong|Lexique Strong/i.test(titleSnap) || 
+        (citation.sermon_id?.includes('strong') && !citation.sermon_id?.startsWith('bible-'));
+
+      if (isStrongSource) {
+        const parsed = parseStrongText(cleanQuote, titleSnap, dateSnap);
+        const srcIdx = getOrAddSource(
+          `Concordance Strong [${parsed.strongNumber}] — ${parsed.word}${parsed.original ? ` (${parsed.original})` : ''}`,
+          'general',
+          parsed.type === 'hebrew' ? 'Hébreu' : 'Grec',
+          undefined,
+          citation.id,
+          citation.sermon_id,
+          undefined,
+          cleanQuote
+        );
+        strongItems.push({
+          id: citation.id,
+          citationId: citation.id,
+          strongNumber: parsed.strongNumber,
+          word: parsed.word,
+          original: parsed.original,
+          pronunciation: parsed.pronunciation,
+          type: parsed.type,
+          partOfSpeech: parsed.partOfSpeech,
+          etymology: parsed.etymology,
+          translationsLSG: parsed.translationsLSG,
+          occurrencesCountStr: parsed.occurrencesCountStr,
+          definition: parsed.definition,
+          messageContext: parsed.messageContext,
+          originVerseRef: parsed.originVerseRef,
+          originVerseText: parsed.originVerseText,
+          otherOccurrencesCount: parsed.otherOccurrencesCount,
+          allOccurrences: parsed.allOccurrences,
+          rawText: cleanQuote,
+          sourceIndex: srcIdx,
+          orderIndex: strongItems.length * 10
+        });
+        continue;
+      }
 
       // Détection des définitions du dictionnaire
       const isDefinitionSource = citation.sermon_id?.startsWith('definition') || 
@@ -519,8 +713,51 @@ export function processNoteData(note: Note, sermons?: Array<Partial<Sermon>>): P
   const churchAgeItems = buildSectionItems('church_age', churchAgeCitations);
   const teachingItems = buildSectionItems('teaching', teachingCitations);
 
-  // Traitement des paragraphes du contenu principal
-  const rawParagraphs = rawContent
+  // Assainissement de la zone de commentaire : extraire les blocs d'exégèse Strong historiques résiduels
+  // afin de ne jamais polluer la zone de commentaire de la note.
+  const legacyStrongRegex = /(?:---\s*)?#{2,3}\s*📜\s*Exégèse Strong\s+([HG]\d+)[\s\S]*?(?=(?:---\s*)?#{2,3}\s*📜\s*Exégèse Strong|$)/gi;
+  let sanitizedContent = rawContent;
+  let legacyMatch: RegExpExecArray | null;
+  while ((legacyMatch = legacyStrongRegex.exec(rawContent)) !== null) {
+    const block = legacyMatch[0];
+    const strongNum = legacyMatch[1]?.toUpperCase();
+    if (strongNum && !strongItems.some(item => item.strongNumber.toUpperCase() === strongNum)) {
+      const parsed = parseStrongText(block, `Exégèse Strong ${strongNum}`);
+      const srcIdx = getOrAddSource(
+        `Concordance Strong [${parsed.strongNumber}] — ${parsed.word}${parsed.original ? ` (${parsed.original})` : ''}`,
+        'general',
+        parsed.type === 'hebrew' ? 'Hébreu' : 'Grec',
+        undefined,
+        `legacy-${parsed.strongNumber}`,
+        `strong-${parsed.strongNumber}`,
+        undefined,
+        block
+      );
+      strongItems.push({
+        id: `legacy-${parsed.strongNumber}`,
+        citationId: `legacy-${parsed.strongNumber}`,
+        strongNumber: parsed.strongNumber,
+        word: parsed.word,
+        original: parsed.original,
+        pronunciation: parsed.pronunciation,
+        type: parsed.type,
+        definition: parsed.definition,
+        messageContext: parsed.messageContext,
+        originVerseRef: parsed.originVerseRef,
+        originVerseText: parsed.originVerseText,
+        otherOccurrencesCount: parsed.otherOccurrencesCount,
+        allOccurrences: parsed.allOccurrences,
+        rawText: block,
+        sourceIndex: srcIdx,
+        orderIndex: strongItems.length * 10
+      });
+    }
+    sanitizedContent = sanitizedContent.replace(block, '');
+  }
+  sanitizedContent = sanitizedContent.replace(/---\s*$/g, '').trim();
+
+  // Traitement des paragraphes du contenu principal (zone de commentaire épurée)
+  const rawParagraphs = sanitizedContent
     .split(/\n+/)
     .map(p => cleanTextArtifacts(p))
     .filter(p => p.length > 0);
@@ -653,6 +890,23 @@ export function processNoteData(note: Note, sermons?: Array<Partial<Sermon>>): P
     }
   }
 
+  if (strongItems.length > 0) {
+    markdown += `### Concordance & Exégèse Strong\n\n`;
+    for (const item of strongItems) {
+      markdown += `#### Strong ${item.strongNumber} : **${item.word}** (${item.original}) — [${item.pronunciation}] (${item.type === 'hebrew' ? 'Hébreu' : 'Grec'})\n\n`;
+      markdown += `* **Définition Littérale :** ${item.definition}\n\n`;
+      if (item.messageContext) {
+        markdown += `* **Éclairage dans le Message :** ${item.messageContext}\n\n`;
+      }
+      if (item.originVerseRef) {
+        markdown += `> **Verset d'origine (${item.originVerseRef}) :**\n> « ${item.originVerseText} »\n\n`;
+      }
+      if (item.allOccurrences && item.allOccurrences.length > 1) {
+        markdown += `*Autres occurrences (${item.allOccurrences.length}) :* ${item.allOccurrences.slice(0, 10).map(o => `${o.bookName} ${o.chapter}:${o.verse}`).join(', ')}${item.allOccurrences.length > 10 ? ` (+${item.allOccurrences.length - 10} autres)` : ''}\n\n`;
+      }
+    }
+  }
+
   if (definitionItems.length > 0) {
     markdown += `### Dictionnaire & Lexique Biblique\n\n`;
     for (const item of definitionItems) {
@@ -677,6 +931,7 @@ export function processNoteData(note: Note, sermons?: Array<Partial<Sermon>>): P
     churchAgeItems,
     teachingItems,
     definitionItems,
+    strongItems,
     scriptureCitations,
     churchAgeCitations,
     teachingCitations,

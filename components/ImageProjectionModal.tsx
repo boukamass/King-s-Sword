@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { createPortal } from 'react-dom';
+import { useModalActive } from '../utils/modalUtils';
 import { 
   Image as ImageIcon, 
   Upload, 
@@ -36,6 +37,7 @@ import { executeProjectionCapture } from '../services/projectionCaptureService';
 
 export const ImageProjectionModal: React.FC = memo(() => {
   const isOpen = useAppStore(s => s.isImageModalOpen);
+  useModalActive(isOpen);
   const setIsOpen = useAppStore(s => s.setIsImageModalOpen);
   const mediaImages = useAppStore(s => s.mediaImages);
   const mediaFolders = useAppStore(s => s.mediaFolders);
@@ -447,7 +449,7 @@ export const ImageProjectionModal: React.FC = memo(() => {
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[200000] bg-black/50 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-200"
+      className="fixed inset-0 z-[250000] bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-200"
       onClick={() => setIsOpen(false)}
     >
       <div 

@@ -1,6 +1,6 @@
 {
   "name": "kings-sword",
-  "version": "2.6.8",
+  "version": "2.8.18",
   "description": "Logiciel d'étude des sermons de W.M. Branham",
   "main": "main.js",
   "author": "Bienvenu Massamba & Gastin Ngakosso",
@@ -9,7 +9,8 @@
     "start": "vite",
     "build": "vite build",
     "lint": "tsc --noEmit",
-    "test": "node scripts/test_rag.mjs && node scripts/test_api_key_flow.mjs && node scripts/test_benchmark.mjs && node scripts/test_chunking.mjs && node scripts/test_chunk_storage.mjs && node scripts/test_embedding_validation.mjs && node scripts/test_vector_search.mjs && node scripts/test_hybrid_retrieval.mjs && node scripts/test_reranking.mjs && node scripts/test_evidence_adapter.mjs && node scripts/test_autorag_integration.mjs && node scripts/test_citation_validator.mjs && npx tsx scripts/test_embedding_index.mjs && npx tsx scripts/test_phase2f9c_anti_fallback.mjs && npx tsx scripts/test_phase2f10_generation_integration.mjs && npx tsx scripts/test_phase2f11_expose_integration.mjs && npx tsx scripts/test_unified_rag.mjs && npx tsx scripts/test_phase2f12d_integration.mjs && npx tsx scripts/test_phase2f12e_ui_validation.mjs && npx tsx scripts/test_phase2f12g_activation.mjs && npx tsx scripts/test_phase2f14_first_run.mjs && npx tsx scripts/test_phase2f15_indexing_ux.mjs",
+    "test": "node scripts/test_rag.mjs && node scripts/test_api_key_flow.mjs && node scripts/test_benchmark.mjs && node scripts/test_chunking.mjs && node scripts/test_chunk_storage.mjs && node scripts/test_embedding_validation.mjs && node scripts/test_vector_search.mjs && node scripts/test_hybrid_retrieval.mjs && node scripts/test_reranking.mjs && node scripts/test_evidence_adapter.mjs && node scripts/test_autorag_integration.mjs && node scripts/test_citation_validator.mjs && npx tsx scripts/test_embedding_index.mjs && npx tsx scripts/test_phase2f9c_anti_fallback.mjs && npx tsx scripts/test_phase2f10_generation_integration.mjs && npx tsx scripts/test_phase2f11_expose_integration.mjs && npx tsx scripts/test_unified_rag.mjs && npx tsx scripts/test_phase2f12d_integration.mjs && npx tsx scripts/test_phase2f12e_ui_validation.mjs && npx tsx scripts/test_phase2f12g_activation.mjs && npx tsx scripts/test_phase2f14_first_run.mjs && npx tsx scripts/test_phase2f15_indexing_ux.mjs && npx tsx scripts/guard_auto_test.mjs",
+    "test:guard": "npx tsx scripts/guard_auto_test.mjs",
     "test:rag": "node scripts/test_rag.mjs",
     "test:api": "node scripts/test_api_key_flow.mjs",
     "test:benchmark": "node scripts/test_benchmark.mjs",

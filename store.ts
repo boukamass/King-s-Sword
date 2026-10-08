@@ -146,6 +146,7 @@ interface AppState {
   isImageModalOpen: boolean;
   isAnnouncementModalOpen: boolean;
   isQuickAccessModalOpen: boolean;
+  isDonationModalOpen: boolean;
   quickAccessInitialTab: 'favorites' | 'recents';
   projectedImage: ProjectedImageMedia | null;
   projectedAnnouncement: Announcement | null;
@@ -199,6 +200,8 @@ interface AppState {
   setIsAnnouncementModalOpen: (v: boolean) => void;
   toggleQuickAccessModal: (tab?: 'favorites' | 'recents') => void;
   setIsQuickAccessModalOpen: (v: boolean, tab?: 'favorites' | 'recents') => void;
+  toggleDonationModal: () => void;
+  setIsDonationModalOpen: (v: boolean) => void;
   setProjectedAnnouncement: (a: Announcement | null) => void;
   setProjectedImage: (image: ProjectedImageMedia | null) => void;
   setProjectionBgImage: (image: ProjectedImageMedia | null) => void;
@@ -327,6 +330,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isImageModalOpen: false,
   isAnnouncementModalOpen: false,
   isQuickAccessModalOpen: false,
+  isDonationModalOpen: false,
   quickAccessInitialTab: 'favorites',
   projectedImage: null,
   projectedAnnouncement: null,
@@ -1273,6 +1277,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     isQuickAccessModalOpen: v,
     quickAccessInitialTab: tab || s.quickAccessInitialTab 
   })),
+  toggleDonationModal: () => set(s => ({ isDonationModalOpen: !s.isDonationModalOpen })),
+  setIsDonationModalOpen: (v) => set({ isDonationModalOpen: v }),
   setProjectedAnnouncement: (a) => set({ projectedAnnouncement: a }),
   setProjectedImage: (image) => set({ projectedImage: image }),
   setProjectionBgImage: (image) => set({ projectionBgImage: image }),

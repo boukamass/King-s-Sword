@@ -1,11 +1,11 @@
 {
-  "timestamp": "2026-10-05T09:26:18.381Z",
+  "timestamp": "2026-10-07T10:16:30.111Z",
   "phase": "2F.12D",
   "title": "Intégration du Unified RAG dans le flux réel de l'Assistant IA",
   "totalTests": 12,
-  "passCount": 12,
-  "failCount": 0,
-  "status": "READY_FOR_UNIFIED_RAG_SHADOW",
+  "passCount": 11,
+  "failCount": 1,
+  "status": "NEEDS_CORRECTION",
   "featureFlags": {
     "useLegacyRetrieval": true,
     "useHybridRetrieval": false,
@@ -85,7 +85,7 @@
     },
     {
       "title": "Sécurité : Exposition technique de chunkId interceptée et flaggée",
-      "status": "PASS",
+      "status": "FAIL",
       "details": ""
     },
     {

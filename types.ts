@@ -302,6 +302,33 @@ export interface RerankedSearchResult extends HybridSearchResult {
   };
 }
 
+export interface ClosestPassageRef {
+  title: string;
+  paragraphIndex?: number;
+  textSnippet: string;
+  score: number;
+}
+
+export interface DecisionJournalEntry {
+  rawQuery: string;
+  normalizedQuery: string;
+  tokens: Array<{
+    token: string;
+    matchedTerm: string | null;
+    idf: number;
+    isHighIdf: boolean;
+    status: string;
+  }>;
+  ignoredTokens: string[];
+  topVectorScore: number;
+  topLexScore: number;
+  marginToSecond: number;
+  hasHighIdfContentTerm: boolean;
+  zone: 'answerable' | 'grey_zone' | 'refusal';
+  appliedRule: string;
+  reason: string;
+}
+
 export interface AnswerabilityAssessment {
   answerable: boolean;
   confidenceScore: number; // 0.0 à 1.0
@@ -309,6 +336,11 @@ export interface AnswerabilityAssessment {
   topScore: number;
   evidenceCount: number;
   absentKeywords?: string[];
+  isPartial?: boolean;
+  closestPassages?: ClosestPassageRef[];
+  refusalCategory?: 'unreliable_close_passages' | 'no_relevant_passages';
+  decisionJournal?: DecisionJournalEntry;
+  forceSearchAvailable?: boolean;
 }
 
 export interface ValidatedCitation {
@@ -333,6 +365,7 @@ export interface EvidenceParagraphCitation {
   paragraphIndex: number;
   formattedCitation: string; // e.g. "[Réf: 63-0324M, §2]" ou "[Réf: 63-0324M, Para. 2]" - JAMAIS de chunkId !
   textSnippet: string;
+  fullParagraphText?: string;
   isAuthentic: boolean;
 }
 
@@ -357,11 +390,16 @@ export interface RetrievalEvidencePackage {
   answerable: boolean;
   confidenceScore: number;
   reason: string;
+  isPartial?: boolean;
   evidence: RetrievalEvidence[];
   query: string;
   totalCandidates?: number;
   rejectedCount?: number;
   vectorMethod?: string;
+  closestPassages?: ClosestPassageRef[];
+  refusalCategory?: 'unreliable_close_passages' | 'no_relevant_passages';
+  decisionJournal?: DecisionJournalEntry;
+  forceSearchAvailable?: boolean;
 }
 
 export interface ValidatedCitationDetail {
@@ -370,6 +408,8 @@ export interface ValidatedCitationDetail {
   paragraphIndex: number | null;
   isValid: boolean;
   reason: string;
+  quotedText?: string;
+  isQuoteAuthentic?: boolean;
   matchedEvidence?: {
     sermonId: string;
     sermonTitle: string;

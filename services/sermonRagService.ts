@@ -39,10 +39,11 @@ const STOP_WORDS = new Set([
   'ce', 'cet', 'cette', 'ces', 'mon', 'ma', 'mes', 'ton', 'ta', 'tes', 'son', 'sa', 'ses',
   'notre', 'votre', 'leur', 'nos', 'vos', 'leurs',
   'je', 'tu', 'il', 'elle', 'on', 'nous', 'vous', 'ils', 'elles',
-  'me', 'te', 'se', 'lui', 'leur', 'y', 'en',
+  'me', 'te', 'se', 'lui', 'leur', 'y', 'en', 'moi',
   'est', 'sont', 'ete', 'etre', 'suis', 'es', 'sommes', 'etes',
   'a', 'ont', 'ai', 'as', 'avons', 'avez', 'avait', 'avaient', 'avoir',
   'fait', 'faire', 'fais', 'font', 'dis', 'dit', 'disent', 'dire', 'parle', 'parlent', 'parler',
+  'donne', 'donnez', 'donner', 'veux', 'voudrais', 'aimerais',
   'selon', 'comme', 'comment', 'pourquoi', 'quand', 'quel', 'quelle', 'quels', 'quelles',
   'tout', 'tous', 'toute', 'toutes', 'plus', 'moins', 'tres', 'bien', 'aussi', 'alors',
   'si', 'ne', 'pas', 'point', 'non', 'oui', 'peut', 'peuvent', 'pouvoir',
@@ -160,6 +161,12 @@ const calculateParagraphRelevance = (
       score += 15;
     }
   });
+
+  // Exigence stricte de pertinence : Si plusieurs mots-clés sont recherchés,
+  // un seul mot isolé ne suffit pas à valider le passage (ex: "poulet" dans une recette)
+  if (keywords.length >= 2 && matchedKeywordsCount < 2) {
+    score = Math.floor(score * 0.4); // Forte décote si un seul mot correspond
+  }
 
   // Bonus 3: Couverture complète des mots-clés recherchés
   if (keywords.length > 0 && matchedKeywordsCount === keywords.length) {
@@ -300,14 +307,12 @@ export const retrieveRelevantSermonPassages = async (
   }
 
   // Filtrer par score minimum et trier par pertinence décroissante
+  const effectiveMinScore = Math.max(minScoreThreshold, 20);
   const filtered = scoredParagraphs
-    .filter(p => (p.score ?? 0) >= minScoreThreshold)
+    .filter(p => (p.score ?? 0) >= effectiveMinScore)
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 
-  // Si le seuil a tout éliminé mais qu'on avait des résultats, conserver les meilleurs
-  const finalResults = filtered.length > 0
-    ? filtered.slice(0, maxParagraphs)
-    : scoredParagraphs.sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).slice(0, Math.min(3, maxParagraphs));
+  const finalResults = filtered.slice(0, maxParagraphs);
 
   return {
     query: question,

@@ -109,6 +109,7 @@ export function validateAndConvertCandidateToEvidence(params: {
       paragraphIndex: pNum,
       formattedCitation: formatParagraphCitation(sermonId, pNum),
       textSnippet: snippet,
+      fullParagraphText: originalParaText,
       isAuthentic: true
     });
   }
@@ -131,6 +132,9 @@ export function validateAndConvertCandidateToEvidence(params: {
     sourceType = 'lexical';
   }
 
+  // RÈGLE : Le texte documentaire doit comporter les paragraphes intégraux pour éviter toute coupure
+  const completeParagraphsText = citationParagraphs.map(cp => cp.fullParagraphText || cp.textSnippet).join('\n\n');
+
   return {
     chunkId,
     sermonId,
@@ -138,7 +142,7 @@ export function validateAndConvertCandidateToEvidence(params: {
     paragraphIds: [...paragraphIds].sort((a, b) => a - b),
     startParagraph,
     endParagraph,
-    text,
+    text: completeParagraphsText || text,
     date: chunk.date || originalSermon.date,
     city: chunk.city !== undefined ? chunk.city : (originalSermon.city || null),
     version: chunk.version || originalSermon.version,
@@ -147,6 +151,45 @@ export function validateAndConvertCandidateToEvidence(params: {
     sourceType,
     citationParagraphs
   };
+}
+
+/**
+ * Fusionne les fragments d'Evidence contigus ou chevauchants provenant du même document.
+ * Évite les citations tronquées à la frontière des chunks.
+ */
+export function mergeContiguousEvidence(evidenceList: RetrievalEvidence[]): RetrievalEvidence[] {
+  if (!Array.isArray(evidenceList) || evidenceList.length <= 1) return evidenceList;
+  const merged: RetrievalEvidence[] = [];
+
+  for (const ev of evidenceList) {
+    const last = merged[merged.length - 1];
+    if (last && last.sermonId === ev.sermonId && ev.startParagraph <= last.endParagraph + 1) {
+      const allParas = Array.from(new Set([...last.paragraphIds, ...ev.paragraphIds])).sort((a, b) => a - b);
+      const startParagraph = allParas[0];
+      const endParagraph = allParas[allParas.length - 1];
+
+      const paraMap = new Map<number, EvidenceParagraphCitation>();
+      for (const cp of last.citationParagraphs) paraMap.set(cp.paragraphIndex, cp);
+      for (const cp of ev.citationParagraphs) paraMap.set(cp.paragraphIndex, cp);
+      const mergedCitationParagraphs = Array.from(paraMap.values()).sort((a, b) => a.paragraphIndex - b.paragraphIndex);
+
+      const mergedText = mergedCitationParagraphs.map(cp => cp.fullParagraphText || cp.textSnippet).join('\n\n');
+
+      merged[merged.length - 1] = {
+        ...last,
+        paragraphIds: allParas,
+        startParagraph,
+        endParagraph,
+        text: mergedText,
+        citationParagraphs: mergedCitationParagraphs,
+        retrievalScore: Math.max(last.retrievalScore, ev.retrievalScore)
+      };
+    } else {
+      merged.push({ ...ev });
+    }
+  }
+
+  return merged;
 }
 
 /**
@@ -180,7 +223,11 @@ export function buildRetrievalEvidencePackage(params: {
       evidence: [],
       query: cleanQuery,
       totalCandidates: candidates.length,
-      rejectedCount: candidates.length
+      rejectedCount: candidates.length,
+      closestPassages: assessment?.closestPassages || [],
+      refusalCategory: assessment?.refusalCategory,
+      decisionJournal: assessment?.decisionJournal,
+      forceSearchAvailable: assessment?.forceSearchAvailable
     };
   }
 
@@ -192,26 +239,29 @@ export function buildRetrievalEvidencePackage(params: {
     }
   }
 
-  const validEvidenceList: RetrievalEvidence[] = [];
+  const rawEvidenceList: RetrievalEvidence[] = [];
   let rejectedCount = 0;
 
   for (const candidate of candidates) {
-    if (validEvidenceList.length >= maxEvidenceCount) {
+    if (rawEvidenceList.length >= maxEvidenceCount * 2) {
       break;
     }
 
     const evidence = validateAndConvertCandidateToEvidence({
       candidate,
-      rank: validEvidenceList.length + 1,
+      rank: rawEvidenceList.length + 1,
       originalSermonsMap
     });
 
     if (evidence) {
-      validEvidenceList.push(evidence);
+      rawEvidenceList.push(evidence);
     } else {
       rejectedCount++;
     }
   }
+
+  // Fusion des fragments contigus pour préserver l'intégralité des phrases et paragraphes
+  const validEvidenceList = mergeContiguousEvidence(rawEvidenceList).slice(0, maxEvidenceCount);
 
   // Si après validation toutes les preuves étaient corrompues/invalides
   if (validEvidenceList.length === 0) {
@@ -230,6 +280,7 @@ export function buildRetrievalEvidencePackage(params: {
     answerable: true,
     confidenceScore: assessment.confidenceScore,
     reason: assessment.reason,
+    isPartial: assessment.isPartial,
     evidence: validEvidenceList,
     query: cleanQuery,
     totalCandidates: candidates.length,

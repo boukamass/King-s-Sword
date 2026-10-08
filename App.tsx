@@ -12,7 +12,9 @@ import { ProjectionView, MaskView } from './components/ProjectionView';
 import { ImageProjectionModal } from './components/ImageProjectionModal';
 import { AnnouncementModal } from './components/AnnouncementModal';
 import { QuickAccessModal } from './components/QuickAccessModal';
+import { DonationModal } from './components/DonationModal';
 import GlobalContextMenu from './components/GlobalContextMenu';
+import { useModalActive } from './utils/modalUtils';
 
 const GlobalTooltip = memo(() => {
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -149,6 +151,8 @@ const App: React.FC = () => {
   const loadingProgress = useAppStore(s => s.loadingProgress);
   const isAnnouncementModalOpen = useAppStore(s => s.isAnnouncementModalOpen);
   const isQuickAccessModalOpen = useAppStore(s => s.isQuickAccessModalOpen);
+  const isDonationModalOpen = useAppStore(s => s.isDonationModalOpen);
+  const setIsDonationModalOpen = useAppStore(s => s.setIsDonationModalOpen);
   const quickAccessInitialTab = useAppStore(s => s.quickAccessInitialTab);
   const setIsQuickAccessModalOpen = useAppStore(s => s.setIsQuickAccessModalOpen);
   const activeNoteId = useAppStore(s => s.activeNoteId);
@@ -156,6 +160,10 @@ const App: React.FC = () => {
   const isReaderSearchVisible = useAppStore(s => s.isReaderSearchVisible);
   const theme = useAppStore(s => s.theme);
   const addNotification = useAppStore(s => s.addNotification);
+
+  useModalActive(isQuickAccessModalOpen);
+  useModalActive(isAnnouncementModalOpen);
+  useModalActive(isDonationModalOpen);
 
   const [isResizing, setIsResizing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -291,7 +299,8 @@ const App: React.FC = () => {
           {/* Floating Side Buttons for Notes & AI */}
           {!isFullscreen && !activeNoteId && (!notesOpen || !aiOpen) && (
             <div 
-              className={`absolute right-3 z-[100002] flex flex-col gap-2 pointer-events-auto no-print transition-all duration-300 ${
+              data-floating-buttons="true"
+              className={`floating-side-buttons absolute right-3 z-30 flex flex-col gap-2 pointer-events-auto no-print transition-all duration-300 ${
                 isProjectionOpen && isReaderSearchVisible
                   ? 'top-[172px]'
                   : isProjectionOpen
@@ -350,6 +359,10 @@ const App: React.FC = () => {
         isOpen={isQuickAccessModalOpen} 
         onClose={() => setIsQuickAccessModalOpen(false)} 
         initialTab={quickAccessInitialTab}
+      />
+      <DonationModal
+        isOpen={isDonationModalOpen}
+        onClose={() => setIsDonationModalOpen(false)}
       />
     </div>
   );
