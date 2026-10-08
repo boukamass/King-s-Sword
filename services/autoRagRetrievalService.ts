@@ -26,10 +26,11 @@ import { Sermon, SermonChunk, RetrievalEvidencePackage, RetrievalEvidence } from
 import { retrieveRelevantSermonPassages } from './sermonRagService';
 import { searchByText } from './vectorSearchService';
 import { mapParagraphsToChunkHits, fuseRankings } from './hybridRetrievalService';
-import { rerankHybridResults, assessAnswerability } from './rerankingService';
+import { rerankHybridResults, assessAnswerability, isOverviewOrSummaryQuery } from './rerankingService';
 import { buildRetrievalEvidencePackage } from './retrievalEvidenceService';
 import { getAllChunks } from './chunkStorageService';
 import { createSermonChunks } from './chunkingService';
+import { createExposeDocumentChunks } from './exposeDocumentService';
 import { getGeminiApiKey } from '../utils/apiKeyHelper';
 import { useAppStore } from '../store';
 
@@ -99,6 +100,13 @@ export async function executeAutoRagPipeline(
       if (chunks.length === 0 && originalSermons.length > 0) {
         chunks = originalSermons.flatMap(s => createSermonChunks(s));
       }
+      if (chunks.length === 0) {
+        try {
+          chunks = await createExposeDocumentChunks();
+        } catch (expErr) {
+          console.warn('[AutoRagPipeline] Erreur fallback Exposé:', expErr);
+        }
+      }
     }
 
     if (chunks.length === 0) {
@@ -153,7 +161,7 @@ export async function executeAutoRagPipeline(
     }
 
     // 5. Fusion RRF (Reciprocal Rank Fusion k=60)
-    const hybridResults = fuseRankings({
+    let hybridResults = fuseRankings({
       lexicalHits,
       vectorHits,
       allChunks: chunks,
@@ -162,6 +170,32 @@ export async function executeAutoRagPipeline(
         topK: options.topK || 15
       }
     });
+
+    // Cas spécial : Requête d'aperçu / synthèse ("de quoi ça parle", "résumé", etc.)
+    const isOverview = isOverviewOrSummaryQuery(cleanQuery);
+    if ((isOverview || hybridResults.length === 0) && chunks.length > 0) {
+      if (hybridResults.length === 0) {
+        hybridResults = chunks.slice(0, 15).map((chunk, idx) => ({
+          chunkId: chunk.chunkId,
+          sermonId: chunk.sermonId,
+          sermonTitle: chunk.sermonTitle,
+          paragraphIds: chunk.paragraphIds,
+          startParagraph: chunk.startParagraph,
+          endParagraph: chunk.endParagraph,
+          text: chunk.text,
+          date: chunk.date,
+          city: chunk.city,
+          version: chunk.version,
+          lexicalRank: idx + 1,
+          lexicalScore: Math.max(10, 50 - idx * 3),
+          vectorRank: idx + 1,
+          vectorScore: Math.max(0.6, 0.95 - idx * 0.03),
+          rrfScore: 1.0 / (60 + idx + 1),
+          rank: idx + 1,
+          chunk
+        }));
+      }
+    }
 
     if (hybridResults.length === 0) {
       return {
@@ -236,17 +270,27 @@ export function formatEvidenceContextForGemini(
       .map(cp => `  - Paragraphe §${cp.paragraphIndex} -> Citation obligatoire : ${cp.formattedCitation}`)
       .join('\n');
 
+    const isExpose = ev.sermonId.startsWith('expose-');
+    const isBible = ev.sermonId.startsWith('bible-');
+    const isSong = ev.sermonId.startsWith('song-');
+    const docLabel = isExpose ? 'Exposé des Sept Âges' : (isBible ? 'Sainte Bible' : (isSong ? 'Cantique' : 'Sermon'));
+    const idLabel = isExpose || isBible || isSong ? 'Identifiant document' : 'Identifiant sermon';
+
+    const fullParasText = ev.citationParagraphs
+      .map(cp => `[§${cp.paragraphIndex}] ${cp.fullParagraphText || cp.textSnippet}`)
+      .join('\n\n');
+
     return `[SOURCE ${idx + 1}]
-Sermon : "${ev.sermonTitle}"
+${docLabel} : "${ev.sermonTitle}"
 Date : ${ev.date || 'Non daté'} | Lieu : ${ev.city || 'Inconnu'} | Version : ${ev.version || 'Standard'}
-Identifiant sermon : ${ev.sermonId}
+${idLabel} : ${ev.sermonId}
 Paragraphes couverts : §${ev.startParagraph} à §${ev.endParagraph}
 Références de citations valides pour cette source :
 ${citationsList}
 
-TEXTE AUTHENTIQUE DES PARAGRAPHES :
+TEXTE AUTHENTIQUE DES PARAGRAPHES INTÉGRAUX (PARAGRAPHES COMPLETS) :
 """
-${ev.text}
+${fullParasText || ev.text}
 """`;
   }).join('\n\n------------------------------------------------------------\n\n');
 
@@ -258,8 +302,10 @@ ${sourcesList}
 DIRECTIVES DE RÉPONSE STRICTES POUR L'ASSISTANT THÉOLOGIQUE :
 1. Réponds à la question en t'appuyant EXCLUSIVEMENT sur les preuves documentaires ci-dessus.
 2. Pour chaque affirmation ou citation, cite la référence du paragraphe correspondant sous la forme exacte :
-   > « Extrait textuel... » [Réf: ID_SERMON, Para. N]
-3. N'utilise AUCUNE information extérieure et n'extrapole pas au-delà des extraits fournis.
-4. Si les extraits ci-dessus ne permettent pas de répondre précisément à la question, déclare :
+   > « Extrait textuel intégral... » [Réf: ID, Para. N]
+3. INTÉGRITÉ DES CITATIONS : Cite toujours la phrase ou le passage entier du paragraphe. Ne tronque JAMAIS une citation aux limites de chunks et ne coupe pas une phrase en deux fragments disjoints.
+4. N'utilise AUCUNE information extérieure et n'extrapole pas au-delà des extraits fournis.
+5. Dans la section finale '### Pistes d'approfondissement', formule uniquement des questions ouvertes de réflexion et n'inclus AUCUNE balise de référence [Réf: ...].
+6. Si les extraits ci-dessus ne permettent pas de répondre précisément à la question, déclare :
    « Les documents disponibles dans la base documentaire ne contiennent pas d'informations suffisantes pour répondre à cette question. »`;
 }

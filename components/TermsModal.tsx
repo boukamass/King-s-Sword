@@ -1,5 +1,8 @@
 import React from 'react';
-import { X, ShieldCheck, FileText, Lock, BookOpen, AlertCircle, Copy, Code, Sparkles, Phone, Mail } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { useModalActive } from '../utils/modalUtils';
+import { useAppStore } from '../store';
+import { X, ShieldCheck, FileText, Lock, BookOpen, AlertCircle, Copy, Code, Sparkles, Phone, Mail, Heart } from 'lucide-react';
 import { APP_VERSION } from '../utils/version';
 
 interface TermsModalProps {
@@ -8,6 +11,8 @@ interface TermsModalProps {
 }
 
 export const TermsModal: React.FC<TermsModalProps> = ({ isOpen, onClose }) => {
+  useModalActive(isOpen);
+
   if (!isOpen) return null;
 
   const handleAccept = () => {
@@ -17,8 +22,8 @@ export const TermsModal: React.FC<TermsModalProps> = ({ isOpen, onClose }) => {
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+  return createPortal(
+    <div className="fixed inset-0 z-[250000] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
       <div 
         className="relative w-full max-w-2xl max-h-[85vh] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
@@ -112,15 +117,38 @@ export const TermsModal: React.FC<TermsModalProps> = ({ isOpen, onClose }) => {
             </p>
           </div>
 
-          {/* Section 5: Assistant IA */}
+          {/* Section 5: Assistant IA, Recherche Algorithmique & Responsabilités */}
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100 font-bold uppercase tracking-wider text-[11px]">
               <Sparkles className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-              <span>5. Assistant IA & Recherche Algorithmique</span>
+              <span>5. Assistant IA, Limites Technologiques & Précautions Obligatoires</span>
             </div>
-            <p className="pl-6 text-[11px] text-zinc-600 dark:text-zinc-400">
-              L'assistant de recherche IA est un outil d'aide à la recherche textuelle et à la synthèse. Les réponses générées servent de repère d'étude et doivent systématiquement être vérifiées avec les textes officiels originaux.
-            </p>
+            <div className="pl-6 space-y-2 text-[11px] text-zinc-600 dark:text-zinc-400">
+              <p>
+                • <strong>Nature & Limites de l'IA :</strong> L'Assistant IA est un outil algorithmique d'indexation, de recherche RAG (*Retrieval-Augmented Generation*) et de synthèse textuelle. Il ne possède ni discernement spirituel, ni inspiration divine, ni autorité doctrinale. Les réponses produites sont des synthèses automatisées et ne constituent en aucun cas une révélation ni un enseignement officiel.
+              </p>
+
+              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-1.5 text-zinc-800 dark:text-zinc-200">
+                <p className="font-bold text-[11px] text-amber-700 dark:text-amber-400 flex items-center gap-1.5 uppercase tracking-wide">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>Obligations Permanentes de l'Utilisateur :</span>
+                </p>
+                <ul className="list-disc pl-4 space-y-1 text-[10.5px]">
+                  <li>
+                    <strong>Vérification systématique à la source :</strong> L'utilisateur doit <u>TOUJOURS</u> cliquer sur les références fournies (ex: <code className="px-1 py-0.5 bg-zinc-200 dark:bg-zinc-800 rounded font-mono text-[9.5px]">[Réf: ID, §N]</code>) pour lire l'intégralité du paragraphe original dans son contexte authentique.
+                  </li>
+                  <li>
+                    <strong>Primauté absolue du texte d'origine :</strong> En cas de doute ou de nuance, la lettre exacte de la prédication du frère William Marrion Branham ou des Saintes Écritures prévaut de manière absolue sur toute formulation générée par l'IA.
+                  </li>
+                  <li>
+                    <strong>Prudence avant toute diffusion :</strong> L'utilisateur s'engage à ne jamais enseigner, prêcher ou partager publiquement une affirmation de l'IA sans avoir relu et confirmé les paragraphes originaux dans le Lecteur.
+                  </li>
+                  <li>
+                    <strong>Discernement spirituel :</strong> L'étude de la Parole requiert la prière, la méditation personnelle et l'assistance du Saint-Esprit, qu'aucun algorithme ne peut remplacer.
+                  </li>
+                </ul>
+              </div>
+            </div>
           </div>
 
           {/* Section 6: Mode Projection */}
@@ -132,6 +160,31 @@ export const TermsModal: React.FC<TermsModalProps> = ({ isOpen, onClose }) => {
             <p className="pl-6 text-[11px] text-zinc-600 dark:text-zinc-400">
               L'utilisation du mode projection pendant les cultes et réunions doit se faire dans le respect du calme de l'assemblée et de l'harmonie de l'édification collective.
             </p>
+          </div>
+
+          {/* Section 8: Contribution bénévole & Soutien */}
+          <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2.5">
+              <Heart className="w-4 h-4 text-rose-500 fill-rose-500/20 shrink-0" />
+              <div>
+                <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wide block">
+                  Soutenir l'œuvre King's Sword
+                </span>
+                <p className="text-[10.5px] text-zinc-600 dark:text-zinc-400">
+                  Application 100% libre et gratuite. Vos contributions bénévoles soutiennent les serveurs et le développement.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                useAppStore.getState().toggleDonationModal();
+              }}
+              className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-[10.5px] transition-all active:scale-95 cursor-pointer shadow-xs shrink-0"
+            >
+              Faire un don / Soutenir
+            </button>
           </div>
 
           {/* Credits, Contact & Date */}
@@ -162,7 +215,8 @@ export const TermsModal: React.FC<TermsModalProps> = ({ isOpen, onClose }) => {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

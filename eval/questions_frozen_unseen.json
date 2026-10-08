@@ -1,0 +1,172 @@
+[
+  {
+    "id": "UNSEEN_001",
+    "category": "doctrine",
+    "question": "En quoi la semence de la femme s'oppose-t-elle à la semence de la bête dans la vision finale ?",
+    "expectedDocuments": [
+      "expose-ch-4",
+      "expose-ch-10"
+    ],
+    "answerable": true
+  },
+  {
+    "id": "UNSEEN_002",
+    "category": "paraphrase",
+    "question": "Que représente le caillou blanc sur lequel est gravé un nom nouveau connu de lui seul ?",
+    "expectedDocuments": [
+      "expose-ch-5"
+    ],
+    "answerable": true
+  },
+  {
+    "id": "UNSEEN_003",
+    "category": "recherche_passage_precis",
+    "question": "Qui est Irénée et pourquoi est-il retenu comme messager du deuxième âge ?",
+    "expectedDocuments": [
+      "expose-ch-4"
+    ],
+    "answerable": true
+  },
+  {
+    "id": "UNSEEN_004",
+    "category": "enseignement_precis",
+    "question": "Comment l'auteur explique-t-il la verge de fer donnée au vainqueur dans Thyatire ?",
+    "expectedDocuments": [
+      "expose-ch-6"
+    ],
+    "answerable": true
+  },
+  {
+    "id": "UNSEEN_005",
+    "category": "recherche_passage_precis",
+    "question": "Quel rôle Martin Luther a-t-il joué dans la résurrection spirituelle de Sardes ?",
+    "expectedDocuments": [
+      "expose-ch-7"
+    ],
+    "answerable": true
+  },
+  {
+    "id": "UNSEEN_006",
+    "category": "information_explicite",
+    "question": "Pourquoi l'Église de Philadelphie est-elle dite avoir peu de force mais avoir gardé la Parole ?",
+    "expectedDocuments": [
+      "expose-ch-8"
+    ],
+    "answerable": true
+  },
+  {
+    "id": "UNSEEN_007",
+    "category": "doctrine",
+    "question": "Comment le Christ se tient-il à la porte et frappe-t-il dans l'âge final de Laodicée ?",
+    "expectedDocuments": [
+      "expose-ch-9"
+    ],
+    "answerable": true
+  },
+  {
+    "id": "UNSEEN_008",
+    "category": "information_explicite",
+    "question": "Quelles sont les voix des sept tonnerres mentionnées en relation avec l'apôtre Jean ?",
+    "expectedDocuments": [
+      "expose-ch-10"
+    ],
+    "answerable": true
+  },
+  {
+    "id": "UNSEEN_009",
+    "category": "paraphrase",
+    "question": "Quelle est l'origine du péché originel et comment la chair a-t-elle été souillée ?",
+    "expectedDocuments": [
+      "expose-ch-3"
+    ],
+    "answerable": true
+  },
+  {
+    "id": "UNSEEN_010",
+    "category": "recherche_passage_precis",
+    "question": "Qui est Colomban et quel témoignage a-t-il laissé pour l'Âge de Thyatire ?",
+    "expectedDocuments": [
+      "expose-ch-6"
+    ],
+    "answerable": true
+  },
+  {
+    "id": "UNSEEN_011",
+    "category": "information_explicite",
+    "question": "Que symbolise le vêtement traînant jusqu'aux pieds ceint d'or ?",
+    "expectedDocuments": [
+      "expose-ch-2"
+    ],
+    "answerable": true
+  },
+  {
+    "id": "UNSEEN_012",
+    "category": "enseignement_precis",
+    "question": "Pourquoi John Wesley est-il désigné comme le messager de Philadelphie ?",
+    "expectedDocuments": [
+      "expose-ch-8"
+    ],
+    "answerable": true
+  },
+  {
+    "id": "UNSEEN_013",
+    "category": "doctrine",
+    "question": "Comment la révélation de Jésus-Christ est-elle la clé de toute l'Écriture ?",
+    "expectedDocuments": [
+      "expose-ch-1"
+    ],
+    "answerable": true
+  },
+  {
+    "id": "UNSEEN_014",
+    "category": "plusieurs_passages",
+    "question": "Quelle est la promesse faite au vainqueur concernant le trône de Dieu ?",
+    "expectedDocuments": [
+      "expose-ch-9",
+      "expose-ch-10"
+    ],
+    "answerable": true
+  },
+  {
+    "id": "UNSEEN_015",
+    "category": "hors_corpus",
+    "question": "Quelle est la tension électrique standard distribuée sur le réseau domestique japonais ?",
+    "expectedDocuments": [],
+    "answerable": false
+  },
+  {
+    "id": "UNSEEN_016",
+    "category": "hors_corpus",
+    "question": "Quel club de football a remporté la Ligue des Champions en 2021 ?",
+    "expectedDocuments": [],
+    "answerable": false
+  },
+  {
+    "id": "UNSEEN_017",
+    "category": "hors_corpus",
+    "question": "Quelle est la méthode de résolution de l'équation de Navier-Stokes pour les fluides incompressibles ?",
+    "expectedDocuments": [],
+    "answerable": false
+  },
+  {
+    "id": "UNSEEN_018",
+    "category": "refus_obligatoire",
+    "question": "Comment programmer une application iOS en langage Swift d'après l'Exposé ?",
+    "expectedDocuments": [],
+    "answerable": false
+  },
+  {
+    "id": "UNSEEN_019",
+    "category": "refus_obligatoire",
+    "question": "Quel modèle de bicyclette est mentionné pour les déplacements de Martin Luther dans Sardes ?",
+    "expectedDocuments": [],
+    "answerable": false
+  },
+  {
+    "id": "UNSEEN_020",
+    "category": "hors_corpus",
+    "question": "Quelle est la composition de l'acier inoxydable de nuance 316L ?",
+    "expectedDocuments": [],
+    "answerable": false
+  }
+]

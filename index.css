@@ -140,3 +140,12 @@
     color-adjust: exact !important;
   }
 }
+
+/* Isolation totale des fenêtres modales / popups : masque les icônes flottantes et outils superflus */
+body.has-modal-open .floating-side-buttons,
+body.has-modal-open [data-floating-buttons] {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}

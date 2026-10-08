@@ -9,7 +9,7 @@
 
 import { GoogleGenAI } from '@google/genai';
 import { SermonChunk, VectorSearchResult, VectorSearchOptions } from '../types';
-import { EMBEDDING_CONFIG } from './embeddingService';
+import { EMBEDDING_CONFIG, normalizeL2, computeCosineInt8, quantizeToInt8, dequantizeFromInt8 } from './embeddingService';
 
 export const DEFAULT_VECTOR_SEARCH_OPTIONS: Required<VectorSearchOptions> = {
   topK: 10,
@@ -19,13 +19,19 @@ export const DEFAULT_VECTOR_SEARCH_OPTIONS: Required<VectorSearchOptions> = {
 
 /**
  * Calcule la similarité cosinus de façon hautement optimisée et sécurisée.
- * Tolère les Float32Array et tableaux standards, gère les vecteurs nuls/invalides.
+ * Tolère les Float32Array, Int8Array et tableaux standards, gère les vecteurs nuls/invalides.
  */
 export function computeCosineSimilarity(
-  vecA: number[] | Float32Array | null | undefined,
-  vecB: number[] | Float32Array | null | undefined
+  vecA: number[] | Float32Array | Int8Array | null | undefined,
+  vecB: number[] | Float32Array | Int8Array | null | undefined
 ): number {
   if (!vecA || !vecB) return 0;
+
+  // Optimisation Int8 vectorisée
+  if (vecA instanceof Int8Array && vecB instanceof Int8Array) {
+    return computeCosineInt8(vecA, vecB);
+  }
+
   const lenA = vecA.length;
   const lenB = vecB.length;
   
@@ -69,7 +75,7 @@ export function computeCosineSimilarity(
  * Opération 100% locale, instantanée et déterministe.
  */
 export function searchByVector(
-  queryVector: number[] | Float32Array,
+  queryVector: number[] | Float32Array | Int8Array,
   candidateChunks: SermonChunk[],
   options?: VectorSearchOptions
 ): VectorSearchResult[] {
@@ -118,15 +124,26 @@ export function searchByVector(
 }
 
 /**
- * Génère l'embedding d'une requête textuelle via le SDK @google/genai.
+ * Génère l'embedding d'une requête textuelle via le SDK @google/genai avec normalisation L2.
  */
-export async function embedQueryText(query: string, apiKey: string): Promise<number[]> {
+export async function embedQueryText(
+  query: string,
+  apiKey: string,
+  options?: { dimension?: number; taskType?: string }
+): Promise<number[]> {
   if (!query || !query.trim() || !apiKey) return [];
+
+  const dim = options?.dimension || EMBEDDING_CONFIG.defaultDimension;
+  const taskType = options?.taskType || 'RETRIEVAL_QUERY';
 
   const ai = new GoogleGenAI({ apiKey });
   const res = await ai.models.embedContent({
     model: EMBEDDING_CONFIG.model,
-    contents: query.trim()
+    contents: query.trim(),
+    config: {
+      taskType: taskType as any,
+      outputDimensionality: dim
+    }
   });
 
   const vector = res.embeddings?.[0]?.values;
@@ -134,7 +151,38 @@ export async function embedQueryText(query: string, apiKey: string): Promise<num
     throw new Error(`Réponse d'embedding invalide pour la requête "${query}"`);
   }
 
-  return vector;
+  // Normalisation L2 systématique pour une géométrie cosinus parfaite
+  return Array.from(normalizeL2(vector));
+}
+
+/**
+ * Génère l'embedding d'un chunk documentaire via le SDK @google/genai avec taskType RETRIEVAL_DOCUMENT.
+ */
+export async function embedDocumentChunk(
+  text: string,
+  apiKey: string,
+  options?: { dimension?: number }
+): Promise<number[]> {
+  if (!text || !text.trim() || !apiKey) return [];
+  const dim = options?.dimension || EMBEDDING_CONFIG.defaultDimension;
+
+  const ai = new GoogleGenAI({ apiKey });
+  const res = await ai.models.embedContent({
+    model: EMBEDDING_CONFIG.model,
+    contents: text.trim(),
+    config: {
+      taskType: 'RETRIEVAL_DOCUMENT' as any,
+      outputDimensionality: dim
+    }
+  });
+
+  const vector = res.embeddings?.[0]?.values;
+  if (!Array.isArray(vector)) {
+    throw new Error(`Réponse d'embedding invalide pour le chunk`);
+  }
+
+  // Normalisation L2 systématique
+  return Array.from(normalizeL2(vector));
 }
 
 /**

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
 import { useAppStore, SearchResult } from '../store';
 import { translations } from '../translations';
 import { SearchMode, Sermon } from '../types';
-import { FileText, Loader2, Calendar, Search, ChevronLeft, MapPin, Hash, NotebookPen, Sparkles, Layers, Type, BookOpenCheck, Headphones, PanelLeftOpen, Music, BookOpen, BookText, Library } from 'lucide-react';
+import { FileText, Loader2, Calendar, Search, ChevronLeft, MapPin, Hash, NotebookPen, Layers, Type, BookOpenCheck, Headphones, PanelLeftOpen, Music, BookOpen, BookText, Library, Compass } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { searchSermons } from '../services/db';
 import { searchBibleVersesAdvanced } from '../services/bibleService';
@@ -88,10 +88,10 @@ const SearchResultCard = memo(({
                               ? 'bg-teal-600 text-white border-teal-600 shadow-xs'
                               : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:text-teal-600 hover:border-teal-500 border-zinc-200 dark:border-zinc-700'
                           }`}
-                          title={useAppStore.getState().contextSermonIds.includes(result.sermonId) ? "Retirer de l'assistant IA" : "Ajouter à l'assistant IA"}
+                          title={useAppStore.getState().contextSermonIds.includes(result.sermonId) ? "Retirer du dock IA" : "Ajouter au dock IA"}
                         >
-                          <Sparkles className="w-3 h-3 shrink-0" />
-                          Assistant IA
+                          <Layers className="w-3 h-3 shrink-0" />
+                          Dock IA
                         </button>
                         {result.audio_url && (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-full text-[8px] font-black uppercase tracking-wider border border-amber-500/20 whitespace-nowrap">
@@ -427,7 +427,7 @@ const SearchResults: React.FC = () => {
             <div className="max-w-4xl mx-auto px-10 pt-6">
                 <div className="flex flex-wrap items-center gap-2 p-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm animate-in slide-in-from-top-2 duration-500">
                     <div className="flex items-center gap-2 mr-2">
-                        <Sparkles className="w-3 h-3 text-amber-500" />
+                        <Compass className="w-3 h-3 text-amber-500" />
                         <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Rebondir vers :</span>
                     </div>
                     {activeSynonyms.map(syn => {

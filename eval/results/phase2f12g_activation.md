@@ -1,6 +1,6 @@
 # RAPPORT DE VALIDATION — PHASE 2F.12G : ACTIVATION CONTRÔLÉE DU UNIFIED RAG
 
-**Date :** 2026-10-04T15:51:27.678Z  
+**Date :** 2026-10-05T09:26:24.363Z  
 **Statut :** **UNIFIED_RAG_ACTIVATED**  
 **Valeur finale de `useUnifiedRag` :** **`true`**
 

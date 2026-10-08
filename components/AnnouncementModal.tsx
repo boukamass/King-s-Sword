@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useModalActive } from '../utils/modalUtils';
 import { 
   Megaphone, 
   MonitorPlay, 
@@ -19,7 +20,6 @@ import {
   Check, 
   Search, 
   RotateCcw,
-  Sparkles,
   Layers,
   Sliders,
   Type,
@@ -49,6 +49,7 @@ import {
 
 export const AnnouncementModal: React.FC = memo(() => {
   const isOpen = useAppStore(s => s.isAnnouncementModalOpen);
+  useModalActive(isOpen);
   const setIsOpen = useAppStore(s => s.setIsAnnouncementModalOpen);
   const projectedAnnouncement = useAppStore(s => s.projectedAnnouncement);
   const setProjectedAnnouncement = useAppStore(s => s.setProjectedAnnouncement);
@@ -466,7 +467,7 @@ export const AnnouncementModal: React.FC = memo(() => {
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[200000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-[250000] bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200"
       onMouseDown={handleBackdropMouseDown}
       onClick={handleBackdropClick}
     >

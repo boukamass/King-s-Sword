@@ -32,7 +32,13 @@ import { loadExposeAsCanonicalDocuments, createExposeDocumentChunks } from './ex
 import { createSermonChunks } from './chunkingService';
 import { getSermonById } from './db';
 import { mapParagraphsToChunkHits, fuseRankings } from './hybridRetrievalService';
-import { rerankHybridResults, assessAnswerability, extractSignificantQueryTerms, extractSubstantiveQueryTerms } from './rerankingService';
+import { rerankHybridResults, assessAnswerability, extractSignificantQueryTerms, extractSubstantiveQueryTerms, isOverviewOrSummaryQuery } from './rerankingService';
+import { expandTheologicalQuery } from './theologicalQueryService';
+import { searchByVector, embedQueryText } from './vectorSearchService';
+import { getChunksBySermonId } from './chunkStorageService';
+import { EMBEDDING_CONFIG } from './embeddingService';
+import { getGeminiApiKey } from '../utils/apiKeyHelper';
+import { detectQueryIntent, logQueryIntent } from './queryIntentService';
 import { normalizeText, splitSermonIntoParagraphs, extractLeadingParagraphNumber } from '../utils/textUtils';
 
 // Mots vides généraux pour l'analyse lexicale
@@ -70,7 +76,10 @@ export interface UnifiedRagOptions {
   multiModalBonus?: number;
   bibleVersion?: BibleVersion;
   mockVectorHits?: any[];
+  providedChunks?: SermonChunk[];
   loadedSermonsMap?: Map<string, Sermon | Omit<Sermon, 'text'>> | Map<string, any>;
+  apiKey?: string;
+  queryVector?: number[] | Float32Array;
 }
 
 /**
@@ -180,10 +189,18 @@ export function normalizeAIContext(context: AIContext | (string | AIContextSourc
  */
 export function extractUnifiedQueryTerms(query: string): string[] {
   if (!query || typeof query !== 'string') return [];
-  const normalized = normalizeText(query);
+  // Découper les apostrophes d'élision explicites (l'église -> eglise) et préfixes collés
+  const withSeparatedApostrophes = query.replace(/([ldqujcsnmtLDQUJCSNMT])['`’]([\p{L}\p{N}]+)/gu, '$1 $2');
+  const normalized = normalizeText(withSeparatedApostrophes);
   const words = normalized
     .replace(/[^\w\s]/g, ' ')
     .split(/\s+/)
+    .map(w => {
+      // Élaguer article élidé collé si applicable (ex: leglise -> eglise)
+      if (w.startsWith('leglise')) return 'eglise';
+      if (w.startsWith('deglise')) return 'eglise';
+      return w;
+    })
     .filter(w => w.length > 2);
 
   const nonStop = words.filter(w => !UNIFIED_STOP_WORDS.has(w));
@@ -283,6 +300,17 @@ export async function resolveAIContextChunks(
 
       if (sermon && sermon.text) {
         const sermonChunks = createSermonChunks(sermon);
+        try {
+          const stored = await getChunksBySermonId(cleanSourceId);
+          if (stored && stored.length > 0) {
+            const embMap = new Map(stored.filter(s => Array.isArray(s.embedding) && s.embedding.length > 0).map(s => [s.chunkId, s.embedding]));
+            for (const c of sermonChunks) {
+              const foundEmb = embMap.get(c.chunkId);
+              if (foundEmb) c.embedding = foundEmb;
+            }
+          }
+        } catch {}
+
         for (const c of sermonChunks) {
           c.documentType = 'sermon';
           c.documentId = cleanSourceId; // Conserve l'ID sélectionné par l'utilisateur (avec suffixe) pour la synchronisation de l'IHM
@@ -304,6 +332,16 @@ export async function resolveAIContextChunks(
     // -------------------------------------------------------------
     else if (src.sourceType === 'expose') {
       const allExposeChunks = await createExposeDocumentChunks();
+      try {
+        const stored = await getChunksBySermonId(src.sourceId);
+        if (stored && stored.length > 0) {
+          const embMap = new Map(stored.filter(s => Array.isArray(s.embedding) && s.embedding.length > 0).map(s => [s.chunkId, s.embedding]));
+          for (const c of allExposeChunks) {
+            const foundEmb = embMap.get(c.chunkId);
+            if (foundEmb) c.embedding = foundEmb;
+          }
+        }
+      } catch {}
       
       for (const c of allExposeChunks) {
         // Filtrage par chapitre (ex: expose-ch-8 ou ch "8")
@@ -475,10 +513,13 @@ export async function executeUnifiedRagPipeline(
   const maxEvidenceCount = options.maxEvidenceCount || 5;
 
   // 1. Résolution stricte des chunks de l'AI Context
-  const allowedChunks = await resolveAIContextChunks(aiContext, {
+  const resolvedChunks = await resolveAIContextChunks(aiContext, {
     bibleVersion: options.bibleVersion,
     loadedSermonsMap: options.loadedSermonsMap
   });
+  const allowedChunks = (options.providedChunks && options.providedChunks.length > 0)
+    ? options.providedChunks
+    : resolvedChunks;
 
   if (!cleanQuery) {
     return {
@@ -504,11 +545,100 @@ export async function executeUnifiedRagPipeline(
     };
   }
 
+  // 0. Détection d'intention (CONTENT_TRANSFORMATION vs DOCUMENT_RETRIEVAL)
+  const intentResult = detectQueryIntent(cleanQuery);
+  const uniqueTitles = Array.from(new Set(allowedChunks.map(c => c.sermonTitle || c.sermonId).filter(Boolean)));
+  const aiContextDesc = uniqueTitles.length > 0 
+    ? (uniqueTitles.slice(0, 2).join(', ') + (uniqueTitles.length > 2 ? ` (+${uniqueTitles.length - 2})` : ''))
+    : 'Ressources sélectionnées';
+
+  logQueryIntent({
+    query: cleanQuery,
+    aiContextDescription: aiContextDesc,
+    intentResult
+  });
+
+  // ROUTAGE INTENTION A : CONTENT_TRANSFORMATION
+  if (intentResult.intent === 'CONTENT_TRANSFORMATION' && allowedChunks.length > 0) {
+    const transformationCandidates: HybridSearchResult[] = allowedChunks.slice(0, 25).map((chunk, idx) => ({
+      chunkId: chunk.chunkId,
+      sermonId: chunk.sermonId,
+      sermonTitle: chunk.sermonTitle,
+      paragraphIds: chunk.paragraphIds,
+      startParagraph: chunk.startParagraph,
+      endParagraph: chunk.endParagraph,
+      text: chunk.text,
+      date: chunk.date,
+      city: chunk.city,
+      version: chunk.version,
+      lexicalRank: idx + 1,
+      lexicalScore: 100 - idx,
+      vectorRank: idx + 1,
+      vectorScore: 0.95 - idx * 0.01,
+      rrfScore: 1.0 / (60 + idx + 1),
+      rank: idx + 1,
+      chunk
+    }));
+
+    const evidence: RetrievalEvidence[] = transformationCandidates.slice(0, maxEvidenceCount * 2).map((item, idx) => {
+      const chunk = item.chunk || item;
+      const citationParagraphs: EvidenceParagraphCitation[] = (chunk.paragraphIds || [chunk.startParagraph]).map(pNum => ({
+        paragraphIndex: pNum,
+        formattedCitation: formatUnitCitation(chunk, pNum),
+        textSnippet: chunk.text,
+        fullParagraphText: chunk.text,
+        isAuthentic: true
+      }));
+
+      return {
+        chunkId: chunk.chunkId,
+        sermonId: chunk.sermonId,
+        sermonTitle: chunk.sermonTitle,
+        paragraphIds: chunk.paragraphIds,
+        startParagraph: chunk.startParagraph,
+        endParagraph: chunk.endParagraph,
+        text: chunk.text,
+        date: chunk.date,
+        city: chunk.city,
+        version: chunk.version,
+        retrievalScore: item.rrfScore || 0.95,
+        rank: idx + 1,
+        sourceType: 'reranked',
+        citationParagraphs
+      };
+    });
+
+    return {
+      answerable: true,
+      confidenceScore: 0.98,
+      reason: `Instruction de transformation (${intentResult.intent}) sur le contenu sélectionné dans l'AI Context.`,
+      evidence,
+      query: cleanQuery,
+      totalCandidates: transformationCandidates.length,
+      rejectedCount: 0,
+      vectorMethod: 'selected_context_transformation'
+    };
+  }
+
+  // ROUTAGE INTENTION B : DOCUMENT_RETRIEVAL (Pipeline RAG habituel inchangé)
   // Concaténation du texte intégral du contexte actif pour l'évaluation d'Answerability
   const contextCorpusText = allowedChunks.map(c => c.text).join(' ');
-  const queryTerms = extractUnifiedQueryTerms(cleanQuery);
+
+  // Expansion doctrinale & décomposition Multi-Hop
+  const queryExpansion = await expandTheologicalQuery(cleanQuery, options.apiKey);
+  const effectiveQuery = queryExpansion.expandedQuery || cleanQuery;
+  const queryTerms = extractUnifiedQueryTerms(effectiveQuery);
   const normalizedQuery = normalizeText(cleanQuery);
   const queryWords = normalizedQuery.split(/\s+/).filter(w => w.length > 2);
+
+  // Termes additionnels issus des sous-requêtes multi-hop
+  if (queryExpansion.isMultiHop && queryExpansion.subQueries.length > 1) {
+    for (const sq of queryExpansion.subQueries) {
+      for (const t of extractUnifiedQueryTerms(sq)) {
+        if (!queryTerms.includes(t)) queryTerms.push(t);
+      }
+    }
+  }
 
   // Bigrammes de la requête pour détecter les syntagmes doctrinaux précis
   const bigrams: string[] = [];
@@ -568,53 +698,95 @@ export async function executeUnifiedRagPipeline(
     matchedParagraphIds: item.chunk.paragraphIds
   }));
 
-  // 3. Recherche vectorielle / sémantique STRICTEMENT sur les chunks autorisés
+  // 3. Recherche vectorielle sémantique 3072D STRICTEMENT sur les chunks autorisés
   let vectorHits: Array<{ chunk: SermonChunk; score: number; rank: number }> = [];
+  let vectorMethod: 'cosine_768d_int8' | 'cosine_768d_float32' | 'cosine_3072d' | 'none' = 'none';
+  let queryVectorUsed = false;
+  let queryVectorDim = 0;
 
   if (Array.isArray(options.mockVectorHits) && options.mockVectorHits.length > 0) {
     const allowedIds = new Set(allowedChunks.map(c => c.chunkId));
     vectorHits = options.mockVectorHits.filter(h => allowedIds.has(h.chunk?.chunkId));
+    vectorMethod = 'cosine_3072d';
+    queryVectorUsed = true;
+    queryVectorDim = 3072;
   } else {
-    // Calcul déterministe de similarité sémantique sur le scope autorisé
-    const normQ = cleanQuery.toLowerCase();
-    const qWords = queryTerms.length > 0 ? queryTerms : normQ.split(/\s+/).filter(w => w.length > 3);
-    vectorHits = allowedChunks
-      .map((chunk) => {
-        let sim = 0;
-        const t = normalizeText(chunk.text);
-        if (chunk.sectionTitle && normQ.includes(chunk.sectionTitle.toLowerCase())) sim += 0.20;
-        if (chunk.sermonTitle && normQ.includes(chunk.sermonTitle.toLowerCase())) sim += 0.15;
-        let wordMatches = 0;
-        for (const w of qWords) {
-          if (w.length > 2 && t.includes(w)) wordMatches++;
+    // Filtrage des chunks autorisés possédant un embedding précalculé
+    const chunksWithEmbeddings = allowedChunks.filter(c => 
+      (Array.isArray(c.embedding) && c.embedding.length > 0) ||
+      (c.embedding instanceof Float32Array && c.embedding.length > 0) ||
+      (c.embedding instanceof Int8Array && c.embedding.length > 0)
+    );
+    const activeApiKey = options.apiKey || (typeof window !== 'undefined' ? getGeminiApiKey() : '') || process.env.API_KEY || '';
+
+    if (options.queryVector || activeApiKey) {
+      try {
+        let qVec: number[] | Float32Array | Int8Array | null = options.queryVector || null;
+
+        if (!qVec && activeApiKey) {
+          qVec = await embedQueryText(cleanQuery, activeApiKey, {
+            dimension: EMBEDDING_CONFIG.defaultDimension, // 3072D
+            taskType: 'RETRIEVAL_QUERY'
+          });
         }
-        let bgMatches = 0;
-        for (const bg of bigrams) {
-          if (t.includes(bg)) bgMatches++;
+
+        if (qVec && qVec.length > 0) {
+          queryVectorUsed = true;
+          queryVectorDim = qVec.length;
+
+          if (chunksWithEmbeddings.length > 0) {
+            const vecResults = searchByVector(qVec, chunksWithEmbeddings, {
+              topK: 40
+            });
+            if (vecResults.length > 0) {
+              vectorHits = vecResults.map((item, idx) => ({
+                chunk: item.chunk,
+                score: item.score,
+                rank: idx + 1
+              }));
+              const isInt8 = chunksWithEmbeddings[0].embedding instanceof Int8Array;
+              vectorMethod = isInt8 ? 'cosine_768d_int8' : (qVec.length === 768 ? 'cosine_768d_float32' : 'cosine_3072d');
+            }
+          }
         }
-        const matchRatio = wordMatches / Math.max(1, qWords.length);
-        sim += matchRatio * 0.60;
-        if (bgMatches > 0) sim += 0.15 * Math.min(bgMatches, 2) * matchRatio;
-        if (matchRatio >= 0.70) sim += 0.20;
-        if (t.includes(normalizedQuery)) sim += 0.30;
-        return { chunk, score: Math.min(1.0, Math.round(sim * 100) / 100) };
-      })
-      .filter(h => h.score > 0.1)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 20)
-      .map((item, idx) => ({
-        ...item,
-        rank: idx + 1
-      }));
+      } catch (err) {
+        console.warn('[UnifiedRAG] Erreur lors de la génération de l\'embedding de requête 3072D:', err);
+      }
+    }
   }
 
   // 4. Fusion Hybride RRF (k=60)
-  const hybridResults = fuseRankings({
+  let hybridResults = fuseRankings({
     lexicalHits,
     vectorHits,
     allChunks: allowedChunks,
     options: { k: options.k || 60, topK: 20 }
   });
+
+  // Cas spécial : Requête d'aperçu / synthèse ("de quoi ça parle", "résumé", etc.)
+  const isOverview = isOverviewOrSummaryQuery(cleanQuery);
+  if (isOverview && hybridResults.length === 0 && allowedChunks.length > 0) {
+    // Sélection des chunks initiaux et représentatifs des ressources autorisées dans l'AI Context
+    hybridResults = allowedChunks.slice(0, 15).map((chunk, idx) => ({
+      chunkId: chunk.chunkId,
+      sermonId: chunk.sermonId,
+      sermonTitle: chunk.sermonTitle,
+      paragraphIds: chunk.paragraphIds,
+      startParagraph: chunk.startParagraph,
+      endParagraph: chunk.endParagraph,
+      text: chunk.text,
+      date: chunk.date,
+      city: chunk.city,
+      version: chunk.version,
+      lexicalRank: idx + 1,
+      lexicalScore: Math.max(10, 50 - idx * 3),
+      vectorRank: idx + 1,
+      vectorScore: Math.max(0.6, 0.95 - idx * 0.03),
+      rrfScore: 1.0 / (60 + idx + 1),
+      rank: idx + 1,
+      chunk
+    }));
+  }
 
   // 5. Reranking local multi-signaux
   const rerankedResults = rerankHybridResults({
@@ -633,25 +805,71 @@ export async function executeUnifiedRagPipeline(
   const assessment = assessAnswerability({
     query: cleanQuery,
     candidates: rerankedResults,
-    corpusTextIndex: contextCorpusText
+    corpusTextIndex: contextCorpusText,
+    corpusChunks: allowedChunks
   });
 
-  // 7. Construction du Retrieval Evidence Package
+  // 7. Logs de diagnostic structurés (Requirement 12)
+  console.log('=== LOGS DE DIAGNOSTIC RAG UNIFIÉ ===');
+  console.log(`QUERY: ${cleanQuery}`);
+  console.log(`INTENT: DOCUMENT_RETRIEVAL`);
+  console.log(`ROUTE: UNIFIED_RAG`);
+  console.log(`QUERY EMBEDDING: ${queryVectorUsed ? 'YES' : 'NO'}`);
+  console.log(`EMBEDDING MODEL: ${EMBEDDING_CONFIG.model}`);
+  console.log(`EMBEDDING DIMENSION: ${queryVectorDim}`);
+  console.log(`VECTOR SEARCH: ${vectorHits.length > 0 ? 'YES' : 'NO'}`);
+  console.log(`VECTOR CANDIDATES: ${vectorHits.length}`);
+  console.log(`LEXICAL CANDIDATES: ${lexicalHits.length}`);
+  console.log(`RRF CANDIDATES: ${hybridResults.length}`);
+  console.log(`RERANKED RESULTS: ${rerankedResults.length}`);
+  console.log(`ANSWERABILITY: ${assessment.answerable ? 'TRUE' : 'FALSE'}`);
+  console.log(`GEMINI GENERATION: ${assessment.answerable ? 'YES' : 'NO'}`);
+  console.log('======================================');
+
+  // 7. Construction du Retrieval Evidence Package avec diversification par document si disponible
   const evidence: RetrievalEvidence[] = [];
 
   if (assessment.answerable && rerankedResults.length > 0) {
-    for (const item of rerankedResults.slice(0, maxEvidenceCount)) {
+    // Si plusieurs documents sont disponibles, assurer une diversité sans écraser par un seul document
+    const selectedItems: typeof rerankedResults = [];
+    const docCounts = new Map<string, number>();
+    const maxPerDoc = maxEvidenceCount > 10 ? 4 : 2;
+
+    // Premier passage avec quota par document pour diversité
+    for (const item of rerankedResults) {
+      if (selectedItems.length >= maxEvidenceCount) break;
+      const docId = item.sermonId;
+      const count = docCounts.get(docId) || 0;
+      if (count < maxPerDoc) {
+        selectedItems.push(item);
+        docCounts.set(docId, count + 1);
+      }
+    }
+
+    // Complément si nécessaire jusqu'à maxEvidenceCount
+    if (selectedItems.length < maxEvidenceCount) {
+      const selectedIds = new Set(selectedItems.map(i => i.chunkId));
+      for (const item of rerankedResults) {
+        if (selectedItems.length >= maxEvidenceCount) break;
+        if (!selectedIds.has(item.chunkId)) {
+          selectedItems.push(item);
+          selectedIds.add(item.chunkId);
+        }
+      }
+    }
+
+    for (const item of selectedItems) {
       const chunk = item.chunk || item;
       const citationParagraphs: EvidenceParagraphCitation[] = [];
 
       for (const pNum of chunk.paragraphIds || [chunk.startParagraph]) {
         const formattedCitation = formatUnitCitation(chunk, pNum);
-        const snippet = chunk.text.length > 220 ? chunk.text.slice(0, 220) + '...' : chunk.text;
         
         citationParagraphs.push({
           paragraphIndex: pNum,
           formattedCitation,
-          textSnippet: snippet,
+          textSnippet: chunk.text,
+          fullParagraphText: chunk.text,
           isAuthentic: true
         });
       }
@@ -683,6 +901,7 @@ export async function executeUnifiedRagPipeline(
       resolvedChunksCount: allowedChunks.length,
       lexicalHitsCount: lexicalHits.length,
       vectorHitsCount: vectorHits.length,
+      vectorMethod,
       rrfHitsCount: hybridResults.length,
       rerankedHitsCount: rerankedResults.length,
       confidenceScore: assessment.confidenceScore,
@@ -699,6 +918,11 @@ export async function executeUnifiedRagPipeline(
     evidence,
     query: cleanQuery,
     totalCandidates: rerankedResults.length,
-    rejectedCount: Math.max(0, rerankedResults.length - evidence.length)
+    rejectedCount: Math.max(0, rerankedResults.length - evidence.length),
+    vectorMethod,
+    closestPassages: assessment.closestPassages,
+    refusalCategory: assessment.refusalCategory,
+    decisionJournal: assessment.decisionJournal,
+    forceSearchAvailable: assessment.forceSearchAvailable
   };
 }

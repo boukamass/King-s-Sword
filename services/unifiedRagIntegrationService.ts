@@ -39,6 +39,15 @@ import { executeUnifiedRagPipeline, UnifiedRagOptions } from './unifiedRagServic
 import { generateNewRagResponse, GeminiCaller, GenerationResult } from './generationAdapter';
 import { validateResponseCitations } from './citationValidationService';
 import { detectTechnicalIdentifierExposure } from './generationAdapter';
+import { getCachedRagResponse, setCachedRagResponse } from './semanticCacheService';
+import { 
+  isDeepDiveStudyRequest, 
+  detectExhaustiveStudyIntent,
+  isAllPassagesRequest, 
+  getDeepDiveSystemInstruction, 
+  formatCoverageSummary, 
+  cleanPistesDapprofondissement 
+} from './theologicalExegesisService';
 import { aiConfig } from '../config/aiConfig';
 
 export interface UnifiedRagIntegrationOptions extends UnifiedRagOptions {
@@ -66,6 +75,7 @@ export interface UnifiedRagExecutionResult {
   }>;
   latencyMs: number;
   errorMessage?: string | null;
+  vectorMethod?: string;
 }
 
 export interface ShadowComparisonResult {
@@ -88,10 +98,48 @@ export async function executeUnifiedRagAssistantFlow(
   const t0 = Date.now();
   const cleanQuery = (query || '').trim();
 
+  // Extraction des IDs de contexte pour la clé de cache
+  const contextIds = Array.isArray(aiContext) 
+    ? aiContext.map(s => typeof s === 'string' ? s : s.sourceId)
+    : (aiContext.sources || []).map(s => s.sourceId);
+
+  // 0. Vérification du Cache Sémantique Local (0 ms)
+  const cached = await getCachedRagResponse(cleanQuery, contextIds);
+  if (cached && cached.answerText) {
+    return {
+      status: 'success',
+      answerText: cached.answerText,
+      evidencePackage: {
+        answerable: true,
+        confidenceScore: 1.0,
+        reason: 'Réponse issue du cache sémantique local instantané (0 ms).',
+        evidence: [],
+        query: cleanQuery,
+        totalCandidates: cached.evidenceCount || 1,
+        rejectedCount: 0,
+        vectorMethod: 'semantic_cache_hit'
+      },
+      citationsValidation: null,
+      chunkIdExposure: false,
+      technicalIdentifiersDetected: [],
+      sources: cached.sources,
+      latencyMs: 0,
+      vectorMethod: 'semantic_cache_hit'
+    };
+  }
+
   // 1. Exécution du Retrieval Unified RAG sous contrainte stricte de l'AI Context
+  const isStudy = await detectExhaustiveStudyIntent(cleanQuery, {
+    apiKey: options.apiKey,
+    geminiClient: options.geminiClient
+  });
+  const isAllPassages = isAllPassagesRequest(cleanQuery);
+  const effectiveTopK = isAllPassages ? Math.max(options.topK || 10, 50) : (isStudy ? Math.max(options.topK || 10, 35) : (options.topK || 10));
+  const effectiveMaxEvidence = isAllPassages ? Math.max(options.maxEvidenceCount || 5, 25) : (isStudy ? Math.max(options.maxEvidenceCount || 5, 20) : (options.maxEvidenceCount || 5));
+
   const evidencePackage = await executeUnifiedRagPipeline(cleanQuery, aiContext, {
-    topK: options.topK,
-    maxEvidenceCount: options.maxEvidenceCount || 5,
+    topK: effectiveTopK,
+    maxEvidenceCount: effectiveMaxEvidence,
     k: options.k,
     vectorWeight: options.vectorWeight,
     lexicalWeight: options.lexicalWeight,
@@ -99,7 +147,9 @@ export async function executeUnifiedRagAssistantFlow(
     multiModalBonus: options.multiModalBonus,
     bibleVersion: options.bibleVersion,
     mockVectorHits: options.mockVectorHits,
-    loadedSermonsMap: options.loadedSermonsMap
+    loadedSermonsMap: options.loadedSermonsMap,
+    apiKey: options.apiKey,
+    queryVector: (options as any).queryVector
   });
 
   // 2. Traitement d'abstention stricte (answerable === false ou 0 preuve)
@@ -128,17 +178,23 @@ export async function executeUnifiedRagAssistantFlow(
       technicalIdentifiersDetected: [],
       sources: [],
       latencyMs,
-      errorMessage: evidencePackage.reason || "Non answerable dans le contexte sélectionné."
+      errorMessage: evidencePackage.reason || "Non answerable dans le contexte sélectionné.",
+      vectorMethod: evidencePackage.vectorMethod
     };
   }
 
   // 3. Appel au Generation Adapter avec les preuves authentifiées
+  let activeInstruction = options.systemInstruction;
+  if (isDeepDiveStudyRequest(cleanQuery)) {
+    activeInstruction = (activeInstruction || '') + getDeepDiveSystemInstruction();
+  }
+
   const genResult = await generateNewRagResponse({
     query: cleanQuery,
     evidencePackage,
     apiKey: options.apiKey,
     geminiClient: options.geminiClient,
-    systemInstruction: options.systemInstruction,
+    systemInstruction: activeInstruction,
     temperature: options.temperature ?? aiConfig.models.autoRagTemperature,
     model: options.model ?? aiConfig.models.primaryFastModel
   });
@@ -157,9 +213,19 @@ export async function executeUnifiedRagAssistantFlow(
       technicalIdentifiersDetected: [],
       sources: [],
       latencyMs,
-      errorMessage: genResult.errorMessage || 'Erreur lors de la génération de la réponse.'
+      errorMessage: genResult.errorMessage || 'Erreur lors de la génération de la réponse.',
+      vectorMethod: evidencePackage.vectorMethod
     };
   }
+
+  // Enregistrement en cache sémantique local
+  setCachedRagResponse(
+    cleanQuery,
+    contextIds,
+    genResult.answerText,
+    genResult.sources,
+    evidencePackage.evidence.length
+  ).catch(() => {});
 
   // 5. Validation des citations et contrôle d'exposition d'identifiants techniques
   const exposureCheck = detectTechnicalIdentifierExposure(genResult.answerText);
@@ -168,9 +234,26 @@ export async function executeUnifiedRagAssistantFlow(
     evidencePackage
   });
 
+  let finalAnswerText = cleanPistesDapprofondissement(genResult.answerText);
+  if ((isStudy || isAllPassages) && evidencePackage.evidence.length > 0) {
+    const docIds = Array.from(new Set(evidencePackage.evidence.map(e => e.sermonId)));
+    const uniqueDocsCount = docIds.length;
+    const passagesCount = evidencePackage.evidence.length;
+    const totalFound = evidencePackage.totalCandidates;
+    const coverageHeader = `${formatCoverageSummary({
+      uniqueDocsCount,
+      passagesCount,
+      docIds,
+      totalFoundCount: totalFound
+    })}\n\n`;
+    if (!finalAnswerText.includes('Couverture documentaire')) {
+      finalAnswerText = coverageHeader + finalAnswerText;
+    }
+  }
+
   return {
     status: 'success',
-    answerText: genResult.answerText,
+    answerText: finalAnswerText,
     evidencePackage,
     generationResult: genResult,
     citationsValidation,
@@ -178,7 +261,8 @@ export async function executeUnifiedRagAssistantFlow(
     technicalIdentifiersDetected: exposureCheck.identifiers,
     sources: genResult.sources,
     latencyMs,
-    errorMessage: null
+    errorMessage: null,
+    vectorMethod: evidencePackage.vectorMethod
   };
 }
 

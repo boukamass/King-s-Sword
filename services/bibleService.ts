@@ -4,6 +4,7 @@ import { BIBLE_BOOKS_META, BibleBookMeta } from './bibleMetadata';
 import { BIBLE_LOUIS_SEGOND_CORE } from './bibleLouisSegondData';
 import { normalizeText, getMultiWordHighlightRegex, getSearchHighlightRegex, mergeAdjacentMarks } from '../utils/textUtils';
 import { fetchJsonSafe } from '../utils/fetchHelper';
+import { amplifyVerseText } from './bibleExegesisService';
 
 const BIBLE_CACHE_KEY_PREFIX = 'kings_sword_bible_book_';
 
@@ -21,6 +22,28 @@ export const ensureFullBibleLoaded = async (version: BibleVersion = 'lsg1910'): 
   if (fullBibleDataMap.has(version)) {
     return fullBibleDataMap.get(version)!;
   }
+
+  // Cas spécial Bible Amplifiée ('amp') : Génération intégrale dynamique à partir du dataset Louis Segond (LSG)
+  if (version === 'amp') {
+    const lsgData = await ensureFullBibleLoaded('lsg1910');
+    if (lsgData) {
+      const ampData: Record<string, Record<number, BibleVerse[]>> = {};
+      for (const [bookId, chapters] of Object.entries(lsgData)) {
+        ampData[bookId] = {};
+        for (const [chStr, verses] of Object.entries(chapters)) {
+          const chapterNum = parseInt(chStr, 10);
+          ampData[bookId][chapterNum] = verses.map(v => ({
+            verse: v.verse,
+            text: amplifyVerseText(v.text, bookId, chapterNum, v.verse)
+          }));
+        }
+      }
+      fullBibleDataMap.set('amp', ampData);
+      return ampData;
+    }
+    return null;
+  }
+
   if (!fullBiblePromisesMap.has(version)) {
     const promise = (async () => {
       try {

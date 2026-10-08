@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useAppStore, sortNotesByRecency } from '../store';
+import { useModalActive } from '../utils/modalUtils';
 import { Sermon, Note, Citation } from '../types';
 import { marked } from 'marked';
 import { 
@@ -11,7 +13,6 @@ import {
   Quote, 
   FileText,
   Clock,
-  Sparkles,
   ArrowLeft
 } from 'lucide-react';
 import { normalizeText } from '../utils/textUtils';
@@ -39,6 +40,8 @@ const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({
   const [newNoteTitle, setNewNoteTitle] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const titleInputRef = useRef<HTMLInputElement>(null);
+
+  useModalActive(true);
 
   const effectiveHighlights = useMemo(() => {
     if (highlights && highlights.length > 0) return highlights;
@@ -139,9 +142,9 @@ const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({
     return marked(formattedText, { breaks: true });
   };
   
-  return (
+  return createPortal(
     <div 
-      className="fixed inset-0 z-[100050] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200"
+      className="fixed inset-0 z-[250000] bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div 
@@ -345,7 +348,7 @@ const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({
         {/* Modal Footer */}
         <div className="px-5 py-3 border-t border-slate-200/80 dark:border-zinc-800/80 bg-slate-50/50 dark:bg-zinc-950/40 flex items-center justify-between text-[11px] text-zinc-500 shrink-0">
           <span className="flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+            <NotebookPen className="w-3.5 h-3.5 text-teal-600" />
             Cliquez sur un journal pour y ajouter instantanément l'extrait
           </span>
           <button
@@ -356,7 +359,8 @@ const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

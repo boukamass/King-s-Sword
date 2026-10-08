@@ -158,6 +158,7 @@ export function validateResponseCitations(params: {
 
     // Étape 4 : Vérification du paragraphe dans les citationParagraphs authentifiés
     let matchedParagraphSnippet: string | null = null;
+    let matchedFullParagraphText: string | null = null;
     let matchedEvidenceObj: RetrievalEvidence | null = null;
 
     for (const ev of matchingEvidences) {
@@ -165,12 +166,14 @@ export function validateResponseCitations(params: {
         const foundPara = ev.citationParagraphs.find(cp => cp.paragraphIndex === rawParaIndex && cp.isAuthentic);
         if (foundPara) {
           matchedParagraphSnippet = foundPara.textSnippet;
+          matchedFullParagraphText = foundPara.fullParagraphText || foundPara.textSnippet;
           matchedEvidenceObj = ev;
           break;
         }
       } else {
         // Citation sans numéro de paragraphe mais sermon authentifié dans l'Evidence
         matchedEvidenceObj = ev;
+        matchedFullParagraphText = ev.text;
         break;
       }
     }
@@ -182,7 +185,71 @@ export function validateResponseCitations(params: {
         sermonId: rawSermonId,
         paragraphIndex: rawParaIndex,
         isValid: false,
-        reason: `Le paragraphe §${rawParaIndex} n'est pas présent dans les preuves fournies pour le sermon ${rawSermonId}.`
+        reason: `Le paragraphe §${rawParaIndex} n'est pas présent dans les preuves fournies pour le document ${rawSermonId}.`
+      });
+      continue;
+    }
+
+    // Étape 5 : Validation du texte cité entre guillemets contre le paragraphe entier
+    const matchIndex = match.index ?? responseText.indexOf(rawMatch);
+    const textBefore = responseText.slice(Math.max(0, matchIndex - 400), matchIndex).trim();
+    
+    // Extraction de la citation textuelle précédant la référence (supporte fragments contigus ou uniques)
+    let extractedQuote: string | null = null;
+    const multiGuillemetsMatch = textBefore.match(/(«[^»]+»(?:\s*(?:puis|et|\.{3}|…|,)?\s*«[^»]+»)+)\s*$/);
+    if (multiGuillemetsMatch) {
+      const subQuotes = [...multiGuillemetsMatch[1].matchAll(/«\s*([^»]+?)\s*»/g)].map(m => m[1].trim());
+      extractedQuote = subQuotes.join(' ... ');
+    } else {
+      const guillemetsMatch = textBefore.match(/«\s*([^»]+?)\s*»\s*$/);
+      if (guillemetsMatch) {
+        extractedQuote = guillemetsMatch[1].trim();
+      } else {
+        const quotesMatch = textBefore.match(/"\s*([^"]+?)\s*"\s*$/);
+        if (quotesMatch) {
+          extractedQuote = quotesMatch[1].trim();
+        }
+      }
+    }
+
+    let isQuoteAuthentic = true;
+    if (extractedQuote && matchedFullParagraphText) {
+      const cleanQuote = extractedQuote
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^\w\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      const cleanFullPara = matchedFullParagraphText
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^\w\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      if (cleanQuote.length > 8 && !cleanFullPara.includes(cleanQuote)) {
+        // Test sur sous-segments si coupure avec ellipses ou fragments fusionnés
+        const subParts = cleanQuote.split(/\s*(?:\.{3}|…)\s*/).filter(p => p.length > 6);
+        const matchesSubParts = subParts.length > 0 && subParts.every(p => cleanFullPara.includes(p));
+        if (!matchesSubParts) {
+          isQuoteAuthentic = false;
+        }
+      }
+    }
+
+    if (!isQuoteAuthentic) {
+      invalidCitationCount++;
+      citations.push({
+        rawMatch,
+        sermonId: rawSermonId,
+        paragraphIndex: rawParaIndex,
+        isValid: false,
+        quotedText: extractedQuote || undefined,
+        isQuoteAuthentic: false,
+        reason: `Le texte cité entre guillemets ne correspond pas au contenu du paragraphe intégral §${rawParaIndex}.`
       });
       continue;
     }
@@ -194,7 +261,9 @@ export function validateResponseCitations(params: {
       sermonId: rawSermonId,
       paragraphIndex: rawParaIndex,
       isValid: true,
-      reason: 'Citation authentifiée avec succès contre les preuves documentaires du contexte.',
+      quotedText: extractedQuote || undefined,
+      isQuoteAuthentic: true,
+      reason: 'Citation authentifiée avec succès contre le paragraphe intégral du document.',
       matchedEvidence: matchedEvidenceObj ? {
         sermonId: matchedEvidenceObj.sermonId,
         sermonTitle: matchedEvidenceObj.sermonTitle,

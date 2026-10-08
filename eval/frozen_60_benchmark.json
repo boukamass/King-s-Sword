@@ -1,0 +1,492 @@
+[
+  {
+    "id": "frozen_1",
+    "question": "En quoi la semence de la femme s'oppose-t-elle à la semence de la bête dans la vision finale ?",
+    "expectedDocuments": [
+      "expose-ch-4",
+      "expose-ch-10"
+    ],
+    "category": "doctrine"
+  },
+  {
+    "id": "frozen_2",
+    "question": "Que représente le caillou blanc sur lequel est gravé un nom nouveau connu de lui seul ?",
+    "expectedDocuments": [
+      "expose-ch-5"
+    ],
+    "category": "paraphrase"
+  },
+  {
+    "id": "frozen_3",
+    "question": "Qui est Irénée et pourquoi est-il retenu comme messager du deuxième âge ?",
+    "expectedDocuments": [
+      "expose-ch-4"
+    ],
+    "category": "recherche_passage_precis"
+  },
+  {
+    "id": "frozen_4",
+    "question": "Comment l'auteur explique-t-il la verge de fer donnée au vainqueur dans Thyatire ?",
+    "expectedDocuments": [
+      "expose-ch-6"
+    ],
+    "category": "enseignement_precis"
+  },
+  {
+    "id": "frozen_5",
+    "question": "Quel rôle Martin Luther a-t-il joué dans la résurrection spirituelle de Sardes ?",
+    "expectedDocuments": [
+      "expose-ch-7"
+    ],
+    "category": "recherche_passage_precis"
+  },
+  {
+    "id": "frozen_6",
+    "question": "Pourquoi l'Église de Philadelphie est-elle dite avoir peu de force mais avoir gardé la Parole ?",
+    "expectedDocuments": [
+      "expose-ch-8"
+    ],
+    "category": "information_explicite"
+  },
+  {
+    "id": "frozen_7",
+    "question": "Comment le Christ se tient-il à la porte et frappe-t-il dans l'âge final de Laodicée ?",
+    "expectedDocuments": [
+      "expose-ch-9"
+    ],
+    "category": "doctrine"
+  },
+  {
+    "id": "frozen_8",
+    "question": "Quelles sont les voix des sept tonnerres mentionnées en relation avec l'apôtre Jean ?",
+    "expectedDocuments": [
+      "expose-ch-10"
+    ],
+    "category": "information_explicite"
+  },
+  {
+    "id": "frozen_9",
+    "question": "Quelle est l'origine du péché originel et comment la chair a-t-elle été souillée ?",
+    "expectedDocuments": [
+      "expose-ch-3"
+    ],
+    "category": "paraphrase"
+  },
+  {
+    "id": "frozen_10",
+    "question": "Qui est Colomban et quel témoignage a-t-il laissé pour l'Âge de Thyatire ?",
+    "expectedDocuments": [
+      "expose-ch-6"
+    ],
+    "category": "recherche_passage_precis"
+  },
+  {
+    "id": "frozen_11",
+    "question": "Que symbolise le vêtement traînant jusqu'aux pieds ceint d'or ?",
+    "expectedDocuments": [
+      "expose-ch-2"
+    ],
+    "category": "information_explicite"
+  },
+  {
+    "id": "frozen_12",
+    "question": "Pourquoi John Wesley est-il désigné comme le messager de Philadelphie ?",
+    "expectedDocuments": [
+      "expose-ch-8"
+    ],
+    "category": "enseignement_precis"
+  },
+  {
+    "id": "frozen_13",
+    "question": "Comment la révélation de Jésus-Christ est-elle la clé de toute l'Écriture ?",
+    "expectedDocuments": [
+      "expose-ch-1"
+    ],
+    "category": "doctrine"
+  },
+  {
+    "id": "frozen_14",
+    "question": "Quelle est la promesse faite au vainqueur concernant le trône de Dieu ?",
+    "expectedDocuments": [
+      "expose-ch-9",
+      "expose-ch-10"
+    ],
+    "category": "plusieurs_passages"
+  },
+  {
+    "id": "frozen_15",
+    "question": "Quelle est la définition et la signification des œuvres des Nicolaïtes dans l'Âge d'Éphèse ?",
+    "expectedDocuments": [
+      "expose-ch-3"
+    ],
+    "category": "information_explicite"
+  },
+  {
+    "id": "frozen_16",
+    "question": "Qui est le messager désigné pour l'Âge de l'Église de Smyrne selon l'Exposé ?",
+    "expectedDocuments": [
+      "expose-ch-4"
+    ],
+    "category": "information_explicite"
+  },
+  {
+    "id": "frozen_17",
+    "question": "À quoi correspondent prophétiquement les dix jours de tribulation mentionnés pour l'Église de Smyrne sous l'empereur Dioclétien ?",
+    "expectedDocuments": [
+      "expose-ch-4"
+    ],
+    "category": "information_explicite"
+  },
+  {
+    "id": "frozen_18",
+    "question": "Qui est le messager suscité par Dieu pour l'Âge de l'Église de Sardes ?",
+    "expectedDocuments": [
+      "expose-ch-7"
+    ],
+    "category": "information_explicite"
+  },
+  {
+    "id": "frozen_19",
+    "question": "Quel a été le rôle de saint Martin de Tours en tant que messager dans l'Âge de Pergame ?",
+    "expectedDocuments": [
+      "expose-ch-5"
+    ],
+    "category": "reformulation"
+  },
+  {
+    "id": "frozen_20",
+    "question": "Comment l'esprit de Jézabel est-il décrit et identifié dans l'Âge de l'Église de Thyatire ?",
+    "expectedDocuments": [
+      "expose-ch-6"
+    ],
+    "category": "reformulation"
+  },
+  {
+    "id": "frozen_21",
+    "question": "De quelle manière l'alliance néfaste entre l'institution religieuse et l'empire séculier s'est-elle concrétisée au concile de Nicée en 325 ?",
+    "expectedDocuments": [
+      "expose-ch-5"
+    ],
+    "category": "paraphrase"
+  },
+  {
+    "id": "frozen_22",
+    "question": "En quoi consiste la porte ouverte que personne ne peut fermer accordée à l'âge de l'amour fraternel ?",
+    "expectedDocuments": [
+      "expose-ch-8"
+    ],
+    "category": "paraphrase"
+  },
+  {
+    "id": "frozen_23",
+    "question": "Comment l'Exposé démontre-t-il la Divinité suprême de Jésus-Christ en tant que Seul Vrai Dieu, Alpha et Oméga ?",
+    "expectedDocuments": [
+      "expose-ch-1"
+    ],
+    "category": "question_thematique"
+  },
+  {
+    "id": "frozen_24",
+    "question": "Qu'est-ce que la doctrine de Balaam enseignée dans l'Âge de Pergame ?",
+    "expectedDocuments": [
+      "expose-ch-5"
+    ],
+    "category": "question_thematique"
+  },
+  {
+    "id": "frozen_25",
+    "question": "Quelle est la portée spirituelle de la manne cachée et du caillou blanc promis au vainqueur ?",
+    "expectedDocuments": [
+      "expose-ch-5"
+    ],
+    "category": "question_thematique"
+  },
+  {
+    "id": "frozen_26",
+    "question": "Quelle est la racine étymologique et la signification exacte du nom Smyrne selon l'Exposé ?",
+    "expectedDocuments": [
+      "expose-ch-4"
+    ],
+    "category": "recherche_passage_precis"
+  },
+  {
+    "id": "frozen_27",
+    "question": "Que signifie littéralement le mot Pergame dans le contexte de l'histoire de l'Église ?",
+    "expectedDocuments": [
+      "expose-ch-5"
+    ],
+    "category": "recherche_passage_precis"
+  },
+  {
+    "id": "frozen_28",
+    "question": "Quelle est la définition littérale du terme Laodicée et que traduit-elle sur l'état du peuple ?",
+    "expectedDocuments": [
+      "expose-ch-9"
+    ],
+    "category": "recherche_passage_precis"
+  },
+  {
+    "id": "frozen_29",
+    "question": "Que signifie le nom Sardes selon l'Exposé des Sept Âges ?",
+    "expectedDocuments": [
+      "expose-ch-7"
+    ],
+    "category": "recherche_passage_precis"
+  },
+  {
+    "id": "frozen_30",
+    "question": "Comment les Nicolaïtes sont-ils passés du stade d'œuvres dans Éphèse au stade de doctrine établie dans Pergame ?",
+    "expectedDocuments": [
+      "expose-ch-3",
+      "expose-ch-5"
+    ],
+    "category": "plusieurs_passages"
+  },
+  {
+    "id": "frozen_31",
+    "question": "Comment le conflit entre la vraie vigne spirituelle et la fausse vigne charnelle se développe-t-il à travers les âges ?",
+    "expectedDocuments": [
+      "expose-ch-3",
+      "expose-ch-10"
+    ],
+    "category": "plusieurs_passages"
+  },
+  {
+    "id": "frozen_32",
+    "question": "Quels sont les sept messagers des sept âges de l'Église décrits dans l'Exposé ?",
+    "expectedDocuments": [
+      "expose-ch-10"
+    ],
+    "category": "plusieurs_exposes"
+  },
+  {
+    "id": "frozen_33",
+    "question": "Quelle est la particularité commune aux Églises de Smyrne et de Philadelphie quant aux reproches du Seigneur ?",
+    "expectedDocuments": [
+      "expose-ch-4",
+      "expose-ch-8"
+    ],
+    "category": "plusieurs_exposes"
+  },
+  {
+    "id": "frozen_34",
+    "question": "Que représente la vision de l'Étoile du Matin donnée à l'Église de Thyatire ?",
+    "expectedDocuments": [
+      "expose-ch-6"
+    ],
+    "category": "question_ambigue"
+  },
+  {
+    "id": "frozen_35",
+    "question": "Qui sont les sept étoiles tenues dans la main droite du Fils de l'Homme ?",
+    "expectedDocuments": [
+      "expose-ch-1",
+      "expose-ch-2"
+    ],
+    "category": "question_ambigue"
+  },
+  {
+    "id": "frozen_36",
+    "question": "Comment l'Exposé explique-t-il la ceinture d'or que portait le Christ sur la poitrine dans la vision de Patmos ?",
+    "expectedDocuments": [
+      "expose-ch-2"
+    ],
+    "category": "question_ambigue"
+  },
+  {
+    "id": "frozen_37",
+    "question": "Quel était le messager de Dieu pour le premier Âge de l'Église selon l'Exposé ?",
+    "expectedDocuments": [
+      "expose-ch-3"
+    ],
+    "category": "information_explicite"
+  },
+  {
+    "id": "frozen_38",
+    "question": "Qui était le messager pour l'Âge de l'Église de Philadelphie selon l'Exposé ?",
+    "expectedDocuments": [
+      "expose-ch-8"
+    ],
+    "category": "information_explicite"
+  },
+  {
+    "id": "frozen_39",
+    "question": "Quel est le reproche majeur fait par le Seigneur à l'Église de Laodicée concernant sa tiédeur ?",
+    "expectedDocuments": [
+      "expose-ch-9"
+    ],
+    "category": "information_explicite"
+  },
+  {
+    "id": "frozen_40",
+    "question": "Comment l'Exposé décrit-il les yeux comme une flamme de feu dans la vision de Christ à Patmos ?",
+    "expectedDocuments": [
+      "expose-ch-2"
+    ],
+    "category": "reformulation"
+  },
+  {
+    "id": "frozen_41",
+    "question": "En quoi consiste le vêtement blanc promis à ceux qui n'ont pas souillé leurs vêtements dans l'Église de Sardes ?",
+    "expectedDocuments": [
+      "expose-ch-7"
+    ],
+    "category": "paraphrase"
+  },
+  {
+    "id": "frozen_42",
+    "question": "Quelle est la signification de l'épée aiguë à deux tranchants qui sort de la bouche du Fils de l'Homme ?",
+    "expectedDocuments": [
+      "expose-ch-2"
+    ],
+    "category": "question_thematique"
+  },
+  {
+    "id": "frozen_43",
+    "question": "Que signifie le nom Philadelphie d'après l'Exposé des Sept Âges ?",
+    "expectedDocuments": [
+      "expose-ch-8"
+    ],
+    "category": "recherche_passage_precis"
+  },
+  {
+    "id": "frozen_44",
+    "question": "Comment le baptême d'eau au Nom du Seigneur Jésus-Christ est-il expliqué et défendu dans l'Exposé ?",
+    "expectedDocuments": [
+      "expose-ch-0",
+      "expose-ch-1"
+    ],
+    "category": "plusieurs_passages"
+  },
+  {
+    "id": "frozen_45",
+    "question": "Quelle est la véritable nature de la séduction en Éden et de la semence du serpent ?",
+    "expectedDocuments": [
+      "expose-ch-3",
+      "expose-ch-4"
+    ],
+    "category": "enseignement_precis"
+  },
+  {
+    "id": "frozen_46",
+    "question": "Qui est le cavalier sur le cheval blanc dans le premier sceau et que portait-il ?",
+    "expectedDocuments": [
+      "63-0324M",
+      "expose-ch-3"
+    ],
+    "category": "enseignement_precis"
+  },
+  {
+    "id": "frozen_47",
+    "question": "Comment Frère Branham définit-il l'étoile du matin et le chandelier d'or ?",
+    "expectedDocuments": [
+      "expose-ch-2",
+      "expose-ch-6"
+    ],
+    "category": "enseignement_precis"
+  },
+  {
+    "id": "frozen_48",
+    "question": "Comment l'Esprit d'Élie doit-il restaurer la foi transmise aux saints au temps de la fin ?",
+    "expectedDocuments": [
+      "expose-ch-10"
+    ],
+    "category": "doctrine"
+  },
+  {
+    "id": "frozen_49",
+    "question": "Quelle est la signification du baptême d'eau et de la formule apostolique selon l'Exposé ?",
+    "expectedDocuments": [
+      "expose-ch-1"
+    ],
+    "category": "doctrine"
+  },
+  {
+    "id": "frozen_50",
+    "question": "Que déclare l'Exposé dans \"Chapitre 3 - L'Âge de l'Église d'Éphèse\" au sujet de : \"Ces images illustrent de façon parfaite la parabole du Seigneur Jésus-Christ, quand Il a dit que le royaume des cieux es...\" ?",
+    "expectedDocuments": [
+      "expose-ch-3"
+    ],
+    "category": "recherche_passage_precis"
+  },
+  {
+    "id": "frozen_51",
+    "question": "Que déclare l'Exposé dans \"Chapitre 3 - L'Âge de l'Église d'Éphèse\" au sujet de : \"Ces sept messagers font connaître Dieu aux gens. Quiconque les reçoit reçoit Celui qui les a envoyés. Jean 13.20. Ils pa...\" ?",
+    "expectedDocuments": [
+      "expose-ch-3"
+    ],
+    "category": "recherche_passage_precis"
+  },
+  {
+    "id": "frozen_52",
+    "question": "Que déclare l'Exposé dans \"Chapitre 3 - L'Âge de l'Église d'Éphèse\" au sujet de : \"hommes et les femmes s’habillaient comme des chrétiens, qu’ils allaient à l’église, qu’ils priaient toute la nuit, qu’il...\" ?",
+    "expectedDocuments": [
+      "expose-ch-3"
+    ],
+    "category": "recherche_passage_precis"
+  },
+  {
+    "id": "frozen_53",
+    "question": "Que déclare l'Exposé dans \"Chapitre 3 - L'Âge de l'Église d'Éphèse\" au sujet de : \"“L’Arbre de Vie.” N’est-ce pas une belle expression? Elle est utilisée trois fois dans le Livre de la Genèse et trois fo...\" ?",
+    "expectedDocuments": [
+      "expose-ch-3"
+    ],
+    "category": "recherche_passage_precis"
+  },
+  {
+    "id": "frozen_54",
+    "question": "Que déclare l'Exposé dans \"Chapitre 3 - L'Âge de l'Église d'Éphèse\" au sujet de : \"L’intention de Dieu pour Sa création, l’homme, est que ce dernier exprime Ses Paroles. Dans la Genèse, Adam a reçu la Pa...\" ?",
+    "expectedDocuments": [
+      "expose-ch-3"
+    ],
+    "category": "recherche_passage_precis"
+  },
+  {
+    "id": "frozen_55",
+    "question": "Que déclare l'Exposé dans \"Chapitre 4 - L'Âge de l'Église de Smyrne\" au sujet de : \"Le ciel nuageux et les tempêtes de la vie ne sont pas le signe de la désapprobation de Dieu, pas plus que le ciel ensole...\" ?",
+    "expectedDocuments": [
+      "expose-ch-4"
+    ],
+    "category": "recherche_passage_precis"
+  },
+  {
+    "id": "frozen_56",
+    "question": "Que déclare l'Exposé dans \"Chapitre 4 - L'Âge de l'Église de Smyrne\" au sujet de : \"Vous parlez d’hybrides! Savez-vous quel est l’hybride le plus connu au monde? Il est avec nous depuis très longtemps : c...\" ?",
+    "expectedDocuments": [
+      "expose-ch-4"
+    ],
+    "category": "recherche_passage_precis"
+  },
+  {
+    "id": "frozen_57",
+    "question": "Que déclare l'Exposé dans \"Chapitre 4 - L'Âge de l'Église de Smyrne\" au sujet de : \"“Sois fidèle jusqu’à la mort.” Il ne dit pas “jusqu’à ta mort”, mais “jusqu’à la mort”. Il se peut bien que tu doives sc...\" ?",
+    "expectedDocuments": [
+      "expose-ch-4"
+    ],
+    "category": "recherche_passage_precis"
+  },
+  {
+    "id": "frozen_58",
+    "question": "Que déclare l'Exposé dans \"Chapitre 4 - L'Âge de l'Église de Smyrne\" au sujet de : \"Apocalypse 2.11 : “Que celui qui a des oreilles entende ce que l’Esprit dit aux Églises.” Il n’y a pas un seul âge de l’...\" ?",
+    "expectedDocuments": [
+      "expose-ch-4"
+    ],
+    "category": "recherche_passage_precis"
+  },
+  {
+    "id": "frozen_59",
+    "question": "Que déclare l'Exposé dans \"Chapitre 4 - L'Âge de l'Église de Smyrne\" au sujet de : \"Or, il est dit qu’ “Il nous a choisis EN LUI (Jésus) avant la fondation du monde”. Ce qui veut dire que nous étions là, ...\" ?",
+    "expectedDocuments": [
+      "expose-ch-4"
+    ],
+    "category": "recherche_passage_precis"
+  },
+  {
+    "id": "frozen_60",
+    "question": "Que déclare l'Exposé dans \"Chapitre 5 - L'Âge de l'Église de Pergame\" au sujet de : \"L’âge de Pergame a duré environ trois cents ans, de 312 à 606 ap. J.-C....\" ?",
+    "expectedDocuments": [
+      "expose-ch-5"
+    ],
+    "category": "recherche_passage_precis"
+  }
+]

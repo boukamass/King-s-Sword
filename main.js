@@ -611,7 +611,11 @@ function formatChunkRow(row) {
     characterCount: row.character_count,
     wordCount: row.word_count,
     contentHash: row.content_hash,
-    embedding: row.embedding ? Array.from(new Float32Array(row.embedding.buffer)) : null,
+    embedding: row.embedding ? (
+      row.embedding.byteLength === 768 
+        ? new Int8Array(row.embedding.buffer, row.embedding.byteOffset, row.embedding.byteLength)
+        : Array.from(new Float32Array(row.embedding.buffer, row.embedding.byteOffset, row.embedding.byteLength / 4))
+    ) : null,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -629,13 +633,13 @@ ipcMain.handle('db:saveChunks', (event, chunks) => {
     const now = new Date().toISOString();
 
     const insertTx = db.transaction((chunkList) => {
-      const selectStmt = db.prepare('SELECT content_hash FROM sermon_chunks WHERE chunk_id = ?');
+      const selectStmt = db.prepare('SELECT content_hash, (embedding IS NOT NULL) AS has_embedding FROM sermon_chunks WHERE chunk_id = ?');
       const upsertStmt = db.prepare(`
         INSERT INTO sermon_chunks (
           chunk_id, sermon_id, paragraph_ids, start_paragraph, end_paragraph,
           text, sermon_title, date, city, version, character_count, word_count,
-          content_hash, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          content_hash, embedding, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(chunk_id) DO UPDATE SET
           sermon_id = excluded.sermon_id,
           paragraph_ids = excluded.paragraph_ids,
@@ -649,14 +653,55 @@ ipcMain.handle('db:saveChunks', (event, chunks) => {
           character_count = excluded.character_count,
           word_count = excluded.word_count,
           content_hash = excluded.content_hash,
+          embedding = COALESCE(excluded.embedding, sermon_chunks.embedding),
           updated_at = excluded.updated_at
       `);
 
       for (const c of chunkList) {
+        const hasIncomingEmbedding = Boolean(
+          c.embedding && (
+            (Array.isArray(c.embedding) && c.embedding.length > 0) ||
+            (c.embedding instanceof Float32Array && c.embedding.length > 0) ||
+            (c.embedding instanceof Int8Array && c.embedding.length > 0)
+          )
+        );
         const existing = selectStmt.get(c.chunkId);
-        if (existing && existing.content_hash && existing.content_hash === c.contentHash) {
+        if (existing && existing.content_hash && existing.content_hash === c.contentHash && (!hasIncomingEmbedding || existing.has_embedding)) {
           unchanged++;
         } else {
+          let embeddingBlob = null;
+          if (hasIncomingEmbedding) {
+            let vec = null;
+            if (Array.isArray(c.embedding)) {
+              vec = c.embedding;
+            } else if (c.embedding instanceof Float32Array || c.embedding instanceof Int8Array) {
+              vec = Array.from(c.embedding);
+            } else if (typeof c.embedding === 'object' && c.embedding !== null) {
+              vec = Object.values(c.embedding);
+            }
+
+            if (vec && vec.length === 3072) {
+              let isValid = true;
+              for (let i = 0; i < 3072; i++) {
+                const val = vec[i];
+                if (typeof val !== 'number' || !Number.isFinite(val) || Number.isNaN(val)) {
+                  isValid = false;
+                  break;
+                }
+              }
+              if (isValid) {
+                const float32 = new Float32Array(vec);
+                embeddingBlob = Buffer.from(float32.buffer, float32.byteOffset, float32.byteLength); // 12288 octets
+              } else {
+                console.warn(`[DB] Embedding invalide (NaN/Infinity) rejeté pour chunk ${c.chunkId}`);
+              }
+            } else if (vec && vec.length === 768 && c.embedding instanceof Int8Array) {
+              embeddingBlob = Buffer.from(c.embedding.buffer, c.embedding.byteOffset, c.embedding.byteLength);
+            } else if (vec) {
+              console.warn(`[DB] Dimension d'embedding invalide (${vec.length} != 3072) rejetée pour chunk ${c.chunkId}`);
+            }
+          }
+
           upsertStmt.run(
             c.chunkId,
             c.sermonId,
@@ -671,6 +716,7 @@ ipcMain.handle('db:saveChunks', (event, chunks) => {
             c.characterCount || (c.text ? c.text.length : 0),
             c.wordCount || 0,
             c.contentHash || '',
+            embeddingBlob,
             c.createdAt || now,
             now
           );

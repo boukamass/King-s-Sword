@@ -18,7 +18,7 @@ import {
 } from 'docx';
 import saveAs from 'file-saver';
 import { Note, CitationHighlight } from '../types';
-import { processNoteData } from '../utils/noteFormatter';
+import { processNoteData, stripMarkdown } from '../utils/noteFormatter';
 import { splitQuoteIntoHighlightedSegments, HIGHLIGHT_HEX_MAP } from '../utils/highlightUtils';
 
 /**
@@ -241,7 +241,7 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
           new Paragraph({
             children: [
               new TextRun({
-                text: pText,
+                text: stripMarkdown(pText),
                 size: 22, // 11pt
                 color: "1E293B",
                 font: "Calibri"
@@ -284,7 +284,7 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
                           alignment: AlignmentType.CENTER,
                           children: [
                             new TextRun({
-                              text: item.text,
+                              text: stripMarkdown(item.text),
                               bold: true,
                               size: 20,
                               color: primaryColor,
@@ -452,7 +452,7 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
                           alignment: AlignmentType.CENTER,
                           children: [
                             new TextRun({
-                              text: item.text,
+                              text: stripMarkdown(item.text),
                               bold: true,
                               size: 20,
                               color: "B45309", // Warm Amber Dark
@@ -500,7 +500,7 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
                               font: "Calibri"
                             }),
                             new TextRun({
-                              text: item.text,
+                              text: stripMarkdown(item.text),
                               italics: true,
                               size: 19,
                               color: "334155",
@@ -619,7 +619,7 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
                           alignment: AlignmentType.CENTER,
                           children: [
                             new TextRun({
-                              text: item.text,
+                              text: stripMarkdown(item.text),
                               bold: true,
                               size: 20,
                               color: secondaryColor,
@@ -667,7 +667,7 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
                               font: "Calibri"
                             }),
                             new TextRun({
-                              text: item.text,
+                              text: stripMarkdown(item.text),
                               italics: true,
                               size: 19,
                               color: "334155",
@@ -755,6 +755,151 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
       }
     }
 
+    // 4.5. SECTION CONCORDANCE & EXÉGÈSE STRONG
+    if (processed.strongItems && processed.strongItems.length > 0) {
+      childrenElements.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `CONCORDANCE & EXÉGÈSE STRONG (${processed.strongItems.length})`,
+              bold: true,
+              size: 20,
+              color: primaryColor,
+              font: "Arial"
+            })
+          ],
+          spacing: { before: 360, after: 180 }
+        })
+      );
+
+      for (const item of processed.strongItems) {
+        const strongTable = new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          rows: [
+            new TableRow({
+              children: [
+                new TableCell({
+                  children: [
+                    new Paragraph({
+                      children: [
+                        new TextRun({
+                          text: `Strong ${item.strongNumber} : ${stripMarkdown(item.word)} `,
+                          bold: true,
+                          size: 21,
+                          color: "0F172A",
+                          font: "Arial"
+                        }),
+                        ...(item.original ? [
+                          new TextRun({
+                            text: `(${stripMarkdown(item.original)}) `,
+                            size: 20,
+                            color: primaryColor,
+                            font: "Calibri"
+                          })
+                        ] : []),
+                        new TextRun({
+                          text: `— [${stripMarkdown(item.pronunciation)}] (${item.type === 'hebrew' ? 'Hébreu' : 'Grec'})`,
+                          size: 19,
+                          color: mutedColor,
+                          font: "Calibri"
+                        })
+                      ],
+                      spacing: { before: 60, after: 60 }
+                    }),
+                    new Paragraph({
+                      children: [
+                        new TextRun({
+                          text: "Définition Littérale : ",
+                          bold: true,
+                          size: 19,
+                          color: primaryColor,
+                          font: "Calibri"
+                        }),
+                        new TextRun({
+                          text: stripMarkdown(item.definition),
+                          size: 20,
+                          color: "334155",
+                          font: "Georgia"
+                        })
+                      ],
+                      spacing: { before: 40, after: 40 }
+                    }),
+                    ...(item.messageContext ? [
+                      new Paragraph({
+                        children: [
+                          new TextRun({
+                            text: "Éclairage dans le Message : ",
+                            bold: true,
+                            size: 19,
+                            color: primaryColor,
+                            font: "Calibri"
+                          }),
+                          new TextRun({
+                            text: stripMarkdown(item.messageContext),
+                            italics: true,
+                            size: 20,
+                            color: "1E293B",
+                            font: "Georgia"
+                          })
+                        ],
+                        spacing: { before: 40, after: 40 }
+                      })
+                    ] : []),
+                    ...(item.originVerseRef && item.originVerseText ? [
+                      new Paragraph({
+                        children: [
+                          new TextRun({
+                            text: `Verset d'origine (${item.originVerseRef}) : « ${stripMarkdown(item.originVerseText)} »`,
+                            italics: true,
+                            size: 19,
+                            color: "475569",
+                            font: "Georgia"
+                          })
+                        ],
+                        spacing: { before: 40, after: 40 }
+                      })
+                    ] : []),
+                    new Paragraph({
+                      alignment: AlignmentType.RIGHT,
+                      children: [
+                        new TextRun({
+                          text: `Concordance Strong${item.sourceIndex ? ` [${item.sourceIndex}]` : ''}`,
+                          bold: true,
+                          size: 18,
+                          color: primaryColor,
+                          font: "Arial"
+                        })
+                      ],
+                      spacing: { before: 60, after: 60 }
+                    })
+                  ],
+                  shading: {
+                    type: ShadingType.CLEAR,
+                    fill: "F8FAFC",
+                    color: "auto"
+                  },
+                  borders: {
+                    left: {
+                      style: BorderStyle.SINGLE,
+                      size: 24,
+                      color: primaryColor
+                    },
+                    top: { style: BorderStyle.NONE },
+                    right: { style: BorderStyle.NONE },
+                    bottom: { style: BorderStyle.NONE }
+                  },
+                  margins: { top: 140, bottom: 140, left: 200, right: 200 }
+                })
+              ]
+            })
+          ]
+        });
+
+        childrenElements.push(strongTable);
+        childrenElements.push(new Paragraph({ spacing: { after: 180 } }));
+      }
+    }
+
     // 5. SECTION DICTIONNAIRE & LEXIQUE BIBLIQUE
     if (processed.definitionItems && processed.definitionItems.length > 0) {
       childrenElements.push(
@@ -783,7 +928,7 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
                     new Paragraph({
                       children: [
                         new TextRun({
-                          text: item.word,
+                          text: stripMarkdown(item.word),
                           bold: true,
                           size: 22,
                           color: "0F172A",
@@ -795,7 +940,7 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
                     new Paragraph({
                       children: [
                         new TextRun({
-                          text: item.definition,
+                          text: stripMarkdown(item.definition),
                           size: 21,
                           color: "334155",
                           font: "Georgia"
@@ -807,7 +952,7 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
                       new Paragraph({
                         children: [
                           new TextRun({
-                            text: `Étymologie : ${item.etymology}`,
+                            text: `Étymologie : ${stripMarkdown(item.etymology)}`,
                             italics: true,
                             size: 19,
                             color: "64748B",

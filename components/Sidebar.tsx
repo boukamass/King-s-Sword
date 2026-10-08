@@ -16,7 +16,6 @@ import {
   Check,
   ArrowRight, 
   Headphones, 
-  Sparkles, 
   MapPin, 
   Loader2, 
   RefreshCw, 
@@ -38,7 +37,8 @@ import {
   Megaphone,
   SlidersHorizontal,
   Star,
-  Bookmark
+  Bookmark,
+  Heart
 } from 'lucide-react';
 
 import { Song } from '../types';
@@ -384,7 +384,7 @@ const SermonItem = memo(({
       className="px-3 flex items-center relative border-b border-slate-200/60 dark:border-slate-800/40 last:border-0"
     >
       <div 
-        className={`group w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-300 cursor-pointer h-[72px] ${
+        className={`group w-full flex items-center gap-2.5 p-3 rounded-xl transition-all duration-300 cursor-pointer h-[72px] ${
           isSelected 
             ? 'bg-teal-600/15 dark:bg-teal-600/25 ring-1 ring-teal-600/30 shadow-md' 
             : isContextSelected
@@ -393,29 +393,28 @@ const SermonItem = memo(({
         }`}
         onClick={(e) => onSelect(e.ctrlKey || e.metaKey)}
       >
+        {/* Case à cocher d'ajout au dock IA (uniformisée avec la Bible) */}
+        <div 
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleContext(e.ctrlKey || e.metaKey);
+          }}
+          data-tooltip={isContextSelected ? "Retirer du dock IA" : "Ajouter le sermon au dock IA"}
+          className={`w-4 h-4 rounded-md border transition-all flex items-center justify-center shrink-0 tooltip-right ${
+            isContextSelected
+              ? 'bg-teal-600 border-teal-600 text-white shadow-lg shadow-teal-600/20' 
+              : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 group-hover:border-teal-600/50'
+          }`}
+        >
+          {isContextSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+        </div>
+
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-1 mb-1">
             <span className={`text-[12px] font-extrabold truncate transition-colors ${isSelected ? 'text-teal-700 dark:text-blue-400' : 'text-zinc-900 dark:text-zinc-100 group-hover:text-teal-700 dark:group-hover:text-teal-400'}`}>
               {sermon.title || "Sermon sans titre"}
             </span>
             <div className="flex items-center gap-1.5 shrink-0">
-              {/* Icône d'ajout à l'assistant IA placée juste avant l'icône audio */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onToggleContext(e.ctrlKey || e.metaKey);
-                }}
-                data-tooltip={isContextSelected ? "Retirer de l'assistant IA" : "Ajouter à l'assistant IA"}
-                className={`w-5 h-5 rounded-md transition-all flex items-center justify-center shrink-0 cursor-pointer ${
-                  isContextSelected
-                    ? 'bg-teal-600 text-white shadow-xs scale-105' 
-                    : 'text-zinc-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/40'
-                }`}
-                title={isContextSelected ? "Retirer de l'assistant IA" : "Ajouter à l'assistant IA"}
-              >
-                <Sparkles className="w-3 h-3 stroke-[2.5]" />
-              </button>
               {sermon.audio_url && <Headphones className="w-2.5 h-2.5 text-teal-500 tooltip-right" data-tooltip="Audio disponible" />}
               {sermon.version && (
                 <span className="text-[7px] font-black bg-zinc-100 dark:bg-zinc-800 text-zinc-500 px-1.5 py-0.5 rounded-lg border border-zinc-200 dark:border-zinc-700 uppercase tracking-tighter">
@@ -458,7 +457,9 @@ const BibleBookItem = memo(({
   selectedChapter,
   onSelectChapter,
   isBookInDock,
-  onToggleBookInDock
+  onToggleBookInDock,
+  isChapterInDock,
+  onToggleChapterInDock
 }: {
   book: BibleBookMeta;
   isExpanded: boolean;
@@ -468,6 +469,8 @@ const BibleBookItem = memo(({
   onSelectChapter: (ch: number) => void;
   isBookInDock: boolean;
   onToggleBookInDock: () => void;
+  isChapterInDock?: (ch: number) => boolean;
+  onToggleChapterInDock?: (ch: number) => void;
 }) => {
   const isThisBookActive = selectedBookId === book.id;
 
@@ -494,7 +497,7 @@ const BibleBookItem = memo(({
                 : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 group-hover:border-teal-600/50'
             }`}
           >
-            {isBookInDock && <Sparkles className="w-2.5 h-2.5 stroke-[3]" />}
+            {isBookInDock && <Check className="w-2.5 h-2.5 stroke-[3]" />}
           </div>
 
           <div className="min-w-0">
@@ -537,18 +540,36 @@ const BibleBookItem = memo(({
           <div className="grid grid-cols-6 sm:grid-cols-8 gap-1 p-0.5">
             {Array.from({ length: book.chaptersCount }, (_, i) => i + 1).map((ch) => {
               const isSelected = isThisBookActive && selectedChapter === ch;
+              const isChInDock = isChapterInDock ? isChapterInDock(ch) : false;
               return (
                 <button
                   key={ch}
-                  onClick={() => onSelectChapter(ch)}
-                  className={`h-6.5 rounded-lg text-[9.5px] font-black flex items-center justify-center transition-all active:scale-90 ${
+                  onClick={(e) => {
+                    if (e.ctrlKey || e.metaKey) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onToggleChapterInDock?.(ch);
+                    } else {
+                      onSelectChapter(ch);
+                    }
+                  }}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    onToggleChapterInDock?.(ch);
+                  }}
+                  className={`h-6.5 rounded-lg text-[9.5px] font-black flex items-center justify-center transition-all active:scale-90 relative ${
                     isSelected
                       ? 'bg-teal-600 text-white shadow-md shadow-teal-600/30 ring-2 ring-teal-500/40'
-                      : 'bg-white dark:bg-zinc-800/90 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-700/60 hover:border-teal-500 hover:text-teal-600 dark:hover:text-teal-400 shadow-2xs'
+                      : isChInDock
+                        ? 'bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-500/50 shadow-2xs font-extrabold'
+                        : 'bg-white dark:bg-zinc-800/90 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-700/60 hover:border-teal-500 hover:text-teal-600 dark:hover:text-teal-400 shadow-2xs'
                   }`}
-                  data-tooltip={`${book.name} ${ch}`}
+                  data-tooltip={`${book.name} ${ch}${isChInDock ? ' (Dans le Dock IA)' : ''} — Clic : Lire | Ctrl+Clic ou Clic droit : Dock IA`}
                 >
                   {ch}
+                  {isChInDock && (
+                    <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-teal-500 rounded-full ring-1 ring-white dark:ring-zinc-900" />
+                  )}
                 </button>
               );
             })}
@@ -707,15 +728,14 @@ const SongItem = memo(({
         </button>
         <button
           onClick={onToggleContext}
-          data-tooltip={isContextSelected ? "Retirer du contexte IA" : "Ajouter au contexte IA"}
-          data-tooltip-icon="sparkles"
+          data-tooltip={isContextSelected ? "Retirer du dock IA" : "Ajouter au dock IA"}
           className={`p-1.5 rounded-lg transition-all border border-transparent shadow-2xs ${
             isContextSelected 
               ? 'text-teal-600 bg-teal-50 dark:bg-teal-950/50 border-teal-200/50 dark:border-teal-800/50' 
               : 'text-zinc-400 hover:text-teal-600 hover:bg-white dark:hover:bg-zinc-800 hover:border-slate-200 dark:hover:border-zinc-700'
           }`}
         >
-          <Sparkles className="w-3.5 h-3.5" />
+          <Layers className="w-3.5 h-3.5" />
         </button>
       </div>
     </div>
@@ -1488,7 +1508,7 @@ const Sidebar: React.FC = () => {
               Version :
             </span>
             <div className="flex items-center gap-1 bg-slate-200/60 dark:bg-zinc-900 p-0.5 rounded-lg border border-slate-300/40 dark:border-zinc-800">
-              {(['lsg1910', 'darby', 'kjv'] as BibleVersion[]).map((v) => {
+              {(['lsg1910', 'darby', 'kjv', 'amp'] as BibleVersion[]).map((v) => {
                 const meta = BIBLE_VERSIONS_META[v];
                 const isActive = bibleVersion === v;
                 return (
@@ -1695,14 +1715,13 @@ const Sidebar: React.FC = () => {
                 <button 
                   onClick={handleToggleAllToContext}
                   data-tooltip={areAllItemsInDock ? "Tout retirer du dock IA" : "Tout ajouter au dock IA"}
-                  data-tooltip-icon="sparkles"
                   className={`w-7.5 h-7.5 flex items-center justify-center rounded-lg border transition-all active:scale-95 shadow-sm ${
                     areAllItemsInDock 
                       ? 'bg-amber-500 border-amber-600 text-white shadow-amber-500/20' 
                       : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-teal-600 hover:bg-teal-50 dark:hover:bg-zinc-700'
                   }`}
                 >
-                  <Sparkles className={`w-3.5 h-3.5 ${areAllItemsInDock ? 'animate-pulse' : ''}`} />
+                  <Layers className={`w-3.5 h-3.5 ${areAllItemsInDock ? 'animate-pulse' : ''}`} />
                 </button>
                 
                 {libraryMode === 'sermons' && (
@@ -1742,7 +1761,7 @@ const Sidebar: React.FC = () => {
              <div className="flex flex-col gap-2.5 p-2.5 bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-800/30 rounded-xl animate-in slide-in-from-top-2 duration-300">
                 <div className="flex items-center justify-between">
                    <div className="flex items-center gap-1.5">
-                     <Sparkles className="w-3 h-3 text-amber-600" />
+                     <SlidersHorizontal className="w-3 h-3 text-amber-600" />
                      <span className="text-[8px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-500">Filtrage des segments</span>
                    </div>
                    <button 
@@ -1848,32 +1867,6 @@ const Sidebar: React.FC = () => {
                     >
                       Nouveau (27)
                     </button>
-                  </div>
-
-                  <div className="flex flex-wrap gap-1">
-                    <button
-                      onClick={() => setBibleCategoryFilter(null)}
-                      className={`px-2 py-0.5 rounded text-[7.5px] font-black uppercase border transition-all ${
-                        bibleCategoryFilter === null
-                          ? 'bg-teal-600 text-white border-teal-600'
-                          : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500'
-                      }`}
-                    >
-                      Toutes catégories
-                    </button>
-                    {bibleCategories.map(cat => (
-                      <button
-                        key={cat}
-                        onClick={() => setBibleCategoryFilter(bibleCategoryFilter === cat ? null : cat)}
-                        className={`px-2 py-0.5 rounded text-[7.5px] font-bold border transition-all ${
-                          bibleCategoryFilter === cat
-                            ? 'bg-teal-600 text-white border-teal-600 shadow-xs'
-                            : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-teal-500'
-                        }`}
-                      >
-                        {cat}
-                      </button>
-                    ))}
                   </div>
                 </div>
               ) : libraryMode === 'sermons' ? (
@@ -1996,10 +1989,26 @@ const Sidebar: React.FC = () => {
                       if (isBookInDock) {
                         const newManual = manualContextIds.filter(id => !id.startsWith(`bible-${book.id}-`));
                         setManualContextIds(newManual);
+                        addNotification(`Livre de ${book.name} retiré du dock IA`, 'info');
                       } else {
                         const bookAllId = `bible-${book.id}-all`;
                         const newManual = Array.from(new Set([...manualContextIds, bookAllId]));
                         setManualContextIds(newManual);
+                        addNotification(`Livre de ${book.name} ajouté au dock IA`, 'success');
+                      }
+                    }}
+                    isChapterInDock={(ch) => manualContextIds.includes(`bible-${book.id}-${ch}`) || manualContextIds.includes(`bible-${book.id}-all`)}
+                    onToggleChapterInDock={(ch) => {
+                      const chapterId = `bible-${book.id}-${ch}`;
+                      const isChInDock = manualContextIds.includes(chapterId) || manualContextIds.includes(`bible-${book.id}-all`);
+                      if (isChInDock) {
+                        const newManual = manualContextIds.filter(id => id !== chapterId && id !== `bible-${book.id}-all`);
+                        setManualContextIds(newManual);
+                        addNotification(`${book.name} ${ch} retiré du dock IA`, 'info');
+                      } else {
+                        const newManual = Array.from(new Set([...manualContextIds, chapterId]));
+                        setManualContextIds(newManual);
+                        addNotification(`${book.name} ${ch} ajouté au dock IA`, 'success');
                       }
                     }}
                   />
@@ -2164,6 +2173,17 @@ const Sidebar: React.FC = () => {
                 </span>
                 <span className="w-1 h-1 bg-teal-500/40 rounded-full" />
                 <span>© 2026 Tous droits réservés</span>
+              </div>
+
+              <div className="flex items-center justify-center gap-2.5 mt-2 pt-2 border-t border-slate-200/60 dark:border-zinc-800/60 w-full">
+                <button
+                  type="button"
+                  onClick={() => useAppStore.getState().toggleDonationModal()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold text-rose-700 dark:text-rose-300 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 border border-rose-200/80 dark:border-rose-800/60 transition-all cursor-pointer shadow-2xs group"
+                >
+                  <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500/20 group-hover:scale-110 transition-transform" />
+                  <span>Soutenir le projet</span>
+                </button>
               </div>
 
               <button

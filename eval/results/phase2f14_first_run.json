@@ -1,11 +1,11 @@
 {
-  "timestamp": "2026-10-04T15:51:45.372Z",
+  "timestamp": "2026-10-05T09:04:31.366Z",
   "phase": "2F.14",
   "title": "Indexation Automatique du Corpus au Premier Lancement",
-  "status": "FIRST_RUN_INDEXING_READY",
+  "status": "FIRST_RUN_INDEXING_FAILED",
   "totalTests": 10,
-  "passCount": 10,
-  "failCount": 0,
+  "passCount": 4,
+  "failCount": 6,
   "detectedCorpusLocation": {
     "web": "/library.json",
     "electron": "window.electronAPI.db / process.resourcesPath / library.json"
@@ -34,17 +34,17 @@
   "scenariosTested": [
     {
       "title": "Premier lancement : 4 sermons découpés en 16 chunks indexés avec succès (READY)",
-      "status": "PASS",
+      "status": "FAIL",
       "details": ""
     },
     {
       "title": "Deuxième lancement : 0 embedding créé, 16/16 réutilisés sans appel Gemini inutiles",
-      "status": "PASS",
+      "status": "FAIL",
       "details": ""
     },
     {
       "title": "Modification d'un sermon : Seul le chunk modifié est ré-indexé (1 créé, 15 réutilisés)",
-      "status": "PASS",
+      "status": "FAIL",
       "details": ""
     },
     {
@@ -54,7 +54,7 @@
     },
     {
       "title": "Reprise d'indexation : Seul le chunk avec embedding NULL est régénéré",
-      "status": "PASS",
+      "status": "FAIL",
       "details": ""
     },
     {
@@ -64,7 +64,7 @@
     },
     {
       "title": "Reprise automatique post-erreur : l'index retrouve l'état READY avec succès",
-      "status": "PASS",
+      "status": "FAIL",
       "details": ""
     },
     {
@@ -74,7 +74,7 @@
     },
     {
       "title": "Corpus déjà indexé : L'état READY est conservé de manière persistante",
-      "status": "PASS",
+      "status": "FAIL",
       "details": ""
     },
     {

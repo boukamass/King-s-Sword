@@ -44,8 +44,27 @@ import {
   ChevronDown,
   Pencil,
   Check,
-  Undo2
+  Undo2,
+  Copy
 } from 'lucide-react';
+
+export function extractFollowUpQuestions(content: string): string[] {
+  if (!content || (!content.includes('Pistes') && !content.includes('💡') && !content.includes('approfondissement'))) {
+    return [];
+  }
+  const parts = content.split(/###\s*(?:💡\s*)?Pistes d'approfondissement/i);
+  if (parts.length < 2) return [];
+  const section = parts[1];
+  const lines = section.split('\n');
+  const questions: string[] = [];
+  for (const line of lines) {
+    const trimmed = line.trim().replace(/^[-*•\d.)\s]+/, '').trim();
+    if (trimmed.endsWith('?') && trimmed.length > 8) {
+      questions.push(trimmed);
+    }
+  }
+  return questions.slice(0, 3);
+}
 
 interface ChatMessageWithSources extends ChatMessage {
   sources?: GeminiSource[];
@@ -85,6 +104,7 @@ const AIAssistant: React.FC = () => {
     setSelectedSermonId,
     setJumpToText,
     setJumpToParagraph,
+    setLibraryMode,
     addNotification
   } = useAppStore();
   
@@ -98,6 +118,11 @@ const AIAssistant: React.FC = () => {
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [hasKey, setHasKey] = useState(hasValidGeminiApiKey());
+  const [retrievalStats, setRetrievalStats] = useState<{ lastMethod: string; totalQueries: number; fallbackCount: number }>({
+    lastMethod: '',
+    totalQueries: 0,
+    fallbackCount: 0
+  });
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -370,34 +395,90 @@ const AIAssistant: React.FC = () => {
     return { chars: totalChars, tokens: estimatedTokens };
   }, [contextSermonIds, selectedSermonsMetadata]);
 
-  // Transforme les balises de référence [Réf: ID_SERMON, Para. N] en liens interactifs cliquables
+  // Transforme les balises de référence [Réf: ID_SERMON, Para. N], [Réf: expose-ch-N, §P], etc. en liens interactifs cliquables
   const formatAIResponse = (text: string) => {
-    const formattedText = text.replace(/\[Réf:\s*([a-zA-Z0-9_-]+)(?:,\s*Para\.?\s*(\d+))?\]/gi, (match, sermonId, paraNum) => {
-      const cleanId = (sermonId || '').trim();
-      const pNum = paraNum ? parseInt(paraNum, 10) : 1;
+    // Supprimer la section "💡 Pistes d'approfondissement" du corps du message pour ne pas l'inclure dans la réponse texte
+    const textWithoutPistes = (text || '').replace(/(?:#{1,4}\s*(?:💡\s*)?(?:Pistes d'approfondissement|Pistes d'etude|Questions de reflexion|Pistes d'exploration|Pistes d'approfondissement suggérées)[\s\S]*)/i, '').trim();
+
+    // Regex universelle pour capturer toutes les variantes de citations dans le corps du texte
+    // Exemples: [Réf: 63-0324M, §2], [Réf: expose-ch-4, §151], [Réf: expose-ch-8, Para. 98], (Réf: 65-1212, §10), [63-0324M, §5], etc.
+    const refRegex = /(?:\[|\()(?:\s*Réf\.?\s*:\s*)?([a-zA-Z0-9_-]+)(?:[,\s]+(?:§|Para\.?|Paragraphe|Page|p\.|v\.|verset)?\s*(\d+))?\s*(?:\]|\))/gi;
+
+    const formattedText = textWithoutPistes.replace(refRegex, (match, rawDocId, rawParaNum) => {
+      const cleanId = (rawDocId || '').trim();
+      const pNum = rawParaNum ? parseInt(rawParaNum, 10) : 1;
+      
+      // Validation : Est-ce un ID documentaire valide ou reconnu ?
+      const isExpose = cleanId.startsWith('expose-ch-') || cleanId.startsWith('expose-pg-') || cleanId.startsWith('expose-');
+      const isBible = cleanId.startsWith('bible-');
+      const isSong = cleanId.startsWith('song-');
+      const isStandardSermonDate = /^\d{2}-\d{4}[A-Za-z]?/i.test(cleanId);
       
       // Recherche du sermon dans les métadonnées (exact ou avec préfixe de date/version)
       const foundSermon = 
         selectedSermonsMetadata.find(s => s.id === cleanId || s.id.startsWith(cleanId) || cleanId.startsWith(s.id)) ||
         sermons.find(s => s.id === cleanId || s.id.startsWith(cleanId) || cleanId.startsWith(s.id));
 
-      const titleDisplay = foundSermon ? `${foundSermon.title} (${foundSermon.date})` : cleanId;
-      const targetId = foundSermon ? foundSermon.id : cleanId;
+      if (!isExpose && !isBible && !isSong && !isStandardSermonDate && !foundSermon) {
+        // Ce n'est pas une référence documentaire, ne pas modifier
+        return match;
+      }
 
-      return `<a href="#" data-sermon-id="${targetId}" data-para-num="${pNum}" class="sermon-ref inline-flex items-center gap-1.5 px-2 py-0.5 bg-teal-600/10 dark:bg-teal-400/15 text-teal-800 dark:text-teal-200 rounded-md text-[9px] font-black hover:bg-teal-600/25 transition-all border border-teal-600/20 mx-1 align-middle shadow-xs cursor-pointer"><span>📖 §${pNum} — ${titleDisplay}</span></a>`;
+      let titleDisplay = cleanId;
+      if (isExpose) {
+        if (cleanId.startsWith('expose-ch-')) {
+          const chNum = cleanId.replace('expose-ch-', '');
+          titleDisplay = `Exposé - Chapitre ${chNum}`;
+        } else if (cleanId.startsWith('expose-pg-')) {
+          const pgNum = cleanId.replace('expose-pg-', '');
+          titleDisplay = `Exposé - Page ${pgNum}`;
+        } else {
+          titleDisplay = `Exposé des Sept Âges`;
+        }
+      } else if (isBible) {
+        const parts = cleanId.split('-');
+        const bookCode = parts[1] || '';
+        const meta = BIBLE_BOOKS_META.find(b => b.id.toUpperCase() === bookCode.toUpperCase());
+        const bName = meta ? meta.name : bookCode;
+        const ch = parts[2] || '1';
+        titleDisplay = `${bName} ${ch}`;
+      } else if (isSong) {
+        const sNum = cleanId.replace('song-', '');
+        titleDisplay = `Cantique #${sNum}`;
+      } else if (foundSermon) {
+        titleDisplay = `${foundSermon.title} (${foundSermon.date})`;
+      }
+
+      const targetId = foundSermon ? foundSermon.id : cleanId;
+      const paraLabel = rawParaNum ? `§${pNum}` : '';
+
+      return `<a href="#" data-sermon-id="${targetId}" data-para-num="${pNum}" class="sermon-ref inline-flex items-center gap-1 px-2 py-0.5 bg-teal-600/10 dark:bg-teal-400/15 text-teal-800 dark:text-teal-200 rounded-md text-[9.5px] font-black hover:bg-teal-600/25 transition-all border border-teal-600/20 mx-1 align-middle shadow-xs cursor-pointer select-none group/badge" title="Ouvrir dans le lecteur (${titleDisplay})"><span>📖 ${paraLabel ? `${paraLabel} — ` : ''}${titleDisplay}</span></a>`;
     });
+
     return marked(formattedText, { breaks: true });
   };
   
-  // Gestion du clic sur une référence ou un lien interne vers un sermon
+  // Gestion du clic sur une référence ou un lien interne vers un sermon / document
   const handleContentClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     const link = target.closest('a.sermon-ref, [data-sermon-id]') as HTMLElement;
     if (link && link.dataset.sermonId) {
       e.preventDefault();
+      e.stopPropagation();
       const sId = link.dataset.sermonId;
       const paraNumStr = link.dataset.paraNum;
       
+      // Basculer sur le bon mode de bibliothèque pour afficher la vue correspondante
+      if (sId.startsWith('expose-')) {
+        setLibraryMode('expose');
+      } else if (sId.startsWith('bible-')) {
+        setLibraryMode('bible');
+      } else if (sId.startsWith('song-')) {
+        setLibraryMode('songs');
+      } else {
+        setLibraryMode('sermons');
+      }
+
       setSelectedSermonId(sId);
       if (paraNumStr) {
         const num = parseInt(paraNumStr, 10);
@@ -483,8 +564,9 @@ const AIAssistant: React.FC = () => {
   }, [pendingStudyRequest, activeSermon, chatKey, t.ai_deep_study]);
 
   // Envoi d'une question par l'utilisateur
-  const handleSend = async () => {
-    if (!input.trim() || isTyping) return;
+  const handleSend = async (textToSend?: string) => {
+    const rawText = typeof textToSend === 'string' ? textToSend : input;
+    if (!rawText.trim() || isTyping) return;
     
     // En mode Dock, vérifier qu'au moins une ressource a été sélectionnée
     if (assistantMode === 'dock' && contextSermonIds.length === 0) {
@@ -492,8 +574,8 @@ const AIAssistant: React.FC = () => {
       return;
     }
 
-    const msg = input.trim();
-    setInput('');
+    const msg = rawText.trim();
+    if (!textToSend) setInput('');
 
     // Mise à jour automatique du titre de la conversation si c'est encore "Nouvelle discussion"
     if (currentConversation.title === 'Nouvelle discussion') {
@@ -510,19 +592,53 @@ const AIAssistant: React.FC = () => {
         // MODE RAG AUTOMATIQUE SUR L'ENSEMBLE DES SERMONS / AI CONTEXT
         // ==============================================================
         if (aiConfig.featureFlags.useUnifiedRag || aiConfig.featureFlags.useHybridRetrieval) {
-          const autoRagContext = Array.from(sermonsMap.keys());
+          // Inclut systématiquement le corpus complet de l'Exposé (11 chapitres) et tous les sermons disponibles
+          const exposeChapters = Array.from({ length: 11 }, (_, i) => `expose-ch-${i}`);
+          const sermonIds = Array.from(new Set([...Array.from(sermonsMap.keys()), ...sermons.map(s => s.id)]));
+          const autoRagContext = Array.from(new Set([...exposeChapters, ...sermonIds]));
 
           setTypingStatus(`Recherche unifiée dans ${autoRagContext.length} ressource(s)...`);
 
           const unifiedResult = await executeUnifiedRagAssistantFlow(msg, autoRagContext, {
             loadedSermonsMap: sermonsMap,
-            bibleVersion
+            bibleVersion,
+            maxEvidenceCount: 8,
+            topK: 15
+          });
+
+          // Enregistrement télémétrique du mode de retrieval et taux de repli
+          const isSemanticMethod = Boolean(unifiedResult.vectorMethod?.startsWith('cosine'));
+          setRetrievalStats(prev => {
+            const newTotal = prev.totalQueries + 1;
+            const newFallback = isSemanticMethod ? prev.fallbackCount : prev.fallbackCount + 1;
+            const fallbackRate = (newFallback / newTotal) * 100;
+            console.log(`[RAG_TELEMETRY] Mode: ${unifiedResult.vectorMethod || 'deterministic'} | Taux de repli: ${fallbackRate.toFixed(1)}% (${newFallback}/${newTotal})`);
+            return {
+              lastMethod: unifiedResult.vectorMethod || 'deterministic_overlap',
+              totalQueries: newTotal,
+              fallbackCount: newFallback
+            };
           });
 
           if (unifiedResult.status === 'not_answerable' || !unifiedResult.evidencePackage.answerable) {
+            const pkg = unifiedResult.evidencePackage;
+            const isUnreliableClose = pkg.refusalCategory === 'unreliable_close_passages' || (pkg.closestPassages && pkg.closestPassages.length > 0);
+
+            let refusalText = '';
+            if (isUnreliableClose) {
+              refusalText = `⚠️ **Passages proches trouvés mais peu fiables (signal partiel)** :\n${pkg.reason || "Des passages proches ont été trouvés dans le corpus, mais le signal documentaire reste trop partiel pour garantir une réponse doctrinale certaine."}`;
+              if (pkg.closestPassages && pkg.closestPassages.length > 0) {
+                refusalText += `\n\n📌 **Passages les plus proches trouvés dans le corpus :**\n` + 
+                  pkg.closestPassages.slice(0, 3).map((cp, idx) => `> **${idx + 1}. ${cp.title}**\n> « ${cp.textSnippet} »`).join('\n\n');
+              }
+              refusalText += `\n\n💡 *Souhaitez-vous que je réponde avec réserve sur la base de ces extraits proches, ou préférez-vous reformuler votre question / élargir votre sélection documentaire ?*`;
+            } else {
+              refusalText = `🔍 **Aucun passage lié trouvé** :\n${pkg.reason || "Aucun passage lié à cette question n'a été trouvé dans les documents sélectionnés. Le sujet demandé ne figure pas dans le corpus indexé."}\n\n💡 *Vérifiez les termes employés ou ajoutez des documents appropriés à l'étude.*`;
+            }
+
             const abstentionMsg: ChatMessageWithSources = {
               role: 'assistant',
-              content: `🔍 **Information documentaire** : ${unifiedResult.evidencePackage.reason || "Les documents disponibles dans la base documentaire de l'application ne contiennent pas d'informations suffisantes pour répondre à cette question."}`,
+              content: refusalText,
               timestamp: new Date().toISOString(),
             };
             addChatMessage(chatKey, abstentionMsg);
@@ -601,14 +717,45 @@ const AIAssistant: React.FC = () => {
 
           const unifiedResult = await executeUnifiedRagAssistantFlow(msg, contextSermonIds, {
             loadedSermonsMap: sermonsMap,
-            bibleVersion
+            bibleVersion,
+            maxEvidenceCount: 8,
+            topK: 15
+          });
+
+          // Enregistrement télémétrique du mode de retrieval et taux de repli
+          const isSemanticMethod = Boolean(unifiedResult.vectorMethod?.startsWith('cosine'));
+          setRetrievalStats(prev => {
+            const newTotal = prev.totalQueries + 1;
+            const newFallback = isSemanticMethod ? prev.fallbackCount : prev.fallbackCount + 1;
+            const fallbackRate = (newFallback / newTotal) * 100;
+            console.log(`[RAG_TELEMETRY] Dock Mode: ${unifiedResult.vectorMethod || 'deterministic'} | Taux de repli: ${fallbackRate.toFixed(1)}% (${newFallback}/${newTotal})`);
+            return {
+              lastMethod: unifiedResult.vectorMethod || 'deterministic_overlap',
+              totalQueries: newTotal,
+              fallbackCount: newFallback
+            };
           });
 
           // RÈGLE : Non-answerable strict
           if (unifiedResult.status === 'not_answerable' || !unifiedResult.evidencePackage.answerable) {
+            const pkg = unifiedResult.evidencePackage;
+            const isUnreliableClose = pkg.refusalCategory === 'unreliable_close_passages' || (pkg.closestPassages && pkg.closestPassages.length > 0);
+
+            let refusalText = '';
+            if (isUnreliableClose) {
+              refusalText = `⚠️ **Passages proches trouvés mais peu fiables (signal partiel)** :\n${pkg.reason || "Les ressources sélectionnées dans le Dock IA contiennent des passages proches, mais le signal documentaire reste trop partiel pour garantir une réponse doctrinale certaine."}`;
+              if (pkg.closestPassages && pkg.closestPassages.length > 0) {
+                refusalText += `\n\n📌 **Passages les plus proches trouvés dans le contexte :**\n` + 
+                  pkg.closestPassages.slice(0, 3).map((cp, idx) => `> **${idx + 1}. ${cp.title}**\n> « ${cp.textSnippet} »`).join('\n\n');
+              }
+              refusalText += `\n\n💡 *Souhaitez-vous que je réponde avec réserve sur la base de ces extraits proches, ou préférez-vous reformuler votre question / ajouter d'autres documents au Dock IA ?*`;
+            } else {
+              refusalText = `🔍 **Aucun passage lié trouvé** :\n${pkg.reason || "Aucun passage lié à cette question n'a été trouvé dans les documents sélectionnés. Le sujet demandé ne figure pas dans les ressources choisies."}\n\n💡 *Vérifiez les termes employés ou ajoutez d'autres documents pertinents au Dock IA.*`;
+            }
+
             const abstentionMsg: ChatMessageWithSources = {
               role: 'assistant',
-              content: `🔍 **Information documentaire** : ${unifiedResult.evidencePackage.reason || "Les ressources sélectionnées dans le Dock IA ne contiennent pas d'informations suffisantes pour répondre à cette question."}`,
+              content: refusalText,
               timestamp: new Date().toISOString(),
             };
             addChatMessage(chatKey, abstentionMsg);
@@ -676,8 +823,8 @@ const AIAssistant: React.FC = () => {
       }
     } catch (e: any) {
       let displayMessage = e?.message || "Une erreur est survenue lors de l'analyse.";
-      if (displayMessage.includes("Failed to call the Gemini API")) {
-        displayMessage = "❌ Impossible de joindre les serveurs Google Gemini. Veuillez vérifier votre connexion Internet ou votre clé API.";
+      if (displayMessage.includes("Failed to call the Gemini API") || displayMessage.includes("Google Gemini")) {
+        displayMessage = "❌ Connexion au service d'analyse IA impossible. Veuillez vérifier votre connexion Internet ou votre clé d'accès.";
       }
       addChatMessage(chatKey, { 
         role: 'assistant', 
@@ -707,44 +854,12 @@ const AIAssistant: React.FC = () => {
           <div className="w-7 h-7 flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-lg border border-teal-600/20 shadow-lg group-hover/ai-title:border-teal-600/40 transition-all">
             <Sparkles className="w-4 h-4" />
           </div>
-          <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-900 dark:text-zinc-50 leading-none group-hover/ai-title:text-teal-600 transition-colors">ASSISTANT IA</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-900 dark:text-zinc-50 leading-none group-hover/ai-title:text-teal-600 transition-colors">ASSISTANT IA</h2>
+          </div>
         </div>
         
         <div className="flex items-center gap-1.5">
-          {/* Bouton Nouveau Chat (+) */}
-          <button 
-            onClick={handleCreateNewChat}
-            data-tooltip="Nouveau chat (+)"
-            className="w-7 h-7 flex items-center justify-center text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/50 hover:bg-teal-100 dark:hover:bg-teal-900/50 border border-teal-200 dark:border-teal-800 transition-all rounded-lg active:scale-95 cursor-pointer shadow-2xs"
-          >
-            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-          </button>
-
-          {/* Bouton Liste des discussions */}
-          <button 
-            onClick={() => setIsConversationsDrawerOpen(prev => !prev)}
-            data-tooltip="Toutes les discussions"
-            className={`w-7 h-7 flex items-center justify-center transition-all rounded-lg border active:scale-90 cursor-pointer ${
-              isConversationsDrawerOpen 
-                ? 'bg-teal-600 text-white border-teal-600 shadow-xs' 
-                : 'text-zinc-500 hover:text-teal-600 bg-zinc-100 dark:bg-zinc-800/80 border-zinc-200 dark:border-zinc-700'
-            }`}
-          >
-            <MessageSquare className="w-3.5 h-3.5" />
-          </button>
-
-          {/* Bouton Effacer la discussion courante */}
-          {history.length > 0 && (
-            <button 
-              onClick={() => handleClearChat(activeConvId)}
-              data-tooltip="Effacer cette discussion"
-              data-tooltip-icon="trash"
-              className="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-red-500 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 active:scale-90 cursor-pointer"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          )}
-
           <button 
             onClick={() => setIsApiKeyModalOpen(true)}
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-bold transition-all border ${
@@ -752,7 +867,7 @@ const AIAssistant: React.FC = () => {
                 ? 'bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800' 
                 : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800 animate-pulse'
             }`}
-            data-tooltip="Configurer ma clé Google Gemini"
+            data-tooltip="Gérer la clé d'accès IA"
           >
             <Key className="w-3 h-3" />
             <span>{hasKey ? 'Clé Active' : 'Activer IA'}</span>
@@ -823,13 +938,14 @@ const AIAssistant: React.FC = () => {
           </div>
         )}
 
+        {/* Bouton + pour démarrer une nouvelle discussion */}
         <button
+          type="button"
           onClick={handleCreateNewChat}
-          data-tooltip="Créer un nouveau chat (+)"
-          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-[10px] font-bold shadow-xs active:scale-95 cursor-pointer shrink-0"
+          data-tooltip="Démarrer une nouvelle discussion"
+          className="w-7 h-7 flex items-center justify-center bg-teal-600 hover:bg-teal-500 text-white rounded-lg transition-colors cursor-pointer shrink-0 shadow-sm active:scale-95 ml-1"
         >
-          <Plus className="w-3 h-3 stroke-[2.5]" />
-          <span>Nouveau</span>
+          <Plus className="w-4 h-4" />
         </button>
       </div>
 
@@ -843,9 +959,19 @@ const AIAssistant: React.FC = () => {
             <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500">
               Discussions sauvegardées ({conversations.length})
             </span>
-            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-              Disponible hors-ligne
-            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={handleCreateNewChat}
+                className="flex items-center gap-1 px-2 py-0.5 rounded bg-teal-600/10 text-teal-600 dark:text-teal-400 border border-teal-600/20 text-[9px] font-bold hover:bg-teal-600 hover:text-white hover:border-teal-600 transition-all cursor-pointer"
+                data-tooltip="Créer une nouvelle discussion"
+              >
+                <Plus className="w-2.5 h-2.5" />
+                <span>Nouveau</span>
+              </button>
+              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                Disponible hors-ligne
+              </span>
+            </div>
           </div>
 
           {conversations.length > 3 && (
@@ -961,50 +1087,9 @@ const AIAssistant: React.FC = () => {
         </div>
       )}
 
-      {/* Connection & Engine Status Banner */}
-      <div className="px-5 py-2 bg-zinc-100/70 dark:bg-zinc-900/60 border-b border-zinc-200/50 dark:border-zinc-800/50 flex items-center justify-between text-[10px]">
-        <div className="flex items-center gap-2">
-          {isOnline ? (
-            <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
-              <Wifi className="w-3 h-3" />
-              <span>En ligne</span>
-            </span>
-          ) : (
-            <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-semibold">
-              <WifiOff className="w-3 h-3" />
-              <span>Hors-ligne</span>
-            </span>
-          )}
-          <span className="text-zinc-300 dark:text-zinc-700">•</span>
-          <span className="text-zinc-500 dark:text-zinc-400">
-            {isOnline && hasKey ? 'Moteur : Gemini Flash' : 'Moteur : Index Local'}
-          </span>
-        </div>
-        <button 
-          onClick={() => setIsApiKeyModalOpen(true)}
-          data-tooltip="Gérer les clés API Google Gemini"
-          className="text-teal-600 dark:text-teal-400 hover:underline font-bold text-[9px] uppercase tracking-wider"
-        >
-          {hasKey ? 'Gérer' : '+ Clé Google'}
-        </button>
-      </div>
-
-      {/* Sélecteur de Mode : Bibliothèque Entière (Auto RAG) vs Dock IA (Manuel) */}
+      {/* Sélecteur de Mode : Dock IA (Manuel) */}
       <div className="p-2 border-b border-zinc-200/60 dark:border-zinc-800/60 bg-white/40 dark:bg-zinc-900/40">
         <div className="flex p-1 bg-zinc-200/70 dark:bg-zinc-800/70 rounded-xl gap-1">
-          <button
-            onClick={() => setAssistantMode('auto-rag')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-              assistantMode === 'auto-rag'
-                ? 'bg-white dark:bg-zinc-900 text-teal-700 dark:text-teal-300 shadow-sm'
-                : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
-            }`}
-            data-tooltip="Recherche automatique dans tous les sermons de la bibliothèque"
-          >
-            <Library className="w-3.5 h-3.5 text-teal-600" />
-            <span>Tous les sermons (Auto RAG)</span>
-          </button>
-          
           <button
             onClick={() => setAssistantMode('dock')}
             className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
@@ -1019,17 +1104,7 @@ const AIAssistant: React.FC = () => {
           </button>
         </div>
 
-        {assistantMode === 'auto-rag' ? (
-          <div className="mt-1.5 px-2 flex items-center justify-between text-[9px] text-zinc-500">
-            <span className="flex items-center gap-1">
-              <Search className="w-2.5 h-2.5 text-teal-600" />
-              Recherche FTS5 automatique sur l'ensemble des sermons
-            </span>
-            <span className="font-semibold text-teal-600 dark:text-teal-400">
-              {sermons.length} sermons indexés
-            </span>
-          </div>
-        ) : (
+        {assistantMode === 'auto-rag' ? null : (
           <div className="mt-2 shrink-0">
             <div className="flex items-center justify-between mb-1.5 px-1">
               <div className="flex items-center gap-2 min-w-0">
@@ -1057,7 +1132,7 @@ const AIAssistant: React.FC = () => {
             <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
               {selectedSermonsMetadata.length === 0 ? (
                 <div className="w-full py-2 px-3 bg-zinc-100/50 dark:bg-zinc-800/40 rounded-xl text-[10px] text-zinc-400 italic text-center">
-                  Aucun sermon dans le dock. Ajoutez-en un depuis la bibliothèque ou basculez sur "Tous les sermons".
+                  Aucun document dans le dock. Ajoutez un sermon ou un passage biblique depuis la bibliothèque.
                 </div>
               ) : (
                 selectedSermonsMetadata.map((s) => {
@@ -1183,27 +1258,60 @@ const AIAssistant: React.FC = () => {
                   </div>
                 )}
 
-                {/* Bouton d'export vers le journal de notes */}
+                {/* Actions rapides sur la réponse assistant (Notes & Copie) */}
                 {msg.role === 'assistant' && (
-                  <button 
-                    onClick={() => setNoteSelectorData({ 
-                      text: msg.content, 
-                      sermon: { 
-                        id: `ia-${Date.now()}`, 
-                        title: assistantMode === 'auto-rag' ? 'Étude IA — RAG Sermons' : 'Réponse Assistant IA', 
-                        date: new Date().toISOString().split('T')[0], 
-                        city: 'Recherche Exégétique', 
-                        text: '' 
-                      } 
-                    })} 
-                    className="absolute -right-2 -bottom-2 w-8 h-8 flex items-center justify-center rounded-xl bg-white dark:bg-zinc-800 text-zinc-400 hover:text-teal-600 opacity-0 group-hover:opacity-100 transition-all shadow-xl border border-zinc-100 dark:border-zinc-700 z-10 cursor-pointer"
-                    data-tooltip="Ajouter cette réponse au journal de notes"
-                    data-tooltip-icon="notes"
-                  >
-                    <Notebook className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="absolute -right-2 -bottom-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all z-10">
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(msg.content);
+                        addNotification("Réponse copiée dans le presse-papier", "success");
+                      }}
+                      className="w-7 h-7 flex items-center justify-center rounded-xl bg-white dark:bg-zinc-800 text-zinc-400 hover:text-teal-600 transition-all shadow-md border border-zinc-100 dark:border-zinc-700 cursor-pointer"
+                      data-tooltip="Copier la réponse complète"
+                    >
+                      <Copy className="w-3 h-3" />
+                    </button>
+                    <button 
+                      onClick={() => setNoteSelectorData({ 
+                        text: msg.content, 
+                        sermon: { 
+                          id: `ia-${Date.now()}`, 
+                          title: assistantMode === 'auto-rag' ? 'Étude IA — RAG Sermons' : 'Réponse Assistant IA', 
+                          date: new Date().toISOString().split('T')[0], 
+                          city: 'Recherche Exégétique', 
+                          text: '' 
+                        } 
+                      })} 
+                      className="w-7 h-7 flex items-center justify-center rounded-xl bg-white dark:bg-zinc-800 text-zinc-400 hover:text-teal-600 transition-all shadow-md border border-zinc-100 dark:border-zinc-700 cursor-pointer"
+                      data-tooltip="Ajouter cette réponse au journal de notes"
+                      data-tooltip-icon="notes"
+                    >
+                      <Notebook className="w-3 h-3" />
+                    </button>
+                  </div>
                 )}
               </div>
+
+              {/* Pistes d'approfondissement interactives 1-clic */}
+              {msg.role === 'assistant' && extractFollowUpQuestions(msg.content).length > 0 && (
+                <div className="mt-2 flex flex-col gap-1 w-full pl-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <span className="text-[8px] font-black uppercase tracking-wider text-teal-700 dark:text-teal-400 flex items-center gap-1">
+                    <Sparkles className="w-2.5 h-2.5" /> Pistes d'approfondissement suggérées :
+                  </span>
+                  <div className="flex flex-col gap-1 mt-0.5 max-w-[94%]">
+                    {extractFollowUpQuestions(msg.content).map((q, qIdx) => (
+                      <button
+                        key={qIdx}
+                        onClick={() => handleSend(q)}
+                        className="text-left px-2.5 py-1.5 rounded-xl bg-white/80 dark:bg-zinc-800/80 border border-teal-600/20 hover:border-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/50 text-teal-900 dark:text-teal-200 text-[10.5px] font-semibold transition-all cursor-pointer shadow-2xs hover:shadow-xs flex items-center gap-1.5"
+                      >
+                        <span className="text-teal-600 font-bold shrink-0">💡</span>
+                        <span className="truncate">{q}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="flex items-center gap-2 mt-1.5 px-3 opacity-30">
                 <span className="text-[7px] font-black uppercase tracking-[0.3em] text-zinc-500">
                   {msg.role === 'user' ? 'Étudiant' : 'Assistant IA'} • {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
@@ -1253,7 +1361,7 @@ const AIAssistant: React.FC = () => {
             }}
           />
           <button 
-            onClick={handleSend}
+            onClick={() => handleSend()}
             disabled={!input.trim() || isTyping || (assistantMode === 'dock' && contextSermonIds.length === 0)}
             className="w-8 h-8 flex items-center justify-center bg-teal-600 text-white rounded-[16px] hover:bg-teal-700 disabled:opacity-20 transition-all shrink-0 shadow-md active:scale-95 cursor-pointer"
             data-tooltip="Envoyer la question"

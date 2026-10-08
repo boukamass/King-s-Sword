@@ -1,6 +1,6 @@
 # RAPPORT DE TEST DU MOTEUR D'INDEXATION INCRÉMENTALE (PHASE 2F.7B.1)
 
-**Date d'Exécution** : 10/4/2026, 3:51:02 PM  
+**Date d'Exécution** : 10/7/2026, 10:16:06 AM  
 **Statut Feature Flags** : `useLegacyRetrieval: true` | `useHybridRetrieval: false` (Comportement de prod intact)  
 **Corpus de Test** : 10 chunks sous-ensemble du corpus de développement  
 

@@ -19,6 +19,7 @@ import { createLibraryChunks, computeChunkHash, parseSermonParagraphs } from './
 import { saveChunks, getAllChunks, saveChunk } from './chunkStorageService';
 import { runIncrementalEmbeddingIndexing, EmbeddingIndexResult } from './embeddingIndexService';
 import { validateEmbeddingVector } from './embeddingService';
+import { loadExposeAsSermons } from './exposeDocumentService';
 import { getGeminiApiKey } from '../utils/apiKeyHelper';
 import { get, set } from 'idb-keyval';
 
@@ -162,6 +163,21 @@ export async function detectAvailableCorpus(
     }
   }
 
+  // 4. Intégration systématique du corpus complet de l'Exposé des Sept Âges (11 chapitres)
+  try {
+    const exposeSermons = await loadExposeAsSermons();
+    if (exposeSermons && exposeSermons.length > 0) {
+      const existingIds = new Set(sermons.map(s => s.id));
+      for (const es of exposeSermons) {
+        if (!existingIds.has(es.id)) {
+          sermons.push(es);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[CorpusIndexInit] Erreur chargement Exposé:', e);
+  }
+
   // Calcul du hash de version du corpus
   const sermonIds = sermons.map(s => s.id).sort().join(',');
   const corpusVersion = `v1-${sermons.length}-${sermonIds.substring(0, 32)}`;
@@ -233,7 +249,7 @@ export async function initializeCorpusIndex(options: {
     for (const chunk of officialChunks) {
       const stored = existingMap.get(chunk.chunkId);
       if (stored && stored.contentHash === computeChunkHash(chunk.sermonId, chunk.paragraphIds, chunk.text)) {
-        if (stored.embedding && validateEmbeddingVector(stored.embedding, 3072).valid) {
+        if (stored.embedding && (validateEmbeddingVector(stored.embedding, 768).valid || validateEmbeddingVector(stored.embedding, 3072).valid)) {
           alreadyValidCount++;
         }
       }
