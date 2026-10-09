@@ -1,6 +1,6 @@
 {
   "name": "kings-sword",
-  "version": "2.8.18",
+  "version": "2.8.21",
   "description": "Logiciel d'étude des sermons de W.M. Branham",
   "main": "main.js",
   "author": "Bienvenu Massamba & Gastin Ngakosso",
@@ -105,11 +105,24 @@
       "dist/**/*",
       "main.js",
       "preload.js",
-      "package.json"
+      "package.json",
+      "!**/node_modules/@xenova/transformers/.cache/**",
+      "!models/**"
+    ],
+    "extraResources": [
+      {
+        "from": "models",
+        "to": "models"
+      }
     ],
     "directories": {
       "output": "release",
       "buildResources": "public"
+    },
+    "linux": {
+      "target": [
+        "dir"
+      ]
     },
     "win": {
       "target": [

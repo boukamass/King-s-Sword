@@ -36,7 +36,7 @@ import { rerankHybridResults, assessAnswerability, extractSignificantQueryTerms,
 import { expandTheologicalQuery } from './theologicalQueryService';
 import { searchByVector, embedQueryText } from './vectorSearchService';
 import { getChunksBySermonId } from './chunkStorageService';
-import { EMBEDDING_CONFIG } from './embeddingService';
+import { EMBEDDING_CONFIG, computeE5Embedding } from './embeddingService';
 import { getGeminiApiKey } from '../utils/apiKeyHelper';
 import { detectQueryIntent, logQueryIntent } from './queryIntentService';
 import { normalizeText, splitSermonIntoParagraphs, extractLeadingParagraphNumber } from '../utils/textUtils';
@@ -698,60 +698,59 @@ export async function executeUnifiedRagPipeline(
     matchedParagraphIds: item.chunk.paragraphIds
   }));
 
-  // 3. Recherche vectorielle sémantique 3072D STRICTEMENT sur les chunks autorisés
+  // 3. Recherche vectorielle sémantique locale E5 (384D Int8) STRICTEMENT sur les chunks autorisés
   let vectorHits: Array<{ chunk: SermonChunk; score: number; rank: number }> = [];
-  let vectorMethod: 'cosine_768d_int8' | 'cosine_768d_float32' | 'cosine_3072d' | 'none' = 'none';
+  let vectorMethod: 'e5_384d_int8' | 'cosine_3072d' | 'none' = 'none';
   let queryVectorUsed = false;
   let queryVectorDim = 0;
 
   if (Array.isArray(options.mockVectorHits) && options.mockVectorHits.length > 0) {
     const allowedIds = new Set(allowedChunks.map(c => c.chunkId));
     vectorHits = options.mockVectorHits.filter(h => allowedIds.has(h.chunk?.chunkId));
-    vectorMethod = 'cosine_3072d';
+    vectorMethod = 'e5_384d_int8';
     queryVectorUsed = true;
-    queryVectorDim = 3072;
+    queryVectorDim = 384;
   } else {
-    // Filtrage des chunks autorisés possédant un embedding précalculé
-    const chunksWithEmbeddings = allowedChunks.filter(c => 
-      (Array.isArray(c.embedding) && c.embedding.length > 0) ||
-      (c.embedding instanceof Float32Array && c.embedding.length > 0) ||
-      (c.embedding instanceof Int8Array && c.embedding.length > 0)
-    );
-    const activeApiKey = options.apiKey || (typeof window !== 'undefined' ? getGeminiApiKey() : '') || process.env.API_KEY || '';
+    try {
+      let qVec: Int8Array | Float32Array | number[] | null = options.queryVector || null;
 
-    if (options.queryVector || activeApiKey) {
-      try {
-        let qVec: number[] | Float32Array | Int8Array | null = options.queryVector || null;
-
-        if (!qVec && activeApiKey) {
-          qVec = await embedQueryText(cleanQuery, activeApiKey, {
-            dimension: EMBEDDING_CONFIG.defaultDimension, // 3072D
-            taskType: 'RETRIEVAL_QUERY'
-          });
-        }
-
-        if (qVec && qVec.length > 0) {
-          queryVectorUsed = true;
-          queryVectorDim = qVec.length;
-
-          if (chunksWithEmbeddings.length > 0) {
-            const vecResults = searchByVector(qVec, chunksWithEmbeddings, {
-              topK: 40
-            });
-            if (vecResults.length > 0) {
-              vectorHits = vecResults.map((item, idx) => ({
-                chunk: item.chunk,
-                score: item.score,
-                rank: idx + 1
-              }));
-              const isInt8 = chunksWithEmbeddings[0].embedding instanceof Int8Array;
-              vectorMethod = isInt8 ? 'cosine_768d_int8' : (qVec.length === 768 ? 'cosine_768d_float32' : 'cosine_3072d');
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('[UnifiedRAG] Erreur lors de la génération de l\'embedding de requête 3072D:', err);
+      if (!qVec) {
+        // Encodage local E5 384D Int8 avec préfixe "query: " et normalisation L2
+        qVec = await computeE5Embedding(cleanQuery, 'query: ');
       }
+
+      if (qVec && qVec.length === 384) {
+        queryVectorUsed = true;
+        queryVectorDim = 384;
+
+        // E5 accepte uniquement les chunks avec un vecteur E5 (384 octets Int8)
+        const validE5Chunks = allowedChunks.filter(c => {
+          if (!c.embedding) return false;
+          if (c.embedding instanceof Int8Array && c.embedding.length === 384) return true;
+          if (Array.isArray(c.embedding) && c.embedding.length === 384) return true;
+          // BLOB Gemini de 12288 octets (3072D) ou 768D Float32 sont ignorés
+          return false;
+        });
+
+        if (validE5Chunks.length > 0) {
+          const vecResults = searchByVector(qVec, validE5Chunks, { topK: 40 });
+          if (vecResults.length > 0) {
+            vectorHits = vecResults.map((item, idx) => ({
+              chunk: item.chunk,
+              score: item.score,
+              rank: idx + 1
+            }));
+            vectorMethod = 'e5_384d_int8';
+          }
+        } else {
+          console.warn('[UnifiedRAG] Aucun chunk avec embedding E5 (384D Int8) disponible.');
+          console.warn('[UnifiedRAG] VECTOR_UNAVAILABLE → BM25_ONLY');
+        }
+      } else {
+        console.warn('[UnifiedRAG] VECTOR_UNAVAILABLE → BM25_ONLY');
+      }
+    } catch (err) {
+      console.warn('[UnifiedRAG] VECTOR_UNAVAILABLE → BM25_ONLY', err);
     }
   }
 

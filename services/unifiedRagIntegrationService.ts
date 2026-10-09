@@ -228,14 +228,23 @@ export async function executeUnifiedRagAssistantFlow(
   ).catch(() => {});
 
   // 5. Validation des citations et contrôle d'exposition d'identifiants techniques
-  const exposureCheck = detectTechnicalIdentifierExposure(genResult.answerText);
-  const citationsValidation = validateResponseCitations({
-    responseText: genResult.answerText,
-    evidencePackage
-  });
+  const isRefusal = genResult.sourcesSuffisantes === false;
+  const exposureCheck = isRefusal 
+    ? { exposed: false, identifiers: [] } 
+    : detectTechnicalIdentifierExposure(genResult.answerText);
+    
+  const citationsValidation = isRefusal 
+    ? null 
+    : validateResponseCitations({
+        responseText: genResult.answerText,
+        evidencePackage
+      });
 
-  let finalAnswerText = cleanPistesDapprofondissement(genResult.answerText);
-  if ((isStudy || isAllPassages) && evidencePackage.evidence.length > 0) {
+  let finalAnswerText = isRefusal 
+    ? genResult.answerText 
+    : cleanPistesDapprofondissement(genResult.answerText);
+
+  if (!isRefusal && (isStudy || isAllPassages) && evidencePackage.evidence.length > 0) {
     const docIds = Array.from(new Set(evidencePackage.evidence.map(e => e.sermonId)));
     const uniqueDocsCount = docIds.length;
     const passagesCount = evidencePackage.evidence.length;
@@ -259,7 +268,7 @@ export async function executeUnifiedRagAssistantFlow(
     citationsValidation,
     chunkIdExposure: exposureCheck.exposed,
     technicalIdentifiersDetected: exposureCheck.identifiers,
-    sources: genResult.sources,
+    sources: isRefusal ? [] : (genResult.sources || []),
     latencyMs,
     errorMessage: null,
     vectorMethod: evidencePackage.vectorMethod

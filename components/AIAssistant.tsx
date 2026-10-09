@@ -45,7 +45,8 @@ import {
   Pencil,
   Check,
   Undo2,
-  Copy
+  Copy,
+  Square
 } from 'lucide-react';
 
 export function extractFollowUpQuestions(content: string): string[] {
@@ -95,6 +96,7 @@ const AIAssistant: React.FC = () => {
     isSqliteAvailable,
     chatHistory, 
     addChatMessage, 
+    updateChatHistory,
     toggleAI,
     pendingStudyRequest,
     triggerStudyRequest,
@@ -118,6 +120,18 @@ const AIAssistant: React.FC = () => {
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [hasKey, setHasKey] = useState(hasValidGeminiApiKey());
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingText, setEditingText] = useState<string>('');
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsTyping(false);
+    setTypingStatus('');
+  };
   const [retrievalStats, setRetrievalStats] = useState<{ lastMethod: string; totalQueries: number; fallbackCount: number }>({
     lastMethod: '',
     totalQueries: 0,
@@ -563,10 +577,32 @@ const AIAssistant: React.FC = () => {
     }
   }, [pendingStudyRequest, activeSermon, chatKey, t.ai_deep_study]);
 
+  const handleStartEdit = (index: number, content: string) => {
+    setEditingIndex(index);
+    setEditingText(content);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingIndex(null);
+    setEditingText('');
+  };
+
+  const handleSaveEdit = (index: number) => {
+    const clean = editingText.trim();
+    if (!clean) return;
+    if (isTyping) {
+      handleStop();
+    }
+    setEditingIndex(null);
+    setEditingText('');
+    const truncatedHistory = history.slice(0, index);
+    handleSend(clean, truncatedHistory);
+  };
+
   // Envoi d'une question par l'utilisateur
-  const handleSend = async (textToSend?: string) => {
+  const handleSend = async (textToSend?: string, overrideHistory?: ChatMessage[]) => {
     const rawText = typeof textToSend === 'string' ? textToSend : input;
-    if (!rawText.trim() || isTyping) return;
+    if (!rawText.trim() || (isTyping && !overrideHistory)) return;
     
     // En mode Dock, vérifier qu'au moins une ressource a été sélectionnée
     if (assistantMode === 'dock' && contextSermonIds.length === 0) {
@@ -583,7 +619,21 @@ const AIAssistant: React.FC = () => {
       setConversations(prev => prev.map(c => c.id === activeConvId ? { ...c, title: cleanTitle, updatedAt: new Date().toISOString() } : c));
     }
 
-    addChatMessage(chatKey, { role: 'user', content: msg, timestamp: new Date().toISOString() });
+    const historyToUse = overrideHistory || history;
+    const newMsgObj: ChatMessageWithSources = { role: 'user', content: msg, timestamp: new Date().toISOString() };
+    
+    if (overrideHistory) {
+      updateChatHistory(chatKey, [...overrideHistory, newMsgObj]);
+    } else {
+      addChatMessage(chatKey, newMsgObj);
+    }
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     setIsTyping(true);
 
     try {
@@ -605,6 +655,8 @@ const AIAssistant: React.FC = () => {
             maxEvidenceCount: 8,
             topK: 15
           });
+
+          if (abortController.signal.aborted) return;
 
           // Enregistrement télémétrique du mode de retrieval et taux de repli
           const isSemanticMethod = Boolean(unifiedResult.vectorMethod?.startsWith('cosine'));
@@ -641,27 +693,29 @@ const AIAssistant: React.FC = () => {
               content: refusalText,
               timestamp: new Date().toISOString(),
             };
-            addChatMessage(chatKey, abstentionMsg);
+            if (!abortController.signal.aborted) addChatMessage(chatKey, abstentionMsg);
             return;
           }
 
           setTypingStatus(`Génération de la réponse sur ${unifiedResult.evidencePackage.evidence.length} preuve(s) documentaire(s)...`);
 
-          if (unifiedResult.status === 'success' && unifiedResult.answerText) {
-            const newMessage: ChatMessageWithSources = { 
-              role: 'assistant', 
-              content: unifiedResult.answerText, 
-              timestamp: new Date().toISOString(),
-              sources: unifiedResult.sources && unifiedResult.sources.length > 0 ? unifiedResult.sources : undefined
-            };
-            addChatMessage(chatKey, newMessage);
-          } else {
-            const errorMsg: ChatMessageWithSources = {
-              role: 'assistant',
-              content: `❌ **Erreur de génération Gemini** : ${unifiedResult.errorMessage || 'Impossible de joindre le modèle de génération.'}`,
-              timestamp: new Date().toISOString(),
-            };
-            addChatMessage(chatKey, errorMsg);
+          if (!abortController.signal.aborted) {
+            if (unifiedResult.status === 'success' && unifiedResult.answerText) {
+              const newMessage: ChatMessageWithSources = { 
+                role: 'assistant', 
+                content: unifiedResult.answerText, 
+                timestamp: new Date().toISOString(),
+                sources: unifiedResult.sources && unifiedResult.sources.length > 0 ? unifiedResult.sources : undefined
+              };
+              addChatMessage(chatKey, newMessage);
+            } else {
+              const errorMsg: ChatMessageWithSources = {
+                role: 'assistant',
+                content: `❌ **Erreur de génération Gemini** : ${unifiedResult.errorMessage || 'Impossible de joindre le modèle de génération.'}`,
+                timestamp: new Date().toISOString(),
+              };
+              addChatMessage(chatKey, errorMsg);
+            }
           }
 
         } else {
@@ -675,6 +729,8 @@ const AIAssistant: React.FC = () => {
             minScoreThreshold: 10
           });
 
+          if (abortController.signal.aborted) return;
+
           // Cas où aucun passage pertinent n'est identifié
           if (!ragResult.hasResults || ragResult.paragraphs.length === 0) {
             const noResultMsg: ChatMessageWithSources = {
@@ -682,7 +738,7 @@ const AIAssistant: React.FC = () => {
               content: `🔍 **Aucun passage pertinent n'a été trouvé dans les sermons disponibles pour :** *"${msg}"*.\n\nLes termes doctrinaux analysés (*${ragResult.keywordsUsed.join(', ') || 'aucun'}*) ne correspondent à aucun extrait significatif dans la bibliothèque actuelle. Vous pouvez reformuler votre question avec des termes doctrinaux plus spécifiques ou ajouter manuellement des sermons dans le Dock IA.`,
               timestamp: new Date().toISOString(),
             };
-            addChatMessage(chatKey, noResultMsg);
+            if (!abortController.signal.aborted) addChatMessage(chatKey, noResultMsg);
             return;
           }
 
@@ -691,10 +747,12 @@ const AIAssistant: React.FC = () => {
           const formattedContext = formatRagContextForGemini(ragResult.paragraphs, msg);
 
           // Appel direct RAG à Gemini basé exclusivement sur les sermons internes
-          const { text, sources } = await askGeminiChat(msg, formattedContext, history, {
+          const { text, sources } = await askGeminiChat(msg, formattedContext, historyToUse, {
             mode: 'auto-rag',
             retrievedParagraphs: ragResult.paragraphs
           });
+
+          if (abortController.signal.aborted) return;
 
           const newMessage: ChatMessageWithSources = { 
             role: 'assistant', 
@@ -721,6 +779,8 @@ const AIAssistant: React.FC = () => {
             maxEvidenceCount: 8,
             topK: 15
           });
+
+          if (abortController.signal.aborted) return;
 
           // Enregistrement télémétrique du mode de retrieval et taux de repli
           const isSemanticMethod = Boolean(unifiedResult.vectorMethod?.startsWith('cosine'));
@@ -758,27 +818,29 @@ const AIAssistant: React.FC = () => {
               content: refusalText,
               timestamp: new Date().toISOString(),
             };
-            addChatMessage(chatKey, abstentionMsg);
+            if (!abortController.signal.aborted) addChatMessage(chatKey, abstentionMsg);
             return;
           }
 
           setTypingStatus(`Génération de la réponse sur ${unifiedResult.evidencePackage.evidence.length} preuve(s) documentaire(s)...`);
 
-          if (unifiedResult.status === 'success' && unifiedResult.answerText) {
-            const newMessage: ChatMessageWithSources = { 
-              role: 'assistant', 
-              content: unifiedResult.answerText, 
-              timestamp: new Date().toISOString(),
-              sources: unifiedResult.sources && unifiedResult.sources.length > 0 ? unifiedResult.sources : undefined
-            };
-            addChatMessage(chatKey, newMessage);
-          } else {
-            const errorMsg: ChatMessageWithSources = {
-              role: 'assistant',
-              content: `❌ **Erreur de génération Gemini** : ${unifiedResult.errorMessage || 'Impossible de joindre le modèle de génération.'}`,
-              timestamp: new Date().toISOString(),
-            };
-            addChatMessage(chatKey, errorMsg);
+          if (!abortController.signal.aborted) {
+            if (unifiedResult.status === 'success' && unifiedResult.answerText) {
+              const newMessage: ChatMessageWithSources = { 
+                role: 'assistant', 
+                content: unifiedResult.answerText, 
+                timestamp: new Date().toISOString(),
+                sources: unifiedResult.sources && unifiedResult.sources.length > 0 ? unifiedResult.sources : undefined
+              };
+              addChatMessage(chatKey, newMessage);
+            } else {
+              const errorMsg: ChatMessageWithSources = {
+                role: 'assistant',
+                content: `❌ **Erreur de génération Gemini** : ${unifiedResult.errorMessage || 'Impossible de joindre le modèle de génération.'}`,
+                timestamp: new Date().toISOString(),
+              };
+              addChatMessage(chatKey, errorMsg);
+            }
           }
 
         } else {
@@ -794,6 +856,8 @@ const AIAssistant: React.FC = () => {
           setTypingStatus(`Lecture des ${contextSermonIds.length} ressource(s) du Dock IA...`);
           const validSermons = await getFullSermons(contextSermonIds);
           
+          if (abortController.signal.aborted) return;
+
           // Calculer l'allocation de caractères par document pour garantir que 100% des ressources sont transmises
           const docCount = Math.max(1, validSermons.length);
           const maxCharsPerDoc = docCount <= 5 ? 60000 : docCount <= 20 ? 25000 : Math.max(3000, Math.floor(300000 / docCount));
@@ -810,8 +874,10 @@ const AIAssistant: React.FC = () => {
           }).join('\n\n---\n\n');
           
           setTypingStatus(`Analyse théologique complète de ${validSermons.length} ressource(s)...`);
-          const { text, sources } = await askGeminiChat(msg, ctx, history, { mode: 'dock' });
+          const { text, sources } = await askGeminiChat(msg, ctx, historyToUse, { mode: 'dock' });
           
+          if (abortController.signal.aborted) return;
+
           const newMessage: ChatMessageWithSources = { 
             role: 'assistant', 
             content: text, 
@@ -822,6 +888,7 @@ const AIAssistant: React.FC = () => {
         }
       }
     } catch (e: any) {
+      if (abortController.signal.aborted || e?.name === 'AbortError') return;
       let displayMessage = e?.message || "Une erreur est survenue lors de l'analyse.";
       if (displayMessage.includes("Failed to call the Gemini API") || displayMessage.includes("Google Gemini")) {
         displayMessage = "❌ Connexion au service d'analyse IA impossible. Veuillez vérifier votre connexion Internet ou votre clé d'accès.";
@@ -832,6 +899,9 @@ const AIAssistant: React.FC = () => {
         timestamp: new Date().toISOString() 
       });
     } finally {
+      if (abortControllerRef.current === abortController) {
+        abortControllerRef.current = null;
+      }
       setIsTyping(false);
     }
   };
@@ -1206,10 +1276,55 @@ const AIAssistant: React.FC = () => {
                   ? 'bg-teal-600 text-white rounded-tr-none shadow-xl shadow-teal-600/10 border border-teal-500/20' 
                   : 'bg-teal-50/60 dark:bg-teal-900/20 text-zinc-900 dark:text-zinc-100 border border-teal-100 dark:border-teal-800/50 rounded-tl-none'
               }`}>
-                {msg.role === 'assistant' 
-                  ? <div className="prose-styles text-[13px] leading-[1.75] serif-text [&_p]:my-2.5 [&_p]:leading-[1.75] [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2.5 [&_ul]:space-y-1.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2.5 [&_ol]:space-y-1.5 [&_li]:my-1 [&_li]:leading-relaxed [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:font-black [&_h2]:mt-3.5 [&_h2]:mb-2 [&_h2]:font-bold [&_h3]:mt-3 [&_h3]:mb-1.5 [&_h3]:font-bold [&_strong]:font-black text-zinc-900 dark:text-zinc-100" dangerouslySetInnerHTML={{ __html: formatAIResponse(msg.content) as string }} />
-                  : <p className="text-[13px] font-bold leading-relaxed tracking-tight break-words">{msg.content}</p>
-                }
+                {msg.role === 'assistant' ? (
+                  <div className="prose-styles text-[13px] leading-[1.75] serif-text [&_p]:my-2.5 [&_p]:leading-[1.75] [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2.5 [&_ul]:space-y-1.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2.5 [&_ol]:space-y-1.5 [&_li]:my-1 [&_li]:leading-relaxed [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:font-black [&_h2]:mt-3.5 [&_h2]:mb-2 [&_h2]:font-bold [&_h3]:mt-3 [&_h3]:mb-1.5 [&_h3]:font-bold [&_strong]:font-black text-zinc-900 dark:text-zinc-100" dangerouslySetInnerHTML={{ __html: formatAIResponse(msg.content) as string }} />
+                ) : (
+                  editingIndex === i ? (
+                    <div className="flex flex-col gap-2 w-full min-w-[220px]">
+                      <textarea
+                        value={editingText}
+                        onChange={(e) => setEditingText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSaveEdit(i);
+                          }
+                        }}
+                        autoFocus
+                        className="w-full bg-teal-700/90 text-white border border-teal-300 rounded-xl p-2.5 text-[13px] font-bold outline-none resize-none leading-relaxed shadow-inner"
+                        rows={2}
+                      />
+                      <div className="flex items-center justify-end gap-1.5 pt-0.5">
+                        <button
+                          onClick={handleCancelEdit}
+                          className="px-2.5 py-1 rounded-lg bg-teal-800/90 hover:bg-teal-900 text-teal-100 text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                        >
+                          <X className="w-3 h-3" />
+                          <span>Annuler</span>
+                        </button>
+                        <button
+                          onClick={() => handleSaveEdit(i)}
+                          disabled={!editingText.trim()}
+                          className="px-3 py-1 rounded-lg bg-white text-teal-900 hover:bg-teal-50 text-[10px] font-black transition-all flex items-center gap-1 shadow-xs cursor-pointer disabled:opacity-50"
+                        >
+                          <Check className="w-3 h-3" />
+                          <span>Renvoyer</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-2 group/usermsg">
+                      <p className="text-[13px] font-bold leading-relaxed tracking-tight break-words flex-1">{msg.content}</p>
+                      <button
+                        onClick={() => handleStartEdit(i, msg.content)}
+                        data-tooltip="Rééditer cette question"
+                        className="opacity-0 group-hover/usermsg:opacity-100 hover:opacity-100 p-1 text-teal-200 hover:text-white transition-opacity shrink-0 cursor-pointer rounded-md hover:bg-teal-500/20"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )
+                )}
 
                 {/* Sources vérifiées consultées (cliquables vers le lecteur) */}
                 {msg.role === 'assistant' && msg.sources && msg.sources.length > 0 && (
@@ -1360,14 +1475,24 @@ const AIAssistant: React.FC = () => {
               } 
             }}
           />
-          <button 
-            onClick={() => handleSend()}
-            disabled={!input.trim() || isTyping || (assistantMode === 'dock' && contextSermonIds.length === 0)}
-            className="w-8 h-8 flex items-center justify-center bg-teal-600 text-white rounded-[16px] hover:bg-teal-700 disabled:opacity-20 transition-all shrink-0 shadow-md active:scale-95 cursor-pointer"
-            data-tooltip="Envoyer la question"
-          >
-            <Send className="w-3.5 h-3.5" />
-          </button>
+          {isTyping ? (
+            <button 
+              onClick={handleStop}
+              className="w-8 h-8 flex items-center justify-center bg-red-600 hover:bg-red-700 text-white rounded-[16px] transition-all shrink-0 shadow-md active:scale-95 cursor-pointer animate-pulse"
+              data-tooltip="Arrêter la génération"
+            >
+              <Square className="w-3.5 h-3.5 fill-current text-white" />
+            </button>
+          ) : (
+            <button 
+              onClick={() => handleSend()}
+              disabled={!input.trim() || (assistantMode === 'dock' && contextSermonIds.length === 0)}
+              className="w-8 h-8 flex items-center justify-center bg-teal-600 text-white rounded-[16px] hover:bg-teal-700 disabled:opacity-20 transition-all shrink-0 shadow-md active:scale-95 cursor-pointer"
+              data-tooltip="Envoyer la question"
+            >
+              <Send className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
     </div>

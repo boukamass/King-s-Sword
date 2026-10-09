@@ -46,6 +46,13 @@ export interface QueryVocabularyAnalysis {
 // Singleton en mémoire pour accès instantané sans surcoût
 let globalCorpusVocabulary: CorpusVocabulary | null = null;
 
+export function getCorpusTermIdf(term: string): number {
+  if (!globalCorpusVocabulary) return 1.0;
+  const norm = normalizeText(term).toLowerCase().trim();
+  const info = globalCorpusVocabulary.terms.get(norm);
+  return info ? info.idf : 0;
+}
+
 /**
  * Termes de requête purement conversationnels, épistémiques ou de consigne rédactionnelle.
  * Ces termes ne doivent JAMAIS être considérés comme des concepts doctrinaux discriminants
