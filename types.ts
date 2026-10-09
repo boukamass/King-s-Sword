@@ -222,6 +222,7 @@ export interface SermonChunk {
   wordCount: number;
   contentHash?: string;
   embedding?: number[] | Float32Array | Int8Array | null;
+  embeddingModel?: string;
   createdAt?: string;
   updatedAt?: string;
   // Generic Document Abstraction Extensions (Phase 2F.11)
@@ -302,6 +303,8 @@ export interface RerankedSearchResult extends HybridSearchResult {
   };
 }
 
+export type RankedCandidate = HybridSearchResult | RerankedSearchResult;
+
 export interface ClosestPassageRef {
   title: string;
   paragraphIndex?: number;
@@ -324,6 +327,7 @@ export interface DecisionJournalEntry {
   topLexScore: number;
   marginToSecond: number;
   hasHighIdfContentTerm: boolean;
+  hasMatchedContentTerm?: boolean;
   zone: 'answerable' | 'grey_zone' | 'refusal';
   appliedRule: string;
   reason: string;

@@ -1,0 +1,165 @@
+query_id,dataset,query_type,question,cos_top1,cos_top2,rank_bm25,rank_e5,lexical_score,has_matched_term,decision_default,stage2_idf_coverage,stage2_rank_agreement,stage2_composite_score,stage2_passed
+V2-1,in_domain,keyword,"Que signifie le nom Philadelphie selon l'Exposé ?",0.8198,0.8170,1,1,170.00,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-2,in_domain,keyword,"Qui était le messager de l'âge de Smyrne d'après frère Branham ?",0.8169,0.8110,1,1,150.80,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-3,in_domain,keyword,"Quelle est la signification de la colonne de feu au-dessus de Paul ?",0.8236,0.8211,1,1,80.90,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-4,in_domain,keyword,"Comment l'Exposé décrit-il la doctrine des Nicolaïtes ?",0.8529,0.8280,1,1,127.30,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-5,in_domain,keyword,"Quelle est l'explication donnée au cavalier sur le cheval blanc du premier sceau ?",0.8219,0.8203,1,1,184.20,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-6,in_domain,keyword,"Quel est le mystère de l'étoile du matin promise au vainqueur ?",0.8432,0.8270,1,1,60.30,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-7,in_domain,keyword,"Comment le prophète explique-t-il la verge de fer donnée à Thyatire ?",0.8503,0.8381,1,1,61.80,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-8,in_domain,keyword,"Qu'est-ce que la manne cachée promise au vainqueur de Pergame ?",0.8208,0.8119,1,1,71.60,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-9,in_domain,keyword,"Quelle est la véritable semence du serpent expliquée dans l'Exposé ?",0.8307,0.8291,1,1,145.90,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-10,in_domain,keyword,"Comment l'ange de l'âge d'Éphèse est-il identifié dans le texte ?",0.8450,0.8435,1,1,75.50,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-11,in_domain,keyword,"Quel est le jugement prononcé contre la femme Jézabel dans Thyatire ?",0.8521,0.8348,1,1,82.70,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-12,in_domain,keyword,"De quelle manière l'Exposé traite-t-il de la justification par Martin Luther ?",0.8224,0.8186,1,1,128.20,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-13,in_domain,keyword,"Quel rôle a joué John Wesley pour l'âge de Philadelphie ?",0.7962,0.7926,1,1,107.20,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-14,in_domain,keyword,"Comment l'esprit de Balaam a-t-il corrompu Israël selon le livre ?",0.8224,0.8204,1,1,105.60,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-15,in_domain,keyword,"Qu'est-ce que le baptême au nom du Seigneur Jésus-Christ dans l'Exposé ?",0.8522,0.8322,1,1,266.00,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-16,in_domain,keyword,"Comment l'Exposé définit-il les sept lampes ardentes devant le trône ?",0.8510,0.8395,1,1,214.10,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-17,in_domain,keyword,"Quelle est la vision de la pierre de faîte de la pyramide ?",0.8043,0.8020,1,1,72.50,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-18,in_domain,keyword,"Quelles sont les caractéristiques de l'âge tiède de Laodicée ?",0.8606,0.8294,1,1,90.40,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-19,in_domain,keyword,"Comment la robe blanche des martyrs est-elle décrite dans Smyrne ?",0.8159,0.8115,1,1,66.00,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-20,in_domain,keyword,"Quel est le message aux chrétiens de Sardes qui ont un nom comme vivant ?",0.8256,0.8236,1,1,110.90,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-21,in_domain,keyword,"Pourquoi l'Exposé enseigne-t-il que Dieu est un seul et unique Seigneur ?",0.8473,0.8452,1,1,184.00,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-22,in_domain,keyword,"Comment le serpent a-t-il séduit Ève dans le jardin d'Éden ?",0.8476,0.8463,1,1,212.00,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-23,in_domain,keyword,"Quelle est la porte ouverte que personne ne peut fermer à Philadelphie ?",0.7991,0.7879,1,1,226.20,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-24,in_domain,keyword,"Que symbolisent les yeux comme une flamme de feu dans la vision de Patmos ?",0.8265,0.8169,1,1,139.50,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-25,in_domain,keyword,"Quelle est la signification de la voix de plusieurs eaux dans Apocalypse 1 ?",0.8421,0.8418,1,1,72.00,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-26,in_domain,keyword,"Comment l'Exposé commente-t-il l'avertissement de vomir les tièdes ?",0.8210,0.8208,1,1,17.10,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-27,in_domain,keyword,"Que représente le souverain sacrificateur ceint d'or à la poitrine ?",0.8346,0.8256,1,1,86.40,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-28,in_domain,keyword,"Pourquoi le baptême trinitaire est-il réfuté dans le premier chapitre ?",0.8514,0.8380,1,1,59.10,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-29,in_domain,keyword,"Quelle est la promesse d'être une colonne dans le temple de mon Dieu ?",0.8429,0.8391,1,1,216.20,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-30,in_domain,keyword,"Comment l'Exposé explique-t-il le mystère de l'Iniquité déjà à l'œuvre ?",0.8386,0.8281,1,1,60.50,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-31,in_domain,keyword,"Quel est le conseil d'acheter de l'or éprouvé par le feu à Laodicée ?",0.8276,0.8257,1,1,138.40,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-32,in_domain,keyword,"Quelle est la verge de justice du Fils de l'homme sur les nations ?",0.8059,0.8044,1,1,163.40,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-33,in_domain,paraphrase,"Quel qualificatif donne le prédicateur à la communauté ecclésiale de la fraternité mutuelle ?",0.8176,0.8105,1,1,50.40,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-34,in_domain,paraphrase,"Quelle punition divine frappe la reine païenne corruptrice du moyen-âge ?",0.8074,0.7973,1,1,38.00,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-35,in_domain,paraphrase,"De quelle façon le rédacteur explicite-t-il la descendance charnelle de l'adversaire originel ?",0.8217,0.8213,1,1,32.00,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-36,in_domain,paraphrase,"Quelles tribulations ont enduré les croyants fidèles de la période de martyre asiatique antique ?",0.8114,0.8093,1,1,26.60,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-37,in_domain,paraphrase,"Quel remède céleste est prescrit aux assemblées sombrant dans l'autosuffisance matérielle et l'indifférence spirituelle ?",0.8330,0.8325,1,1,41.50,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-38,in_domain,paraphrase,"Comment l'opuscule analyse-t-il la hiérarchisation cléricale dominant les fidèles ordinaires ?",0.8409,0.8313,1,1,25.20,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-39,in_domain,paraphrase,"Quelle métaphore agricole décrit la cohabitation des élus sincères et des imitateurs dans le sanctuaire ?",0.8139,0.8123,1,1,26.60,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-40,in_domain,paraphrase,"Quelle clarification théologique est apportée sur l'absolue unicité de la Divinité suprême manifestée dans le Messie ?",0.8189,0.8113,1,1,129.00,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-41,in_domain,paraphrase,"De quelle manière est dépeinte l'immersion rituelle apostolique originelle sans formule composite ?",0.8140,0.8030,1,1,43.20,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-42,in_domain,paraphrase,"Quelle vision prophétique illustre le sommet pyramidal complétant la structure de la foi ?",0.8146,0.8129,1,1,34.20,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-43,in_domain,paraphrase,"Quel rôle d'émancipation doctrinale est attribué au réformateur allemand du seizième siècle ?",0.7937,0.7765,1,1,36.10,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-44,in_domain,paraphrase,"Quelle dynamique missionnaire caractérise le mouvement de sanctification britannique du dix-huitième siècle ?",0.7844,0.7826,1,1,32.80,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-45,in_domain,paraphrase,"Comment sont décrits les regards perçants comparables à des braises incandescentes du Ressuscité ?",0.8224,0.8144,1,1,45.50,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-46,in_domain,paraphrase,"Quelle destinée glorieuse attend l'âme victorieuse devenant un pilier inébranlable dans l'édifice saint ?",0.8293,0.8289,1,1,59.20,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-47,in_domain,paraphrase,"Quel avertissement solennel résonne contre l'institution religieuse apostate enivrante ?",0.8236,0.8155,1,1,47.30,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-48,in_domain,paraphrase,"Quelle substance miraculeuse secrète nourrit le disciple fidèle au milieu du compromis romain ?",0.8247,0.8225,1,1,49.10,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-49,in_domain,paraphrase,"Comment l'auteur interprète-t-il la puissance de souveraineté accordée aux rachetés sur les païens ?",0.8239,0.8219,1,1,61.50,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-50,in_domain,paraphrase,"De quelle façon le texte dépeint-il le déclin spirituel de la première communauté chrétienne ayant abandonné sa ferveur initiale ?",0.8374,0.8303,1,1,64.00,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-51,in_domain,paraphrase,"Quel sens mystique revêt l'astre matinal offert à celui qui triomphe des ténèbres ?",0.8324,0.8295,1,1,72.00,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-52,in_domain,paraphrase,"Comment est formulé le rejet définitif des fidèles tièdes manquant d'ardeur vivante ?",0.8260,0.8126,1,1,26.60,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-53,in_domain,paraphrase,"Quelle autorité suprême est attribuée à la parole prophétique scellée pour la fin des temps ?",0.8334,0.8254,1,1,78.00,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-54,in_domain,paraphrase,"De quelle nature est le vêtement d'éclat immaculé octroyé aux âmes éprouvées par la persécution sanglante ?",0.8294,0.8230,1,1,32.80,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-55,in_domain,paraphrase,"Quel piège pernicieux le conseiller impie a-t-il tendu pour affaiblir la marche des nomades du désert ?",0.8186,0.8166,1,1,32.80,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-56,in_domain,paraphrase,"Comment le texte démontre-t-il l'antériorité de l'élection divine avant la fondation du cosmos ?",0.8395,0.8268,1,1,60.80,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-57,in_domain,paraphrase,"Quel symbolisme revête la ceinture dorée entourant la poitrine de la majesté céleste ?",0.8122,0.8107,1,1,30.40,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-58,in_domain,paraphrase,"Comment le document détaille-t-il la tromperie séductrice du faux représentant spirituel s'élevant sur le trône universel ?",0.8414,0.8351,1,1,51.00,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-59,in_domain,paraphrase,"Quelle est la portée spirituelle de la clarté éclatante semblable au soleil resplendissant dans sa force ?",0.8360,0.8267,1,1,47.30,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-60,in_domain,paraphrase,"De quelle manière les sept chandeliers sacrés figurent-ils les étapes historiques du témoignage ecclésial ?",0.8518,0.8237,1,1,63.70,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-61,in_domain,paraphrase,"Comment l'écrit réfute-t-il la transmission de l'infaillibilité cléricale humaine ?",0.8334,0.8259,1,1,42.70,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-62,in_domain,paraphrase,"Quelle révélation ultime est promise à l'assemblée finale avant le dénouement de l'histoire humaine ?",0.8370,0.8220,1,1,61.90,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-63,in_domain,paraphrase,"Comment le ministère de l'envoyé de Dieu pour l'ultime dispensation restaure-t-il l'enseignement primitif ?",0.8406,0.8388,1,1,114.40,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+V2-64,in_domain,paraphrase,"Quelle exhortation est adressée aux brebis dispersées pour sortir des confédérations confessionnelles humaines ?",0.8197,0.8170,1,1,43.20,false,ACCEPT,0.0000,0.0000,0.0000,BLOCK
+OOD-1,out_of_domain,piege_proche_domaine,"Quelles sont les dimensions exactes de la tente vue en vision par William Branham à Phoenix ?",0.7962,0.7844,1,1,48.50,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-2,out_of_domain,piege_proche_domaine,"Quel était le modèle de la voiture Chevrolet break utilisée lors des voyages en Afrique du Sud en 1951 ?",0.7864,0.7736,1,1,66.50,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-3,out_of_domain,piege_proche_domaine,"Que dit Frère Branham au sujet de la chasse au grizzli dans les Rocheuses canadiennes en 1961 ?",0.8147,0.8057,1,1,34.10,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-4,out_of_domain,piege_proche_domaine,"Quelle est la ville de naissance exacte de Hope Branham selon l'état civil américain ?",0.7906,0.7808,1,1,81.00,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-5,out_of_domain,piege_proche_domaine,"Comment réparer le câble d'alimentation du microphone Shure 55S utilisé au Branham Tabernacle ?",0.8141,0.8115,1,1,20.20,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-6,out_of_domain,piege_proche_domaine,"Quels sont les détails du certificat de mariage de William Branham et Meda Broy en 1941 ?",0.8026,0.7865,1,1,26.20,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-7,out_of_domain,piege_proche_domaine,"Quelle était la marque de l'appareil photo ayant capturé la photo de la Colonne de Feu à Houston en 1950 ?",0.7676,0.7640,1,1,102.40,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-8,out_of_domain,piege_proche_domaine,"Combien d'exemplaires du livre 'Un Homme Envoyé de Dieu' par Gordon Lindsay ont été imprimés en première édition ?",0.8293,0.8132,1,1,99.20,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-9,out_of_domain,piege_proche_domaine,"Quelle était la recette du pain de maïs servi lors des réunions sous tente dans l'Indiana ?",0.7981,0.7966,1,1,72.80,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-10,out_of_domain,piege_proche_domaine,"Quel est le nom de l'infirmière présente lors de l'accident de voiture mortel de décembre 1965 ?",0.7963,0.7758,1,1,63.50,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-11,out_of_domain,piege_proche_domaine,"Quels cantiques ont été chantés lors de la réunion de prière du 18 janvier 1954 à West Palm Beach ?",0.8146,0.8054,1,1,40.00,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-12,out_of_domain,piege_proche_domaine,"Quelle est l'altitude du sommet du mont Sunset où les sept anges sont apparus en mars 1963 ?",0.7926,0.7885,1,1,43.20,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-13,out_of_domain,piege_proche_domaine,"Quel était le numéro d'immatriculation de l'avion loué pour le voyage missionnaire en Inde en 1954 ?",0.7672,0.7648,1,1,73.30,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-14,out_of_domain,piege_proche_domaine,"Que déclare le Coran au sujet de la prophétie d'Élie dans la sourate Maryam ?",0.8354,0.8352,1,1,40.00,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-15,out_of_domain,piege_proche_domaine,"Quelle est la doctrine de la transsubstantiation selon la session XIII du Concile de Trente ?",0.8135,0.8096,1,1,34.10,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-16,out_of_domain,piege_proche_domaine,"Quels sont les canons du synode de Dordrecht concernant la double prédestination absolue ?",0.7987,0.7983,1,1,203.90,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-17,out_of_domain,piege_proche_domaine,"Comment les théologiens orthodoxes grecs expliquent-ils la procession de l'Esprit Saint sans le Filioque ?",0.8425,0.8329,1,1,76.00,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-18,out_of_domain,piege_proche_domaine,"Quel est le commentaire de Thomas d'Aquin sur l'Apocalypse dans la Somme Théologique ?",0.8415,0.8381,1,1,54.60,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-19,out_of_domain,piege_proche_domaine,"Quelles sont les 95 thèses affichées par Martin Luther sur la porte de l'église de Wittenberg en latin ?",0.8120,0.8086,1,1,106.00,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-20,out_of_domain,piege_proche_domaine,"Que dit le Catéchisme de Heidelberg au sujet du jour du Seigneur et du repos dominical ?",0.8336,0.8307,1,1,81.00,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-21,out_of_domain,piege_proche_domaine,"Quels sont les versets de la Bible de Jérusalem traduisant le mot 'logos' par 'Verbe' dans l'évangile de Jean ?",0.8393,0.8356,1,1,127.70,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-22,out_of_domain,piege_proche_domaine,"Comment saint Augustin d'Hippone définit-il la Cité de Dieu face à la chute de Rome en 410 ?",0.8080,0.8075,1,1,96.20,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-23,out_of_domain,piege_proche_domaine,"Quelle est l'interprétation des témoins de Jéhovah sur les 144 000 élus de l'Apocalypse ?",0.8389,0.8329,1,1,75.00,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-24,out_of_domain,piege_proche_domaine,"Que prescrit la Mishna juive dans le traité Shabbat concernant la distance de marche autorisée ?",0.7948,0.7910,1,1,25.50,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-25,out_of_domain,piege_proche_domaine,"Quelle est la position officielle de l'Église Adventiste du Septième Jour sur le sanctuaire céleste en 1844 ?",0.8126,0.8051,1,1,66.10,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-26,out_of_domain,piege_proche_domaine,"Comment John Calvin a-t-il géré le procès et la condamnation de Michel Servet à Genève en 1553 ?",0.7944,0.7940,1,1,29.20,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-27,out_of_domain,piege_proche_domaine,"Quel est le texte intégral de la confession de foi baptiste de Londres de 1689 sur le baptême des croyants ?",0.8267,0.8229,1,1,49.10,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-28,out_of_domain,piege_proche_domaine,"Quelle est l'étymologie araméenne du mot Maranatha selon les manuscrits de la mer Morte ?",0.8164,0.8095,1,1,44.00,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-29,out_of_domain,piege_proche_domaine,"Quels sont les critères de canonisation des saints selon le droit canonique catholique romain révisé en 1983 ?",0.7974,0.7910,1,1,82.10,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-30,out_of_domain,piege_proche_domaine,"Comment le livre d'Hénoch éthiopien décrit-il la chute des veilleurs angéliques au chapitre 6 ?",0.8391,0.8309,1,1,21.70,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-31,out_of_domain,piege_proche_domaine,"Quelle est la prière du chapelet de la Vierge Marie récitée dans les sanctuaires de Lourdes et Fatima ?",0.8149,0.8075,1,1,51.80,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-32,out_of_domain,piege_proche_domaine,"Que contient le document Q selon les hypothèses modernes de la critique textuelle synoptique ?",0.7909,0.7900,1,1,25.20,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-33,out_of_domain,piege_proche_domaine,"Quel était l'itinéraire exact du troisième voyage missionnaire de l'apôtre Paul à travers la Galatie et la Phrygie ?",0.8228,0.8119,1,1,121.20,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-34,out_of_domain,piege_proche_domaine,"Quelle est la liste complète des papes de l'Église catholique depuis Lin jusqu'à Grégoire le Grand ?",0.8162,0.8129,1,1,145.60,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-35,out_of_domain,piege_proche_domaine,"Que dit le traité de San Francisco de 1951 sur les frontières maritimes de l'Asie ?",0.7979,0.7927,1,1,45.50,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-36,out_of_domain,piege_proche_domaine,"Comment Frère Branham a-t-il payé les droits de douane lors de son entrée en Rhodésie du Nord ?",0.8251,0.8161,1,1,49.50,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-37,out_of_domain,piege_proche_domaine,"Quelles espèces de truites William Branham pêchait-il dans la rivière Colorado ?",0.7881,0.7682,1,1,12.30,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-38,out_of_domain,piege_proche_domaine,"Quel était le prix du carburant diesel aux États-Unis en novembre 1963 lors de la prédication ?",0.7907,0.7902,1,1,59.20,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-39,out_of_domain,piege_proche_domaine,"Quel médecin a signé le rapport médical d'autopsie de William Branham en décembre 1965 ?",0.7960,0.7819,1,1,36.00,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-40,out_of_domain,piege_proche_domaine,"Comment accorder une guitare acoustique Martin D-28 en open tuning de ré selon les musiciens du Tabernacle ?",0.8230,0.8153,1,1,54.60,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-41,out_of_domain,piege_proche_domaine,"Quelle est la date de pose de la première pierre de l'église de Jeffersonville sur la 8th et Penn Street ?",0.8006,0.7914,1,1,83.10,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-42,out_of_domain,piege_proche_domaine,"Quels sermons ont été traduits en dialecte swahili lors de la convention de Dar es Salaam en 1960 ?",0.8123,0.7973,1,1,54.60,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-43,out_of_domain,piege_proche_domaine,"Quel était le prénom du premier guide de chasse de Frère Branham en Colombie-Britannique ?",0.7892,0.7884,1,1,60.00,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-44,out_of_domain,piege_proche_domaine,"Que dit l'encyclique Papale Humanae Vitae publiée par le pape Paul VI en juillet 1968 ?",0.8166,0.8121,1,1,40.10,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-45,out_of_domain,piege_proche_domaine,"Quelle est la composition du sol calcaire autour de la caverne de Patmos en Grèce ?",0.7640,0.7619,1,1,45.50,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-46,out_of_domain,piege_proche_domaine,"Comment les premiers chrétiens de Rome célébraient-ils la fête de Pâques selon la controverse quartodécimaine ?",0.8097,0.8090,1,1,69.80,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-47,out_of_domain,piege_proche_domaine,"Quelles sont les différences de ponctuation entre le Textus Receptus et le Codex Sinaiticus sur Apocalypse 1:1 ?",0.8503,0.8370,1,1,41.80,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-48,out_of_domain,piege_proche_domaine,"Combien de chaises en bois contenaient la salle de réunion du Branham Tabernacle avant sa rénovation en 1963 ?",0.7840,0.7816,1,1,33.40,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-49,out_of_domain,piege_proche_domaine,"Quel était le fabricant des bandes magnétiques 1/4 de pouce utilisées pour enregistrer les Sept Sceaux ?",0.7867,0.7792,1,1,94.90,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-50,out_of_domain,piege_proche_domaine,"Quel diplôme universitaire l'évangéliste Billy Graham a-t-il obtenu au Wheaton College en 1943 ?",0.7955,0.7857,1,1,13.60,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-51,out_of_domain,hors_domaine_general,"Quelle est la recette traditionnelle du couscous royal aux sept légumes et à la semoule fine ?",0.7934,0.7905,1,1,17.60,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-52,out_of_domain,hors_domaine_general,"Comment configurer un cluster Kubernetes avec Helm et Ingress NGINX sur AWS EKS ?",0.8251,0.8200,1,1,10.80,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-53,out_of_domain,hors_domaine_general,"Quelle est la distance moyenne entre la planète Mars et le Soleil à l'aphélie en kilomètres ?",0.8134,0.8060,1,1,47.30,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-54,out_of_domain,hors_domaine_general,"Quel est le principe de fonctionnement d'un réacteur nucléaire à eau pressurisée (REP) ?",0.7919,0.7910,1,1,50.40,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-55,out_of_domain,hors_domaine_general,"Comment calculer la transformée de Fourier discrète rapide (FFT) d'un signal audio ?",0.8028,0.8021,1,1,17.00,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-56,out_of_domain,hors_domaine_general,"Quelles sont les équipes finalistes de la Coupe d'Afrique des Nations de football en 2023 ?",0.7863,0.7842,1,1,48.80,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-57,out_of_domain,hors_domaine_general,"Comment tailler les rosiers grimpants à la fin de l'hiver pour favoriser la floraison ?",0.8056,0.8053,1,1,25.60,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-58,out_of_domain,hors_domaine_general,"Quelle est la structure moléculaire et le point de fusion de l'acide acétylsalicylique (aspirine) ?",0.8101,0.8091,1,1,15.00,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-59,out_of_domain,hors_domaine_general,"Comment fonctionne le mécanisme de consensus Proof-of-Stake dans la blockchain Ethereum ?",0.8142,0.8129,1,1,11.20,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-60,out_of_domain,hors_domaine_general,"Quelle est la capitale administrative et le nombre d'habitants de la Nouvelle-Zélande ?",0.7704,0.7692,1,1,51.20,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-61,out_of_domain,hors_domaine_general,"Comment diagnostiquer et remplacer les plaquettes de frein avant sur une Toyota Corolla ?",0.8157,0.8154,1,1,28.40,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-62,out_of_domain,hors_domaine_general,"Quelles sont les causes géologiques et historiques de l'éruption du Vésuve en 79 après J.-C. ?",0.8071,0.8018,1,1,12.30,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-63,out_of_domain,hors_domaine_general,"Comment implémenter un algorithme de tri rapide (QuickSort) en langage Rust avec gestion des pointeurs ?",0.8150,0.8133,1,1,29.20,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-64,out_of_domain,hors_domaine_general,"Quelle est la température d'ébullition de l'hélium liquide sous une pression de 1 bar ?",0.8027,0.7987,1,1,36.30,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-65,out_of_domain,hors_domaine_general,"Quelles sont les règles officielles du rugby à XV concernant le plaquage haut et le carton rouge ?",0.7793,0.7748,1,1,26.60,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-66,out_of_domain,hors_domaine_general,"Comment faire une émulsion stable pour une sauce mayonnaise maison au fouet ?",0.8086,0.8080,1,1,26.20,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-67,out_of_domain,hors_domaine_general,"Quel est le PIB nominal annuel de l'Allemagne exprimé en milliards d'euros pour l'année 2023 ?",0.7859,0.7856,1,1,25.50,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-68,out_of_domain,hors_domaine_general,"Comment calibrer un télescope astronomique de type Newton pour l'observation des anneaux de Saturne ?",0.8158,0.8072,1,1,14.00,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-69,out_of_domain,hors_domaine_general,"Quelle est la vitesse de pointe d'un guépard adulte en pleine course dans la savane africaine ?",0.7895,0.7805,1,1,14.00,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-70,out_of_domain,hors_domaine_general,"Comment programmer un microcontrôleur Arduino pour lire une sonde de température DHT22 ?",0.8208,0.8171,1,1,25.20,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-71,out_of_domain,hors_domaine_general,"Quelles sont les symphonies majeures composées par Ludwig van Beethoven durant sa période viennoise ?",0.7688,0.7602,1,1,32.80,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-72,out_of_domain,hors_domaine_general,"Comment résoudre l'équation différentielle linéaire du second ordre sans second membre ?",0.8008,0.7989,1,1,36.00,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-73,out_of_domain,hors_domaine_general,"Quelle est la procédure d'obtention d'un visa de tourisme pour visiter le Japon pendant 90 jours ?",0.8005,0.7975,1,1,30.40,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-74,out_of_domain,hors_domaine_general,"Quelles sont les propriétés physiques et mécaniques du titane de grade 5 (Ti-6Al-4V) ?",0.8042,0.7955,1,1,26.20,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-75,out_of_domain,hors_domaine_general,"Comment faire un pain au levain naturel avec une fermentation lente de 24 heures au réfrigérateur ?",0.8202,0.8126,1,1,49.50,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-76,out_of_domain,hors_domaine_general,"Quelle est la composition chimique de l'eau de mer en pourcentage massique de chlorure de sodium ?",0.7713,0.7651,1,1,47.50,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-77,out_of_domain,hors_domaine_general,"Comment fonctionne l'injection directe d'essence à rampe commune sur un moteur turbo 4 cylindres ?",0.8020,0.8005,1,1,25.50,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-78,out_of_domain,hors_domaine_general,"Quelle est la théorie de la relativité générale expliquant la courbure de l'espace-temps autour des trous noirs ?",0.8016,0.8000,1,1,26.30,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-79,out_of_domain,hors_domaine_general,"Comment peindre à l'aquarelle un ciel d'orage avec la technique du mouillé sur mouillé ?",0.8206,0.8146,1,1,21.70,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-80,out_of_domain,hors_domaine_general,"Quel est le palmarès du tournoi de tennis de Roland-Garros en simple messieurs depuis 2010 ?",0.7819,0.7726,1,1,25.50,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-81,out_of_domain,hors_domaine_general,"Comment installer et sécuriser un serveur de base de données PostgreSQL 16 sur Ubuntu 24.04 ?",0.8202,0.8172,1,1,14.40,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-82,out_of_domain,hors_domaine_general,"Quelle est la formule chimique et le mode d'action de l'amoxicilline sur la paroi bactérienne ?",0.8006,0.7985,1,1,17.60,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-83,out_of_domain,hors_domaine_general,"Comment fonctionne un capteur d'appareil photo plein format CMOS rétroéclairé (BSI) ?",0.8064,0.8062,1,1,29.20,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-84,out_of_domain,hors_domaine_general,"Quelle est la durée de rotation de la planète Vénus sur elle-même exprimée en jours terrestres ?",0.7938,0.7914,1,1,60.80,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-85,out_of_domain,hors_domaine_general,"Comment calculer le rendement actuariel d'une obligation d'État à coupon fixe sur 10 ans ?",0.7999,0.7969,1,1,65.30,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-86,out_of_domain,hors_domaine_general,"Quels sont les ingrédients nécessaires pour préparer une paella valencienne authentique au feu de bois ?",0.8117,0.8074,1,1,43.20,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-87,out_of_domain,hors_domaine_general,"Comment créer un conteneur Docker multi-stage pour une application web React et Vite ?",0.8102,0.8092,1,1,23.80,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-88,out_of_domain,hors_domaine_general,"Quelle est la pression atmosphérique moyenne au sommet de l'Everest en hectopascals ?",0.7853,0.7850,1,1,26.20,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-89,out_of_domain,hors_domaine_general,"Comment accorder un piano à queue selon le tempérament égal à 440 Hz avec un diapason ?",0.8101,0.8072,1,1,11.20,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-90,out_of_domain,hors_domaine_general,"Quelle est la structure anatomique et le fonctionnement de la rétine de l'œil humain ?",0.8082,0.8066,1,1,27.70,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-91,out_of_domain,hors_domaine_general,"Comment régler les paramètres ISO, ouverture et vitesse pour la photographie de la Voie Lactée ?",0.8160,0.8075,1,1,41.80,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-92,out_of_domain,hors_domaine_general,"Quel est l'historique de la construction du canal de Panama entre l'Atlantique et le Pacifique ?",0.7724,0.7710,1,1,32.00,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-93,out_of_domain,hors_domaine_general,"Comment écrire une fonction récursive en Python pour générer la suite des nombres de Fibonacci ?",0.8230,0.8126,1,1,47.30,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-94,out_of_domain,hors_domaine_general,"Quelle est la consommation électrique moyenne en kilowattheures d'une pompe à chaleur air-eau en hiver ?",0.7992,0.7870,1,1,53.30,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-95,out_of_domain,hors_domaine_general,"Quelles sont les règles de grammaire régissant l'accord du participe passé avec l'auxiliaire avoir ?",0.8160,0.8079,1,1,57.50,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-96,out_of_domain,hors_domaine_general,"Comment doser et appliquer un engrais NPK pour la culture hydroponique de tomates sous serre ?",0.8115,0.8075,1,1,14.00,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-97,out_of_domain,hors_domaine_general,"Quelle est la vitesse de croisière et le rayon d'action maximal d'un avion Airbus A350-900 ?",0.7974,0.7914,1,1,13.60,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-98,out_of_domain,hors_domaine_general,"Comment fonctionne le protocole de chiffrement TLS 1.3 lors de l'échange de clés Diffie-Hellman ?",0.8086,0.8086,1,1,44.80,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-99,out_of_domain,hors_domaine_general,"Quelle est la profondeur maximale de la fosse des Mariannes dans l'océan Pacifique occidental ?",0.7648,0.7608,1,1,38.00,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK
+OOD-100,out_of_domain,hors_domaine_general,"Comment conserver des grains de café torréfiés pour éviter l'oxydation des arômes ?",0.8147,0.8095,1,1,28.40,false,LEAK_TO_GEMINI,0.0000,0.0000,0.0000,BLOCK

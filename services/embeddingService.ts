@@ -6,17 +6,17 @@
  */
 
 export const EMBEDDING_CONFIG = {
-  model: 'gemini-embedding-2-preview',
-  defaultDimension: 3072,
+  model: 'Xenova/multilingual-e5-small',
+  defaultDimension: 384,
   legacyDimension: 3072,
-  bytesPerVectorFloat32: 3072 * 4, // 12 288 octets en Float32
-  bytesPerVectorInt8: 768 * 1     // 768 octets en Int8
+  bytesPerVectorInt8: 384, // 384 octets en Int8
+  bytesPerVectorFloat32: 384 * 4 // 1536 octets en Float32
 };
 
 /**
  * Normalisation L2 d'un vecteur flottant (rend la norme euclidienne égale à 1.0)
  */
-export function normalizeL2(vector: number[] | Float32Array): Float32Array {
+export function normalizeL2(vector: number[] | Float32Array | Int8Array | any): Float32Array {
   const v = vector instanceof Float32Array ? vector : new Float32Array(vector);
   let norm = 0;
   for (let i = 0; i < v.length; i++) norm += v[i] * v[i];
@@ -30,7 +30,7 @@ export function normalizeL2(vector: number[] | Float32Array): Float32Array {
 /**
  * Quantification Int8 symétrique d'un vecteur L2-normalisé vers Int8Array [-127, 127]
  */
-export function quantizeToInt8(vector: number[] | Float32Array): Int8Array {
+export function quantizeToInt8(vector: number[] | Float32Array | Int8Array | any): Int8Array {
   const norm = normalizeL2(vector);
   const out = new Int8Array(norm.length);
   for (let i = 0; i < norm.length; i++) {
@@ -122,41 +122,46 @@ export function blobToInt8Vector(blob: Uint8Array | ArrayBuffer | Buffer | null 
   return new Int8Array(0);
 }
 
-/**
- * Génère une projection sémantique déterministe normalisée (768D) basée sur le hachage n-gramme et FNV-1a.
- * Utilisé comme représentation vectorielle de secours pour garantir 100% de couverture vectorielle continue.
- */
-export function generateDeterministicSemanticVector(text: string, dimension: number = 768): Float32Array {
-  const vec = new Float32Array(dimension);
-  if (!text) return vec;
+let e5ExtractorInstance: any = null;
+let e5ExtractorLoadingPromise: Promise<any> | null = null;
 
-  const normalized = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  const words = normalized.split(/\s+/).filter(w => w.length > 1);
-
-  for (let i = 0; i < words.length; i++) {
-    const word = words[i];
-    let h = 0x811c9dc5;
-    for (let c = 0; c < word.length; c++) {
-      h ^= word.charCodeAt(c);
-      h = Math.imul(h, 0x01000193);
-    }
-    const idx = Math.abs(h) % dimension;
-    vec[idx] += 1.0;
-
-    // Bigrammes pour capturer le contexte sémantique local
-    if (i < words.length - 1) {
-      const nextWord = words[i + 1];
-      let hb = h ^ 0x84222325;
-      for (let c = 0; c < nextWord.length; c++) {
-        hb ^= nextWord.charCodeAt(c);
-        hb = Math.imul(hb, 0x01000193);
+export async function getE5Extractor(): Promise<any> {
+  if (e5ExtractorInstance) return e5ExtractorInstance;
+  if (!e5ExtractorLoadingPromise) {
+    e5ExtractorLoadingPromise = (async () => {
+      try {
+        const { pipeline } = await import('@xenova/transformers');
+        const ext = await pipeline('feature-extraction', 'Xenova/multilingual-e5-small', { quantized: true });
+        e5ExtractorInstance = ext;
+        return ext;
+      } catch (err) {
+        console.warn('[E5_LOCAL] Artefact E5 / ONNX introuvable ou indisponible:', err);
+        throw err;
       }
-      const idxB = Math.abs(hb) % dimension;
-      vec[idxB] += 0.5;
-    }
+    })();
   }
+  return await e5ExtractorLoadingPromise;
+}
 
-  return normalizeL2(vec);
+/**
+ * Calcule l'embedding local E5 (384D) avec préfixe ("query: " ou "passage: ") et normalisation L2.
+ * En cas d'erreur ou d'indisponibilité, retourne null. AUCUN faux vecteur n'est produit.
+ */
+export async function computeE5Embedding(
+  text: string,
+  prefix: 'query: ' | 'passage: ' = 'query: '
+): Promise<Int8Array | null> {
+  if (!text || !text.trim()) return null;
+  try {
+    const extractor = await getE5Extractor();
+    const formattedText = `${prefix}${text.trim()}`;
+    const output = await extractor(formattedText, { pooling: 'mean', normalize: true });
+    if (!output || !output.data) return null;
+    return quantizeToInt8(output.data);
+  } catch (err) {
+    console.warn('[E5_LOCAL] Impossible de calculer l\'embedding E5:', err);
+    return null;
+  }
 }
 
 /**

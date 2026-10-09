@@ -612,9 +612,9 @@ function formatChunkRow(row) {
     wordCount: row.word_count,
     contentHash: row.content_hash,
     embedding: row.embedding ? (
-      row.embedding.byteLength === 768 
+      row.embedding.byteLength === 384 || row.embedding.byteLength === 768
         ? new Int8Array(row.embedding.buffer, row.embedding.byteOffset, row.embedding.byteLength)
-        : Array.from(new Float32Array(row.embedding.buffer, row.embedding.byteOffset, row.embedding.byteLength / 4))
+        : new Float32Array(row.embedding.buffer, row.embedding.byteOffset, row.embedding.byteLength / 4)
     ) : null,
     createdAt: row.created_at,
     updatedAt: row.updated_at
@@ -680,7 +680,12 @@ ipcMain.handle('db:saveChunks', (event, chunks) => {
               vec = Object.values(c.embedding);
             }
 
-            if (vec && vec.length === 3072) {
+            if (c.embedding instanceof Int8Array && c.embedding.length === 384) {
+              embeddingBlob = Buffer.from(c.embedding.buffer, c.embedding.byteOffset, c.embedding.byteLength);
+            } else if (vec && vec.length === 384) {
+              const int8 = new Int8Array(vec);
+              embeddingBlob = Buffer.from(int8.buffer, int8.byteOffset, int8.byteLength);
+            } else if (vec && vec.length === 3072) {
               let isValid = true;
               for (let i = 0; i < 3072; i++) {
                 const val = vec[i];
@@ -691,14 +696,14 @@ ipcMain.handle('db:saveChunks', (event, chunks) => {
               }
               if (isValid) {
                 const float32 = new Float32Array(vec);
-                embeddingBlob = Buffer.from(float32.buffer, float32.byteOffset, float32.byteLength); // 12288 octets
+                embeddingBlob = Buffer.from(float32.buffer, float32.byteOffset, float32.byteLength); // 12288 octets (Gemini)
               } else {
                 console.warn(`[DB] Embedding invalide (NaN/Infinity) rejeté pour chunk ${c.chunkId}`);
               }
             } else if (vec && vec.length === 768 && c.embedding instanceof Int8Array) {
               embeddingBlob = Buffer.from(c.embedding.buffer, c.embedding.byteOffset, c.embedding.byteLength);
             } else if (vec) {
-              console.warn(`[DB] Dimension d'embedding invalide (${vec.length} != 3072) rejetée pour chunk ${c.chunkId}`);
+              console.warn(`[DB] Dimension d'embedding non reconnue (${vec.length}) ignorée pour chunk ${c.chunkId}`);
             }
           }
 

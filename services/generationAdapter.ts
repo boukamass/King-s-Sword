@@ -17,7 +17,7 @@ import { formatEvidenceContextForGemini } from './autoRagRetrievalService';
 import { validateResponseCitations } from './citationValidationService';
 import { getGeminiApiKey } from '../utils/apiKeyHelper';
 import { extractRequestedLineCount } from './queryIntentService';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Type } from '@google/genai';
 
 export interface GeminiCaller {
   generateContent(params: {
@@ -33,6 +33,7 @@ export interface GenerationResult {
   model: string | null;
   responseOrigin: 'gemini' | 'none';
   answerText: string | null;
+  sourcesSuffisantes?: boolean;
   errorCode?: string | null;
   errorMessage?: string | null;
   latencyMs?: number | null;
@@ -112,8 +113,26 @@ export async function generateNewRagResponse(
     };
   }
 
+  // Réduction du nombre de passages envoyés si la confiance de récupération est basse
+  let effectiveEvidence = evidencePackage.evidence;
+  const decisionJournal = evidencePackage.decisionJournal;
+  const isLowConfidence = 
+    (evidencePackage.confidenceScore !== undefined && evidencePackage.confidenceScore < 0.6) ||
+    decisionJournal?.zone === 'refusal' ||
+    decisionJournal?.zone === 'grey_zone' ||
+    (decisionJournal?.topVectorScore !== undefined && decisionJournal.topVectorScore < 0.81) ||
+    (decisionJournal?.topLexScore !== undefined && decisionJournal.topLexScore < 5);
+
+  if (isLowConfidence && effectiveEvidence.length > 2) {
+    effectiveEvidence = effectiveEvidence.slice(0, 2);
+  }
+  const effectivePackage: RetrievalEvidencePackage = {
+    ...evidencePackage,
+    evidence: effectiveEvidence
+  };
+
   // Formatage déterministe du contexte documentaire
-  const context = formatEvidenceContextForGemini(evidencePackage, query);
+  const context = formatEvidenceContextForGemini(effectivePackage, query);
   const reqLines = extractRequestedLineCount(query);
   const lineInstruction = reqLines ? `\n\nCONSIGNE STRICTE DE LONGUEUR : L'utilisateur exige un résumé / résultat de sa demande en exactement ${reqLines} lignes. Rédige ta réponse de façon concise et synthétique en respectant rigoureusement la limite de ${reqLines} lignes.` : '';
   const promptContents = `${context}\n\n============================================================\nQUESTION DU CHERCHEUR :\n"${query}"${lineInstruction}`;
@@ -144,19 +163,32 @@ export async function generateNewRagResponse(
     };
   }
 
-  const sysInstruction = systemInstruction || `Tu es l'assistant d'étude théologique de King's Sword, expert des sermons de William Marrion Branham et des Écritures.
+  const defaultSysInstruction = `Tu es l'assistant d'étude théologique de King's Sword, expert des sermons de William Marrion Branham et des Écritures.
 
-DIRECTIVES D'EXCELLENCE POUR UNE ÉTUDE SIMPLE COMME APPROFONDIE :
-1. PROFONDEUR, ÉLABORATION ET DÉVELOPPEMENT : Fournis une réponse complète, soignée, pédagogique, bien détaillée et largement développée, adaptée aussi bien à une première lecture simple qu'à une recherche théologique approfondie. Structure ta réponse avec des titres de sections explicites (Markdown ###), des sous-points analytiques et une conclusion doctrinale solide.
-2. CONTINUITÉ CHRONOLOGIQUE ET DOCTRINALE : Si les extraits couvrent plusieurs sermons ou dates différentes, mets en lumière la progression prophétique et chronologique de l'enseignement au fil des années (ex: dans les années 1950, lors de l'ouverture des Sceaux en 1963, puis dans l'Exposé).
-3. FIDÉLITÉ ABSOLUE AUX EXTRAITS : Fonde ton exposé EXCLUSIVEMENT sur les extraits documentaires fournis ci-dessous. N'extrapole pas, n'utilise aucune source web externe, et n'invente aucune doctrine ou interprétation qui ne figure pas expressément dans ces extraits.
-4. CITATIONS TEXTUELLES EXACTES : Appuie chaque affirmation, explication ou principe doctrinal sur des citations directes entre guillemets, immédiatement suivies de leur référence au format :
-   > « ... » [Réf: ID_SERMON, Para. N]
-   (Exemple : > « ... » [Réf: expose-ch-4, §151] ou [Réf: 63-0324M, Para. 2])
-5. INTÉGRITÉ DES IDENTIFIANTS : N'invente JAMAIS d'identifiant ni de numéro de paragraphe. Utilise UNIQUEMENT les références exactes mentionnées dans les extraits.
-6. CAS D'INSUFFISANCE : Si les extraits fournis ne contiennent pas d'éléments suffisants pour répondre à la question, explique clairement et poliment à l'utilisateur ce que traitent les extraits consultés pour l'aider à réorienter sa sélection, sans rien inventer.
-7. SOURCES CONSULTÉES : Termine toujours par une section "### Sources consultées" listant clairement tous les documents et paragraphes cités.
-8. PISTES D'APPROFONDISSEMENT : Après les sources, suggère systématiquement une courte section "### Pistes d'approfondissement" proposant 2 à 3 questions de recherche complémentaires pertinentes pour poursuivre l'étude.`;
+DIRECTIVES DE RÉPONSE ET FORMAT STRICT (JSON) :
+Tu dois impérativement renvoyer un objet JSON respectant le schéma avec les champs 'sources_suffisantes' et 'reponse'.
+
+1. DÉCISION DU CHAMP 'sources_suffisantes' :
+- Évalue si les extraits textuels fournis contiennent les éléments nécessaires pour traiter le sujet doctrinal, prophétique ou scripturaire de la question.
+- Vaut true UNIQUEMENT si les extraits permettent de répondre véritablement au fond de la question.
+- Vaut false si le sujet est absent des extraits, hors-domaine, profane (technologie, actualité, recettes, etc.), ou si les extraits ne mentionnent que fortuitement des termes généraux sans rapport avec l'objet de la demande.
+
+2. EN CAS DE REFUS (sources_suffisantes = false) :
+- Rédige dans le champ 'reponse' un message très court de 2 phrases au maximum.
+- Commence obligatoirement par : « Les textes disponibles ne traitent pas de ce sujet. »
+- Si pertinent, ajoute une brève suggestion de reformulation ou de recherche orientée vers le Message.
+- Ne dresse AUCUNE liste des thèmes des passages non pertinents reçus.
+- N'inclus AUCUNE section "### Sources consultées" ni "### Pistes d'approfondissement".
+
+3. EN CAS D'ACCEPTATION (sources_suffisantes = true) :
+- Fournis une étude doctrinale complète, pédagogique et structurée dans le champ 'reponse'.
+- Fonde ton exposé EXCLUSIVEMENT sur les extraits fournis.
+- Appuie chaque affirmation sur des citations textuelles exactes entre guillemets suivies de leur référence :
+  > « ... » [Réf: ID_SERMON, Para. N]
+- Termine obligatoirement par la section "### Sources consultées" listant clairement tous les documents et paragraphes cités.
+- Termine par la section "### Pistes d'approfondissement" proposant 2 à 3 questions de recherche complémentaires sans balise [Réf:].`;
+
+  const sysInstruction = systemInstruction || defaultSysInstruction;
 
   const t0 = Date.now();
 
@@ -166,7 +198,22 @@ DIRECTIVES D'EXCELLENCE POUR UNE ÉTUDE SIMPLE COMME APPROFONDIE :
       contents: promptContents,
       config: {
         systemInstruction: sysInstruction,
-        temperature
+        temperature,
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            sources_suffisantes: {
+              type: Type.BOOLEAN,
+              description: "true si les extraits fournis traitent réellement de la question. false si le sujet est absent, profane ou hors-domaine."
+            },
+            reponse: {
+              type: Type.STRING,
+              description: "Si sources_suffisantes=true: étude théologique complète avec citations exactes. Si sources_suffisantes=false: message court de 2 phrases max débutant par 'Les textes disponibles ne traitent pas de ce sujet.' éventuellement suivi d'une suggestion de reformulation."
+            }
+          },
+          required: ["sources_suffisantes", "reponse"]
+        }
       }
     });
 
@@ -191,17 +238,62 @@ DIRECTIVES D'EXCELLENCE POUR UNE ÉTUDE SIMPLE COMME APPROFONDIE :
       };
     }
 
+    let sourcesSuffisantes = true;
+    let finalAnswerText = responseText;
+
+    try {
+      const parsed = JSON.parse(responseText);
+      if (typeof parsed?.sources_suffisantes === 'boolean') {
+        sourcesSuffisantes = parsed.sources_suffisantes;
+      }
+      if (typeof parsed?.reponse === 'string' && parsed.reponse.trim()) {
+        finalAnswerText = parsed.reponse.trim();
+      }
+    } catch (_) {
+      const matchJson = responseText.match(/\{[\s\S]*\}/);
+      if (matchJson) {
+        try {
+          const parsed = JSON.parse(matchJson[0]);
+          if (typeof parsed?.sources_suffisantes === 'boolean') {
+            sourcesSuffisantes = parsed.sources_suffisantes;
+          }
+          if (typeof parsed?.reponse === 'string' && parsed.reponse.trim()) {
+            finalAnswerText = parsed.reponse.trim();
+          }
+        } catch (__) {}
+      }
+    }
+
+    // Si les sources ne sont pas suffisantes (refus Gemini propre)
+    if (!sourcesSuffisantes) {
+      return {
+        status: 'success',
+        provider: 'google-gemini',
+        model,
+        responseOrigin: 'gemini',
+        answerText: finalAnswerText,
+        sourcesSuffisantes: false,
+        latencyMs,
+        errorCode: null,
+        errorMessage: null,
+        citationsValidation: null,
+        chunkIdExposure: false,
+        technicalIdentifiersDetected: [],
+        sources: []
+      };
+    }
+
     // RÈGLE 12 : Détection stricte d'exposition de Chunk ID
-    const exposureCheck = detectTechnicalIdentifierExposure(responseText);
+    const exposureCheck = detectTechnicalIdentifierExposure(finalAnswerText);
 
     // RÈGLE 9, 10, 11 : Validation des citations
     const citationsValidation = validateResponseCitations({
-      responseText,
-      evidencePackage
+      responseText: finalAnswerText,
+      evidencePackage: effectivePackage
     });
 
     // Extraction des sources valides
-    const sources = evidencePackage.evidence.flatMap(ev => 
+    const sources = effectivePackage.evidence.flatMap(ev => 
       ev.citationParagraphs.map(cp => ({
         title: `${ev.sermonTitle} (${ev.date || 'Non daté'}) — §${cp.paragraphIndex}`,
         uri: `sermon://${ev.sermonId}/${cp.paragraphIndex}`,
@@ -216,7 +308,8 @@ DIRECTIVES D'EXCELLENCE POUR UNE ÉTUDE SIMPLE COMME APPROFONDIE :
       provider: 'google-gemini',
       model,
       responseOrigin: 'gemini',
-      answerText: responseText,
+      answerText: finalAnswerText,
+      sourcesSuffisantes: true,
       latencyMs,
       errorCode: null,
       errorMessage: null,

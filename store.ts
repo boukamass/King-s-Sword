@@ -228,6 +228,7 @@ interface AppState {
   setFontSize: (updater: number | ((size: number) => number)) => void;
   setTheme: (theme: 'light' | 'dark') => void;
   addChatMessage: (key: string, message: ChatMessage) => void;
+  updateChatHistory: (key: string, messages: ChatMessage[]) => void;
   toggleContextSermon: (id: string, multiSelect?: boolean) => void;
   setManualContextIds: (ids: string[]) => void;
   clearContextSermons: () => void;
@@ -941,6 +942,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     const newChatHistory = {
       ...state.chatHistory,
       [key]: [...history, message]
+    };
+    try {
+      localStorage.setItem('kings_sword_ai_chat_history_v1', JSON.stringify(newChatHistory));
+    } catch {}
+    return {
+      chatHistory: newChatHistory
+    };
+  }),
+
+  updateChatHistory: (key, messages) => set(state => {
+    const newChatHistory = {
+      ...state.chatHistory,
+      [key]: messages
     };
     try {
       localStorage.setItem('kings_sword_ai_chat_history_v1', JSON.stringify(newChatHistory));
