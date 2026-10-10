@@ -273,19 +273,55 @@ export async function hydrateExposePrecalculatedEmbeddings(chunks: SermonChunk[]
       }
     }
 
-    // Mode Navigateur Web
+    // Mode Navigateur Web / SPA / Electron Renderer
     if (typeof window !== 'undefined' && typeof fetch !== 'undefined') {
       if (!cachedMeta || !cachedArrayBuf) {
-        let metaRes = await fetch('/corpus_embeddings_384d_meta.json');
-        if (!metaRes.ok) {
-          metaRes = await fetch('/corpus_embeddings_meta.json');
-        }
-        let binRes = await fetch('/corpus_embeddings_384d.bin');
-        if (!binRes.ok) {
-          binRes = await fetch('/corpus_embeddings_768d.bin');
-        }
+        const safeFetch = async (url: string): Promise<Response | null> => {
+          try {
+            const res = await fetch(url);
+            return res && res.ok ? res : null;
+          } catch {
+            return null;
+          }
+        };
 
-        if (metaRes.ok && binRes.ok) {
+        const fetchFirstWorking = async (urls: string[]): Promise<Response | null> => {
+          for (const u of urls) {
+            const res = await safeFetch(u);
+            if (res) return res;
+          }
+          return null;
+        };
+
+        const loc = window.location;
+        const baseUrl = loc ? loc.origin + loc.pathname.replace(/\/[^\/]*$/, '/') : './';
+
+        const metaCandidates = [
+          baseUrl + 'corpus_embeddings_384d_meta.json',
+          './corpus_embeddings_384d_meta.json',
+          'corpus_embeddings_384d_meta.json',
+          '/corpus_embeddings_384d_meta.json',
+          baseUrl + 'corpus_embeddings_meta.json',
+          './corpus_embeddings_meta.json',
+          'corpus_embeddings_meta.json',
+          '/corpus_embeddings_meta.json'
+        ];
+
+        const binCandidates = [
+          baseUrl + 'corpus_embeddings_384d.bin',
+          './corpus_embeddings_384d.bin',
+          'corpus_embeddings_384d.bin',
+          '/corpus_embeddings_384d.bin',
+          baseUrl + 'corpus_embeddings_768d.bin',
+          './corpus_embeddings_768d.bin',
+          'corpus_embeddings_768d.bin',
+          '/corpus_embeddings_768d.bin'
+        ];
+
+        const metaRes = await fetchFirstWorking(metaCandidates);
+        const binRes = await fetchFirstWorking(binCandidates);
+
+        if (metaRes && binRes) {
           const rawMeta = await metaRes.json();
           if (rawMeta.dimension === 384 && (rawMeta.model_id === 'Xenova/multilingual-e5-small' || rawMeta.model === 'Xenova/multilingual-e5-small')) {
             cachedMeta = rawMeta;
