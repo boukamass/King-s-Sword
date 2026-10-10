@@ -57,6 +57,7 @@ export interface UnifiedRagIntegrationOptions extends UnifiedRagOptions {
   temperature?: number;
   model?: string;
   bibleVersion?: BibleVersion;
+  forceGenerate?: boolean;
 }
 
 export interface UnifiedRagExecutionResult {
@@ -151,6 +152,11 @@ export async function executeUnifiedRagAssistantFlow(
     apiKey: options.apiKey,
     queryVector: (options as any).queryVector
   });
+
+  if (options.forceGenerate && !evidencePackage.answerable && evidencePackage.evidence && evidencePackage.evidence.length > 0) {
+    evidencePackage.answerable = true;
+    evidencePackage.reason = "Génération forcée à la demande de l'utilisateur.";
+  }
 
   // 2. Traitement d'abstention stricte (answerable === false ou 0 preuve)
   if (!evidencePackage.answerable || !evidencePackage.evidence || evidencePackage.evidence.length === 0) {

@@ -31,6 +31,15 @@ export interface ExpandedTheologicalQuery {
 // Table d'équivalence lexicale et doctrinale rapide locale (0 ms, 100% hors-ligne)
 // Couvre l'ensemble des thèmes capitaux du Message du Temps de la Fin et de l'Exposé complet
 const LOCAL_THEOLOGICAL_LEXICON: Record<string, string[]> = {
+  // Finances, Foyer et Mariage
+  'finances': ['argent', 'dime', 'richesse', 'foyer', 'couple', 'mariage', 'providence', 'materiel'],
+  'argent': ['finances', 'richesse', 'dime', 'or', 'biens', 'mammon', 'providence', 'materiel'],
+  'mariage': ['couple', 'mari', 'femme', 'foyer', 'famille', 'union', 'alliance', 'fiançailles', 'seduction'],
+  'couple': ['mari', 'femme', 'foyer', 'mariage', 'famille', 'union', 'alliance'],
+  'foyer': ['couple', 'mariage', 'famille', 'mari', 'femme', 'enfants', 'foyer chretien'],
+  'dime': ['finances', 'argent', 'offrandes', 'dîme', 'melchisedek', 'sacrificateur', 'donner à dieu'],
+  'dîme': ['finances', 'argent', 'offrandes', 'melchisedek', 'sacrificateur', 'donner à dieu'],
+
   // Le Saint-Esprit, le Jeton et la Nouvelle Naissance
   'saint-esprit': ['jeton', 'token', 'bapteme du saint-esprit', 'sceau de dieu', 'nouvelle naissance', 'vie de christ'],
   'saint esprit': ['jeton', 'token', 'bapteme du saint-esprit', 'sceau de dieu', 'nouvelle naissance'],
@@ -249,7 +258,7 @@ Réponds STRICTEMENT sous format JSON valide sans texte avant ni après :
 }`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.8-flash',
       contents: prompt,
       config: {
         responseMimeType: 'application/json',

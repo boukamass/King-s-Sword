@@ -94,6 +94,10 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
+  sources?: any[];
+  refusal?: boolean;
+  originalQuery?: string;
+  closestPassages?: any[];
 }
 
 export interface Song {

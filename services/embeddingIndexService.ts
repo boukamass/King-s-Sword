@@ -21,6 +21,24 @@ import { computeChunkHash } from './chunkingService';
 import { saveChunks, getChunkById, getAllChunks } from './chunkStorageService';
 import { EMBEDDING_CONFIG, validateEmbeddingVector } from './embeddingService';
 import { getGeminiApiKey, getAllGeminiApiKeys } from '../utils/apiKeyHelper';
+import { useAppStore } from '../store';
+
+// Ordonnanceur adaptatif : Détection d'activité utilisateur
+if (typeof window !== 'undefined') {
+  let activeTimer: any = null;
+  const setInactive = () => {
+    (window as any).__isUserActive = false;
+  };
+  const handleActivity = () => {
+    (window as any).__isUserActive = true;
+    if (activeTimer) clearTimeout(activeTimer);
+    activeTimer = setTimeout(setInactive, 15000); // Considéré inactif après 15s d'inactivité
+  };
+  window.addEventListener('mousemove', handleActivity);
+  window.addEventListener('keydown', handleActivity);
+  window.addEventListener('click', handleActivity);
+  handleActivity();
+}
 
 export interface EmbeddingIndexOptions {
   batchSize?: number;            // Taille des lots (défaut : 5)
@@ -248,8 +266,33 @@ export async function runIncrementalEmbeddingIndexing(
   let embeddingsFailed = 0;
   const errors: Array<{ chunkId: string; error: string }> = [];
 
-  for (let i = 0; i < chunksToEmbed.length; i += opts.batchSize) {
-    const batch = chunksToEmbed.slice(i, i + opts.batchSize);
+  // Priorité absolue aux sermons actuellement consultés ou présents dans le Dock IA
+  let activeSermonIds: string[] = [];
+  try {
+    const storeState = useAppStore.getState();
+    if (storeState) {
+      activeSermonIds = [
+        ...(storeState.contextSermonIds || []),
+        ...(storeState.selectedSermonId ? [storeState.selectedSermonId] : [])
+      ];
+    }
+  } catch {}
+
+  const prioritizedChunks: SermonChunk[] = [];
+  const standardChunks: SermonChunk[] = [];
+
+  for (const chunk of chunksToEmbed) {
+    if (activeSermonIds.includes(chunk.sermonId)) {
+      prioritizedChunks.push(chunk);
+    } else {
+      standardChunks.push(chunk);
+    }
+  }
+
+  const sortedChunksToEmbed = [...prioritizedChunks, ...standardChunks];
+
+  for (let i = 0; i < sortedChunksToEmbed.length; i += opts.batchSize) {
+    const batch = sortedChunksToEmbed.slice(i, i + opts.batchSize);
 
     for (const chunk of batch) {
       try {
@@ -292,8 +335,19 @@ export async function runIncrementalEmbeddingIndexing(
       }
     }
 
-    if (i + opts.batchSize < chunksToEmbed.length && opts.delayBetweenBatchesMs > 0) {
-      await delay(opts.delayBetweenBatchesMs);
+    // Ordonnanceur adaptatif : délai dynamique ajusté à la milliseconde près selon l'inactivité utilisateur
+    let adaptiveDelay = opts.delayBetweenBatchesMs;
+    if (typeof window !== 'undefined') {
+      const isUserActive = (window as any).__isUserActive;
+      if (isUserActive) {
+        adaptiveDelay = 500; // Ralentissement (500 ms) quand l'utilisateur travaille activement pour soulager le CPU/Réseau
+      } else {
+        adaptiveDelay = 10;  // Pleine vitesse (10 ms) quand l'utilisateur est inactif
+      }
+    }
+
+    if (i + opts.batchSize < sortedChunksToEmbed.length && adaptiveDelay > 0) {
+      await delay(adaptiveDelay);
     }
 
     // Notification de progression
