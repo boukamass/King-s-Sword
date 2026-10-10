@@ -160,14 +160,24 @@ export async function getE5Extractor(): Promise<any> {
         // 1. Electron packaged : process.resourcesPath / 'models'
         // 2. Node / Développement : ./models
         // 3. Navigateur Web : /models
-        if (typeof process !== 'undefined' && (process as any).resourcesPath) {
+        if (typeof window !== 'undefined') {
+          // Dans un navigateur Web (Vite dev/preview, Electron renderer ou SPA)
+          const loc = window.location;
+          const baseUrl = loc ? loc.origin + loc.pathname.replace(/\/[^\/]*$/, '/') : './';
+          env.localModelPath = baseUrl + 'models/';
+          // Évite les soucis de multi-threading SharedArrayBuffer sans cross-origin-isolation
+          if (env.backends?.onnx?.wasm) {
+            env.backends.onnx.wasm.wasmPaths = baseUrl + 'wasm/';
+            env.backends.onnx.wasm.numThreads = 1;
+          }
+        } else if (typeof process !== 'undefined' && (process as any).resourcesPath) {
           const path = await import('path');
           env.localModelPath = path.join((process as any).resourcesPath, 'models');
         } else if (typeof process !== 'undefined' && process.cwd) {
           const path = await import('path');
           env.localModelPath = path.join(process.cwd(), 'models');
         } else {
-          env.localModelPath = '/models';
+          env.localModelPath = './models/';
         }
 
         const ext = await pipeline('feature-extraction', LOCAL_E5_CONFIG.modelId, { quantized: true });
