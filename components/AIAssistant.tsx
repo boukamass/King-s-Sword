@@ -18,6 +18,7 @@ import NoteSelectorModal from './NoteSelectorModal';
 import { ApiKeyModal } from './ApiKeyModal';
 import { hasValidGeminiApiKey } from '../utils/apiKeyHelper';
 import { CorpusIndexingIndicator } from './CorpusIndexingIndicator';
+import { loadPersistedProgressState, subscribeIndexProgress, CorpusIndexProgress } from '../services/corpusIndexInitializationService';
 import { Sermon, ChatMessage } from '../types';
 import { splitSermonIntoParagraphs, extractLeadingParagraphNumber } from '../utils/textUtils';
 import { 
@@ -69,7 +70,52 @@ export function extractFollowUpQuestions(content: string): string[] {
 
 interface ChatMessageWithSources extends ChatMessage {
   sources?: GeminiSource[];
+  refusal?: boolean;
+  originalQuery?: string;
+  closestPassages?: any[];
 }
+
+const RefusalPassagesBlock: React.FC<{
+  originalQuery: string;
+  passages: any[];
+  onForceSearch: (query: string) => void;
+}> = ({ originalQuery, passages, onForceSearch }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  if (!passages || passages.length === 0) return null;
+
+  return (
+    <div className="mt-3 p-3 bg-zinc-100/80 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 rounded-xl flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="flex items-center gap-1.5 text-xs font-bold text-zinc-600 dark:text-zinc-400 hover:text-teal-600 dark:hover:text-teal-400 cursor-pointer text-left focus:outline-none"
+        >
+          <span className="inline-block transition-transform duration-200" style={{ transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+          <span>Passages les plus proches trouvés ({Math.min(5, passages.length)})</span>
+        </button>
+        
+        <button
+          onClick={() => onForceSearch(originalQuery)}
+          className="text-xs font-black text-teal-600 dark:text-teal-400 hover:underline cursor-pointer flex items-center gap-1 focus:outline-none"
+        >
+          <span>Chercher quand même</span>
+        </button>
+      </div>
+
+      {isOpen && (
+        <div className="space-y-3 mt-2 pt-2 border-t border-zinc-200 dark:border-zinc-800 max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in duration-200">
+          {passages.slice(0, 5).map((p, idx) => (
+            <div key={idx} className="text-[11px] leading-relaxed text-zinc-700 dark:text-zinc-300">
+              <span className="font-bold text-teal-600 dark:text-teal-400 block mb-0.5">{p.title || `Passage #${idx + 1}`}</span>
+              <p className="italic bg-white/40 dark:bg-black/20 p-2 rounded-lg border border-zinc-200/40 dark:border-zinc-800/40">« {p.textSnippet} »</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export type AssistantMode = 'auto-rag' | 'dock';
 
@@ -132,11 +178,20 @@ const AIAssistant: React.FC = () => {
     setIsTyping(false);
     setTypingStatus('');
   };
+
   const [retrievalStats, setRetrievalStats] = useState<{ lastMethod: string; totalQueries: number; fallbackCount: number }>({
     lastMethod: '',
     totalQueries: 0,
     fallbackCount: 0
-  });
+  });  const [indexProgress, setIndexProgress] = useState<CorpusIndexProgress | null>(null);
+
+  useEffect(() => {
+    loadPersistedProgressState().then(initial => setIndexProgress(initial));
+    const unsubscribe = subscribeIndexProgress(updated => {
+      setIndexProgress(updated);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -241,6 +296,59 @@ const AIAssistant: React.FC = () => {
   // Clé d'historique active (liée à la discussion en cours)
   const chatKey = activeConvId;
   const history = (chatHistory[chatKey] || []) as ChatMessageWithSources[];
+
+  const handleForceSearch = async (queryStr: string) => {
+    if (!queryStr.trim()) return;
+    setInput('');
+    setIsTyping(true);
+    setTypingStatus("Génération forcée de la réponse avec signal partiel...");
+
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
+    addChatMessage(chatKey, {
+      role: 'user',
+      content: `[Génération forcée] ${queryStr}`,
+      timestamp: new Date().toISOString()
+    });
+
+    try {
+      const unifiedResult = await executeUnifiedRagAssistantFlow(queryStr, contextSermonIds, {
+        loadedSermonsMap: sermonsMap,
+        bibleVersion,
+        forceGenerate: true,
+        maxEvidenceCount: 8,
+        topK: 15
+      });
+
+      if (abortController.signal.aborted) return;
+
+      if (unifiedResult.status === 'success' && unifiedResult.answerText) {
+        addChatMessage(chatKey, {
+          role: 'assistant',
+          content: unifiedResult.answerText,
+          timestamp: new Date().toISOString(),
+          sources: unifiedResult.sources && unifiedResult.sources.length > 0 ? unifiedResult.sources : undefined
+        });
+      } else {
+        addChatMessage(chatKey, {
+          role: 'assistant',
+          content: `❌ **Échec de génération forcée** : ${unifiedResult.errorMessage || 'Impossible d\'obtenir une réponse du modèle.'}`,
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch (err: any) {
+      if (abortController.signal.aborted) return;
+      addChatMessage(chatKey, {
+        role: 'assistant',
+        content: `❌ **Erreur** : ${err?.message || String(err)}`,
+        timestamp: new Date().toISOString()
+      });
+    } finally {
+      setIsTyping(false);
+      setTypingStatus('');
+    }
+  };
 
   // Création d'une nouvelle discussion (+ button) tout en conservant les précédentes
   const handleCreateNewChat = () => {
@@ -804,19 +912,17 @@ const AIAssistant: React.FC = () => {
             let refusalText = '';
             if (isUnreliableClose) {
               refusalText = `⚠️ **Passages proches trouvés mais peu fiables (signal partiel)** :\n${pkg.reason || "Les ressources sélectionnées dans le Dock IA contiennent des passages proches, mais le signal documentaire reste trop partiel pour garantir une réponse doctrinale certaine."}`;
-              if (pkg.closestPassages && pkg.closestPassages.length > 0) {
-                refusalText += `\n\n📌 **Passages les plus proches trouvés dans le contexte :**\n` + 
-                  pkg.closestPassages.slice(0, 3).map((cp, idx) => `> **${idx + 1}. ${cp.title}**\n> « ${cp.textSnippet} »`).join('\n\n');
-              }
-              refusalText += `\n\n💡 *Souhaitez-vous que je réponde avec réserve sur la base de ces extraits proches, ou préférez-vous reformuler votre question / ajouter d'autres documents au Dock IA ?*`;
             } else {
-              refusalText = `🔍 **Aucun passage lié trouvé** :\n${pkg.reason || "Aucun passage lié à cette question n'a été trouvé dans les documents sélectionnés. Le sujet demandé ne figure pas dans les ressources choisies."}\n\n💡 *Vérifiez les termes employés ou ajoutez d'autres documents pertinents au Dock IA.*`;
+              refusalText = `🔍 **Aucun passage lié trouvé** :\n${pkg.reason || "Aucun passage lié à cette question n'a été trouvé dans les documents sélectionnés. Le sujet demandé ne figure pas dans les ressources choisies."}`;
             }
 
             const abstentionMsg: ChatMessageWithSources = {
               role: 'assistant',
               content: refusalText,
               timestamp: new Date().toISOString(),
+              refusal: true,
+              originalQuery: msg,
+              closestPassages: pkg.closestPassages || []
             };
             if (!abortController.signal.aborted) addChatMessage(chatKey, abstentionMsg);
             return;
@@ -1021,6 +1127,18 @@ const AIAssistant: React.FC = () => {
 
       {/* Indicateur de préparation de la bibliothèque en arrière-plan */}
       <CorpusIndexingIndicator className="mx-3 my-1.5 shrink-0" />
+
+      {indexProgress && indexProgress.status !== 'READY' && (
+        <div className="mx-3 my-1.5 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-800 dark:text-amber-200 text-xs flex flex-col gap-1 shrink-0 animate-in fade-in duration-300">
+          <div className="flex items-center gap-1.5 font-bold">
+            <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+            <span>Sermons non complètement indexés ({indexProgress.sermonsProcessed}/{indexProgress.totalSermons} sermons)</span>
+          </div>
+          <p className="text-slate-600 dark:text-slate-300 text-[11px] leading-relaxed">
+            La recherche intelligente et l'assistant RAG ne portent actuellement que sur <strong>l'Exposé des Sept Âges</strong>. L'indexation des sermons se poursuit en arrière-plan ({Math.round((indexProgress.chunksProcessed / Math.max(1, indexProgress.totalChunks)) * 100)}%).
+          </p>
+        </div>
+      )}
 
       {/* Tiroir déroulant de gestion des conversations multiples */}
       {isConversationsDrawerOpen && (
@@ -1277,7 +1395,16 @@ const AIAssistant: React.FC = () => {
                   : 'bg-teal-50/60 dark:bg-teal-900/20 text-zinc-900 dark:text-zinc-100 border border-teal-100 dark:border-teal-800/50 rounded-tl-none'
               }`}>
                 {msg.role === 'assistant' ? (
-                  <div className="prose-styles text-[13px] leading-[1.75] serif-text [&_p]:my-2.5 [&_p]:leading-[1.75] [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2.5 [&_ul]:space-y-1.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2.5 [&_ol]:space-y-1.5 [&_li]:my-1 [&_li]:leading-relaxed [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:font-black [&_h2]:mt-3.5 [&_h2]:mb-2 [&_h2]:font-bold [&_h3]:mt-3 [&_h3]:mb-1.5 [&_h3]:font-bold [&_strong]:font-black text-zinc-900 dark:text-zinc-100" dangerouslySetInnerHTML={{ __html: formatAIResponse(msg.content) as string }} />
+                  <div className="flex flex-col gap-2">
+                    <div className="prose-styles text-[13px] leading-[1.75] serif-text [&_p]:my-2.5 [&_p]:leading-[1.75] [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2.5 [&_ul]:space-y-1.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2.5 [&_ol]:space-y-1.5 [&_li]:my-1 [&_li]:leading-relaxed [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:font-black [&_h2]:mt-3.5 [&_h2]:mb-2 [&_h2]:font-bold [&_h3]:mt-3 [&_h3]:mb-1.5 [&_h3]:font-bold [&_strong]:font-black text-zinc-900 dark:text-zinc-100" dangerouslySetInnerHTML={{ __html: formatAIResponse(msg.content) as string }} />
+                    {msg.refusal && msg.closestPassages && msg.closestPassages.length > 0 && (
+                      <RefusalPassagesBlock 
+                        originalQuery={msg.originalQuery || ''}
+                        passages={msg.closestPassages}
+                        onForceSearch={handleForceSearch}
+                      />
+                    )}
+                  </div>
                 ) : (
                   editingIndex === i ? (
                     <div className="flex flex-col gap-2 w-full min-w-[220px]">

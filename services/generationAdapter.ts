@@ -113,15 +113,19 @@ export async function generateNewRagResponse(
     };
   }
 
+  const isDeepDive = /\b(etude|etudier|approfondi|approfondie|détaille|detaille|détaillee|detaillee|synthese|synthetiser|analyse|analyser|panorama|complet|complete|exhaustive)\b/i.test(query.toLowerCase());
+
   // Réduction du nombre de passages envoyés si la confiance de récupération est basse
   let effectiveEvidence = evidencePackage.evidence;
   const decisionJournal = evidencePackage.decisionJournal;
   const isLowConfidence = 
-    (evidencePackage.confidenceScore !== undefined && evidencePackage.confidenceScore < 0.6) ||
-    decisionJournal?.zone === 'refusal' ||
-    decisionJournal?.zone === 'grey_zone' ||
-    (decisionJournal?.topVectorScore !== undefined && decisionJournal.topVectorScore < 0.81) ||
-    (decisionJournal?.topLexScore !== undefined && decisionJournal.topLexScore < 5);
+    !isDeepDive && (
+      (evidencePackage.confidenceScore !== undefined && evidencePackage.confidenceScore < 0.6) ||
+      decisionJournal?.zone === 'refusal' ||
+      decisionJournal?.zone === 'grey_zone' ||
+      (decisionJournal?.topVectorScore !== undefined && decisionJournal.topVectorScore < 0.81) ||
+      (decisionJournal?.topLexScore !== undefined && decisionJournal.topLexScore < 5)
+    );
 
   if (isLowConfidence && effectiveEvidence.length > 2) {
     effectiveEvidence = effectiveEvidence.slice(0, 2);
@@ -166,21 +170,22 @@ export async function generateNewRagResponse(
   const defaultSysInstruction = `Tu es l'assistant d'étude théologique de King's Sword, expert des sermons de William Marrion Branham et des Écritures.
 
 DIRECTIVES DE RÉPONSE ET FORMAT STRICT (JSON) :
-Tu dois impérativement renvoyer un objet JSON respectant le schéma avec les champs 'sources_suffisantes' et 'reponse'.
+Tu dois impérativement renvoyer un objet JSON respectant le schéma avec les champs 'sources_suffisantes', 'reponse' et facultativement 'avertissement'.
 
-1. DÉCISION DU CHAMP 'sources_suffisantes' :
+1. DÉCISION DU CHAMP 'sources_suffisantes' (3 ÉTATS STRICTS) :
 - Évalue si les extraits textuels fournis contiennent les éléments nécessaires pour traiter le sujet doctrinal, prophétique ou scripturaire de la question.
-- Vaut true UNIQUEMENT si les extraits permettent de répondre véritablement au fond de la question.
-- Vaut false si le sujet est absent des extraits, hors-domaine, profane (technologie, actualité, recettes, etc.), ou si les extraits ne mentionnent que fortuitement des termes généraux sans rapport avec l'objet de la demande.
+- Renvoyer "suffisantes" si les extraits fournis traitent pleinement et directement du sujet de la question.
+- Renvoyer "partielles" si les extraits abordent le sujet de manière indirecte, incomplète, ou si de nombreux aspects doctrinaux importants de la question manquent dans les extraits reçus. (Dans ce cas, spécifie dans le champ 'avertissement' un message expliquant la couverture partielle).
+- Renvoyer "insuffisantes" si le sujet est totalement absent des extraits, profane ou hors-domaine.
 
-2. EN CAS DE REFUS (sources_suffisantes = false) :
+2. EN CAS DE REFUS (sources_suffisantes = "insuffisantes") :
 - Rédige dans le champ 'reponse' un message très court de 2 phrases au maximum.
 - Commence obligatoirement par : « Les textes disponibles ne traitent pas de ce sujet. »
 - Si pertinent, ajoute une brève suggestion de reformulation ou de recherche orientée vers le Message.
 - Ne dresse AUCUNE liste des thèmes des passages non pertinents reçus.
 - N'inclus AUCUNE section "### Sources consultées" ni "### Pistes d'approfondissement".
 
-3. EN CAS D'ACCEPTATION (sources_suffisantes = true) :
+3. EN CAS D'ACCEPTATION (sources_suffisantes = "suffisantes" ou "partielles") :
 - Fournis une étude doctrinale complète, pédagogique et structurée dans le champ 'reponse'.
 - Fonde ton exposé EXCLUSIVEMENT sur les extraits fournis.
 - Appuie chaque affirmation sur des citations textuelles exactes entre guillemets suivies de leur référence :
@@ -204,12 +209,16 @@ Tu dois impérativement renvoyer un objet JSON respectant le schéma avec les ch
           type: Type.OBJECT,
           properties: {
             sources_suffisantes: {
-              type: Type.BOOLEAN,
-              description: "true si les extraits fournis traitent réellement de la question. false si le sujet est absent, profane ou hors-domaine."
+              type: Type.STRING,
+              description: "Évalue la couverture : 'suffisantes' (sujet pleinement traité), 'partielles' (sujet abordé de façon parcellaire ou incomplète), ou 'insuffisantes' (sujet absent, profane ou hors-domaine)."
             },
             reponse: {
               type: Type.STRING,
-              description: "Si sources_suffisantes=true: étude théologique complète avec citations exactes. Si sources_suffisantes=false: message court de 2 phrases max débutant par 'Les textes disponibles ne traitent pas de ce sujet.' éventuellement suivi d'une suggestion de reformulation."
+              description: "Si 'suffisantes' ou 'partielles': étude théologique structurée avec citations exactes. Si 'insuffisantes': message court de 2 phrases max débutant par 'Les textes disponibles ne traitent pas de ce sujet.'"
+            },
+            avertissement: {
+              type: Type.STRING,
+              description: "Si sources_suffisantes='partielles', réclame ou propose un court avertissement expliquant la couverture partielle. Sinon, laisser vide ou null."
             }
           },
           required: ["sources_suffisantes", "reponse"]
@@ -238,34 +247,91 @@ Tu dois impérativement renvoyer un objet JSON respectant le schéma avec les ch
       };
     }
 
+    let coverageState: 'suffisantes' | 'partielles' | 'insuffisantes' = 'suffisantes';
     let sourcesSuffisantes = true;
     let finalAnswerText = responseText;
+    let warningText: string | null = null;
 
-    try {
-      const parsed = JSON.parse(responseText);
-      if (typeof parsed?.sources_suffisantes === 'boolean') {
-        sourcesSuffisantes = parsed.sources_suffisantes;
+    const parseJsonResult = (textStr: string): boolean => {
+      try {
+        const parsed = JSON.parse(textStr);
+        if (typeof parsed?.sources_suffisantes === 'string') {
+          const s = parsed.sources_suffisantes.toLowerCase();
+          if (s.includes('partiel')) coverageState = 'partielles';
+          else if (s.includes('insuffis') || s.includes('faux') || s.includes('false')) coverageState = 'insuffisantes';
+          else coverageState = 'suffisantes';
+        } else if (typeof parsed?.sources_suffisantes === 'boolean') {
+          coverageState = parsed.sources_suffisantes ? 'suffisantes' : 'insuffisantes';
+        }
+        sourcesSuffisantes = (coverageState !== 'insuffisantes');
+        if (typeof parsed?.reponse === 'string' && parsed.reponse.trim()) {
+          finalAnswerText = parsed.reponse.trim();
+        }
+        if (typeof parsed?.avertissement === 'string' && parsed.avertissement.trim()) {
+          warningText = parsed.avertissement.trim();
+        }
+        return true;
+      } catch (_) {
+        return false;
       }
-      if (typeof parsed?.reponse === 'string' && parsed.reponse.trim()) {
-        finalAnswerText = parsed.reponse.trim();
+    };
+
+    let parseOk = parseJsonResult(responseText);
+    if (!parseOk) {
+      // Tenter de réparer le JSON tronqué
+      let cleaned = responseText.trim();
+      if (!cleaned.startsWith('{')) {
+        const firstBrace = cleaned.indexOf('{');
+        if (firstBrace !== -1) cleaned = cleaned.substring(firstBrace);
       }
-    } catch (_) {
-      const matchJson = responseText.match(/\{[\s\S]*\}/);
-      if (matchJson) {
-        try {
-          const parsed = JSON.parse(matchJson[0]);
-          if (typeof parsed?.sources_suffisantes === 'boolean') {
-            sourcesSuffisantes = parsed.sources_suffisantes;
-          }
-          if (typeof parsed?.reponse === 'string' && parsed.reponse.trim()) {
-            finalAnswerText = parsed.reponse.trim();
-          }
-        } catch (__) {}
+      if (cleaned.startsWith('{')) {
+        if (!cleaned.endsWith('}')) {
+          cleaned = cleaned + '"}';
+        }
+        parseOk = parseJsonResult(cleaned);
+        if (!parseOk) {
+          cleaned = cleaned.substring(0, cleaned.length - 2) + '}';
+          parseOk = parseJsonResult(cleaned);
+        }
       }
     }
 
-    // Si les sources ne sont pas suffisantes (refus Gemini propre)
-    if (!sourcesSuffisantes) {
+    if (!parseOk) {
+      console.warn('[GenerationAdapter] JSON invalide, tentative de réessai de génération...');
+      try {
+        const retryResponse = await client.generateContent({
+          model,
+          contents: promptContents + "\n\nIMPORTANT : Réponds impérativement sous forme de JSON valide. Si tu n'y arrives pas, commence simplement ta réponse par 'TEXTE_BRUT:'.",
+          config: {
+            systemInstruction: sysInstruction,
+            temperature: 0.1,
+          }
+        });
+        const retryText = retryResponse?.text;
+        if (retryText && retryText.trim()) {
+          if (retryText.startsWith('TEXTE_BRUT:') || !retryText.includes('{')) {
+            finalAnswerText = retryText.replace('TEXTE_BRUT:', '').trim();
+            coverageState = 'suffisantes';
+            sourcesSuffisantes = true;
+            parseOk = true;
+          } else {
+            parseOk = parseJsonResult(retryText);
+          }
+        }
+      } catch (retryErr) {
+        console.warn('[GenerationAdapter] Échec du réessai de génération.', retryErr);
+      }
+    }
+
+    if (!parseOk) {
+      console.warn('[GenerationAdapter] Échec complet du parsing JSON, repli sur texte brut.');
+      finalAnswerText = responseText;
+      coverageState = 'suffisantes';
+      sourcesSuffisantes = true;
+    }
+
+    // Si couverture insuffisante (refus Gemini propre)
+    if ((coverageState as string) === 'insuffisantes') {
       return {
         status: 'success',
         provider: 'google-gemini',
@@ -281,6 +347,14 @@ Tu dois impérativement renvoyer un objet JSON respectant le schéma avec les ch
         technicalIdentifiersDetected: [],
         sources: []
       };
+    }
+
+    // Si couverture partielle, injecter l'avertissement au début de la réponse
+    if ((coverageState as string) === 'partielles') {
+      const warnMsg = warningText || "Note : Les textes disponibles dans le corpus ne couvrent que partiellement cette question. Les éléments présentés ci-dessous s'appuient strictement sur les extraits disponibles.";
+      if (!finalAnswerText.includes('⚠️')) {
+        finalAnswerText = `⚠️ **Couverture partielle** : ${warnMsg}\n\n${finalAnswerText}`;
+      }
     }
 
     // RÈGLE 12 : Détection stricte d'exposition de Chunk ID
