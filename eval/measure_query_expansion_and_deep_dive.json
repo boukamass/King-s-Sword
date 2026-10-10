@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-10T07:18:37.725Z",
+  "conceptual": {
+    "total": 20,
+    "gained": 20,
+    "lost": 0,
+    "unchanged": 0,
+    "gainRate": "100.0%"
+  },
+  "studyDeepDive": {
+    "total": 20,
+    "deepDivesIdentified": 20,
+    "avgPassagesCapped": 2,
+    "avgPassagesUncapped": 15
+  }
+}

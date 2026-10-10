@@ -1,8 +1,12 @@
 
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, clipboard } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   platform: process.platform,
+  clipboard: {
+    readText: () => clipboard ? clipboard.readText() : '',
+    writeText: (text) => clipboard && clipboard.writeText(text)
+  },
   onUpdateAvailable: (callback) => ipcRenderer.on('update_available', callback),
   onUpdateDownloaded: (callback) => ipcRenderer.on('update_downloaded', callback),
   restartApp: () => ipcRenderer.send('restart_app'),

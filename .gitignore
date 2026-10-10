@@ -17,6 +17,7 @@ release
 *.zip
 *.dmg
 *.blockmap
+models/**/*.onnx
 
 # OS files
 .DS_Store

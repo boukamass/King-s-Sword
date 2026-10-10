@@ -376,24 +376,39 @@ export function cleanTextArtifacts(rawText: string): string {
 
 /**
  * Nettoie et supprime tous les marqueurs de balisage Markdown (#, *, **, -, etc.)
- * pour l'affichage en texte brut / aperçu lisible sans symboles.
+ * pour l'affichage en texte brut / aperçu lisible sans symboles et sans résidus parasites.
  */
 export function stripMarkdown(text: string): string {
   if (!text) return '';
   return text
-    .replace(/#+/g, '')
-    .replace(/\*{1,3}/g, '')
-    .replace(/_{1,2}/g, '')
+    // Supprimer les en-têtes markdown de type # Titre, ## Sous-titre, ### Section
+    .replace(/^#{1,6}\s+/gm, '')
+    // Supprimer tous les autres # résiduels isolés
+    .replace(/(^|\s)#+(\s|$)/g, '$1$2')
+    // Supprimer les étoiles multiples ou simples (gras, italique, puces)
+    .replace(/\*{1,4}/g, '')
+    // Supprimer les soulignements markdown (_ ou __)
+    .replace(/(^|\W)_{1,3}(\w+)_{1,3}(\W|$)/g, '$1$2$3')
+    .replace(/_{1,3}/g, '')
+    // Supprimer le barré ~ ou ~~
     .replace(/~{1,2}/g, '')
+    // Supprimer les backticks de code ` ou ```
     .replace(/`{1,3}/g, '')
-    .replace(/^[\s\-\*\+\>]+/gm, '')
-    .replace(/^\d+\.\s+/gm, '')
+    // Supprimer les puces de liste en début de ligne (- item, + item, * item)
+    .replace(/^[\s\-\*\+\>]+(?=\S)/gm, '')
+    // Supprimer la numérotation automatique en début de ligne si présente (1. , 2. )
+    .replace(/^\s*\d+\.\s+/gm, '')
+    // Conserver le libellé des liens markdown [Texte](url)
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    // Nettoyer les balises internes
     .replace(/\[\[\[NOTE_EXTERNE\]\]\]/g, '')
     .replace(/\[Réf:\s*[^\]]+\]/gi, '')
     .replace(/\[Source:\s*[^\]]+\]/gi, '')
+    // Supprimer les barres obliques inverses d'échappement
+    .replace(/\\([#*_~`\[\]()])/g, '$1')
     .replace(/\\/g, '')
-    .replace(/ {2,}/g, ' ')
+    // Espaces et sauts de ligne propres
+    .replace(/[ \t]{2,}/g, ' ')
     .trim();
 }
 

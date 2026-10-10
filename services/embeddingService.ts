@@ -5,12 +5,32 @@
  * la normalisation L2 et la quantification Int8 pour le modèle 'text-embedding-004' (768D).
  */
 
-export const EMBEDDING_CONFIG = {
-  model: 'Xenova/multilingual-e5-small',
-  defaultDimension: 384,
-  legacyDimension: 3072,
+/**
+ * Configuration du modèle d'embedding vectoriel local E5 (384D)
+ * Strictement local : aucun appel réseau, aucun envoi vers une API distante.
+ */
+export const LOCAL_E5_CONFIG = {
+  modelId: 'Xenova/multilingual-e5-small',
+  dimension: 384,
   bytesPerVectorInt8: 384, // 384 octets en Int8
   bytesPerVectorFloat32: 384 * 4 // 1536 octets en Float32
+};
+
+/**
+ * Configuration API Gemini distincte (réservée exclusivement aux scripts hors-ligne d'évaluation)
+ */
+export const GEMINI_EMBEDDING_API_CONFIG = {
+  model: 'gemini-embedding-2-preview',
+  defaultDimension: 768
+};
+
+// Rétrocompatibilité d'alias pour les modules existants : cible le modèle local E5
+export const EMBEDDING_CONFIG = {
+  model: LOCAL_E5_CONFIG.modelId,
+  defaultDimension: LOCAL_E5_CONFIG.dimension,
+  legacyDimension: 3072,
+  bytesPerVectorInt8: LOCAL_E5_CONFIG.bytesPerVectorInt8,
+  bytesPerVectorFloat32: LOCAL_E5_CONFIG.bytesPerVectorFloat32
 };
 
 /**
@@ -130,8 +150,27 @@ export async function getE5Extractor(): Promise<any> {
   if (!e5ExtractorLoadingPromise) {
     e5ExtractorLoadingPromise = (async () => {
       try {
-        const { pipeline } = await import('@xenova/transformers');
-        const ext = await pipeline('feature-extraction', 'Xenova/multilingual-e5-small', { quantized: true });
+        const { pipeline, env } = await import('@xenova/transformers');
+        
+        // Sécurité et intégrité locale stricte : interdiction des téléchargements distants silencieux
+        env.allowRemoteModels = false;
+        env.allowLocalModels = true;
+        
+        // Résolution du chemin du dossier des modèles :
+        // 1. Electron packaged : process.resourcesPath / 'models'
+        // 2. Node / Développement : ./models
+        // 3. Navigateur Web : /models
+        if (typeof process !== 'undefined' && (process as any).resourcesPath) {
+          const path = await import('path');
+          env.localModelPath = path.join((process as any).resourcesPath, 'models');
+        } else if (typeof process !== 'undefined' && process.cwd) {
+          const path = await import('path');
+          env.localModelPath = path.join(process.cwd(), 'models');
+        } else {
+          env.localModelPath = '/models';
+        }
+
+        const ext = await pipeline('feature-extraction', LOCAL_E5_CONFIG.modelId, { quantized: true });
         e5ExtractorInstance = ext;
         return ext;
       } catch (err) {

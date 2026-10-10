@@ -19,8 +19,7 @@ import { createLibraryChunks, computeChunkHash, parseSermonParagraphs } from './
 import { saveChunks, getAllChunks, saveChunk } from './chunkStorageService';
 import { runIncrementalEmbeddingIndexing, EmbeddingIndexResult } from './embeddingIndexService';
 import { validateEmbeddingVector } from './embeddingService';
-import { loadExposeAsSermons } from './exposeDocumentService';
-import { getGeminiApiKey } from '../utils/apiKeyHelper';
+import { loadExposeAsSermons, hydrateExposePrecalculatedEmbeddings, createExposeDocumentChunks } from './exposeDocumentService';
 import { get, set } from 'idb-keyval';
 
 export type IndexingStatus = 'NOT_STARTED' | 'SCANNING' | 'CHUNKING' | 'EMBEDDING' | 'READY' | 'PARTIAL' | 'ERROR';
@@ -83,7 +82,9 @@ async function persistProgressState(prog: CorpusIndexProgress): Promise<void> {
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem(INDEX_STATUS_STORAGE_KEY, JSON.stringify(prog));
     }
-    await set(INDEX_STATUS_STORAGE_KEY, prog);
+    if (typeof indexedDB !== 'undefined') {
+      await set(INDEX_STATUS_STORAGE_KEY, prog);
+    }
   } catch (e) {
     // Ignorer en environnement dégradé
   }
@@ -99,9 +100,11 @@ export async function loadPersistedProgressState(): Promise<CorpusIndexProgress>
         return currentProgress;
       }
     }
-    const stored = await get<CorpusIndexProgress>(INDEX_STATUS_STORAGE_KEY);
-    if (stored) {
-      currentProgress = { ...currentProgress, ...stored };
+    if (typeof indexedDB !== 'undefined') {
+      const stored = await get<CorpusIndexProgress>(INDEX_STATUS_STORAGE_KEY);
+      if (stored) {
+        currentProgress = { ...currentProgress, ...stored };
+      }
     }
   } catch (e) {
     // Ignorer
@@ -113,13 +116,13 @@ export async function loadPersistedProgressState(): Promise<CorpusIndexProgress>
  * Détecte les sermons disponibles dans l'environnement courant
  */
 export async function detectAvailableCorpus(
-  loadedSermonsMap?: Map<string, Sermon>
+  loadedSermonsMap?: Map<string, Sermon | Omit<Sermon, 'text'>> | Map<string, any>
 ): Promise<{ sermons: Sermon[]; corpusVersion: string }> {
   let sermons: Sermon[] = [];
 
   // 1. Map mémoire déjà chargée (React Store)
   if (loadedSermonsMap && loadedSermonsMap.size > 0) {
-    sermons = Array.from(loadedSermonsMap.values()).filter((s): s is Sermon => !!s && typeof s.text === 'string' && s.text.length > 0);
+    sermons = Array.from(loadedSermonsMap.values()).filter((s): s is Sermon => !!s && typeof (s as any).text === 'string' && (s as any).text.length > 0);
   }
 
   // 2. Repli Electron / IPC
@@ -190,7 +193,7 @@ export async function detectAvailableCorpus(
  * REPRÈSENTE LA SÉCURITÉ CONCURRENTIELLE STRICTE : 0 indexation simultanée.
  */
 export async function initializeCorpusIndex(options: {
-  loadedSermonsMap?: Map<string, Sermon>;
+  loadedSermonsMap?: Map<string, Sermon | Omit<Sermon, 'text'>> | Map<string, any>;
   forceReindex?: boolean;
   apiKey?: string;
   batchSize?: number;
@@ -231,12 +234,22 @@ export async function initializeCorpusIndex(options: {
 
     // B. Découpage en Chunks (CHUNKING)
     notifyProgressUpdate({ status: 'CHUNKING' });
-    const officialChunks = createLibraryChunks(sermons);
+    const librarySermonsOnly = sermons.filter(s => !s.id.startsWith('expose-ch-'));
+    const sermonChunks = createLibraryChunks(librarySermonsOnly);
+    const exposeChunks = await createExposeDocumentChunks();
+    const officialChunks = [...sermonChunks, ...exposeChunks];
     
     notifyProgressUpdate({
       totalChunks: officialChunks.length,
       sermonsProcessed: sermons.length
     });
+
+    // Hydratation immédiate avec les embeddings précalculés livrés dans l'application (Exposé + Sermons)
+    try {
+      await hydrateExposePrecalculatedEmbeddings(officialChunks);
+    } catch (e) {
+      console.warn('[CorpusIndexInit] Hydratation précalculée ignorée:', e);
+    }
 
     // Sauvegarde initiale dans la base locale (Storage)
     await saveChunks(officialChunks);
@@ -249,7 +262,7 @@ export async function initializeCorpusIndex(options: {
     for (const chunk of officialChunks) {
       const stored = existingMap.get(chunk.chunkId);
       if (stored && stored.contentHash === computeChunkHash(chunk.sermonId, chunk.paragraphIds, chunk.text)) {
-        if (stored.embedding && (validateEmbeddingVector(stored.embedding, 768).valid || validateEmbeddingVector(stored.embedding, 3072).valid)) {
+        if (stored.embedding && (validateEmbeddingVector(stored.embedding, 768).valid || validateEmbeddingVector(stored.embedding, 3072).valid || validateEmbeddingVector(stored.embedding, 384).valid)) {
           alreadyValidCount++;
         }
       }
@@ -257,7 +270,10 @@ export async function initializeCorpusIndex(options: {
 
     notifyProgressUpdate({
       embeddingsReused: alreadyValidCount,
-      chunksProcessed: alreadyValidCount
+      chunksProcessed: alreadyValidCount,
+      totalChunks: officialChunks.length,
+      sermonsProcessed: sermons.length,
+      totalSermons: sermons.length
     });
 
     // Si tout est déjà indexé et valide -> État READY direct !
@@ -266,6 +282,9 @@ export async function initializeCorpusIndex(options: {
         status: 'READY',
         embeddingsCreated: 0,
         chunksProcessed: officialChunks.length,
+        totalChunks: officialChunks.length,
+        sermonsProcessed: sermons.length,
+        totalSermons: sermons.length,
         lastIndexedAt: new Date().toISOString(),
         errorMessage: null
       });
@@ -273,26 +292,12 @@ export async function initializeCorpusIndex(options: {
       return currentProgress;
     }
 
-    // D. Génération Vectorielle Incrémentale (EMBEDDING)
+    // D. Génération Vectorielle Incrémentale Locale E5 (EMBEDDING)
     notifyProgressUpdate({ status: 'EMBEDDING' });
 
-    const apiKey = options.apiKey || getGeminiApiKey();
-
-    if (!apiKey) {
-      // Pas de clé API disponible : passer en état PARTIAL si au moins 1 chunk est valide
-      const newStatus = alreadyValidCount > 0 ? 'PARTIAL' : 'NOT_STARTED';
-      notifyProgressUpdate({
-        status: newStatus,
-        errorMessage: 'Clé API Gemini non configurée pour calculer les nouveaux embeddings.'
-      });
-      isIndexingInProgress = false;
-      return currentProgress;
-    }
-
     const indexResult = await runIncrementalEmbeddingIndexing(officialChunks, {
-      apiKey,
       batchSize: options.batchSize || 10,
-      delayBetweenBatchesMs: 150,
+      delayBetweenBatchesMs: 50,
       maxRetries: 3,
       onProgress: (res: EmbeddingIndexResult) => {
         notifyProgressUpdate({
@@ -309,7 +314,7 @@ export async function initializeCorpusIndex(options: {
     const finalStored = await getAllChunks();
     let finalValidCount = 0;
     for (const c of finalStored) {
-      if (c.embedding && validateEmbeddingVector(c.embedding, 3072).valid) {
+      if (c.embedding && (validateEmbeddingVector(c.embedding, 384).valid || validateEmbeddingVector(c.embedding, 768).valid)) {
         finalValidCount++;
       }
     }

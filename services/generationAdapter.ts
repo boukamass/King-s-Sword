@@ -17,6 +17,7 @@ import { formatEvidenceContextForGemini } from './autoRagRetrievalService';
 import { validateResponseCitations } from './citationValidationService';
 import { getGeminiApiKey } from '../utils/apiKeyHelper';
 import { extractRequestedLineCount } from './queryIntentService';
+import { isDeepDiveStudyRequest } from './theologicalExegesisService';
 import { GoogleGenAI, Type } from '@google/genai';
 
 export interface GeminiCaller {
@@ -113,7 +114,7 @@ export async function generateNewRagResponse(
     };
   }
 
-  const isDeepDive = /\b(etude|etudier|approfondi|approfondie|détaille|detaille|détaillee|detaillee|synthese|synthetiser|analyse|analyser|panorama|complet|complete|exhaustive)\b/i.test(query.toLowerCase());
+  const isDeepDive = isDeepDiveStudyRequest(query) || /\b(etude|etudier|approfondi|approfondie|détaille|detaille|détaillee|detaillee|synthese|synthetiser|analyse|analyser|panorama|complet|complete|exhaustive)\b/i.test(query.toLowerCase());
 
   // Réduction du nombre de passages envoyés si la confiance de récupération est basse
   let effectiveEvidence = evidencePackage.evidence;

@@ -242,17 +242,24 @@ export async function expandTheologicalQuery(
   try {
     const ai = new GoogleGenAI({ apiKey: activeKey });
     const prompt = `En tant qu'assistant exégétique spécialisé dans les sermons de William Marrion Branham et l'Exposé des Sept Âges de l'Église :
-Analyse la question suivante :
+Analyse la question conceptuelle ou doctrinale suivante :
 "${cleanQuery}"
 
 Tâches :
-1. Génère 3 à 5 synonymes ou termes doctrinaux exacts du Message associés (ex: nouvelle naissance -> jeton, baptême du Saint-Esprit).
-2. Si la question est comparative ou multi-facettes, divise-la en 2 sous-questions ciblées, sinon répète la question.
+1. Mappe les termes modernes, génériques ou abstraits vers le vocabulaire historique et doctrinal exact employé par William Branham dans ses sermons et l'Exposé :
+   - Exemples de transposition lexicale :
+     * finances / économie / budget -> argent, dîme, offrandes, richesses, biens, dettes
+     * couple / vie conjugale -> mariage, mari, femme, foyer, vie de famille, époux, épouse
+     * souffrance / maladies -> guérison divine, épreuve, foi, prière
+     * nouvelle naissance / conversion -> jeton, baptême du Saint-Esprit, semence prédestinée
+2. Extrais 4 à 8 synonymes et mots-clés du corpus indispensables pour retrouver les passages pertinents dans les prédications (doctrinalKeywords).
+3. Produis une "expandedQuery" enrichie intégrant ces termes du corpus tout en préservant rigoureusement l'intention de la question originale.
+4. Si la question est comparative ou multi-facettes, divise-la en 2 sous-questions ciblées, sinon répète la question.
 
 Réponds STRICTEMENT sous format JSON valide sans texte avant ni après :
 {
-  "expandedQuery": "question enrichie avec les termes clés doctrinaux",
-  "doctrinalKeywords": ["mot1", "mot2", "mot3"],
+  "expandedQuery": "question enrichie avec les termes clés doctrinaux du Message",
+  "doctrinalKeywords": ["terme1", "terme2", "terme3", "terme4"],
   "subQueries": ["sous_question1", "sous_question2"],
   "isMultiHop": true_ou_false
 }`;

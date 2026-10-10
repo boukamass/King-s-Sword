@@ -15,12 +15,10 @@
  * 9. Support complet du mode dryRun (0 appel API, 0 écriture)
  */
 
-import { GoogleGenAI } from '@google/genai';
 import { SermonChunk } from '../types';
 import { computeChunkHash } from './chunkingService';
 import { saveChunks, getChunkById, getAllChunks } from './chunkStorageService';
-import { EMBEDDING_CONFIG, validateEmbeddingVector } from './embeddingService';
-import { getGeminiApiKey, getAllGeminiApiKeys } from '../utils/apiKeyHelper';
+import { LOCAL_E5_CONFIG, computeE5Embedding, validateEmbeddingVector } from './embeddingService';
 import { useAppStore } from '../store';
 
 // Ordonnanceur adaptatif : Détection d'activité utilisateur
@@ -78,75 +76,16 @@ function delay(ms: number): Promise<void> {
 }
 
 /**
- * Génère l'embedding d'un chunk avec gestion de retries, backoff exponentiel et jitter
+ * Génère l'embedding local E5 (384D Int8) d'un chunk sans aucun appel réseau.
  */
-async function generateEmbeddingWithRetry(
-  chunkText: string,
-  options: {
-    maxRetries: number;
-    initialBackoffMs: number;
-    maxBackoffMs: number;
-    apiKey?: string;
+async function generateLocalE5Embedding(
+  chunkText: string
+): Promise<{ vector: Int8Array; retriesUsed: number; apiCallsCount: number }> {
+  const vec = await computeE5Embedding(chunkText, 'passage: ');
+  if (!vec || vec.length !== LOCAL_E5_CONFIG.dimension) {
+    throw new Error(`Échec de calcul de l'embedding local E5 (dimension ${vec?.length || 0} vs ${LOCAL_E5_CONFIG.dimension})`);
   }
-): Promise<{ vector: number[]; retriesUsed: number; apiCallsCount: number }> {
-  let retriesUsed = 0;
-  let apiCallsCount = 0;
-
-  const availableKeys = getAllGeminiApiKeys();
-  let keyIndex = 0;
-  let currentKey = options.apiKey || (availableKeys.length > 0 ? availableKeys[0] : getGeminiApiKey());
-
-  if (!currentKey) {
-    throw new Error("Aucune clé API Gemini disponible pour générer l'embedding.");
-  }
-
-  let attempt = 0;
-  while (attempt <= options.maxRetries) {
-    try {
-      apiCallsCount++;
-      const ai = new GoogleGenAI({ apiKey: currentKey });
-      const res = await ai.models.embedContent({
-        model: EMBEDDING_CONFIG.model,
-        contents: chunkText.trim()
-      });
-
-      const vector = res.embeddings?.[0]?.values;
-      if (!Array.isArray(vector)) {
-        throw new Error("Structure d'embedding retournée invalide par l'API Gemini");
-      }
-
-      return { vector, retriesUsed, apiCallsCount };
-    } catch (err: any) {
-      const errMsg = err?.message || String(err);
-      const isRateLimit = errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED') || errMsg.includes('quota');
-      const isServerError = errMsg.includes('503') || errMsg.includes('UNAVAILABLE') || errMsg.includes('overloaded');
-
-      attempt++;
-      if (attempt > options.maxRetries) {
-        throw new Error(`Échec génération embedding après ${options.maxRetries} tentatives: ${errMsg}`);
-      }
-
-      retriesUsed++;
-
-      // Rotation de clé API en cas de 429 si d'autres clés sont disponibles
-      if (isRateLimit && availableKeys.length > 1) {
-        keyIndex = (keyIndex + 1) % availableKeys.length;
-        currentKey = availableKeys[keyIndex];
-      }
-
-      // Backoff exponentiel avec jitter
-      const exponentialDelay = Math.min(
-        options.maxBackoffMs,
-        options.initialBackoffMs * Math.pow(2, attempt - 1)
-      );
-      const jitter = Math.floor(Math.random() * 200);
-      const waitTime = exponentialDelay + jitter;
-
-      await delay(waitTime);
-    }
-  }
-
-  throw new Error("Nombre maximal de tentatives dépassé");
+  return { vector: vec, retriesUsed: 0, apiCallsCount: 0 };
 }
 
 /**
@@ -212,8 +151,8 @@ export async function runIncrementalEmbeddingIndexing(
     } else {
       const isSameHash = existing.contentHash === computedHash;
       const hasValidEmbedding = existing.embedding && (
-        validateEmbeddingVector(existing.embedding, EMBEDDING_CONFIG.defaultDimension).valid ||
-        validateEmbeddingVector(existing.embedding, EMBEDDING_CONFIG.legacyDimension).valid
+        validateEmbeddingVector(existing.embedding, LOCAL_E5_CONFIG.dimension).valid ||
+        validateEmbeddingVector(existing.embedding, 768).valid
       );
 
       if (isSameHash && hasValidEmbedding) {
@@ -296,20 +235,15 @@ export async function runIncrementalEmbeddingIndexing(
 
     for (const chunk of batch) {
       try {
-        const { vector, retriesUsed, apiCallsCount } = await generateEmbeddingWithRetry(chunk.text, {
-          maxRetries: opts.maxRetries,
-          initialBackoffMs: opts.initialBackoffMs,
-          maxBackoffMs: opts.maxBackoffMs,
-          apiKey: opts.apiKey
-        });
+        const { vector, retriesUsed, apiCallsCount } = await generateLocalE5Embedding(chunk.text);
 
         totalApiCalls += apiCallsCount;
         totalRetries += retriesUsed;
 
-        // Validation stricte Float32 3072D
-        const valRes = validateEmbeddingVector(vector, EMBEDDING_CONFIG.defaultDimension);
+        // Validation stricte du vecteur E5 384D Int8
+        const valRes = validateEmbeddingVector(vector, LOCAL_E5_CONFIG.dimension);
         if (!valRes.valid) {
-          throw new Error(`Validation Float32 échouée pour le chunk ${chunk.chunkId} : ${valRes.error}`);
+          throw new Error(`Validation E5 384D échouée pour le chunk ${chunk.chunkId} : ${valRes.error}`);
         }
 
         const chunkWithVector: SermonChunk = {
@@ -322,7 +256,7 @@ export async function runIncrementalEmbeddingIndexing(
 
         // Vérification par re-lecture dans SQLite/Storage (Transaction verification)
         const reReadChunk = await getChunkById(chunk.chunkId);
-        if (!reReadChunk || !reReadChunk.embedding || !validateEmbeddingVector(reReadChunk.embedding, EMBEDDING_CONFIG.defaultDimension).valid) {
+        if (!reReadChunk || !reReadChunk.embedding || !validateEmbeddingVector(reReadChunk.embedding, LOCAL_E5_CONFIG.dimension).valid) {
           throw new Error(`Échec de vérification par re-lecture dans le stockage pour le chunk ${chunk.chunkId}`);
         }
 

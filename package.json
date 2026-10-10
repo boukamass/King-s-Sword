@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite",
     "start": "vite",
+    "prebuild": "node scripts/fetch-model.mjs",
     "build": "vite build",
     "lint": "tsc --noEmit",
     "test": "node scripts/test_rag.mjs && node scripts/test_api_key_flow.mjs && node scripts/test_benchmark.mjs && node scripts/test_chunking.mjs && node scripts/test_chunk_storage.mjs && node scripts/test_embedding_validation.mjs && node scripts/test_vector_search.mjs && node scripts/test_hybrid_retrieval.mjs && node scripts/test_reranking.mjs && node scripts/test_evidence_adapter.mjs && node scripts/test_autorag_integration.mjs && node scripts/test_citation_validator.mjs && npx tsx scripts/test_embedding_index.mjs && npx tsx scripts/test_phase2f9c_anti_fallback.mjs && npx tsx scripts/test_phase2f10_generation_integration.mjs && npx tsx scripts/test_phase2f11_expose_integration.mjs && npx tsx scripts/test_unified_rag.mjs && npx tsx scripts/test_phase2f12d_integration.mjs && npx tsx scripts/test_phase2f12e_ui_validation.mjs && npx tsx scripts/test_phase2f12g_activation.mjs && npx tsx scripts/test_phase2f14_first_run.mjs && npx tsx scripts/test_phase2f15_indexing_ux.mjs && npx tsx scripts/guard_auto_test.mjs",
@@ -72,6 +73,7 @@
     "jspdf": "^2.5.1",
     "lucide-react": "^1.34.0",
     "marked": "^12.0.2",
+    "onnxruntime-node": "^1.14.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "zustand": "^5.0.9"
@@ -99,7 +101,8 @@
     "copyright": "Copyright © 2026 Bienvenu Massamba & Gastin Ngakosso",
     "asar": true,
     "asarUnpack": [
-      "**/node_modules/better-sqlite3/**"
+      "**/node_modules/better-sqlite3/**",
+      "**/node_modules/onnxruntime-node/**"
     ],
     "files": [
       "dist/**/*",

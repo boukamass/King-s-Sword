@@ -436,6 +436,10 @@ export interface CitationValidationResult {
 
 export interface ElectronAPI {
   platform: string;
+  clipboard?: {
+    readText: () => string;
+    writeText: (text: string) => void;
+  };
   onUpdateAvailable: (callback: () => void) => void;
   onUpdateDownloaded: (callback: () => void) => void;
   restartApp: () => void;
