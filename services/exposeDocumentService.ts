@@ -219,58 +219,93 @@ export async function createExposeDocumentChunks(options?: ChunkingOptions): Pro
   return chunks;
 }
 
-let precomputedEmbeddingsHydrated = false;
+let cachedMeta: any = null;
+let cachedArrayBuf: ArrayBuffer | null = null;
+let cachedNodeBuffer: any = null;
 
 /**
  * Hydrate les chunks avec les embeddings 768D Int8 précalculés livrés dans l'application.
  * 0 appel réseau Gemini, chargement binaire direct et instantané (< 10 ms).
  */
 export async function hydrateExposePrecalculatedEmbeddings(chunks: SermonChunk[]): Promise<void> {
-  if (precomputedEmbeddingsHydrated || !Array.isArray(chunks) || chunks.length === 0) return;
-  if (chunks[0].embedding && chunks[0].embedding.length > 0) return;
+  if (!Array.isArray(chunks) || chunks.length === 0) return;
 
   try {
     // Mode Node.js / Electron
     if (typeof process !== 'undefined' && process.versions && process.versions.node) {
-      const fs = await import('fs');
-      const path = await import('path');
-      const metaPath = path.resolve('public', 'corpus_embeddings_meta.json');
-      const binPath = path.resolve('public', 'corpus_embeddings_768d.bin');
+      if (!cachedMeta || !cachedNodeBuffer) {
+        const fs = await import('fs');
+        const path = await import('path');
+        const metaPath384 = path.resolve('public', 'corpus_embeddings_384d_meta.json');
+        const metaPathMain = path.resolve('public', 'corpus_embeddings_meta.json');
+        const metaPath = fs.existsSync(metaPath384) ? metaPath384 : metaPathMain;
 
-      if (fs.existsSync(metaPath) && fs.existsSync(binPath)) {
-        const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-        const binBuffer = fs.readFileSync(binPath);
-        const chunkMap = new Map<string, SermonChunk>();
-        for (const c of chunks) chunkMap.set(c.chunkId, c);
+        const binPath384 = path.resolve('public', 'corpus_embeddings_384d.bin');
+        const binPath768 = path.resolve('public', 'corpus_embeddings_768d.bin');
+        const binPath = fs.existsSync(binPath384) ? binPath384 : binPath768;
 
-        for (const item of meta.chunks) {
-          const chunk = chunkMap.get(item.chunkId);
-          if (chunk) {
-            chunk.embedding = new Int8Array(binBuffer.buffer, binBuffer.byteOffset + item.offset, item.length);
+        if (fs.existsSync(metaPath) && fs.existsSync(binPath)) {
+          const rawMeta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+          // Filtrer rigoureusement sur model_id et dimension
+          if (rawMeta.dimension === 384 && (rawMeta.model_id === 'Xenova/multilingual-e5-small' || rawMeta.model === 'Xenova/multilingual-e5-small')) {
+            cachedMeta = rawMeta;
+            cachedNodeBuffer = fs.readFileSync(binPath);
+          } else if (rawMeta.dimension === 768) {
+            // Ancien index conservé mais ignoré pour les recherches vectorielles E5
+            console.info('[ExposeDocumentService] Ancien index 768D détecté et ignoré au profit de E5 384D.');
           }
         }
-        precomputedEmbeddingsHydrated = true;
+      }
+
+      if (cachedMeta && cachedNodeBuffer) {
+        const chunkMap = new Map<string, SermonChunk>();
+        for (const c of chunks) {
+          if (!c.embedding || c.embedding.length === 0) chunkMap.set(c.chunkId, c);
+        }
+
+        for (const item of cachedMeta.chunks) {
+          const chunk = chunkMap.get(item.chunkId);
+          if (chunk && item.length === 384) {
+            chunk.embedding = new Int8Array(cachedNodeBuffer.buffer, cachedNodeBuffer.byteOffset + item.offset, item.length);
+          }
+        }
         return;
       }
     }
 
     // Mode Navigateur Web
     if (typeof window !== 'undefined' && typeof fetch !== 'undefined') {
-      const metaRes = await fetch('/corpus_embeddings_meta.json');
-      const binRes = await fetch('/corpus_embeddings_768d.bin');
-      if (metaRes.ok && binRes.ok) {
-        const meta = await metaRes.json();
-        const arrayBuf = await binRes.arrayBuffer();
-        const chunkMap = new Map<string, SermonChunk>();
-        for (const c of chunks) chunkMap.set(c.chunkId, c);
+      if (!cachedMeta || !cachedArrayBuf) {
+        let metaRes = await fetch('/corpus_embeddings_384d_meta.json');
+        if (!metaRes.ok) {
+          metaRes = await fetch('/corpus_embeddings_meta.json');
+        }
+        let binRes = await fetch('/corpus_embeddings_384d.bin');
+        if (!binRes.ok) {
+          binRes = await fetch('/corpus_embeddings_768d.bin');
+        }
 
-        for (const item of meta.chunks) {
-          const chunk = chunkMap.get(item.chunkId);
-          if (chunk) {
-            chunk.embedding = new Int8Array(arrayBuf, item.offset, item.length);
+        if (metaRes.ok && binRes.ok) {
+          const rawMeta = await metaRes.json();
+          if (rawMeta.dimension === 384 && (rawMeta.model_id === 'Xenova/multilingual-e5-small' || rawMeta.model === 'Xenova/multilingual-e5-small')) {
+            cachedMeta = rawMeta;
+            cachedArrayBuf = await binRes.arrayBuffer();
           }
         }
-        precomputedEmbeddingsHydrated = true;
+      }
+
+      if (cachedMeta && cachedArrayBuf) {
+        const chunkMap = new Map<string, SermonChunk>();
+        for (const c of chunks) {
+          if (!c.embedding || c.embedding.length === 0) chunkMap.set(c.chunkId, c);
+        }
+
+        for (const item of cachedMeta.chunks) {
+          const chunk = chunkMap.get(item.chunkId);
+          if (chunk && item.length === 384) {
+            chunk.embedding = new Int8Array(cachedArrayBuf, item.offset, item.length);
+          }
+        }
       }
     }
   } catch (err) {

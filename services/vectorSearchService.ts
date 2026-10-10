@@ -7,9 +7,8 @@
  * RÈGLE D'OR : Ce module est totalement indépendant du pipeline Legacy et de l'UI.
  */
 
-import { GoogleGenAI } from '@google/genai';
 import { SermonChunk, VectorSearchResult, VectorSearchOptions } from '../types';
-import { EMBEDDING_CONFIG, normalizeL2, computeCosineInt8, quantizeToInt8, dequantizeFromInt8 } from './embeddingService';
+import { EMBEDDING_CONFIG, normalizeL2, computeCosineInt8, quantizeToInt8, dequantizeFromInt8, computeE5Embedding } from './embeddingService';
 
 export const DEFAULT_VECTOR_SEARCH_OPTIONS: Required<VectorSearchOptions> = {
   topK: 10,
@@ -124,75 +123,43 @@ export function searchByVector(
 }
 
 /**
- * Génère l'embedding d'une requête textuelle via le SDK @google/genai avec normalisation L2.
+ * Génère l'embedding d'une requête textuelle via le modèle local E5 (384D) avec préfixe "query: ".
+ * Strictement local : 0 appel réseau.
  */
 export async function embedQueryText(
   query: string,
-  apiKey: string,
-  options?: { dimension?: number; taskType?: string }
+  _apiKey?: string,
+  _options?: { dimension?: number; taskType?: string }
 ): Promise<number[]> {
-  if (!query || !query.trim() || !apiKey) return [];
-
-  const dim = options?.dimension || EMBEDDING_CONFIG.defaultDimension;
-  const taskType = options?.taskType || 'RETRIEVAL_QUERY';
-
-  const ai = new GoogleGenAI({ apiKey });
-  const res = await ai.models.embedContent({
-    model: EMBEDDING_CONFIG.model,
-    contents: query.trim(),
-    config: {
-      taskType: taskType as any,
-      outputDimensionality: dim
-    }
-  });
-
-  const vector = res.embeddings?.[0]?.values;
-  if (!Array.isArray(vector)) {
-    throw new Error(`Réponse d'embedding invalide pour la requête "${query}"`);
-  }
-
-  // Normalisation L2 systématique pour une géométrie cosinus parfaite
-  return Array.from(normalizeL2(vector));
+  if (!query || !query.trim()) return [];
+  const vec = await computeE5Embedding(query, 'query: ');
+  if (!vec) return [];
+  return Array.from(vec);
 }
 
 /**
- * Génère l'embedding d'un chunk documentaire via le SDK @google/genai avec taskType RETRIEVAL_DOCUMENT.
+ * Génère l'embedding d'un passage documentaire via le modèle local E5 (384D) avec préfixe "passage: ".
+ * Strictement local : 0 appel réseau.
  */
 export async function embedDocumentChunk(
   text: string,
-  apiKey: string,
-  options?: { dimension?: number }
+  _apiKey?: string,
+  _options?: { dimension?: number }
 ): Promise<number[]> {
-  if (!text || !text.trim() || !apiKey) return [];
-  const dim = options?.dimension || EMBEDDING_CONFIG.defaultDimension;
-
-  const ai = new GoogleGenAI({ apiKey });
-  const res = await ai.models.embedContent({
-    model: EMBEDDING_CONFIG.model,
-    contents: text.trim(),
-    config: {
-      taskType: 'RETRIEVAL_DOCUMENT' as any,
-      outputDimensionality: dim
-    }
-  });
-
-  const vector = res.embeddings?.[0]?.values;
-  if (!Array.isArray(vector)) {
-    throw new Error(`Réponse d'embedding invalide pour le chunk`);
-  }
-
-  // Normalisation L2 systématique
-  return Array.from(normalizeL2(vector));
+  if (!text || !text.trim()) return [];
+  const vec = await computeE5Embedding(text, 'passage: ');
+  if (!vec) return [];
+  return Array.from(vec);
 }
 
 /**
- * Pipeline complet de recherche vectorielle à partir d'un texte utilisateur.
- * Isole précisément la latence d'appel réseau API d'embedding et la latence de calcul local.
+ * Pipeline complet de recherche vectorielle locale à partir d'un texte utilisateur.
+ * Utilise exclusivement le modèle local E5 (384D Int8), sans aucun appel réseau.
  */
 export async function searchByText(
   query: string,
   candidateChunks: SermonChunk[],
-  apiKey: string,
+  _apiKey?: string,
   options?: VectorSearchOptions
 ): Promise<{
   results: VectorSearchResult[];
@@ -203,9 +170,9 @@ export async function searchByText(
     return { results: [], embeddingLatencyMs: 0, searchLatencyMs: 0 };
   }
 
-  // 1. Génération de l'embedding de la question (Appel API)
+  // 1. Génération locale de l'embedding de la question (E5 local)
   const t0Embed = performance.now();
-  const queryVector = await embedQueryText(query, apiKey);
+  const queryVector = await embedQueryText(query);
   const embeddingLatencyMs = Math.round((performance.now() - t0Embed) * 100) / 100;
 
   // 2. Recherche vectorielle locale en mémoire (Calcul Cosinus)

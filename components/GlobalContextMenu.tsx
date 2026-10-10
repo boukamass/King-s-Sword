@@ -143,19 +143,46 @@ export const GlobalContextMenu: React.FC = () => {
     handleClose();
   };
 
+  const applyReactValue = (el: HTMLInputElement | HTMLTextAreaElement, newValue: string) => {
+    const prototype = el instanceof HTMLInputElement 
+      ? window.HTMLInputElement.prototype 
+      : window.HTMLTextAreaElement.prototype;
+    
+    const valueSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+    
+    if (valueSetter) {
+      valueSetter.call(el, newValue);
+    } else {
+      el.value = newValue;
+    }
+
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+
   const handleCut = async () => {
-    if (menu.isInput && menu.targetElement) {
-      const inputEl = menu.targetElement as HTMLInputElement | HTMLTextAreaElement;
-      const start = inputEl.selectionStart || 0;
-      const end = inputEl.selectionEnd || 0;
-      const val = inputEl.value;
-      const selectedPart = val.substring(start, end);
-      
-      if (selectedPart) {
-        await navigator.clipboard.writeText(selectedPart);
-        inputEl.value = val.substring(0, start) + val.substring(end);
-        inputEl.selectionStart = inputEl.selectionEnd = start;
-        inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+    if ((menu.isInput || menu.isEditable) && menu.targetElement) {
+      const el = menu.targetElement;
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+        const inputEl = el;
+        const start = inputEl.selectionStart || 0;
+        const end = inputEl.selectionEnd || 0;
+        const val = inputEl.value;
+        const selectedPart = val.substring(start, end);
+        
+        if (selectedPart) {
+          try {
+            await navigator.clipboard.writeText(selectedPart);
+          } catch {
+            document.execCommand('cut');
+          }
+          const newValue = val.substring(0, start) + val.substring(end);
+          applyReactValue(inputEl, newValue);
+          inputEl.selectionStart = inputEl.selectionEnd = start;
+          addNotification("Texte coupé", "info");
+        }
+      } else if (el.isContentEditable) {
+        document.execCommand('cut');
         addNotification("Texte coupé", "info");
       }
     }
@@ -163,23 +190,61 @@ export const GlobalContextMenu: React.FC = () => {
   };
 
   const handlePaste = async () => {
-    if (menu.isInput && menu.targetElement) {
+    // Fermer immédiatement le menu contextuel dès le clic sur l'action
+    const currentTarget = menu.targetElement;
+    const isInputTarget = menu.isInput;
+    const isEditableTarget = menu.isEditable;
+    handleClose();
+
+    if ((isInputTarget || isEditableTarget) && currentTarget) {
+      const el = currentTarget as HTMLElement;
+
+      // 1. Restaurer la focalisation sur l'élément cible
+      if ('focus' in el && typeof el.focus === 'function') {
+        el.focus();
+      }
+
+      let pasteText = '';
+
+      // 2. Essayer de lire le presse-papier via l'API Clipboard
       try {
-        const pasteText = await navigator.clipboard.readText();
-        const inputEl = menu.targetElement as HTMLInputElement | HTMLTextAreaElement;
-        const start = inputEl.selectionStart || 0;
-        const end = inputEl.selectionEnd || 0;
-        const val = inputEl.value;
-        
-        inputEl.value = val.substring(0, start) + pasteText + val.substring(end);
-        inputEl.selectionStart = inputEl.selectionEnd = start + pasteText.length;
-        inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-        addNotification("Texte collé", "success");
+        if (navigator.clipboard && typeof navigator.clipboard.readText === 'function') {
+          pasteText = await navigator.clipboard.readText();
+        }
       } catch (err) {
-        addNotification("Veuillez utiliser Ctrl+V pour coller", "info");
+        console.warn('[ContextMenu] navigator.clipboard.readText a échoué:', err);
+      }
+
+      // 3. Insérer le texte collé s'il a été récupéré
+      if (pasteText) {
+        if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+          const inputEl = el;
+          const start = inputEl.selectionStart ?? inputEl.value.length;
+          const end = inputEl.selectionEnd ?? inputEl.value.length;
+          const val = inputEl.value;
+          const newValue = val.substring(0, start) + pasteText + val.substring(end);
+
+          applyReactValue(inputEl, newValue);
+          const newPos = start + pasteText.length;
+          inputEl.setSelectionRange(newPos, newPos);
+        } else if (el.isContentEditable) {
+          document.execCommand('insertText', false, pasteText);
+        }
+        addNotification("Texte collé", "success");
+        return;
+      }
+
+      // 4. Repli via document.execCommand('paste')
+      try {
+        const success = document.execCommand('paste');
+        if (success) {
+          addNotification("Texte collé", "success");
+          return;
+        }
+      } catch (err) {
+        console.warn('[ContextMenu] execCommand paste a échoué:', err);
       }
     }
-    handleClose();
   };
 
   const handleSelectAll = () => {
@@ -208,13 +273,13 @@ export const GlobalContextMenu: React.FC = () => {
   const handleAskAI = () => {
     if (menu.selectedText) {
       setAiOpen(true);
-      // Remplir la zone de question de l'IA
-      const aiInput = document.querySelector('textarea[placeholder*="POSEZ"]') as HTMLTextAreaElement;
-      if (aiInput) {
-        aiInput.value = menu.selectedText;
-        aiInput.dispatchEvent(new Event('input', { bubbles: true }));
-        aiInput.focus();
-      }
+      setTimeout(() => {
+        const aiInput = document.querySelector('textarea[placeholder*="POSEZ"]') as HTMLTextAreaElement;
+        if (aiInput) {
+          applyReactValue(aiInput, menu.selectedText);
+          aiInput.focus();
+        }
+      }, 50);
     }
     handleClose();
   };
@@ -261,7 +326,7 @@ export const GlobalContextMenu: React.FC = () => {
         </button>
       )}
 
-      {menu.isInput && hasText && (
+      {(menu.isInput || menu.isEditable) && hasText && (
         <button
           onClick={handleCut}
           className="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-teal-50 dark:hover:bg-teal-950/60 text-zinc-900 dark:text-zinc-100 hover:text-teal-700 dark:hover:text-teal-300 transition-colors cursor-pointer group"
@@ -274,7 +339,7 @@ export const GlobalContextMenu: React.FC = () => {
         </button>
       )}
 
-      {menu.isInput && (
+      {(menu.isInput || menu.isEditable) && (
         <button
           onClick={handlePaste}
           className="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-teal-50 dark:hover:bg-teal-950/60 text-zinc-900 dark:text-zinc-100 hover:text-teal-700 dark:hover:text-teal-300 transition-colors cursor-pointer group"

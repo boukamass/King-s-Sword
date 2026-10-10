@@ -28,7 +28,7 @@ import { BibleVersion } from '../types/bible';
 import { BIBLE_BOOKS_META } from './bibleMetadata';
 import { getBibleChapterVerses } from './bibleService';
 import { loadAllSongs, getSongAsSermon } from './songService';
-import { loadExposeAsCanonicalDocuments, createExposeDocumentChunks } from './exposeDocumentService';
+import { loadExposeAsCanonicalDocuments, createExposeDocumentChunks, hydrateExposePrecalculatedEmbeddings } from './exposeDocumentService';
 import { createSermonChunks } from './chunkingService';
 import { getSermonById } from './db';
 import { mapParagraphsToChunkHits, fuseRankings } from './hybridRetrievalService';
@@ -301,12 +301,15 @@ export async function resolveAIContextChunks(
       if (sermon && sermon.text) {
         const sermonChunks = createSermonChunks(sermon);
         try {
+          await hydrateExposePrecalculatedEmbeddings(sermonChunks);
           const stored = await getChunksBySermonId(cleanSourceId);
           if (stored && stored.length > 0) {
-            const embMap = new Map(stored.filter(s => Array.isArray(s.embedding) && s.embedding.length > 0).map(s => [s.chunkId, s.embedding]));
+            const embMap = new Map(stored.filter(s => s.embedding && (Array.isArray(s.embedding) || ArrayBuffer.isView(s.embedding)) && (s.embedding as any).length > 0).map(s => [s.chunkId, s.embedding]));
             for (const c of sermonChunks) {
-              const foundEmb = embMap.get(c.chunkId);
-              if (foundEmb) c.embedding = foundEmb;
+              if (!c.embedding) {
+                const foundEmb = embMap.get(c.chunkId);
+                if (foundEmb) c.embedding = foundEmb;
+              }
             }
           }
         } catch {}
@@ -335,10 +338,12 @@ export async function resolveAIContextChunks(
       try {
         const stored = await getChunksBySermonId(src.sourceId);
         if (stored && stored.length > 0) {
-          const embMap = new Map(stored.filter(s => Array.isArray(s.embedding) && s.embedding.length > 0).map(s => [s.chunkId, s.embedding]));
+          const embMap = new Map(stored.filter(s => s.embedding && (Array.isArray(s.embedding) || ArrayBuffer.isView(s.embedding)) && (s.embedding as any).length > 0).map(s => [s.chunkId, s.embedding]));
           for (const c of allExposeChunks) {
-            const foundEmb = embMap.get(c.chunkId);
-            if (foundEmb) c.embedding = foundEmb;
+            if (!c.embedding) {
+              const foundEmb = embMap.get(c.chunkId);
+              if (foundEmb) c.embedding = foundEmb;
+            }
           }
         }
       } catch {}
@@ -631,7 +636,15 @@ export async function executeUnifiedRagPipeline(
   const normalizedQuery = normalizeText(cleanQuery);
   const queryWords = normalizedQuery.split(/\s+/).filter(w => w.length > 2);
 
-  // Termes additionnels issus des sous-requêtes multi-hop
+  // Termes additionnels issus des mots-clés doctrinaux et sous-requêtes multi-hop
+  if (Array.isArray(queryExpansion.doctrinalKeywords) && queryExpansion.doctrinalKeywords.length > 0) {
+    for (const kw of queryExpansion.doctrinalKeywords) {
+      for (const t of extractUnifiedQueryTerms(kw)) {
+        if (!queryTerms.includes(t)) queryTerms.push(t);
+      }
+    }
+  }
+
   if (queryExpansion.isMultiHop && queryExpansion.subQueries.length > 1) {
     for (const sq of queryExpansion.subQueries) {
       for (const t of extractUnifiedQueryTerms(sq)) {
@@ -728,6 +741,7 @@ export async function executeUnifiedRagPipeline(
           if (!c.embedding) return false;
           if (c.embedding instanceof Int8Array && c.embedding.length === 384) return true;
           if (Array.isArray(c.embedding) && c.embedding.length === 384) return true;
+          if (ArrayBuffer.isView(c.embedding) && (c.embedding as any).length === 384) return true;
           // BLOB Gemini de 12288 octets (3072D) ou 768D Float32 sont ignorés
           return false;
         });

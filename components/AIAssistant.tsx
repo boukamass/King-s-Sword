@@ -18,7 +18,7 @@ import NoteSelectorModal from './NoteSelectorModal';
 import { ApiKeyModal } from './ApiKeyModal';
 import { hasValidGeminiApiKey } from '../utils/apiKeyHelper';
 import { CorpusIndexingIndicator } from './CorpusIndexingIndicator';
-import { loadPersistedProgressState, subscribeIndexProgress, CorpusIndexProgress } from '../services/corpusIndexInitializationService';
+import { loadPersistedProgressState, subscribeIndexProgress, CorpusIndexProgress, initializeCorpusIndex } from '../services/corpusIndexInitializationService';
 import { Sermon, ChatMessage } from '../types';
 import { splitSermonIntoParagraphs, extractLeadingParagraphNumber } from '../utils/textUtils';
 import { 
@@ -186,12 +186,19 @@ const AIAssistant: React.FC = () => {
   });  const [indexProgress, setIndexProgress] = useState<CorpusIndexProgress | null>(null);
 
   useEffect(() => {
-    loadPersistedProgressState().then(initial => setIndexProgress(initial));
+    loadPersistedProgressState().then(initial => {
+      setIndexProgress(initial);
+      if (!initial || initial.status !== 'READY') {
+        initializeCorpusIndex({ loadedSermonsMap: sermonsMap }).catch(err => {
+          console.warn('[AIAssistant] Erreur auto-indexation:', err);
+        });
+      }
+    });
     const unsubscribe = subscribeIndexProgress(updated => {
       setIndexProgress(updated);
     });
     return () => unsubscribe();
-  }, []);
+  }, [sermonsMap]);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -787,19 +794,25 @@ const AIAssistant: React.FC = () => {
             let refusalText = '';
             if (isUnreliableClose) {
               refusalText = `⚠️ **Passages proches trouvés mais peu fiables (signal partiel)** :\n${pkg.reason || "Des passages proches ont été trouvés dans le corpus, mais le signal documentaire reste trop partiel pour garantir une réponse doctrinale certaine."}`;
-              if (pkg.closestPassages && pkg.closestPassages.length > 0) {
-                refusalText += `\n\n📌 **Passages les plus proches trouvés dans le corpus :**\n` + 
-                  pkg.closestPassages.slice(0, 3).map((cp, idx) => `> **${idx + 1}. ${cp.title}**\n> « ${cp.textSnippet} »`).join('\n\n');
-              }
-              refusalText += `\n\n💡 *Souhaitez-vous que je réponde avec réserve sur la base de ces extraits proches, ou préférez-vous reformuler votre question / élargir votre sélection documentaire ?*`;
             } else {
-              refusalText = `🔍 **Aucun passage lié trouvé** :\n${pkg.reason || "Aucun passage lié à cette question n'a été trouvé dans les documents sélectionnés. Le sujet demandé ne figure pas dans le corpus indexé."}\n\n💡 *Vérifiez les termes employés ou ajoutez des documents appropriés à l'étude.*`;
+              refusalText = `🔍 **Aucun passage lié trouvé** :\n${pkg.reason || "Les textes disponibles ne traitent pas de ce sujet."}`;
             }
+
+            const fallbackClosest = (pkg.evidence || []).map(e => ({
+              title: e.sermonTitle || e.sermonId,
+              textSnippet: e.text ? e.text.slice(0, 220) + '...' : ''
+            }));
+            const closestPassages = (pkg.closestPassages && pkg.closestPassages.length > 0)
+              ? pkg.closestPassages
+              : fallbackClosest;
 
             const abstentionMsg: ChatMessageWithSources = {
               role: 'assistant',
               content: refusalText,
               timestamp: new Date().toISOString(),
+              refusal: true,
+              originalQuery: msg,
+              closestPassages
             };
             if (!abortController.signal.aborted) addChatMessage(chatKey, abstentionMsg);
             return;
@@ -809,11 +822,23 @@ const AIAssistant: React.FC = () => {
 
           if (!abortController.signal.aborted) {
             if (unifiedResult.status === 'success' && unifiedResult.answerText) {
+              const isRefusal = unifiedResult.generationResult?.sourcesSuffisantes === false;
+              const fallbackClosest = (unifiedResult.evidencePackage.evidence || []).map(e => ({
+                title: e.sermonTitle || e.sermonId,
+                textSnippet: e.text ? e.text.slice(0, 220) + '...' : ''
+              }));
+              const closestPassages = (unifiedResult.evidencePackage.closestPassages && unifiedResult.evidencePackage.closestPassages.length > 0)
+                ? unifiedResult.evidencePackage.closestPassages
+                : fallbackClosest;
+
               const newMessage: ChatMessageWithSources = { 
                 role: 'assistant', 
                 content: unifiedResult.answerText, 
                 timestamp: new Date().toISOString(),
-                sources: unifiedResult.sources && unifiedResult.sources.length > 0 ? unifiedResult.sources : undefined
+                sources: !isRefusal && unifiedResult.sources && unifiedResult.sources.length > 0 ? unifiedResult.sources : undefined,
+                refusal: isRefusal,
+                originalQuery: isRefusal ? msg : undefined,
+                closestPassages: isRefusal ? closestPassages : undefined
               };
               addChatMessage(chatKey, newMessage);
             } else {
@@ -932,11 +957,23 @@ const AIAssistant: React.FC = () => {
 
           if (!abortController.signal.aborted) {
             if (unifiedResult.status === 'success' && unifiedResult.answerText) {
+              const isRefusal = unifiedResult.generationResult?.sourcesSuffisantes === false;
+              const fallbackClosest = (unifiedResult.evidencePackage.evidence || []).map(e => ({
+                title: e.sermonTitle || e.sermonId,
+                textSnippet: e.text ? e.text.slice(0, 220) + '...' : ''
+              }));
+              const closestPassages = (unifiedResult.evidencePackage.closestPassages && unifiedResult.evidencePackage.closestPassages.length > 0)
+                ? unifiedResult.evidencePackage.closestPassages
+                : fallbackClosest;
+
               const newMessage: ChatMessageWithSources = { 
                 role: 'assistant', 
                 content: unifiedResult.answerText, 
                 timestamp: new Date().toISOString(),
-                sources: unifiedResult.sources && unifiedResult.sources.length > 0 ? unifiedResult.sources : undefined
+                sources: !isRefusal && unifiedResult.sources && unifiedResult.sources.length > 0 ? unifiedResult.sources : undefined,
+                refusal: isRefusal,
+                originalQuery: isRefusal ? msg : undefined,
+                closestPassages: isRefusal ? closestPassages : undefined
               };
               addChatMessage(chatKey, newMessage);
             } else {
@@ -1125,18 +1162,18 @@ const AIAssistant: React.FC = () => {
         </button>
       </div>
 
-      {/* Indicateur de préparation de la bibliothèque en arrière-plan */}
-      <CorpusIndexingIndicator className="mx-3 my-1.5 shrink-0" />
-
-      {indexProgress && indexProgress.status !== 'READY' && (
-        <div className="mx-3 my-1.5 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-800 dark:text-amber-200 text-xs flex flex-col gap-1 shrink-0 animate-in fade-in duration-300">
-          <div className="flex items-center gap-1.5 font-bold">
-            <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
-            <span>Sermons non complètement indexés ({indexProgress.sermonsProcessed}/{indexProgress.totalSermons} sermons)</span>
+      {/* Notification fine, élégante et non-intrusive de l'état d'indexation / préparation */}
+      {(!indexProgress || indexProgress.status !== 'READY') && (
+        <div className="mx-3 my-1 px-3 py-1.5 bg-slate-100/80 dark:bg-zinc-800/60 border border-slate-200/80 dark:border-zinc-700/60 rounded-lg text-slate-600 dark:text-zinc-300 text-[11px] flex items-center justify-between gap-2 shrink-0 backdrop-blur-sm transition-all duration-200">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
+            <span className="truncate">
+              Indexation en arrière-plan : {indexProgress?.sermonsProcessed || 0} / {indexProgress?.totalSermons || (sermons.length || 1205)} ({Math.min(100, Math.round(((indexProgress?.chunksProcessed || 0) / Math.max(1, indexProgress?.totalChunks || 1)) * 100))}%)
+            </span>
           </div>
-          <p className="text-slate-600 dark:text-slate-300 text-[11px] leading-relaxed">
-            La recherche intelligente et l'assistant RAG ne portent actuellement que sur <strong>l'Exposé des Sept Âges</strong>. L'indexation des sermons se poursuit en arrière-plan ({Math.round((indexProgress.chunksProcessed / Math.max(1, indexProgress.totalChunks)) * 100)}%).
-          </p>
+          <span className="text-[10px] text-zinc-400 dark:text-zinc-500 shrink-0 select-none">
+            {indexProgress?.status === 'EMBEDDING' ? 'Vectorisation' : indexProgress?.status === 'CHUNKING' ? 'Découpage' : 'En cours'}
+          </span>
         </div>
       )}
 

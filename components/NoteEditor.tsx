@@ -1129,7 +1129,46 @@ const NoteEditor: React.FC = () => {
                 }
             }
 
-            // 5. Sources & Références (Bibliographie)
+            // 6. Images & Illustrations
+            if (note.images && note.images.length > 0) {
+                checkPageBreak(30);
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(11);
+                doc.setTextColor(13, 148, 136);
+                doc.text(`IMAGES & ILLUSTRATIONS (${note.images.length})`, margin, y);
+                y += 8;
+
+                for (let i = 0; i < note.images.length; i++) {
+                    const img = note.images[i];
+                    try {
+                        checkPageBreak(65);
+                        // Tenter d'ajouter l'image si c'est un format supporté (data URI ou URL valide)
+                        const imgWidth = Math.min(maxLineWidth, 120);
+                        const imgHeight = 60;
+                        doc.addImage(img.url, 'PNG', margin, y, imgWidth, imgHeight, undefined, 'FAST');
+                        y += imgHeight + 4;
+                        if (img.caption || img.name) {
+                            doc.setFont('helvetica', 'italic');
+                            doc.setFontSize(8.5);
+                            doc.setTextColor(100, 116, 139);
+                            doc.text(cleanPdfText(`Figure ${i + 1} : ${img.caption || img.name}`), margin, y);
+                            y += 6;
+                        }
+                    } catch (e) {
+                        // En cas d'erreur de rendu de l'image (CORS ou blob invalide), mentionner le titre
+                        if (img.caption || img.name) {
+                            doc.setFont('helvetica', 'italic');
+                            doc.setFontSize(8.5);
+                            doc.setTextColor(100, 116, 139);
+                            doc.text(cleanPdfText(`[Image : ${img.caption || img.name}]`), margin, y);
+                            y += 5;
+                        }
+                    }
+                }
+                y += 4;
+            }
+
+            // 7. Sources & Références (Bibliographie)
             if (processedNote.sources.length > 0) {
                 checkPageBreak(30);
                 doc.setFont('helvetica', 'bold');
@@ -1203,30 +1242,31 @@ const NoteEditor: React.FC = () => {
                         <!DOCTYPE html>
                         <html>
                         <head>
-                            <title>${processedNote.title}</title>
+                            <title>${stripMarkdown(processedNote.title)}</title>
                             <style>
-                                body { font-family: system-ui, -apple-system, sans-serif; padding: 30px; color: #1e293b; background: #fff; line-height: 1.6; }
-                                h1 { font-size: 20px; color: #0f766e; text-transform: uppercase; border-bottom: 2px solid #0f766e; padding-bottom: 8px; margin-bottom: 8px; }
-                                h2 { font-size: 16px; color: #0f172a; margin-top: 16px; text-transform: uppercase; }
-                                h3 { font-size: 13px; color: #0f766e; text-transform: uppercase; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; margin-top: 24px; margin-bottom: 12px; }
-                                p { font-size: 13.5px; margin-bottom: 8px; }
-                                .subtitle-separator { text-align: center; margin: 16px 0 12px; padding: 6px 0; border-top: 1px dashed #99f6e4; border-bottom: 1px dashed #99f6e4; background: #f0fdfa; }
-                                .subtitle-separator h4 { margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: #0f766e; }
+                                @page { size: A4 portrait; margin: 18mm 16mm; }
+                                body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; padding: 0; margin: 0; color: #0f172a; background: #fff; line-height: 1.6; font-size: 11pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                                h1 { font-size: 18pt; color: #0f172a; text-transform: uppercase; margin: 0 0 4px; font-weight: 800; letter-spacing: -0.01em; }
+                                h2 { font-size: 10pt; color: #0f766e; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 800; margin: 0; }
+                                h3 { font-size: 11pt; color: #0f766e; text-transform: uppercase; border-bottom: 1.5px solid #0f766e; padding-bottom: 4px; margin-top: 20px; margin-bottom: 10px; font-weight: 700; }
+                                p { font-size: 10pt; margin-bottom: 8px; line-height: 1.6; color: #1e293b; }
+                                .subtitle-separator { text-align: center; margin: 14px 0 10px; padding: 6px 0; border-top: 1px dashed #99f6e4; border-bottom: 1px dashed #99f6e4; background: #f0fdfa; border-radius: 4px; }
+                                .subtitle-separator h4 { margin: 0; font-size: 9.5pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: #0f766e; }
                                 .subtitle-separator.amber { border-color: #fde68a; background: #fffbeb; }
                                 .subtitle-separator.amber h4 { color: #b45309; }
                                 .subtitle-separator.slate { border-color: #e2e8f0; background: #f8fafc; }
                                 .subtitle-separator.slate h4 { color: #334155; }
-                                .comment-box { margin: 12px 0; padding: 10px 14px; background: #f8fafc; border-left: 4px solid #0f766e; border-radius: 0 8px 8px 0; }
+                                .comment-box { margin: 10px 0; padding: 8px 12px; background: #f8fafc; border-left: 3.5px solid #0f766e; border-radius: 0 6px 6px 0; }
                                 .comment-box.amber { border-left-color: #d97706; background: #fffbeb; }
                                 .comment-box.slate { border-left-color: #94a3b8; }
-                                .comment-box .comment-title { font-size: 11px; font-weight: bold; color: #0f766e; margin-bottom: 4px; }
+                                .comment-box .comment-title { font-size: 9pt; font-weight: bold; color: #0f766e; margin-bottom: 3px; }
                                 .comment-box.amber .comment-title { color: #b45309; }
-                                .comment-box .comment-text { font-size: 12.5px; font-style: italic; color: #334155; margin: 0; }
-                                .citation-box { padding-left: 14px; border-left: 3px solid #cbd5e1; font-style: italic; font-size: 13px; color: #334155; margin: 12px 0; }
-                                .citation-ref { text-align: right; font-size: 11px; font-weight: bold; color: #0f766e; font-style: normal; margin-top: 4px; }
-                                mark, .print-highlight { -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 1px 3px; border-radius: 2px; }
+                                .comment-box .comment-text { font-size: 9.5pt; font-style: italic; color: #334155; margin: 0; }
+                                .citation-box { padding: 10px 14px; border-left: 3.5px solid #0d9488; background: #f8fafc; font-style: italic; font-size: 10pt; color: #1e293b; margin: 10px 0; border-radius: 0 6px 6px 0; }
+                                .citation-ref { text-align: right; font-size: 8.5pt; font-weight: bold; color: #0f766e; font-style: normal; margin-top: 6px; }
+                                mark, .print-highlight { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; padding: 1px 3px; border-radius: 2px; }
                                 .page-break-inside-avoid { page-break-inside: avoid; break-inside: avoid; }
-                                img { max-width: 100%; max-height: 250px; object-fit: contain; }
+                                img { max-width: 100%; max-height: 220px; object-fit: contain; }
                             </style>
                         </head>
                         <body>
@@ -3381,51 +3421,72 @@ const NoteEditor: React.FC = () => {
             </div>
 
             {/* Zone dédiée à l'impression (Imprimante / window.print) */}
-            <div id="printable-note-container" className="hidden print:block p-8 bg-white text-black font-sans leading-relaxed">
-                <div className="border-b-2 border-teal-700 pb-3 mb-6">
-                    <h1 className="text-xl font-bold uppercase text-teal-800">
-                        KING'S SWORD <span className="font-normal text-slate-400 mx-1.5">|</span> {processedNote.title}
-                    </h1>
-                    <p className="text-xs text-slate-500 italic mt-1">
-                        Date : {note.date ? new Date(note.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('fr-FR')}
-                    </p>
+            <div id="printable-note-container" className="hidden print:block p-8 bg-white text-slate-900 font-sans leading-relaxed">
+                {/* En-tête officiel du document */}
+                <div className="border-b-2 border-teal-700 pb-4 mb-7 flex items-end justify-between">
+                    <div>
+                        <div className="text-[11px] font-black uppercase tracking-[0.25em] text-teal-800 mb-1">
+                            KING'S SWORD &bull; ÉTUDE BIBLIQUE &amp; SERMONS
+                        </div>
+                        <h1 className="text-2xl font-bold uppercase tracking-tight text-slate-900 leading-tight">
+                            {stripMarkdown(processedNote.title)}
+                        </h1>
+                    </div>
+                    <div className="text-right shrink-0">
+                        <span className="inline-block text-[10px] font-bold uppercase tracking-wider text-teal-900 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded">
+                            {note.date ? new Date(note.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('fr-FR')}
+                        </span>
+                    </div>
                 </div>
 
+                {/* Contenu Principal */}
                 {processedNote.contentParagraphs.length > 0 && (
-                    <div className="mb-8 space-y-3">
-                        <h3 className="text-sm font-bold uppercase text-teal-800 border-b border-teal-200 pb-1 mb-2">Contenu Principal</h3>
-                        {processedNote.contentParagraphs.map((p, i) => (
-                            <p key={i} className="text-sm text-slate-800 leading-relaxed">{stripMarkdown(p)}</p>
-                        ))}
+                    <div className="mb-8 space-y-3 page-break-inside-avoid">
+                        <div className="flex items-center gap-2 border-b border-teal-600/30 pb-1.5 mb-3">
+                            <span className="w-2 h-2 rounded-full bg-teal-700"></span>
+                            <h2 className="text-xs font-black uppercase tracking-wider text-teal-900 m-0">Contenu Principal</h2>
+                        </div>
+                        <div className="space-y-3 pl-3 border-l-2 border-slate-200">
+                            {processedNote.contentParagraphs.map((p, i) => (
+                                <p key={i} className="text-[13px] text-slate-800 leading-relaxed font-normal m-0 text-justify">
+                                    {stripMarkdown(p)}
+                                </p>
+                            ))}
+                        </div>
                     </div>
                 )}
 
                 {/* 1. Citations Bibliques */}
                 {processedNote.scriptureItems && processedNote.scriptureItems.length > 0 && (
                     <div className="mb-8 space-y-4">
-                        <h3 className="text-sm font-bold uppercase text-teal-800 border-b border-teal-200 pb-1 mb-2">Citations Bibliques</h3>
+                        <div className="flex items-center gap-2 border-b border-teal-600/30 pb-1.5 mb-3">
+                            <span className="w-2 h-2 rounded-full bg-teal-700"></span>
+                            <h2 className="text-xs font-black uppercase tracking-wider text-teal-900 m-0">Citations Bibliques</h2>
+                        </div>
                         {processedNote.scriptureItems.map((item, i) => {
                             if (item.kind === 'separator') {
                                 if (item.separatorType === 'subtitle') {
                                     return (
-                                        <div key={item.id || i} className="subtitle-separator page-break-inside-avoid">
+                                        <div key={item.id || i} className="subtitle-separator page-break-inside-avoid my-4">
                                             <h4>{stripMarkdown(item.text)}</h4>
                                         </div>
                                     );
                                 }
                                 return (
-                                    <div key={item.id || i} className="comment-box page-break-inside-avoid">
+                                    <div key={item.id || i} className="comment-box page-break-inside-avoid my-3">
                                         <div className="comment-title">Remarque / Commentaire :</div>
                                         <div className="comment-text">{stripMarkdown(item.text)}</div>
                                     </div>
                                 );
                             }
                             return (
-                                <div key={item.id || i} className="citation-box page-break-inside-avoid">
-                                    <p>« <HighlightedQuote quote={stripMarkdown(item.quote)} highlights={item.highlights} isPrint /> »</p>
-                                    <p className="citation-ref">
-                                        {item.reference || 'Bible'} {item.sourceIndex ? `[${item.sourceIndex}]` : ''}
+                                <div key={item.id || i} className="citation-box page-break-inside-avoid bg-slate-50/70 p-3.5 rounded-r-lg border-l-4 border-teal-600 my-3">
+                                    <p className="text-[13px] text-slate-800 leading-relaxed italic m-0">
+                                        « <HighlightedQuote quote={stripMarkdown(item.quote)} highlights={item.highlights} isPrint /> »
                                     </p>
+                                    <div className="citation-ref text-right mt-2 text-[11px] font-bold text-teal-800">
+                                        {stripMarkdown(item.reference || 'Bible')} {item.sourceIndex ? `[${item.sourceIndex}]` : ''}
+                                    </div>
                                 </div>
                             );
                         })}
@@ -3435,29 +3496,34 @@ const NoteEditor: React.FC = () => {
                 {/* 2. Citations de l'Exposé des Sept Âges */}
                 {processedNote.churchAgeItems && processedNote.churchAgeItems.length > 0 && (
                     <div className="mb-8 space-y-4">
-                        <h3 className="text-sm font-bold uppercase text-teal-800 border-b border-teal-200 pb-1 mb-2">Citations de l'Exposé des Sept Âges</h3>
+                        <div className="flex items-center gap-2 border-b border-amber-600/30 pb-1.5 mb-3">
+                            <span className="w-2 h-2 rounded-full bg-amber-600"></span>
+                            <h2 className="text-xs font-black uppercase tracking-wider text-amber-900 m-0">Citations de l'Exposé des Sept Âges</h2>
+                        </div>
                         {processedNote.churchAgeItems.map((item, i) => {
                             if (item.kind === 'separator') {
                                 if (item.separatorType === 'subtitle') {
                                     return (
-                                        <div key={item.id || i} className="subtitle-separator amber page-break-inside-avoid">
+                                        <div key={item.id || i} className="subtitle-separator amber page-break-inside-avoid my-4">
                                             <h4>{stripMarkdown(item.text)}</h4>
                                         </div>
                                     );
                                 }
                                 return (
-                                    <div key={item.id || i} className="comment-box amber page-break-inside-avoid">
+                                    <div key={item.id || i} className="comment-box amber page-break-inside-avoid my-3">
                                         <div className="comment-title">Remarque / Commentaire :</div>
                                         <div className="comment-text">{stripMarkdown(item.text)}</div>
                                     </div>
                                 );
                             }
                             return (
-                                <div key={item.id || i} className="citation-box page-break-inside-avoid">
-                                    <p>« <HighlightedQuote quote={stripMarkdown(item.quote)} highlights={item.highlights} isPrint /> »</p>
-                                    <p className="citation-ref">
-                                        {item.sourceTitle || "Exposé des Sept Âges"} {item.sourceMeta ? `— ${item.sourceMeta}` : ''} {item.sourceIndex ? `[${item.sourceIndex}]` : ''}
+                                <div key={item.id || i} className="citation-box page-break-inside-avoid bg-amber-50/50 p-3.5 rounded-r-lg border-l-4 border-amber-600 my-3">
+                                    <p className="text-[13px] text-slate-800 leading-relaxed italic m-0">
+                                        « <HighlightedQuote quote={stripMarkdown(item.quote)} highlights={item.highlights} isPrint /> »
                                     </p>
+                                    <div className="citation-ref text-right mt-2 text-[11px] font-bold text-amber-900">
+                                        {stripMarkdown(item.sourceTitle || "Exposé des Sept Âges")} {item.sourceMeta ? `— ${stripMarkdown(item.sourceMeta)}` : ''} {item.sourceIndex ? `[${item.sourceIndex}]` : ''}
+                                    </div>
                                 </div>
                             );
                         })}
@@ -3467,108 +3533,136 @@ const NoteEditor: React.FC = () => {
                 {/* 3. Citations & Enseignements */}
                 {processedNote.teachingItems && processedNote.teachingItems.length > 0 && (
                     <div className="mb-8 space-y-4">
-                        <h3 className="text-sm font-bold uppercase text-teal-800 border-b border-teal-200 pb-1 mb-2">Citations & Enseignements</h3>
+                        <div className="flex items-center gap-2 border-b border-slate-400/40 pb-1.5 mb-3">
+                            <span className="w-2 h-2 rounded-full bg-slate-700"></span>
+                            <h2 className="text-xs font-black uppercase tracking-wider text-slate-800 m-0">Citations & Enseignements</h2>
+                        </div>
                         {processedNote.teachingItems.map((item, i) => {
                             if (item.kind === 'separator') {
                                 if (item.separatorType === 'subtitle') {
                                     return (
-                                        <div key={item.id || i} className="subtitle-separator slate page-break-inside-avoid">
+                                        <div key={item.id || i} className="subtitle-separator slate page-break-inside-avoid my-4">
                                             <h4>{stripMarkdown(item.text)}</h4>
                                         </div>
                                     );
                                 }
                                 return (
-                                    <div key={item.id || i} className="comment-box slate page-break-inside-avoid">
+                                    <div key={item.id || i} className="comment-box slate page-break-inside-avoid my-3">
                                         <div className="comment-title">Remarque / Commentaire :</div>
                                         <div className="comment-text">{stripMarkdown(item.text)}</div>
                                     </div>
                                 );
                             }
                             return (
-                                <div key={item.id || i} className="citation-box page-break-inside-avoid">
-                                    <p>« <HighlightedQuote quote={stripMarkdown(item.quote)} highlights={item.highlights} isPrint /> »</p>
-                                    <p className="citation-ref">
-                                        {item.sourceTitle || 'Enseignement'} {item.sourceMeta ? `— ${item.sourceMeta}` : ''} {item.sourceIndex ? `[${item.sourceIndex}]` : ''}
+                                <div key={item.id || i} className="citation-box page-break-inside-avoid bg-slate-50/70 p-3.5 rounded-r-lg border-l-4 border-slate-600 my-3">
+                                    <p className="text-[13px] text-slate-800 leading-relaxed italic m-0">
+                                        « <HighlightedQuote quote={stripMarkdown(item.quote)} highlights={item.highlights} isPrint /> »
                                     </p>
+                                    <div className="citation-ref text-right mt-2 text-[11px] font-bold text-slate-700">
+                                        {stripMarkdown(item.sourceTitle || 'Enseignement')} {item.sourceMeta ? `— ${stripMarkdown(item.sourceMeta)}` : ''} {item.sourceIndex ? `[${item.sourceIndex}]` : ''}
+                                    </div>
                                 </div>
                             );
                         })}
                     </div>
                 )}
 
+                {/* 4. Concordance & Exégèse Strong */}
                 {processedNote.strongItems && processedNote.strongItems.length > 0 && (
                     <div className="mb-8 space-y-4">
-                        <h3 className="text-sm font-bold uppercase text-teal-800 border-b border-teal-200 pb-1 mb-2">Concordance & Exégèse Strong</h3>
+                        <div className="flex items-center gap-2 border-b border-teal-600/30 pb-1.5 mb-3">
+                            <span className="w-2 h-2 rounded-full bg-teal-700"></span>
+                            <h2 className="text-xs font-black uppercase tracking-wider text-teal-900 m-0">Concordance & Exégèse Strong ({processedNote.strongItems.length})</h2>
+                        </div>
                         {processedNote.strongItems.map((item, i) => (
-                            <div key={item.citationId || i} className="citation-box page-break-inside-avoid">
-                                <p className="font-bold text-slate-900 not-italic text-sm">
+                            <div key={item.citationId || i} className="citation-box page-break-inside-avoid bg-slate-50/70 p-3.5 rounded-r-lg border-l-4 border-teal-700 my-3">
+                                <p className="font-bold text-slate-900 not-italic text-[13px] m-0">
                                     Strong {item.strongNumber} : {stripMarkdown(item.word)} {item.original ? `(${stripMarkdown(item.original)})` : ''} — [{stripMarkdown(item.pronunciation)}] ({item.type === 'hebrew' ? 'Hébreu' : 'Grec'})
                                 </p>
-                                <div className="mt-1.5 text-slate-800">
-                                    <span className="font-semibold text-xs text-slate-700">Définition Littérale :</span> {stripMarkdown(item.definition)}
+                                <div className="mt-1.5 text-slate-800 text-[12px] leading-relaxed">
+                                    <strong className="text-teal-900">Définition :</strong> {stripMarkdown(item.definition)}
                                 </div>
                                 {item.messageContext && (
-                                    <div className="mt-1.5 text-slate-800 italic text-xs">
-                                        <span className="font-semibold text-teal-800 not-italic">Éclairage dans le Message :</span> {stripMarkdown(item.messageContext)}
+                                    <div className="mt-1.5 text-slate-800 italic text-[12px] leading-relaxed">
+                                        <strong className="text-teal-800 not-italic">Éclairage dans le Message :</strong> {stripMarkdown(item.messageContext)}
                                     </div>
                                 )}
                                 {item.originVerseRef && item.originVerseText && (
-                                    <div className="mt-2 pl-3 border-l-2 border-teal-600 py-1 bg-slate-50 text-xs">
-                                        <p className="font-semibold text-slate-700">Verset d'origine ({item.originVerseRef}) :</p>
-                                        <p className="italic text-slate-800 mt-0.5">« {stripMarkdown(item.originVerseText)} »</p>
+                                    <div className="mt-2 pl-3 border-l-2 border-teal-600 py-1 bg-white rounded text-[11.5px]">
+                                        <p className="font-semibold text-slate-700 m-0">Verset d'origine ({item.originVerseRef}) :</p>
+                                        <p className="italic text-slate-800 mt-0.5 m-0">« {stripMarkdown(item.originVerseText)} »</p>
                                     </div>
                                 )}
                                 {item.allOccurrences && item.allOccurrences.length > 1 && (
-                                    <p className="text-[11px] text-slate-500 italic mt-1.5">
+                                    <p className="text-[11px] text-slate-500 italic mt-1.5 m-0">
                                         (+ {item.allOccurrences.length - 1} autre{item.allOccurrences.length - 1 > 1 ? 's' : ''} occurrence{item.allOccurrences.length - 1 > 1 ? 's' : ''} répertoriée{item.allOccurrences.length - 1 > 1 ? 's' : ''} dans les Écritures)
                                     </p>
                                 )}
-                                <p className="citation-ref">Concordance Strong {item.sourceIndex ? `[${item.sourceIndex}]` : ''}</p>
+                                <div className="citation-ref text-right mt-2 text-[10.5px] font-bold text-teal-800">
+                                    Concordance Strong {item.sourceIndex ? `[${item.sourceIndex}]` : ''}
+                                </div>
                             </div>
                         ))}
                     </div>
                 )}
 
+                {/* 5. Dictionnaire & Lexique Biblique */}
                 {processedNote.definitionItems && processedNote.definitionItems.length > 0 && (
                     <div className="mb-8 space-y-4">
-                        <h3 className="text-sm font-bold uppercase text-teal-800 border-b border-teal-200 pb-1 mb-2">Dictionnaire & Lexique Biblique</h3>
+                        <div className="flex items-center gap-2 border-b border-teal-600/30 pb-1.5 mb-3">
+                            <span className="w-2 h-2 rounded-full bg-teal-700"></span>
+                            <h2 className="text-xs font-black uppercase tracking-wider text-teal-900 m-0">Dictionnaire & Lexique Biblique ({processedNote.definitionItems.length})</h2>
+                        </div>
                         {processedNote.definitionItems.map((item, i) => (
-                            <div key={item.citationId || i} className="citation-box page-break-inside-avoid">
-                                <p className="font-bold text-slate-900 not-italic text-sm">{stripMarkdown(item.word)}</p>
-                                <p className="mt-1 text-slate-800">{stripMarkdown(item.definition)}</p>
+                            <div key={item.citationId || i} className="citation-box page-break-inside-avoid bg-slate-50/70 p-3.5 rounded-r-lg border-l-4 border-teal-700 my-3">
+                                <p className="font-bold text-slate-900 not-italic text-[13px] m-0">{stripMarkdown(item.word)}</p>
+                                <p className="mt-1 text-slate-800 text-[12px] leading-relaxed m-0">{stripMarkdown(item.definition)}</p>
                                 {item.etymology && (
-                                    <p className="text-xs italic text-slate-500 mt-1">Étymologie : {stripMarkdown(item.etymology)}</p>
+                                    <p className="text-[11.5px] italic text-slate-600 mt-1 m-0">Étymologie : {stripMarkdown(item.etymology)}</p>
                                 )}
                                 {item.synonyms && item.synonyms.length > 0 && (
-                                    <p className="text-xs text-teal-700 mt-1 font-semibold">Synonymes : {item.synonyms.join(', ')}</p>
+                                    <p className="text-[11.5px] text-teal-800 mt-1 font-semibold m-0">Synonymes : {item.synonyms.join(', ')}</p>
                                 )}
-                                <p className="citation-ref">Dictionnaire Biblique {item.sourceIndex ? `[${item.sourceIndex}]` : ''}</p>
+                                <div className="citation-ref text-right mt-2 text-[10.5px] font-bold text-teal-800">
+                                    Dictionnaire Biblique {item.sourceIndex ? `[${item.sourceIndex}]` : ''}
+                                </div>
                             </div>
                         ))}
                     </div>
                 )}
 
+                {/* Images & Illustrations */}
                 {note.images && note.images.length > 0 && (
                     <div className="mb-8 space-y-4 page-break-inside-avoid">
-                        <h3 className="text-sm font-bold uppercase text-teal-800 border-b border-teal-200 pb-1 mb-2">Images & Illustrations</h3>
+                        <div className="flex items-center gap-2 border-b border-teal-600/30 pb-1.5 mb-3">
+                            <span className="w-2 h-2 rounded-full bg-teal-700"></span>
+                            <h2 className="text-xs font-black uppercase tracking-wider text-teal-900 m-0">Images & Illustrations</h2>
+                        </div>
                         <div className="grid grid-cols-2 gap-4">
                             {note.images.map((img, i) => (
-                                <div key={i} className="flex flex-col items-center border border-slate-200 p-2 rounded">
-                                    <img src={img.url} alt={img.caption || img.name || ''} className="max-h-48 object-contain" />
-                                    {(img.caption || img.name) && <p className="text-xs italic text-slate-600 mt-1">{img.caption || img.name}</p>}
+                                <div key={i} className="flex flex-col items-center border border-slate-200 p-2.5 rounded-lg bg-slate-50/50">
+                                    <img src={img.url} alt={img.caption || img.name || ''} className="max-h-48 object-contain rounded" />
+                                    {(img.caption || img.name) && (
+                                        <p className="text-[11px] italic text-slate-600 mt-1.5 text-center m-0">{img.caption || img.name}</p>
+                                    )}
                                 </div>
                             ))}
                         </div>
                     </div>
                 )}
 
+                {/* Sources & Références */}
                 {processedNote.sources.length > 0 && (
-                    <div className="mt-8 pt-4 border-t border-slate-300 page-break-inside-avoid">
-                        <h3 className="text-sm font-bold uppercase text-slate-900 mb-2">Sources & Références ({processedNote.sources.length})</h3>
-                        <ul className="space-y-1 text-xs text-slate-700">
+                    <div className="mt-8 pt-4 border-t-2 border-slate-300 page-break-inside-avoid">
+                        <div className="flex items-center justify-between mb-2">
+                            <h2 className="text-xs font-black uppercase tracking-wider text-slate-900 m-0">Sources & Références ({processedNote.sources.length})</h2>
+                            <span className="text-[10px] text-slate-500 font-mono">King's Sword Index</span>
+                        </div>
+                        <ul className="space-y-1.5 text-[11px] text-slate-700 list-none p-0 m-0">
                             {processedNote.sources.map((src) => (
-                                <li key={src.index}>
-                                    <strong>[{src.index}]</strong> {src.formattedLine}
+                                <li key={src.index} className="flex items-baseline gap-2">
+                                    <span className="font-bold text-teal-800 font-mono shrink-0">[{src.index}]</span>
+                                    <span>{stripMarkdown(src.formattedLine)}</span>
                                 </li>
                             ))}
                         </ul>

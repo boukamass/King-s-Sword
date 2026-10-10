@@ -18,6 +18,7 @@ import { getBibleChapterSermon, getBibleBookSermon, searchBibleVersesAdvanced } 
 import { fetchJsonSafe } from './utils/fetchHelper';
 import { getStoredMediaImages, saveStoredMediaImages, getStoredMediaFolders, saveStoredMediaFolders } from './services/imageMediaService';
 import { initGeminiApiKey } from './utils/apiKeyHelper';
+import { initializeCorpusIndex } from './services/corpusIndexInitializationService';
 
 const generateUUID = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 9));
 
@@ -383,6 +384,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
         const notes = await getAllNotes();
         set({ sermons: uniqueMetadata, sermonsMap: map, notes: sortNotesByRecency(notes), isLoading: false, loadingProgress: 100 });
+        initializeCorpusIndex({ loadedSermonsMap: map }).catch(err => {
+          console.warn('[Store] Erreur indexation automatique corpus:', err);
+        });
         return;
       }
 
@@ -402,6 +406,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
         const notes = await getAllNotes();
         set({ sermons: metadata, sermonsMap: map, notes: sortNotesByRecency(notes), isLoading: false, loadingProgress: 100 });
+        initializeCorpusIndex({ loadedSermonsMap: map }).catch(err => {
+          console.warn('[Store] Erreur indexation automatique corpus SQLite:', err);
+        });
       }
     } catch (error) {
       console.error("DB Init Error:", error);

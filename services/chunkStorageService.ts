@@ -17,14 +17,15 @@ let webMemoryCache: Map<string, SermonChunk> | null = null;
 
 async function initWebMemoryCache(): Promise<Map<string, SermonChunk>> {
   if (webMemoryCache) return webMemoryCache;
+  webMemoryCache = new Map();
+  if (typeof indexedDB === 'undefined') return webMemoryCache;
   try {
     const raw = await get<SermonChunk[]>(WEB_CHUNKS_KEY);
-    webMemoryCache = new Map();
     if (Array.isArray(raw)) {
       raw.forEach(c => webMemoryCache!.set(c.chunkId, c));
     }
   } catch (e) {
-    webMemoryCache = new Map();
+    // ignore
   }
   return webMemoryCache;
 }
@@ -70,8 +71,8 @@ export async function saveChunks(chunks: SermonChunk[]): Promise<{ count: number
 
   for (const chunk of chunks) {
     const existing = cache.get(chunk.chunkId);
-    const hasExistingEmbedding = existing && Array.isArray(existing.embedding) && existing.embedding.length > 0;
-    const incomingHasEmbedding = chunk.embedding && Array.isArray(chunk.embedding) && chunk.embedding.length > 0;
+    const hasExistingEmbedding = existing && (Array.isArray(existing.embedding) || ArrayBuffer.isView(existing.embedding)) && (existing.embedding as any).length > 0;
+    const incomingHasEmbedding = chunk.embedding && (Array.isArray(chunk.embedding) || ArrayBuffer.isView(chunk.embedding)) && (chunk.embedding as any).length > 0;
 
     // Si le chunk entrant définit explicitement embedding comme null/undefined, forcer la mise à jour pour le Cas D
     const isExplicitClearEmbedding = ('embedding' in chunk) && (chunk.embedding === null || chunk.embedding === undefined) && hasExistingEmbedding;
