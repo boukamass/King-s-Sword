@@ -175,6 +175,7 @@ export async function getE5Extractor(): Promise<any> {
         return ext;
       } catch (err) {
         console.warn('[E5_LOCAL] Artefact E5 / ONNX introuvable ou indisponible:', err);
+        e5ExtractorLoadingPromise = null;
         throw err;
       }
     })();

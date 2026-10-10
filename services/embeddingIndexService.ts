@@ -18,7 +18,7 @@
 import { SermonChunk } from '../types';
 import { computeChunkHash } from './chunkingService';
 import { saveChunks, getChunkById, getAllChunks } from './chunkStorageService';
-import { LOCAL_E5_CONFIG, computeE5Embedding, validateEmbeddingVector } from './embeddingService';
+import { LOCAL_E5_CONFIG, computeE5Embedding, validateEmbeddingVector, getE5Extractor } from './embeddingService';
 import { useAppStore } from '../store';
 
 // Ordonnanceur adaptatif : Détection d'activité utilisateur
@@ -229,6 +229,16 @@ export async function runIncrementalEmbeddingIndexing(
   }
 
   const sortedChunksToEmbed = [...prioritizedChunks, ...standardChunks];
+
+  if (sortedChunksToEmbed.length > 0) {
+    try {
+      await getE5Extractor();
+    } catch (modelErr: any) {
+      const msg = `Modèle ONNX local introuvable ou indisponible (${LOCAL_E5_CONFIG.modelId}). Assurez-vous d'exécuter 'npm run prebuild' pour télécharger les artefacts dans 'models/'.`;
+      console.error('[EmbeddingIndex] Échec initialisation modèle E5:', modelErr);
+      throw new Error(msg);
+    }
+  }
 
   for (let i = 0; i < sortedChunksToEmbed.length; i += opts.batchSize) {
     const batch = sortedChunksToEmbed.slice(i, i + opts.batchSize);
