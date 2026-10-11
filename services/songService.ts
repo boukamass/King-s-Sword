@@ -461,7 +461,7 @@ export const loadAllSongs = async (forceReload = false): Promise<Song[]> => {
 
   // Try fetching fresh songs.json first (always fetch with timestamp to bypass HTTP and build caches)
   try {
-    let data = await fetchJsonSafe<any>(`/songs.json?t=${Date.now()}`, ['/songs.json', 'songs.json']);
+    let data = await fetchJsonSafe<any>('songs.json', ['./songs.json']);
 
     // Fallback environnement Node.js (scripts de tests et benchmarks)
     if (!data && typeof window === 'undefined') {

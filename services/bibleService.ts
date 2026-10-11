@@ -48,9 +48,8 @@ export const ensureFullBibleLoaded = async (version: BibleVersion = 'lsg1910'): 
     const promise = (async () => {
       try {
         const verMeta = BIBLE_VERSIONS_META[version] || BIBLE_VERSIONS_META.lsg1910;
-        const filePath = verMeta.file.startsWith('/') ? verMeta.file : `/${verMeta.file}`;
         const relativePath = verMeta.file.replace(/^\//, '');
-        let data = await fetchJsonSafe<Record<string, Record<number, BibleVerse[]>>>(filePath, [relativePath]);
+        let data = await fetchJsonSafe<Record<string, Record<number, BibleVerse[]>>>(relativePath, ['./' + relativePath]);
         
         // Fallback environnement Node.js (scripts de tests et benchmarks)
         if (!data && typeof window === 'undefined') {

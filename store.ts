@@ -364,7 +364,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       if (!hasSqlite) {
         set({ loadingMessage: "Chargement des sermons...", loadingProgress: 35 });
-        const data = await fetchJsonSafe<Sermon[]>('/library.json', ['library.json']) || [];
+        const data = await fetchJsonSafe<Sermon[]>('library.json', ['./library.json']) || [];
         set({ loadingProgress: 80 });
         
         const uniqueMetadata: Omit<Sermon, 'text'>[] = [];
@@ -420,7 +420,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   resetLibrary: async () => {
     set({ isLoading: true, loadingMessage: "Récupération des données...", loadingProgress: 15 });
     try {
-      const incoming = await fetchJsonSafe<Sermon[]>('/library.json', ['library.json']);
+      const incoming = await fetchJsonSafe<Sermon[]>('library.json', ['./library.json']);
       set({ loadingProgress: 55 });
       
       if (!incoming || !Array.isArray(incoming)) {

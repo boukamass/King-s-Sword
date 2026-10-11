@@ -10,6 +10,7 @@
  * - Pipeline unifié : BM25 + Vectoriel -> RRF (k=60) -> Reranking -> Answerability -> Evidence Package.
  */
 
+import { getStaticResourceUrl } from '../utils/fetchHelper';
 import { 
   DocumentSourceType, 
   AIContext, 
@@ -268,7 +269,7 @@ export async function resolveAIContextChunks(
       if (!sermon || !sermon.text) {
         try {
           if (typeof window !== 'undefined') {
-            const res = await fetch('/library.json');
+            const res = await fetch(getStaticResourceUrl('library.json'));
             if (res.ok) {
               const lib: Sermon[] = await res.json();
               const baseId = cleanSourceId.split('-').slice(0, 2).join('-');

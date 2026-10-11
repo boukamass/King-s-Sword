@@ -62,7 +62,7 @@ export const loadExposeData = async () => {
   if (exposeData) return exposeData;
   
   try {
-    let rawData = await fetchJsonSafe<any>('/expose.json', ['expose.json']);
+    let rawData = await fetchJsonSafe<any>('expose.json', ['./expose.json']);
     
     // Fallback environnement Node.js (scripts de tests et benchmarks)
     if (!rawData && typeof window === 'undefined') {

@@ -127,9 +127,9 @@ export async function loadLexicon(): Promise<boolean> {
 
       // 2. Environnement Navigateur : fetch local depuis /public
       const [hebData, gkData, countsData] = await Promise.all([
-        fetchJsonSafe<Record<string, OpenScripturesEntry>>('/strongs-hebrew-dictionary.json', ['strongs-hebrew-dictionary.json']),
-        fetchJsonSafe<Record<string, OpenScripturesEntry>>('/strongs-greek-dictionary.json', ['strongs-greek-dictionary.json']),
-        fetchJsonSafe<Record<string, number>>('/strong-verse-counts.json', ['strong-verse-counts.json'])
+        fetchJsonSafe<Record<string, OpenScripturesEntry>>('strongs-hebrew-dictionary.json', ['./strongs-hebrew-dictionary.json']),
+        fetchJsonSafe<Record<string, OpenScripturesEntry>>('strongs-greek-dictionary.json', ['./strongs-greek-dictionary.json']),
+        fetchJsonSafe<Record<string, number>>('strong-verse-counts.json', ['./strong-verse-counts.json'])
       ]);
 
       if (hebData && gkData) {
