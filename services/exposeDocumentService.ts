@@ -294,28 +294,31 @@ export async function hydrateExposePrecalculatedEmbeddings(chunks: SermonChunk[]
         };
 
         const loc = window.location;
-        const baseUrl = loc ? loc.origin + loc.pathname.replace(/\/[^\/]*$/, '/') : './';
+        let baseUrl = './';
+        if (loc) {
+          if (loc.protocol === 'file:') {
+            baseUrl = loc.href.substring(0, loc.href.lastIndexOf('/') + 1);
+          } else {
+            baseUrl = loc.origin + loc.pathname.replace(/\/[^\/]*$/, '/');
+          }
+        }
 
         const metaCandidates = [
           baseUrl + 'corpus_embeddings_384d_meta.json',
           './corpus_embeddings_384d_meta.json',
           'corpus_embeddings_384d_meta.json',
-          '/corpus_embeddings_384d_meta.json',
           baseUrl + 'corpus_embeddings_meta.json',
           './corpus_embeddings_meta.json',
-          'corpus_embeddings_meta.json',
-          '/corpus_embeddings_meta.json'
+          'corpus_embeddings_meta.json'
         ];
 
         const binCandidates = [
           baseUrl + 'corpus_embeddings_384d.bin',
           './corpus_embeddings_384d.bin',
           'corpus_embeddings_384d.bin',
-          '/corpus_embeddings_384d.bin',
           baseUrl + 'corpus_embeddings_768d.bin',
           './corpus_embeddings_768d.bin',
-          'corpus_embeddings_768d.bin',
-          '/corpus_embeddings_768d.bin'
+          'corpus_embeddings_768d.bin'
         ];
 
         const metaRes = await fetchFirstWorking(metaCandidates);
