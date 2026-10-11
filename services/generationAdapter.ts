@@ -114,23 +114,40 @@ export async function generateNewRagResponse(
     };
   }
 
-  const isDeepDive = isDeepDiveStudyRequest(query) || /\b(etude|etudier|approfondi|approfondie|détaille|detaille|détaillee|detaillee|synthese|synthetiser|analyse|analyser|panorama|complet|complete|exhaustive)\b/i.test(query.toLowerCase());
+  // Phase B.2 : Détermination du Niveau de détail choisi par la question/utilisateur
+  const queryLower = query.toLowerCase();
+  const isStudy = /\b(etude|étude|approfondi|approfondie|panorama|exhaustif|exhaustive|complet|complete)\b/i.test(queryLower);
+  const isExplain = /\b(explique|expliquer|pourquoi|comment|developpe|développe|enseigne|enseignement|doctrine|analyse|analyser|synthese|synthèse)\b/i.test(queryLower);
+  const isShortRequested = /\b(court|bref|brève|en 1 phrase|en deux mots|direct)\b/i.test(queryLower);
 
-  // Réduction du nombre de passages envoyés si la confiance de récupération est basse
+  let detailLevel: 'court' | 'detaill' | 'etude' = 'detaill'; // DÉTAILLÉ PAR DÉFAUT !
+  if (isShortRequested) detailLevel = 'court';
+  else if (isStudy) detailLevel = 'etude';
+  else if (isExplain) detailLevel = 'detaill';
+
+  // Phase B.1 : Désactivation du plafond artificiel à 2 passages déclenché par l'absence d'E5
   let effectiveEvidence = evidencePackage.evidence;
   const decisionJournal = evidencePackage.decisionJournal;
+  const hasVectorSignal = evidencePackage.vectorMethod && evidencePackage.vectorMethod !== 'BM25_ONLY' && (decisionJournal?.topVectorScore ?? 0) > 0;
+  
+  // Le plafond de 2 passages ne s'applique que si le signal lexical ET vectoriel est quasi-nul (zone de refus avérée)
   const isLowConfidence = 
-    !isDeepDive && (
-      (evidencePackage.confidenceScore !== undefined && evidencePackage.confidenceScore < 0.6) ||
+    detailLevel === 'court' && (
       decisionJournal?.zone === 'refusal' ||
-      decisionJournal?.zone === 'grey_zone' ||
-      (decisionJournal?.topVectorScore !== undefined && decisionJournal.topVectorScore < 0.81) ||
-      (decisionJournal?.topLexScore !== undefined && decisionJournal.topLexScore < 5)
+      (hasVectorSignal && (decisionJournal?.topVectorScore ?? 0) < 0.25) ||
+      ((decisionJournal?.topLexScore ?? 0) < 2)
     );
 
   if (isLowConfidence && effectiveEvidence.length > 2) {
     effectiveEvidence = effectiveEvidence.slice(0, 2);
   }
+
+  // Ajustement du nombre de passages max et de la taille de sortie selon le niveau de détail
+  const targetPassageCount = detailLevel === 'etude' ? 25 : detailLevel === 'detaill' ? 12 : 5;
+  if (effectiveEvidence.length > targetPassageCount) {
+    effectiveEvidence = effectiveEvidence.slice(0, targetPassageCount);
+  }
+
   const effectivePackage: RetrievalEvidencePackage = {
     ...evidencePackage,
     evidence: effectiveEvidence
@@ -140,7 +157,7 @@ export async function generateNewRagResponse(
   const context = formatEvidenceContextForGemini(effectivePackage, query);
   const reqLines = extractRequestedLineCount(query);
   const lineInstruction = reqLines ? `\n\nCONSIGNE STRICTE DE LONGUEUR : L'utilisateur exige un résumé / résultat de sa demande en exactement ${reqLines} lignes. Rédige ta réponse de façon concise et synthétique en respectant rigoureusement la limite de ${reqLines} lignes.` : '';
-  const promptContents = `${context}\n\n============================================================\nQUESTION DU CHERCHEUR :\n"${query}"${lineInstruction}`;
+  const promptContents = `${context}\n\n============================================================\nQUESTION DU CHERCHEUR (Niveau exigé : ${detailLevel.toUpperCase()}) :\n"${query}"${lineInstruction}`;
 
   // Résolution du client Gemini
   let client = geminiClient;
@@ -168,6 +185,10 @@ export async function generateNewRagResponse(
     };
   }
 
+  // Configuration dynamique par Niveau de Détail (Phase B.2 & B.5)
+  const effectiveTemperature = detailLevel === 'court' ? 0.2 : 0.35;
+  const effectiveMaxOutputTokens = detailLevel === 'etude' ? 6000 : detailLevel === 'detaill' ? 3500 : 1500;
+
   const defaultSysInstruction = `Tu es l'assistant d'étude théologique de King's Sword, expert des sermons de William Marrion Branham et des Écritures.
 
 DIRECTIVES DE RÉPONSE ET FORMAT STRICT (JSON) :
@@ -187,10 +208,18 @@ Tu dois impérativement renvoyer un objet JSON respectant le schéma avec les ch
 - N'inclus AUCUNE section "### Sources consultées" ni "### Pistes d'approfondissement".
 
 3. EN CAS D'ACCEPTATION (sources_suffisantes = "suffisantes" ou "partielles") :
-- Fournis une étude doctrinale complète, pédagogique et structurée dans le champ 'reponse'.
-- Fonde ton exposé EXCLUSIVEMENT sur les extraits fournis.
-- Appuie chaque affirmation sur des citations textuelles exactes entre guillemets suivies de leur référence :
-  > « ... » [Réf: ID_SERMON, Para. N]
+- Rédige une réponse substantielle, très bien développée, pédagogique et structurée.
+- Contextualise chaque extrait (cadre historique, spirituel et doctrinal de la prédication ou du passage).
+- Détailler minutieusement les arguments et le raisonnement du prédicateur / texte.
+- Mentionne les exemples, illustrations et versets bibliques cités.
+- Structure obligatoirement ton exposé en deux grandes parties :
+  ### Ce que disent les textes
+  (Analyse détaillée, citations exactes avec leurs références, explication du contexte)
+
+  ### Synthèse & Enseignement
+  (Synthèse doctrinale rigoureuse. Chaque affirmation de synthèse DOIT être immédiatement suivie d'au moins une citation textuelle exacte vérifiée : > « ... » [Réf: ID_SERMON, Para. N])
+
+- Si les sources sont insuffisantes pour un long développement, reste honnête et concis sans inventer.
 - Termine obligatoirement par la section "### Sources consultées" listant clairement tous les documents et paragraphes cités.
 - Termine par la section "### Pistes d'approfondissement" proposant 2 à 3 questions de recherche complémentaires sans balise [Réf:].`;
 
@@ -204,7 +233,8 @@ Tu dois impérativement renvoyer un objet JSON respectant le schéma avec les ch
       contents: promptContents,
       config: {
         systemInstruction: sysInstruction,
-        temperature,
+        temperature: effectiveTemperature,
+        maxOutputTokens: effectiveMaxOutputTokens,
         responseMimeType: 'application/json',
         responseSchema: {
           type: Type.OBJECT,
@@ -215,7 +245,7 @@ Tu dois impérativement renvoyer un objet JSON respectant le schéma avec les ch
             },
             reponse: {
               type: Type.STRING,
-              description: "Si 'suffisantes' ou 'partielles': étude théologique structurée avec citations exactes. Si 'insuffisantes': message court de 2 phrases max débutant par 'Les textes disponibles ne traitent pas de ce sujet.'"
+              description: "Si 'suffisantes' ou 'partielles': étude théologique structurée et développée en sections avec citations exactes. Si 'insuffisantes': message court de 2 phrases max débutant par 'Les textes disponibles ne traitent pas de ce sujet.'"
             },
             avertissement: {
               type: Type.STRING,
