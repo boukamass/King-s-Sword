@@ -212,16 +212,16 @@ Tu dois impérativement renvoyer un objet JSON respectant le schéma avec les ch
 - Contextualise chaque extrait (cadre historique, spirituel et doctrinal de la prédication ou du passage).
 - Détailler minutieusement les arguments et le raisonnement du prédicateur / texte.
 - Mentionne les exemples, illustrations et versets bibliques cités.
+- Informations factuelles (lieu, date, personnes) : doivent IMPÉRATIVEMENT provenir d'un passage ou des métadonnées fournies. Sinon ne l'énonce pas.
 - Structure obligatoirement ton exposé en deux grandes parties :
   ### Ce que disent les textes
-  (Analyse détaillée, citations exactes avec leurs références, explication du contexte)
+  (Analyse détaillée, citations exactes avec leurs références [Réf: ID_SERMON, §N], explication du contexte)
 
   ### Synthèse & Enseignement
-  (Synthèse doctrinale rigoureuse. Chaque affirmation de synthèse DOIT être immédiatement suivie d'au moins une citation textuelle exacte vérifiée : > « ... » [Réf: ID_SERMON, Para. N])
+  (Synthèse doctrinale explicative. Ne recopie PAS les blocs de citations déjà donnés ci-dessus ; explique, relie les passages entre eux, et indique ce qui est explicite dans le texte et ce qui est interprétation. Toute affirmation de synthèse doit être étayée par une référence de paragraphe [Réf: ID_SERMON, §N] ou marquée explicitement comme "(interprétation)".)
 
-- Si les sources sont insuffisantes pour un long développement, reste honnête et concis sans inventer.
-- Termine obligatoirement par la section "### Sources consultées" listant clairement tous les documents et paragraphes cités.
-- Termine par la section "### Pistes d'approfondissement" proposant 2 à 3 questions de recherche complémentaires sans balise [Réf:].`;
+- Termine obligatoirement par la section "### Passages consultés" listant UNIQUEMENT les paragraphes et documents réellement cités dans la réponse avec leurs numéros de paragraphes exacts [Réf: ID_SERMON, §N].
+- Les "Pistes d'approfondissement" seront retournées dans le champ JSON séparé 'pistes_approfondissement' pour garantir zéro troncation.`;
 
   const sysInstruction = systemInstruction || defaultSysInstruction;
 
@@ -245,11 +245,16 @@ Tu dois impérativement renvoyer un objet JSON respectant le schéma avec les ch
             },
             reponse: {
               type: Type.STRING,
-              description: "Si 'suffisantes' ou 'partielles': étude théologique structurée et développée en sections avec citations exactes. Si 'insuffisantes': message court de 2 phrases max débutant par 'Les textes disponibles ne traitent pas de ce sujet.'"
+              description: "Si 'suffisantes' ou 'partielles': étude théologique structurée en '### Ce que disent les textes', '### Synthèse & Enseignement', et '### Passages consultés'. Si 'insuffisantes': message court de 2 phrases max débutant par 'Les textes disponibles ne traitent pas de ce sujet.'"
             },
             avertissement: {
               type: Type.STRING,
               description: "Si sources_suffisantes='partielles', réclame ou propose un court avertissement expliquant la couverture partielle. Sinon, laisser vide ou null."
+            },
+            pistes_approfondissement: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+              description: "Tableau de 2 à 3 questions de recherche complémentaires pertinentes."
             }
           },
           required: ["sources_suffisantes", "reponse"]

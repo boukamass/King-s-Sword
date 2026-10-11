@@ -41,6 +41,7 @@ import { EMBEDDING_CONFIG, computeE5Embedding } from './embeddingService';
 import { getGeminiApiKey } from '../utils/apiKeyHelper';
 import { detectQueryIntent, logQueryIntent } from './queryIntentService';
 import { normalizeText, splitSermonIntoParagraphs, extractLeadingParagraphNumber } from '../utils/textUtils';
+import { isContentlessOrNoiseParagraph } from './corpusVocabularyService';
 
 // Mots vides généraux pour l'analyse lexicale
 const UNIFIED_STOP_WORDS = new Set([
@@ -814,6 +815,61 @@ export async function executeUnifiedRagPipeline(
       multiModalBonus: options.multiModalBonus
     }
   });
+
+  // PHASE B : Sélection courte (sous la limite de 300 000 caractères ou budget de tokens)
+  // Transmet le texte COMPLET de la sélection à Gemini sans recherche ni troncation.
+  const isFullTextSelection = contextCorpusText.length <= 300000 && allowedChunks.length > 0;
+
+  if (isFullTextSelection) {
+    const uniqueDocs = Array.from(new Set(allowedChunks.map(c => c.sermonId)));
+    const docLabel = `texte complet de ${uniqueDocs.length} sermon${uniqueDocs.length > 1 ? 's' : ''}`;
+    
+    // Filtrage Phase C.3 : Exclusion des paragraphes de bruit éditorial isolé
+    const validChunks = allowedChunks.filter(c => !isContentlessOrNoiseParagraph(c.text));
+    const fullTextEvidence: RetrievalEvidence[] = validChunks.map((chunk, idx) => {
+      const citationParagraphs: EvidenceParagraphCitation[] = (chunk.paragraphIds || [chunk.startParagraph]).map(pNum => ({
+        paragraphIndex: pNum,
+        formattedCitation: formatUnitCitation(chunk, pNum),
+        textSnippet: chunk.text,
+        fullParagraphText: chunk.text,
+        isAuthentic: true
+      }));
+
+      return {
+        chunkId: chunk.chunkId,
+        sermonId: chunk.sermonId,
+        sermonTitle: chunk.sermonTitle,
+        paragraphIds: chunk.paragraphIds,
+        startParagraph: chunk.startParagraph,
+        endParagraph: chunk.endParagraph,
+        text: chunk.text,
+        date: chunk.date,
+        city: chunk.city,
+        version: chunk.version,
+        retrievalScore: 1.0,
+        rank: idx + 1,
+        sourceType: 'full_text',
+        citationParagraphs
+      };
+    });
+
+    console.log(`=== LOGS DE DIAGNOSTIC RAG UNIFIÉ (MODE TEXTE COMPLET) ===`);
+    console.log(`QUERY: ${cleanQuery}`);
+    console.log(`MODE: FULL_TEXT_SELECTION (${docLabel})`);
+    console.log(`TOTAL PARAGRAPHS TRANSMITTED: ${fullTextEvidence.length}`);
+    console.log('==========================================================');
+
+    return {
+      answerable: true,
+      confidenceScore: 1.0,
+      reason: docLabel,
+      evidence: fullTextEvidence,
+      query: cleanQuery,
+      totalCandidates: fullTextEvidence.length,
+      rejectedCount: 0,
+      vectorMethod: 'full_text_selection'
+    };
+  }
 
   // 6. Évaluation d'Answerability (STRICTEMENT par rapport au sous-ensemble contextuel)
   const assessment = assessAnswerability({

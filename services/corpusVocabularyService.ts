@@ -229,8 +229,42 @@ export function buildCorpusVocabulary(chunks: Array<{ text: string }>): CorpusVo
     updatedAt: new Date().toISOString()
   };
 
-  globalCorpusVocabulary = vocab;
+  // Ne pas écraser un vocabulaire global robuste (>= 1000 chunks) avec un échantillon local restreint
+  if (!globalCorpusVocabulary || globalCorpusVocabulary.totalChunks < 1000 || totalChunks >= 1000) {
+    globalCorpusVocabulary = vocab;
+  }
   return vocab;
+}
+
+/**
+ * PHASE C.3 : Détection structurelle des paragraphes sans contenu ou bruits éditoriaux.
+ * Détecte par structure (crochets, ratio de ponctuation, longueur) sans liste statique de phrases.
+ */
+export function isContentlessOrNoiseParagraph(text: string): boolean {
+  if (!text || typeof text !== 'string') return true;
+  const trimmed = text.trim();
+  if (trimmed.length < 15) return true;
+
+  // 1. Détection structurelle de notes éditoriales entre crochets
+  if (/^\s*\[.*\]\s*$/s.test(trimmed)) return true;
+  const bracketMatches = trimmed.match(/\[.*?\]/g) || [];
+  const bracketChars = bracketMatches.join('').length;
+  if (bracketChars / trimmed.length > 0.45) return true;
+
+  // 2. Passages inaudibles ou bruits d'enregistrement ("...?... ", "…?... ")
+  if (/\b\.\.\.\?\.\.\.|\b…\?…|inconnu|inaudible|enregistrement/i.test(trimmed) && trimmed.length < 90) {
+    return true;
+  }
+
+  // 3. Ratio de ponctuation/symboles anormalement élevé (> 35% de non-lettres)
+  const letters = trimmed.replace(/[^\p{L}\p{N}]/gu, '');
+  if (letters.length / trimmed.length < 0.50) return true;
+
+  // 4. Moins de 4 mots significatifs
+  const words = tokenizeText(trimmed);
+  if (words.length < 4) return true;
+
+  return false;
 }
 
 /**
@@ -317,7 +351,7 @@ export function matchTermAgainstCorpusVocabulary(
 
   // 2. Rapprochement approximatif déterministe et morphologique (sans liste statique de mots)
   // - Prise en charge des fautes de frappe (Levenshtein <= 2, trigrammes)
-  // - Prise en charge des flexions verbales et adjectivales (radicaux / stems communs)
+  // - EXIGENCE STRICTE (Phase C.1) : Exige une racine ou un préfixe commun (>= 4 caractères ou même radical)
   if (norm.length >= 4) {
     let bestMatch: string | null = null;
     let bestDistance = 999;
@@ -332,28 +366,23 @@ export function matchTermAgainstCorpusVocabulary(
         continue;
       }
 
-      const sameFirstChar = candidateTerm[0] === norm[0];
-      const isElisionOrPrefixVariant = !sameFirstChar && (
-        norm.startsWith('l' + candidateTerm) || 
-        norm.startsWith('d' + candidateTerm) ||
-        norm.startsWith('c' + candidateTerm) ||
-        candidateTerm.startsWith('l' + norm) ||
-        candidateTerm.startsWith('d' + norm) ||
-        (norm.length >= 5 && candidateTerm.length >= 5 && (norm.slice(1) === candidateTerm || candidateTerm.slice(1) === norm))
-      );
-      if (!sameFirstChar && !isElisionOrPrefixVariant && (norm.length < 8 || Math.abs(candidateTerm.length - norm.length) > 1)) {
-        continue;
-      }
-
-      const dist = computeLevenshteinDistance(norm, candidateTerm);
-      const maxAllowedDist = norm.length <= 5 ? 1 : 2;
-      const candStem = extractFrenchStem(candidateTerm);
-      const sameStem = normStem.length >= 3 && (normStem === candStem || normStem.startsWith(candStem) || candStem.startsWith(normStem));
       const commonPrefixLen = (() => {
         let l = 0;
         while (l < norm.length && l < candidateTerm.length && norm[l] === candidateTerm[l]) l++;
         return l;
       })();
+
+      const candStem = extractFrenchStem(candidateTerm);
+      const sameStem = normStem.length >= 3 && (normStem === candStem || normStem.startsWith(candStem) || candStem.startsWith(normStem));
+
+      // PHASE C.1 : Verrou de préfixe/racine strict. Un terme ne peut S'AMALAER que s'il partage le même préfixe (>=4) ou le même radical
+      const hasValidPrefixOrStem = commonPrefixLen >= 4 || (sameStem && commonPrefixLen >= 3);
+      if (!hasValidPrefixOrStem) {
+        continue;
+      }
+
+      const dist = computeLevenshteinDistance(norm, candidateTerm);
+      const maxAllowedDist = norm.length <= 5 ? 1 : 2;
 
       // Critère 1 : Levenshtein et trigrammes valides
       const triSim = computeTrigramSimilarity(norm, candidateTerm);
@@ -370,7 +399,7 @@ export function matchTermAgainstCorpusVocabulary(
         bestDistance = dist;
         bestMatch = candidateTerm;
         bestSim = sim;
-        if (dist <= 1 && sameFirstChar) break; // Arrêt rapide
+        if (dist <= 1 && candidateTerm[0] === norm[0]) break; // Arrêt rapide
       }
     }
 

@@ -390,7 +390,7 @@ export interface RetrievalEvidence {
   version?: string;
   retrievalScore: number;
   rank: number;
-  sourceType: 'lexical' | 'vector' | 'hybrid' | 'reranked';
+  sourceType: 'lexical' | 'vector' | 'hybrid' | 'reranked' | 'full_text';
   citationParagraphs: EvidenceParagraphCitation[];
 }
 
