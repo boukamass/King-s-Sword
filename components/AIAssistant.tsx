@@ -1355,8 +1355,14 @@ const AIAssistant: React.FC = () => {
                   Sources Dock ({selectedSermonsMetadata.length})
                 </span>
                 {contextSermonIds.length > 0 && (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 text-[7.5px] font-bold">
-                    ~{estimatedDockStats.tokens.toLocaleString()} tokens ({Math.round(estimatedDockStats.chars / 1000)}k / 300k car.)
+                  <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[7.5px] font-bold border ${
+                    estimatedDockStats.chars <= 300000 
+                      ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20'
+                      : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
+                  }`}>
+                    {estimatedDockStats.chars <= 300000 
+                      ? `texte complet de ${selectedSermonsMetadata.length} sermon${selectedSermonsMetadata.length > 1 ? 's' : ''}`
+                      : `recherche dans ${selectedSermonsMetadata.length} sermons`} (~{estimatedDockStats.tokens.toLocaleString()} tok)
                   </span>
                 )}
               </div>
