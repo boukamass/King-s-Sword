@@ -477,6 +477,18 @@ export interface ElectronAPI {
     encryptSecureData?: (plainText: string) => Promise<string>;
     decryptSecureData?: (cipherText: string) => Promise<string>;
   };
+  system?: {
+    getModelInfo: () => Promise<{
+      success: boolean;
+      resourcesPath?: string;
+      resolvedPath?: string;
+      exists?: boolean;
+      sizeBytes?: number;
+      sha256?: string;
+      isPackaged?: boolean;
+      error?: string;
+    }>;
+  };
 }
 
 declare global {

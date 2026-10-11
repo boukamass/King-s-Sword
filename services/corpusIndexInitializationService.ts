@@ -1,25 +1,17 @@
 /**
- * King's Sword — Corpus Index Initialization Service (Phase 2F.14)
+ * King's Sword — Corpus Index Initialization Service (Phase 2F.20)
  * 
  * Gestionnaire d'initialisation, de préparation et d'indexation automatique
  * du corpus complet de sermons au premier lancement chez l'utilisateur.
- * 
- * FONCTIONNALITÉS CLÉS :
- * 1. Détection automatique du corpus disponible (Web & Electron).
- * 2. Découpage en chunks via le pipeline officiel (`createLibraryChunks`).
- * 3. Contrôle d'incrémentalité & déduplication (`computeChunkHash`).
- * 4. Reprise automatique après interruption (fermeture app, perte réseau, 429/503).
- * 5. Verrou anti-concurrence (mutuellement exclusif, 0 indexation en double).
- * 6. Suivi temps réel des états : NOT_STARTED | SCANNING | CHUNKING | EMBEDDING | READY | PARTIAL | ERROR.
- * 7. Non-blocage de l'assistant : Mode PARTIAL opérant uniquement sur les chunks indexés.
  */
 
 import { Sermon, SermonChunk } from '../types';
-import { createLibraryChunks, computeChunkHash, parseSermonParagraphs } from './chunkingService';
-import { saveChunks, getAllChunks, saveChunk } from './chunkStorageService';
+import { createLibraryChunks, computeChunkHash } from './chunkingService';
+import { saveChunks, getAllChunks } from './chunkStorageService';
 import { runIncrementalEmbeddingIndexing, EmbeddingIndexResult } from './embeddingIndexService';
 import { validateEmbeddingVector } from './embeddingService';
 import { loadExposeAsSermons, hydrateExposePrecalculatedEmbeddings, createExposeDocumentChunks } from './exposeDocumentService';
+import { getWorkerDiagnosticState } from './e5WorkerManager';
 import { get, set } from 'idb-keyval';
 
 export type IndexingStatus = 'NOT_STARTED' | 'SCANNING' | 'CHUNKING' | 'EMBEDDING' | 'READY' | 'PARTIAL' | 'ERROR';
@@ -33,6 +25,22 @@ export interface CorpusIndexProgress {
   embeddingsCreated: number;
   embeddingsReused: number;
   errors: number;
+  chunksPerSec: number;
+  etaFormatted: string;
+  isPaused: boolean;
+  pauseReason: string | null;
+  sermonSource: string;
+  workerStatus: 'NON_INITIALISÉ' | 'EN_COURS' | 'DÉMARRÉ' | 'EN_ERREUR' | 'REPLI_THREAD_PRINCIPAL';
+  workerErrorMessage: string | null;
+  modelStatus: 'NON_CHARGÉ' | 'CHARGEMENT' | 'CHARGÉ' | 'ERREUR';
+  modelErrorMessage: string | null;
+  modelInfo: {
+    path?: string;
+    sizeBytes?: number;
+    sha256?: string;
+  } | null;
+  lastError: string | null;
+  lastActivityAt: string | null;
   corpusVersion: string;
   lastIndexedAt: string | null;
   errorMessage: string | null;
@@ -50,6 +58,18 @@ let currentProgress: CorpusIndexProgress = {
   embeddingsCreated: 0,
   embeddingsReused: 0,
   errors: 0,
+  chunksPerSec: 0,
+  etaFormatted: 'En attente...',
+  isPaused: false,
+  pauseReason: null,
+  sermonSource: 'Détection...',
+  workerStatus: 'NON_INITIALISÉ',
+  workerErrorMessage: null,
+  modelStatus: 'NON_CHARGÉ',
+  modelErrorMessage: null,
+  modelInfo: null,
+  lastError: null,
+  lastActivityAt: null,
   corpusVersion: 'v1.0.0-default',
   lastIndexedAt: null,
   errorMessage: null
@@ -61,12 +81,27 @@ const progressListeners: Set<ProgressListener> = new Set();
 
 export function subscribeIndexProgress(listener: ProgressListener): () => void {
   progressListeners.add(listener);
-  listener(currentProgress);
+  listener(getCurrentIndexProgress());
   return () => progressListeners.delete(listener);
 }
 
 function notifyProgressUpdate(update: Partial<CorpusIndexProgress>): void {
-  currentProgress = { ...currentProgress, ...update };
+  const wDiag = getWorkerDiagnosticState();
+  currentProgress = {
+    ...currentProgress,
+    workerStatus: wDiag.workerStatus,
+    workerErrorMessage: wDiag.workerErrorMessage,
+    modelStatus: wDiag.modelStatus,
+    modelErrorMessage: wDiag.modelErrorMessage,
+    modelInfo: wDiag.modelInfo || currentProgress.modelInfo,
+    lastActivityAt: wDiag.lastActivityAt || new Date().toISOString(),
+    ...update
+  };
+
+  if (update.errorMessage) {
+    currentProgress.lastError = update.errorMessage;
+  }
+
   progressListeners.forEach(fn => {
     try {
       fn(currentProgress);
@@ -86,7 +121,7 @@ async function persistProgressState(prog: CorpusIndexProgress): Promise<void> {
       await set(INDEX_STATUS_STORAGE_KEY, prog);
     }
   } catch (e) {
-    // Ignorer en environnement dégradé
+    // Ignorer
   }
 }
 
@@ -97,7 +132,6 @@ export async function loadPersistedProgressState(): Promise<CorpusIndexProgress>
       if (raw) {
         const parsed = JSON.parse(raw);
         currentProgress = { ...currentProgress, ...parsed };
-        return currentProgress;
       }
     }
     if (typeof indexedDB !== 'undefined') {
@@ -109,7 +143,7 @@ export async function loadPersistedProgressState(): Promise<CorpusIndexProgress>
   } catch (e) {
     // Ignorer
   }
-  return currentProgress;
+  return getCurrentIndexProgress();
 }
 
 /**
@@ -117,20 +151,21 @@ export async function loadPersistedProgressState(): Promise<CorpusIndexProgress>
  */
 export async function detectAvailableCorpus(
   loadedSermonsMap?: Map<string, Sermon | Omit<Sermon, 'text'>> | Map<string, any>
-): Promise<{ sermons: Sermon[]; corpusVersion: string }> {
+): Promise<{ sermons: Sermon[]; corpusVersion: string; source: string }> {
   let sermons: Sermon[] = [];
+  let source = 'Non identifiée';
 
-  // 1. Map mémoire déjà chargée (React Store)
+  // 1. Map mémoire déjà chargée
   if (loadedSermonsMap && loadedSermonsMap.size > 0) {
     sermons = Array.from(loadedSermonsMap.values()).filter((s): s is Sermon => !!s && typeof (s as any).text === 'string' && (s as any).text.length > 0);
+    if (sermons.length > 0) source = 'Map Mémoire UI';
   }
 
-  // 2. Repli Electron / IPC
+  // 2. Repli Electron / IPC (SQLite)
   if (sermons.length === 0 && typeof window !== 'undefined' && window.electronAPI?.db?.getSermonsMetadata) {
     try {
       const meta = await window.electronAPI.db.getSermonsMetadata();
       if (Array.isArray(meta) && meta.length > 0) {
-        // En Electron, on charge les sermons par lots ou à la demande
         const fullSermons: Sermon[] = [];
         for (const m of meta) {
           const full = await window.electronAPI.db.getSermonFull(m.id);
@@ -138,6 +173,7 @@ export async function detectAvailableCorpus(
         }
         if (fullSermons.length > 0) {
           sermons = fullSermons;
+          source = 'SQLite / IPC (Electron)';
         }
       }
     } catch (e) {
@@ -145,13 +181,14 @@ export async function detectAvailableCorpus(
     }
   }
 
-  // 3. Repli Web / Node.js static library.json
+  // 3. Repli Web / static library.json
   if (sermons.length === 0) {
     try {
       if (typeof window !== 'undefined') {
         const res = await fetch('/library.json');
         if (res.ok) {
           sermons = await res.json();
+          if (sermons.length > 0) source = 'Fichier statique /library.json';
         }
       } else {
         const fs = await import('fs');
@@ -159,6 +196,7 @@ export async function detectAvailableCorpus(
         const cand = path.resolve('public/library.json');
         if (fs.existsSync(cand)) {
           sermons = JSON.parse(fs.readFileSync(cand, 'utf8'));
+          if (sermons.length > 0) source = 'Fichier local library.json';
         }
       }
     } catch (e) {
@@ -166,7 +204,7 @@ export async function detectAvailableCorpus(
     }
   }
 
-  // 4. Intégration systématique du corpus complet de l'Exposé des Sept Âges (11 chapitres)
+  // 4. Intégration systématique du corpus complet de l'Exposé (11 chapitres)
   try {
     const exposeSermons = await loadExposeAsSermons();
     if (exposeSermons && exposeSermons.length > 0) {
@@ -176,21 +214,24 @@ export async function detectAvailableCorpus(
           sermons.push(es);
         }
       }
+      if (source === 'Non identifiée') source = 'Corpus Exposé seul';
     }
   } catch (e) {
     console.warn('[CorpusIndexInit] Erreur chargement Exposé:', e);
   }
 
-  // Calcul du hash de version du corpus
+  if (sermons.length === 0) {
+    source = 'Aucun sermon disponible';
+  }
+
   const sermonIds = sermons.map(s => s.id).sort().join(',');
   const corpusVersion = `v1-${sermons.length}-${sermonIds.substring(0, 32)}`;
 
-  return { sermons, corpusVersion };
+  return { sermons, corpusVersion, source };
 }
 
 /**
  * Lance l'initialisation de l'index au premier lancement ou à la reprise.
- * REPRÈSENTE LA SÉCURITÉ CONCURRENTIELLE STRICTE : 0 indexation simultanée.
  */
 export async function initializeCorpusIndex(options: {
   loadedSermonsMap?: Map<string, Sermon | Omit<Sermon, 'text'>> | Map<string, any>;
@@ -198,16 +239,14 @@ export async function initializeCorpusIndex(options: {
   apiKey?: string;
   batchSize?: number;
 } = {}): Promise<CorpusIndexProgress> {
-  // 1. Verrou de sécurité contre les indexations concurrentes
   if (isIndexingInProgress) {
     console.log('[CorpusIndexInit] Indexation déjà en cours. Ignoré.');
-    return currentProgress;
+    return getCurrentIndexProgress();
   }
 
   isIndexingInProgress = true;
 
   try {
-    // Restaurer l'état précédent
     await loadPersistedProgressState();
 
     notifyProgressUpdate({
@@ -215,24 +254,28 @@ export async function initializeCorpusIndex(options: {
       errorMessage: null
     });
 
-    // A. Détection du corpus disponible
-    const { sermons, corpusVersion } = await detectAvailableCorpus(options.loadedSermonsMap);
+    const { sermons, corpusVersion, source } = await detectAvailableCorpus(options.loadedSermonsMap);
     
     if (sermons.length === 0) {
       notifyProgressUpdate({
         status: 'ERROR',
-        errorMessage: 'Aucun sermon trouvé dans la source.'
+        sermonsProcessed: 0,
+        totalSermons: 0,
+        sermonSource: source,
+        errorMessage: 'Aucun sermon détecté : vérifier la source des sermons.'
       });
       isIndexingInProgress = false;
-      return currentProgress;
+      return getCurrentIndexProgress();
     }
 
     notifyProgressUpdate({
       totalSermons: sermons.length,
+      sermonsProcessed: sermons.length,
+      sermonSource: source,
       corpusVersion
     });
 
-    // B. Découpage en Chunks (CHUNKING)
+    // CHUNKING (et indexation FTS5 texte immédiate)
     notifyProgressUpdate({ status: 'CHUNKING' });
     const librarySermonsOnly = sermons.filter(s => !s.id.startsWith('expose-ch-'));
     const sermonChunks = createLibraryChunks(librarySermonsOnly);
@@ -244,17 +287,17 @@ export async function initializeCorpusIndex(options: {
       sermonsProcessed: sermons.length
     });
 
-    // Hydratation immédiate avec les embeddings précalculés livrés dans l'application (Exposé + Sermons)
+    // Hydratation immédiate avec les embeddings précalculés
     try {
       await hydrateExposePrecalculatedEmbeddings(officialChunks);
     } catch (e) {
       console.warn('[CorpusIndexInit] Hydratation précalculée ignorée:', e);
     }
 
-    // Sauvegarde initiale dans la base locale (Storage)
+    // Sauvegarde immédiate dans FTS5 / Storage pour recherche lexicale textuelle instantanée
     await saveChunks(officialChunks);
 
-    // C. Inspection de l'état des embeddings existants
+    // Inspection des embeddings existants
     const existingStored = await getAllChunks();
     const existingMap = new Map(existingStored.map(c => [c.chunkId, c]));
 
@@ -262,7 +305,7 @@ export async function initializeCorpusIndex(options: {
     for (const chunk of officialChunks) {
       const stored = existingMap.get(chunk.chunkId);
       if (stored && stored.contentHash === computeChunkHash(chunk.sermonId, chunk.paragraphIds, chunk.text)) {
-        if (stored.embedding && (validateEmbeddingVector(stored.embedding, 768).valid || validateEmbeddingVector(stored.embedding, 3072).valid || validateEmbeddingVector(stored.embedding, 384).valid)) {
+        if (stored.embedding && (validateEmbeddingVector(stored.embedding, 384).valid || validateEmbeddingVector(stored.embedding, 768).valid)) {
           alreadyValidCount++;
         }
       }
@@ -276,7 +319,6 @@ export async function initializeCorpusIndex(options: {
       totalSermons: sermons.length
     });
 
-    // Si tout est déjà indexé et valide -> État READY direct !
     if (alreadyValidCount === officialChunks.length && !options.forceReindex) {
       notifyProgressUpdate({
         status: 'READY',
@@ -285,19 +327,20 @@ export async function initializeCorpusIndex(options: {
         totalChunks: officialChunks.length,
         sermonsProcessed: sermons.length,
         totalSermons: sermons.length,
+        etaFormatted: 'Terminé',
         lastIndexedAt: new Date().toISOString(),
         errorMessage: null
       });
       isIndexingInProgress = false;
-      return currentProgress;
+      return getCurrentIndexProgress();
     }
 
-    // D. Génération Vectorielle Incrémentale Locale E5 (EMBEDDING)
+    // EMBEDDING VECTORIEL EN ARRIÈRE-PLAN DÉPORTÉ WORKER
     notifyProgressUpdate({ status: 'EMBEDDING' });
 
     const indexResult = await runIncrementalEmbeddingIndexing(officialChunks, {
-      batchSize: options.batchSize || 10,
-      delayBetweenBatchesMs: 50,
+      batchSize: options.batchSize || 6,
+      delayBetweenBatchesMs: 10,
       maxRetries: 3,
       onProgress: (res: EmbeddingIndexResult) => {
         notifyProgressUpdate({
@@ -305,16 +348,19 @@ export async function initializeCorpusIndex(options: {
           chunksProcessed: res.alreadyIndexed + res.embeddingsCompleted,
           embeddingsCreated: res.embeddingsCompleted,
           embeddingsReused: res.alreadyIndexed,
-          errors: res.embeddingsFailed
+          errors: res.embeddingsFailed,
+          chunksPerSec: res.chunksPerSec,
+          etaFormatted: res.etaFormatted,
+          isPaused: res.isPaused,
+          pauseReason: res.pauseReason
         });
       }
     });
 
-    // E. Diagnostic final et transition d'état
     const finalStored = await getAllChunks();
     let finalValidCount = 0;
     for (const c of finalStored) {
-      if (c.embedding && (validateEmbeddingVector(c.embedding, 384).valid || validateEmbeddingVector(c.embedding, 768).valid)) {
+      if (c.embedding && validateEmbeddingVector(c.embedding, 384).valid) {
         finalValidCount++;
       }
     }
@@ -326,6 +372,7 @@ export async function initializeCorpusIndex(options: {
         embeddingsCreated: indexResult.embeddingsCompleted,
         embeddingsReused: indexResult.alreadyIndexed,
         errors: indexResult.embeddingsFailed,
+        etaFormatted: 'Terminé',
         lastIndexedAt: new Date().toISOString(),
         errorMessage: null
       });
@@ -336,6 +383,7 @@ export async function initializeCorpusIndex(options: {
         embeddingsCreated: indexResult.embeddingsCompleted,
         embeddingsReused: indexResult.alreadyIndexed,
         errors: indexResult.embeddingsFailed,
+        etaFormatted: indexResult.etaFormatted,
         lastIndexedAt: new Date().toISOString(),
         errorMessage: `Indexation partielle : ${finalValidCount}/${officialChunks.length} chunks prêts.`
       });
@@ -356,12 +404,18 @@ export async function initializeCorpusIndex(options: {
     isIndexingInProgress = false;
   }
 
-  return currentProgress;
+  return getCurrentIndexProgress();
 }
 
-/**
- * Renvoie la progression actuelle
- */
 export function getCurrentIndexProgress(): CorpusIndexProgress {
-  return currentProgress;
+  const wDiag = getWorkerDiagnosticState();
+  return {
+    ...currentProgress,
+    workerStatus: wDiag.workerStatus,
+    workerErrorMessage: wDiag.workerErrorMessage,
+    modelStatus: wDiag.modelStatus,
+    modelErrorMessage: wDiag.modelErrorMessage,
+    modelInfo: wDiag.modelInfo || currentProgress.modelInfo,
+    lastActivityAt: wDiag.lastActivityAt || currentProgress.lastActivityAt || new Date().toISOString()
+  };
 }

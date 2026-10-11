@@ -981,6 +981,51 @@ function createWindow() {
   ipcMain.on('restart_app', () => {
     autoUpdater.quitAndInstall();
   });
+
+  ipcMain.handle('system:getModelInfo', async () => {
+    try {
+      const resourcesPath = app.isPackaged ? process.resourcesPath : __dirname;
+      const modelRelPath = path.join('models', 'Xenova', 'multilingual-e5-small', 'onnx', 'model_quantized.onnx');
+      const fullPath = path.join(resourcesPath, modelRelPath);
+      
+      const altPath = path.join(resourcesPath, 'app.asar', 'dist', 'models', 'Xenova', 'multilingual-e5-small', 'onnx', 'model_quantized.onnx');
+      
+      let targetPath = fullPath;
+      let exists = fs.existsSync(fullPath);
+      if (!exists && fs.existsSync(altPath)) {
+        targetPath = altPath;
+        exists = true;
+      }
+
+      let sizeBytes = 0;
+      let sha256 = null;
+
+      if (exists) {
+        const stats = fs.statSync(targetPath);
+        sizeBytes = stats.size;
+        if (sizeBytes > 5 * 1024 * 1024) {
+          try {
+            const fileBuffer = fs.readFileSync(targetPath);
+            sha256 = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+          } catch (e) {
+            console.warn('[ModelInfo] Erreur calcul SHA-256:', e.message);
+          }
+        }
+      }
+
+      return {
+        success: true,
+        resourcesPath,
+        resolvedPath: targetPath,
+        exists,
+        sizeBytes,
+        sha256,
+        isPackaged: app.isPackaged
+      };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
 }
 
 app.on('ready', () => {

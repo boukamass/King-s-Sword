@@ -46,5 +46,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     activateDevice: (activationCode) => ipcRenderer.invoke('security:activateDevice', activationCode),
     encryptSecureData: (plainText) => ipcRenderer.invoke('security:encryptSecureData', plainText),
     decryptSecureData: (cipherText) => ipcRenderer.invoke('security:decryptSecureData', cipherText),
+  },
+  system: {
+    getModelInfo: () => ipcRenderer.invoke('system:getModelInfo')
   }
 });

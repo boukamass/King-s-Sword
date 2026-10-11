@@ -13,6 +13,7 @@ import { ImageProjectionModal } from './components/ImageProjectionModal';
 import { AnnouncementModal } from './components/AnnouncementModal';
 import { QuickAccessModal } from './components/QuickAccessModal';
 import { DonationModal } from './components/DonationModal';
+import { IndexingBenchmarkModal } from './components/IndexingBenchmarkModal';
 import GlobalContextMenu from './components/GlobalContextMenu';
 import { useModalActive } from './utils/modalUtils';
 
@@ -364,6 +365,7 @@ const App: React.FC = () => {
         isOpen={isDonationModalOpen}
         onClose={() => setIsDonationModalOpen(false)}
       />
+      <IndexingBenchmarkModal />
     </div>
   );
 };
