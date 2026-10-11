@@ -18,7 +18,7 @@ import NoteSelectorModal from './NoteSelectorModal';
 import { ApiKeyModal } from './ApiKeyModal';
 import { hasValidGeminiApiKey } from '../utils/apiKeyHelper';
 import { CorpusIndexingIndicator } from './CorpusIndexingIndicator';
-import { loadPersistedProgressState, subscribeIndexProgress, CorpusIndexProgress, initializeCorpusIndex } from '../services/corpusIndexInitializationService';
+import { loadPersistedProgressState, subscribeIndexProgress, CorpusIndexProgress, initializeCorpusIndex, forceResetIndexing } from '../services/corpusIndexInitializationService';
 import { Sermon, ChatMessage } from '../types';
 import { splitSermonIntoParagraphs, extractLeadingParagraphNumber } from '../utils/textUtils';
 import { 
@@ -1166,14 +1166,32 @@ const AIAssistant: React.FC = () => {
       {(!indexProgress || indexProgress.status !== 'READY') && (
         <div className="mx-3 my-1 px-3 py-1.5 bg-slate-100/80 dark:bg-zinc-800/60 border border-slate-200/80 dark:border-zinc-700/60 rounded-lg text-slate-600 dark:text-zinc-300 text-[11px] flex items-center justify-between gap-2 shrink-0 backdrop-blur-sm transition-all duration-200">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${indexProgress?.status === 'ERROR' ? 'bg-red-500' : 'bg-amber-500 animate-pulse'}`} />
             <span className="truncate">
-              Indexation en arrière-plan : {indexProgress?.sermonsProcessed || 0} / {indexProgress?.totalSermons || (sermons.length || 1205)} ({Math.min(100, Math.round(((indexProgress?.chunksProcessed || 0) / Math.max(1, indexProgress?.totalChunks || 1)) * 100))}%)
+              {indexProgress?.status === 'ERROR' ? (
+                <span className="text-red-600 dark:text-red-400 font-medium">
+                  Indexation interrompue : {indexProgress.errorMessage || 'Erreur d\'initialisation'}
+                </span>
+              ) : (
+                <span>
+                  Indexation en arrière-plan : {indexProgress?.sermonsProcessed || 0} / {indexProgress?.totalSermons || (sermons.filter(s => !s.id.startsWith('expose-ch-')).length || sermons.length)} sermons ({Math.min(100, Math.round(((indexProgress?.chunksProcessed || 0) / Math.max(1, indexProgress?.totalChunks || 1)) * 100))}%)
+                </span>
+              )}
             </span>
           </div>
-          <span className="text-[10px] text-zinc-400 dark:text-zinc-500 shrink-0 select-none">
-            {indexProgress?.status === 'EMBEDDING' ? 'Vectorisation' : indexProgress?.status === 'CHUNKING' ? 'Découpage' : 'En cours'}
-          </span>
+          <div className="flex items-center gap-2 shrink-0">
+            {indexProgress?.status === 'ERROR' && (
+              <button
+                onClick={() => forceResetIndexing().then(p => setIndexProgress(p))}
+                className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 hover:bg-amber-500/30 text-[10px] font-semibold cursor-pointer"
+              >
+                Relancer
+              </button>
+            )}
+            <span className="text-[10px] text-zinc-400 dark:text-zinc-500 select-none">
+              {indexProgress?.status === 'EMBEDDING' ? 'Vectorisation' : indexProgress?.status === 'CHUNKING' ? 'Découpage' : indexProgress?.status === 'ERROR' ? 'Erreur' : 'En cours'}
+            </span>
+          </div>
         </div>
       )}
 

@@ -448,6 +448,7 @@ export interface ElectronAPI {
     isReady: () => Promise<boolean>;
     getSermonsMetadata: () => Promise<Omit<Sermon, 'text'>[]>;
     getSermonFull: (id: string) => Promise<Sermon | null>;
+    getAllSermonsWithParagraphs?: () => Promise<Sermon[]>;
     search: (params: { query: string; mode: SearchMode; limit: number; offset: number }) => Promise<any[]>;
     // Updated count to be optional to match main.js error handling
     importSermons: (sermons: Sermon[]) => Promise<{ success: boolean; count?: number; error?: string }>;

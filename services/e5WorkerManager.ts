@@ -150,11 +150,26 @@ export async function initE5Worker(): Promise<boolean> {
         }
       }
 
-      const modelPath = baseUrl + 'models/';
-      const wasmPath = baseUrl + 'wasm/';
+      let modelPath = baseUrl + 'models/';
+      let wasmPath = baseUrl + 'wasm/';
+
+      if (modelInfo && modelInfo.resourcesPath) {
+        let cleanResPath = modelInfo.resourcesPath.replace(/\\/g, '/');
+        if (!cleanResPath.startsWith('/')) cleanResPath = '/' + cleanResPath;
+        const resUrl = 'file://' + cleanResPath + '/';
+        modelPath = resUrl + 'models/';
+        wasmPath = resUrl + 'wasm/';
+      }
 
       const promise = new Promise<boolean>((resolve, reject) => {
-        pendingRequests.set(reqId, { resolve, reject });
+        const timeout = setTimeout(() => {
+          reject(new Error('Délai d\'attente de 8s dépassé pour l\'initialisation du Worker E5'));
+        }, 8000);
+
+        pendingRequests.set(reqId, {
+          resolve: (v) => { clearTimeout(timeout); resolve(v); },
+          reject: (r) => { clearTimeout(timeout); reject(r); }
+        });
       });
 
       workerInstance.postMessage({
