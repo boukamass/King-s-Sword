@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Sermons
     getSermonsMetadata: () => ipcRenderer.invoke('db:getSermonsMetadata'),
     getSermonFull: (id) => ipcRenderer.invoke('db:getSermonFull', id),
+    getAllSermonsWithParagraphs: () => ipcRenderer.invoke('db:getAllSermonsWithParagraphs'),
     search: (params) => ipcRenderer.invoke('db:search', params),
     importSermons: (sermons) => ipcRenderer.invoke('db:importSermons', sermons),
     // Notes

@@ -229,6 +229,22 @@ ipcMain.handle('db:getSermonFull', (event, id) => {
   }
 });
 
+ipcMain.handle('db:getAllSermonsWithParagraphs', () => {
+  if (!db) return [];
+  try {
+    const sermons = db.prepare('SELECT * FROM sermons ORDER BY date DESC').all();
+    const pStmt = db.prepare('SELECT content FROM paragraphs WHERE sermon_id = ? ORDER BY paragraph_index ASC');
+    for (const s of sermons) {
+      const paras = pStmt.all(s.id);
+      s.text = paras.map(p => p.content).join('\n\n');
+    }
+    return sermons;
+  } catch (e) {
+    console.error("[DB] getAllSermonsWithParagraphs error:", e.message);
+    return [];
+  }
+});
+
 ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0, synonyms = [], showOnlySynonyms = false, showOnlyQuery = false, selectedSynonym = null, filters = {} }) => {
   if (!db) {
     console.warn("[DB] Recherche impossible: Base de données non initialisée.");

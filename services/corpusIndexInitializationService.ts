@@ -224,18 +224,28 @@ export async function detectAvailableCorpus(
   }
 
   // 2. Repli Electron / IPC (SQLite)
-  if (sermons.length === 0 && typeof window !== 'undefined' && window.electronAPI?.db?.getSermonsMetadata) {
+  if (sermons.length === 0 && typeof window !== 'undefined' && window.electronAPI?.db) {
     try {
-      const meta = await window.electronAPI.db.getSermonsMetadata();
-      if (Array.isArray(meta) && meta.length > 0) {
-        const fullSermons: Sermon[] = [];
-        for (const m of meta) {
-          const full = await window.electronAPI.db.getSermonFull(m.id);
-          if (full) fullSermons.push(full);
-        }
-        if (fullSermons.length > 0) {
+      if (window.electronAPI.db.getAllSermonsWithParagraphs) {
+        const fullSermons = await window.electronAPI.db.getAllSermonsWithParagraphs();
+        if (Array.isArray(fullSermons) && fullSermons.length > 0) {
           sermons = fullSermons;
-          source = 'SQLite / IPC (Electron)';
+          source = 'SQLite / IPC Bulk (Electron)';
+        }
+      }
+      
+      if (sermons.length === 0 && window.electronAPI.db.getSermonsMetadata) {
+        const meta = await window.electronAPI.db.getSermonsMetadata();
+        if (Array.isArray(meta) && meta.length > 0) {
+          const fullSermons: Sermon[] = [];
+          for (const m of meta) {
+            const full = await window.electronAPI.db.getSermonFull(m.id);
+            if (full) fullSermons.push(full);
+          }
+          if (fullSermons.length > 0) {
+            sermons = fullSermons;
+            source = 'SQLite / IPC (Electron)';
+          }
         }
       }
     } catch (e) {
@@ -332,23 +342,25 @@ export async function initializeCorpusIndex(options: {
       return getCurrentIndexProgress();
     }
 
+    const librarySermonsOnly = sermons.filter(s => !s.id.startsWith('expose-ch-') && !s.id.startsWith('bible-') && !s.id.startsWith('song-'));
+    const totalSermonsCount = librarySermonsOnly.length > 0 ? librarySermonsOnly.length : sermons.length;
+    
     notifyProgressUpdate({
-      totalSermons: sermons.length,
-      sermonsProcessed: sermons.length,
+      totalSermons: totalSermonsCount,
+      sermonsProcessed: 0,
       sermonSource: source,
       corpusVersion
     });
 
     // CHUNKING (et indexation FTS5 texte immédiate)
     notifyProgressUpdate({ status: 'CHUNKING' });
-    const librarySermonsOnly = sermons.filter(s => !s.id.startsWith('expose-ch-'));
     const sermonChunks = createLibraryChunks(librarySermonsOnly);
     const exposeChunks = await createExposeDocumentChunks();
     const officialChunks = [...sermonChunks, ...exposeChunks];
     
     notifyProgressUpdate({
       totalChunks: officialChunks.length,
-      sermonsProcessed: sermons.length
+      sermonsProcessed: 0
     });
 
     // Hydratation immédiate avec les embeddings précalculés
@@ -375,12 +387,15 @@ export async function initializeCorpusIndex(options: {
       }
     }
 
+    const initRatio = Math.min(1.0, alreadyValidCount / Math.max(1, officialChunks.length));
+    const initSermonsProcessed = Math.min(totalSermonsCount, Math.floor(initRatio * totalSermonsCount));
+
     notifyProgressUpdate({
       embeddingsReused: alreadyValidCount,
       chunksProcessed: alreadyValidCount,
       totalChunks: officialChunks.length,
-      sermonsProcessed: sermons.length,
-      totalSermons: sermons.length
+      sermonsProcessed: initSermonsProcessed,
+      totalSermons: totalSermonsCount
     });
 
     if (alreadyValidCount === officialChunks.length && !options.forceReindex) {
@@ -389,8 +404,8 @@ export async function initializeCorpusIndex(options: {
         embeddingsCreated: 0,
         chunksProcessed: officialChunks.length,
         totalChunks: officialChunks.length,
-        sermonsProcessed: sermons.length,
-        totalSermons: sermons.length,
+        sermonsProcessed: totalSermonsCount,
+        totalSermons: totalSermonsCount,
         etaFormatted: 'Terminé',
         lastIndexedAt: new Date().toISOString(),
         errorMessage: null
@@ -408,9 +423,15 @@ export async function initializeCorpusIndex(options: {
       delayBetweenBatchesMs: 10,
       maxRetries: 3,
       onProgress: (res: EmbeddingIndexResult) => {
+        const processed = res.alreadyIndexed + res.embeddingsCompleted;
+        const ratio = Math.min(1.0, processed / Math.max(1, officialChunks.length));
+        const procSermons = Math.min(totalSermonsCount, Math.floor(ratio * totalSermonsCount));
+
         notifyProgressUpdate({
           status: 'EMBEDDING',
-          chunksProcessed: res.alreadyIndexed + res.embeddingsCompleted,
+          sermonsProcessed: procSermons,
+          totalSermons: totalSermonsCount,
+          chunksProcessed: processed,
           embeddingsCreated: res.embeddingsCompleted,
           embeddingsReused: res.alreadyIndexed,
           errors: res.embeddingsFailed,
