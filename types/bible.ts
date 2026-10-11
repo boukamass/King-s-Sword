@@ -17,7 +17,7 @@ export const BIBLE_VERSIONS_META: Record<BibleVersion, BibleVersionMeta> = {
     shortName: 'LSG',
     lang: 'fr',
     subtext: 'Français • Version classique',
-    file: '/bible-lsg1910.json',
+    file: 'bible-lsg1910.json',
     apiCode: 'ls1910'
   },
   darby: {
@@ -26,7 +26,7 @@ export const BIBLE_VERSIONS_META: Record<BibleVersion, BibleVersionMeta> = {
     shortName: 'Darby',
     lang: 'fr',
     subtext: 'Français • Traduction littérale',
-    file: '/bible-darby.json',
+    file: 'bible-darby.json',
     apiCode: 'darby'
   },
   kjv: {
@@ -35,7 +35,7 @@ export const BIBLE_VERSIONS_META: Record<BibleVersion, BibleVersionMeta> = {
     shortName: 'KJV',
     lang: 'en',
     subtext: 'English • Authorized Version',
-    file: '/bible-kjv.json',
+    file: 'bible-kjv.json',
     apiCode: 'kjv'
   },
   amp: {
@@ -44,7 +44,7 @@ export const BIBLE_VERSIONS_META: Record<BibleVersion, BibleVersionMeta> = {
     shortName: 'AMP',
     lang: 'en',
     subtext: 'English • Lockman Amplified Edition',
-    file: '/bible-amp.json',
+    file: 'bible-amp.json',
     apiCode: 'amp'
   }
 };

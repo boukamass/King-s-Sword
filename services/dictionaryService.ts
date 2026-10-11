@@ -54,8 +54,8 @@ export const ensureOfflineDictionaryLoaded = async (): Promise<Record<string, Di
       // 2. Télécharger depuis le fichier local public /dictionary-fr.json (comme pour la Bible)
       try {
         const data = await fetchJsonSafe<Record<string, DictionaryEntry>>(
-          '/dictionary-fr.json',
-          ['dictionary-fr.json', './dictionary-fr.json']
+          'dictionary-fr.json',
+          ['./dictionary-fr.json']
         );
         if (data && typeof data === 'object' && Object.keys(data).length > 0) {
           offlineDictionaryMap = data;

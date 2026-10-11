@@ -1335,7 +1335,7 @@ export async function loadBibleStrongIndex(): Promise<Record<string, Record<stri
         }
       }
 
-      const data = await fetchJsonSafe<Record<string, Record<string, Record<string, Array<[string, string]>>>>>('/bible-strong-lsg1910.json', ['bible-strong-lsg1910.json']);
+      const data = await fetchJsonSafe<Record<string, Record<string, Record<string, Array<[string, string]>>>>>('bible-strong-lsg1910.json', ['./bible-strong-lsg1910.json']);
       if (data) {
         bibleStrongIndexCache = data;
         return data;

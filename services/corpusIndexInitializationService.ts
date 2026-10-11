@@ -12,6 +12,7 @@ import { runIncrementalEmbeddingIndexing, EmbeddingIndexResult } from './embeddi
 import { validateEmbeddingVector } from './embeddingService';
 import { loadExposeAsSermons, hydrateExposePrecalculatedEmbeddings, createExposeDocumentChunks } from './exposeDocumentService';
 import { getWorkerDiagnosticState } from './e5WorkerManager';
+import { getStaticResourceUrl } from '../utils/fetchHelper';
 import { get, set } from 'idb-keyval';
 
 export type IndexingStatus = 'NOT_STARTED' | 'SCANNING' | 'CHUNKING' | 'EMBEDDING' | 'READY' | 'PARTIAL' | 'ERROR';
@@ -49,6 +50,10 @@ export interface CorpusIndexProgress {
 const INDEX_STATUS_STORAGE_KEY = 'ks_corpus_index_status_v1';
 
 let isIndexingInProgress = false;
+let watchdogInterval: any = null;
+let lastProgressSnapshot = 0;
+let lastProgressTime = Date.now();
+
 let currentProgress: CorpusIndexProgress = {
   status: 'NOT_STARTED',
   sermonsProcessed: 0,
@@ -140,10 +145,67 @@ export async function loadPersistedProgressState(): Promise<CorpusIndexProgress>
         currentProgress = { ...currentProgress, ...stored };
       }
     }
+    // RÉINITIALISATION AU DÉMARRAGE : réinitialise tout état 'en cours' hérité d'une session précédente
+    if (currentProgress.status === 'SCANNING' || currentProgress.status === 'CHUNKING' || currentProgress.status === 'EMBEDDING') {
+      currentProgress.status = currentProgress.chunksProcessed > 0 ? 'PARTIAL' : 'NOT_STARTED';
+      currentProgress.errorMessage = 'Session précédente interrompue. Prêt à relancer.';
+    }
+    isIndexingInProgress = false;
   } catch (e) {
     // Ignorer
   }
   return getCurrentIndexProgress();
+}
+
+function startWatchdog(): void {
+  stopWatchdog();
+  lastProgressSnapshot = currentProgress.chunksProcessed + currentProgress.embeddingsCreated;
+  lastProgressTime = Date.now();
+
+  watchdogInterval = setInterval(() => {
+    if (!isIndexingInProgress) {
+      stopWatchdog();
+      return;
+    }
+
+    const currentSnap = currentProgress.chunksProcessed + currentProgress.embeddingsCreated;
+    const now = Date.now();
+
+    if (currentSnap > lastProgressSnapshot) {
+      lastProgressSnapshot = currentSnap;
+      lastProgressTime = now;
+    } else if (now - lastProgressTime >= 60000) {
+      console.warn('[CorpusIndexInit] Watchdog 60s déclenché : aucune progression.');
+      notifyProgressUpdate({
+        status: 'ERROR',
+        errorMessage: 'Indexation interrompue : aucune progression observée depuis 60 secondes (watchdog de sécurité).'
+      });
+      isIndexingInProgress = false;
+      stopWatchdog();
+    }
+  }, 5000);
+}
+
+function stopWatchdog(): void {
+  if (watchdogInterval) {
+    clearInterval(watchdogInterval);
+    watchdogInterval = null;
+  }
+}
+
+export async function forceResetIndexing(): Promise<CorpusIndexProgress> {
+  stopWatchdog();
+  isIndexingInProgress = false;
+  currentProgress = {
+    ...currentProgress,
+    status: 'NOT_STARTED',
+    errorMessage: null,
+    lastError: null,
+    chunksProcessed: 0,
+    embeddingsCreated: 0
+  };
+  notifyProgressUpdate({ status: 'NOT_STARTED' });
+  return initializeCorpusIndex({ forceReindex: true });
 }
 
 /**
@@ -185,10 +247,10 @@ export async function detectAvailableCorpus(
   if (sermons.length === 0) {
     try {
       if (typeof window !== 'undefined') {
-        const res = await fetch('/library.json');
+        const res = await fetch(getStaticResourceUrl('library.json'));
         if (res.ok) {
           sermons = await res.json();
-          if (sermons.length > 0) source = 'Fichier statique /library.json';
+          if (sermons.length > 0) source = 'Fichier statique library.json';
         }
       } else {
         const fs = await import('fs');
@@ -204,7 +266,7 @@ export async function detectAvailableCorpus(
     }
   }
 
-  // 4. Intégration systématique du corpus complet de l'Exposé (11 chapitres)
+  // 4. Intégrer l'Exposé complet des 7 Âges
   try {
     const exposeSermons = await loadExposeAsSermons();
     if (exposeSermons && exposeSermons.length > 0) {
@@ -245,6 +307,7 @@ export async function initializeCorpusIndex(options: {
   }
 
   isIndexingInProgress = true;
+  startWatchdog();
 
   try {
     await loadPersistedProgressState();
@@ -265,6 +328,7 @@ export async function initializeCorpusIndex(options: {
         errorMessage: 'Aucun sermon détecté : vérifier la source des sermons.'
       });
       isIndexingInProgress = false;
+      stopWatchdog();
       return getCurrentIndexProgress();
     }
 
@@ -332,6 +396,7 @@ export async function initializeCorpusIndex(options: {
         errorMessage: null
       });
       isIndexingInProgress = false;
+      stopWatchdog();
       return getCurrentIndexProgress();
     }
 
@@ -402,6 +467,7 @@ export async function initializeCorpusIndex(options: {
     });
   } finally {
     isIndexingInProgress = false;
+    stopWatchdog();
   }
 
   return getCurrentIndexProgress();

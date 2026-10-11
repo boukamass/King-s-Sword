@@ -3,6 +3,7 @@ import {
   CorpusIndexProgress,
   subscribeIndexProgress,
   loadPersistedProgressState,
+  forceResetIndexing,
   IndexingStatus
 } from '../services/corpusIndexInitializationService';
 import {
@@ -12,7 +13,11 @@ import {
   setIndexKeywordsOnly,
   getIndexingControlsState
 } from '../services/embeddingIndexService';
-import { Database, CheckCircle2, AlertTriangle, RefreshCw, X, Pause, Play, Settings, Zap, Cpu, HardDrive, Terminal } from 'lucide-react';
+import {
+  subscribeResourceLoadErrors,
+  ResourceLoadError
+} from '../utils/fetchHelper';
+import { Database, CheckCircle2, AlertTriangle, RefreshCw, X, Pause, Play, Settings, Zap, Terminal, RotateCcw } from 'lucide-react';
 
 export function getFrenchStatusMessage(status: IndexingStatus, errorMessage?: string | null, totalSermons?: number): string {
   if (totalSermons === 0 || errorMessage?.includes('Aucun sermon')) {
@@ -30,7 +35,7 @@ export function getFrenchStatusMessage(status: IndexingStatus, errorMessage?: st
     case 'READY':
       return 'Votre bibliothèque est 100% prête.';
     case 'ERROR':
-      return errorMessage || 'Indexation interrompue. Reprise automatique.';
+      return errorMessage || 'Indexation interrompue. Relancez l\'indexation.';
     case 'NOT_STARTED':
     default:
       return 'Indexation non démarrée.';
@@ -42,15 +47,17 @@ export const CorpusIndexingIndicator: React.FC<{
   collapsible?: boolean;
 }> = ({ className = '', collapsible = true }) => {
   const [progress, setProgress] = useState<CorpusIndexProgress | null>(null);
+  const [resourceErrors, setResourceErrors] = useState<ResourceLoadError[]>([]);
   const [isDismissed, setIsDismissed] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [isRestarting, setIsRestarting] = useState(false);
 
   const [controls, setControls] = useState(getIndexingControlsState());
 
   useEffect(() => {
     loadPersistedProgressState().then(initial => setProgress(initial));
-    const unsubscribe = subscribeIndexProgress(updated => {
+    const unsubProgress = subscribeIndexProgress(updated => {
       setProgress(updated);
       setControls(getIndexingControlsState());
       if (updated.status === 'READY') {
@@ -62,7 +69,15 @@ export const CorpusIndexingIndicator: React.FC<{
         setIsDismissed(false);
       }
     });
-    return () => unsubscribe();
+
+    const unsubResources = subscribeResourceLoadErrors(errs => {
+      setResourceErrors(errs);
+    });
+
+    return () => {
+      unsubProgress();
+      unsubResources();
+    };
   }, []);
 
   if (!progress) return null;
@@ -94,6 +109,15 @@ export const CorpusIndexingIndicator: React.FC<{
     setControls(getIndexingControlsState());
   };
 
+  const handleRestartIndexing = async () => {
+    setIsRestarting(true);
+    try {
+      await forceResetIndexing();
+    } finally {
+      setIsRestarting(false);
+    }
+  };
+
   return (
     <div
       className={`bg-slate-900/95 dark:bg-zinc-900/95 backdrop-blur-md border border-amber-500/30 rounded-2xl p-3.5 text-slate-200 shadow-xl text-xs transition-all duration-300 select-none ${className}`}
@@ -102,9 +126,19 @@ export const CorpusIndexingIndicator: React.FC<{
     >
       {/* Alerte si aucun sermon détecté (Y = 0) */}
       {isNoSermonsError && (
-        <div className="mb-2.5 p-2.5 bg-rose-950/80 border border-rose-500/50 rounded-xl text-rose-200 text-[11px] flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
-          <span className="font-bold">Aucun sermon détecté : vérifier la source des sermons</span>
+        <div className="mb-2.5 p-2.5 bg-rose-950/80 border border-rose-500/50 rounded-xl text-rose-200 text-[11px] flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+            <span className="font-bold">Aucun sermon détecté : vérifier la source des sermons</span>
+          </div>
+          <button
+            onClick={handleRestartIndexing}
+            disabled={isRestarting}
+            className="px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded-lg shadow transition cursor-pointer flex items-center gap-1 shrink-0"
+          >
+            <RotateCcw className={`w-3 h-3 ${isRestarting ? 'animate-spin' : ''}`} />
+            <span>Relancer</span>
+          </button>
         </div>
       )}
 
@@ -127,6 +161,18 @@ export const CorpusIndexingIndicator: React.FC<{
             <span className="font-bold text-amber-400 font-mono bg-amber-950/60 px-2 py-0.5 rounded-lg border border-amber-500/20 text-[11px]">
               {percent}%
             </span>
+          )}
+
+          {(progress.status === 'ERROR' || progress.status === 'PARTIAL') && (
+            <button
+              onClick={handleRestartIndexing}
+              disabled={isRestarting}
+              className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-semibold rounded-lg transition cursor-pointer flex items-center gap-1 text-[11px]"
+              title="Forcer la réinitialisation et relancer l'indexation"
+            >
+              <RotateCcw className={`w-3 h-3 ${isRestarting ? 'animate-spin' : ''}`} />
+              <span>Relancer</span>
+            </button>
           )}
 
           {progress.status === 'EMBEDDING' && (
@@ -209,12 +255,22 @@ export const CorpusIndexingIndicator: React.FC<{
         </div>
       )}
 
-      {/* PANNEAU DE DIAGNOSTIC DÉTAILLÉ (Exigences de diagnostic) */}
+      {/* PANNEAU DE DIAGNOSTIC DÉTAILLÉ */}
       {(isExpanded || isNoSermonsError) && (
         <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex flex-col gap-2 bg-slate-950/80 p-3 rounded-xl text-[11px] text-slate-300 font-mono">
-          <div className="font-bold text-teal-300 flex items-center gap-1.5 not-mono font-sans border-b border-slate-800 pb-1.5">
-            <Terminal className="w-3.5 h-3.5 text-teal-400" />
-            <span>Rapport de Diagnostic Moteur E5 & Indexation</span>
+          <div className="font-bold text-teal-300 flex items-center justify-between not-mono font-sans border-b border-slate-800 pb-1.5">
+            <div className="flex items-center gap-1.5">
+              <Terminal className="w-3.5 h-3.5 text-teal-400" />
+              <span>Rapport de Diagnostic Moteur E5 & Indexation</span>
+            </div>
+            <button
+              onClick={handleRestartIndexing}
+              disabled={isRestarting}
+              className="px-2 py-0.5 bg-amber-600/80 hover:bg-amber-600 text-white rounded flex items-center gap-1 text-[10px] cursor-pointer"
+            >
+              <RotateCcw className={`w-3 h-3 ${isRestarting ? 'animate-spin' : ''}`} />
+              <span>Relancer L'Indexation</span>
+            </button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -250,8 +306,20 @@ export const CorpusIndexingIndicator: React.FC<{
 
           {(progress.lastError || progress.errorMessage || progress.modelErrorMessage) && (
             <div className="p-2 bg-rose-950/60 border border-rose-500/30 rounded-lg text-rose-300 text-[10px] space-y-0.5">
-              <span className="font-bold block">Dernière erreur :</span>
+              <span className="font-bold block">Dernière erreur Moteur :</span>
               <p className="break-all">{progress.lastError || progress.errorMessage || progress.modelErrorMessage}</p>
+            </div>
+          )}
+
+          {resourceErrors.length > 0 && (
+            <div className="p-2 bg-rose-950/60 border border-rose-500/30 rounded-lg text-rose-300 text-[10px] space-y-1">
+              <span className="font-bold block">Échecs de chargement de fichiers ({resourceErrors.length}) :</span>
+              {resourceErrors.slice(-3).map((err, i) => (
+                <div key={i} className="border-t border-rose-900/50 pt-1">
+                  <span className="font-semibold">{err.primaryUrl}</span> : {err.reason} ({err.failedAt})
+                  <div className="text-[9px] text-rose-400 truncate">Tentés : {err.attemptedUrls.join(', ')}</div>
+                </div>
+              ))}
             </div>
           )}
 
