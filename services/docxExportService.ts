@@ -22,13 +22,217 @@ import { processNoteData, stripMarkdown } from '../utils/noteFormatter';
 import { splitQuoteIntoHighlightedSegments, HIGHLIGHT_HEX_MAP } from '../utils/highlightUtils';
 
 /**
- * Génère les TextRuns pour une citation Word en reflétant les surlignages éventuels.
+ * Analyse une ligne de texte pour produire des TextRuns Word propres,
+ * en traduisant les balises markdown de gras (**mot**) et d'italique (*mot*),
+ * tout en éradiquant les artefacts parasites (#, @).
+ */
+function parseInlineRuns(
+  text: string, 
+  baseStyle?: { color?: string; size?: number; font?: string; italics?: boolean; bold?: boolean }
+): TextRun[] {
+  if (!text) return [];
+  // Éradication complète des symboles @ et # résiduels
+  const cleaned = text.replace(/@\w+/g, '').replace(/@/g, '').replace(/#+/g, '');
+
+  const runs: TextRun[] = [];
+  const parts = cleaned.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
+
+  for (const part of parts) {
+    if (!part) continue;
+    if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
+      runs.push(
+        new TextRun({
+          text: part.slice(2, -2),
+          bold: true,
+          italics: baseStyle?.italics,
+          color: baseStyle?.color || "1E293B",
+          size: baseStyle?.size || 21,
+          font: baseStyle?.font || "Calibri"
+        })
+      );
+    } else if (part.startsWith('*') && part.endsWith('*') && part.length >= 2) {
+      runs.push(
+        new TextRun({
+          text: part.slice(1, -1),
+          bold: baseStyle?.bold,
+          italics: true,
+          color: baseStyle?.color || "334155",
+          size: baseStyle?.size || 21,
+          font: baseStyle?.font || "Calibri"
+        })
+      );
+    } else {
+      runs.push(
+        new TextRun({
+          text: part,
+          bold: baseStyle?.bold,
+          italics: baseStyle?.italics,
+          color: baseStyle?.color || "1E293B",
+          size: baseStyle?.size || 21,
+          font: baseStyle?.font || "Calibri"
+        })
+      );
+    }
+  }
+
+  return runs.length > 0 ? runs : [new TextRun({ text: cleaned, ...baseStyle })];
+}
+
+/**
+ * Convertit un bloc markdown (titres, listes à puces, numéros, citations, paragraphes)
+ * en paragraphes Word (.docx) structurés et esthétiques, sans aucun caractère brut # ou @.
+ */
+function renderMarkdownBlockToDocx(markdownText: string, primaryColor: string = "0F766E"): Paragraph[] {
+  if (!markdownText) return [];
+  const lines = markdownText.split('\n');
+  const paragraphs: Paragraph[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i].trim();
+    if (!rawLine) continue;
+
+    // Titre 1 (# Titre)
+    if (/^#\s+/.test(rawLine)) {
+      paragraphs.push(
+        new Paragraph({
+          children: parseInlineRuns(rawLine.replace(/^#\s+/, ''), {
+            bold: true,
+            size: 24,
+            color: primaryColor,
+            font: "Arial"
+          }),
+          spacing: { before: 200, after: 80 }
+        })
+      );
+    }
+    // Titre 2 (## Titre)
+    else if (/^##\s+/.test(rawLine)) {
+      paragraphs.push(
+        new Paragraph({
+          children: parseInlineRuns(rawLine.replace(/^##\s+/, ''), {
+            bold: true,
+            size: 22,
+            color: primaryColor,
+            font: "Arial"
+          }),
+          spacing: { before: 180, after: 60 }
+        })
+      );
+    }
+    // Titre 3 ou sous-section (### Titre)
+    else if (/^#{3,6}\s+/.test(rawLine)) {
+      paragraphs.push(
+        new Paragraph({
+          children: parseInlineRuns(rawLine.replace(/^#{3,6}\s+/, ''), {
+            bold: true,
+            size: 20,
+            color: "334155",
+            font: "Arial"
+          }),
+          spacing: { before: 140, after: 40 }
+        })
+      );
+    }
+    // Citation blockquote (> Citation)
+    else if (/^>\s*/.test(rawLine)) {
+      paragraphs.push(
+        new Paragraph({
+          children: parseInlineRuns(rawLine.replace(/^>\s*/, ''), {
+            italics: true,
+            size: 20,
+            color: "475569",
+            font: "Georgia"
+          }),
+          indent: { left: 360 },
+          spacing: { before: 60, after: 60, line: 240 }
+        })
+      );
+    }
+    // Puce de liste (- item ou * item)
+    else if (/^[-*]\s+/.test(rawLine)) {
+      paragraphs.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: "•  ",
+              bold: true,
+              color: primaryColor,
+              size: 20,
+              font: "Arial"
+            }),
+            ...parseInlineRuns(rawLine.replace(/^[-*]\s+/, ''), {
+              size: 20,
+              color: "1E293B",
+              font: "Calibri"
+            })
+          ],
+          indent: { left: 280 },
+          spacing: { after: 60, line: 240 }
+        })
+      );
+    }
+    // Liste numérotée (1. item)
+    else if (/^\d+\.\s+/.test(rawLine)) {
+      const numMatch = rawLine.match(/^(\d+\.)\s+(.+)$/);
+      if (numMatch) {
+        paragraphs.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `${numMatch[1]}  `,
+                bold: true,
+                color: primaryColor,
+                size: 20,
+                font: "Calibri"
+              }),
+              ...parseInlineRuns(numMatch[2], {
+                size: 20,
+                color: "1E293B",
+                font: "Calibri"
+              })
+            ],
+            indent: { left: 280 },
+            spacing: { after: 60, line: 240 }
+          })
+        );
+      } else {
+        paragraphs.push(
+          new Paragraph({
+            children: parseInlineRuns(rawLine, { size: 21, color: "1E293B", font: "Calibri" }),
+            spacing: { after: 120, line: 260 }
+          })
+        );
+      }
+    }
+    // Paragraphe standard
+    else {
+      paragraphs.push(
+        new Paragraph({
+          children: parseInlineRuns(rawLine, {
+            size: 21,
+            color: "1E293B",
+            font: "Calibri"
+          }),
+          spacing: { after: 120, line: 260 }
+        })
+      );
+    }
+  }
+
+  return paragraphs;
+}
+
+/**
+ * Génère les TextRuns pour une citation Word en reflétant les surlignages éventuels,
+ * sans aucun symbole parasite @ ou #.
  */
 function createDocxQuoteRuns(quote: string, highlights?: CitationHighlight[]): TextRun[] {
+  const cleanQuote = (quote || '').replace(/@\w+/g, '').replace(/@/g, '').replace(/#+/g, '');
+
   if (!highlights || highlights.length === 0) {
     return [
       new TextRun({
-        text: `« ${quote} »`,
+        text: `« ${cleanQuote} »`,
         italics: true,
         size: 21,
         color: "334155",
@@ -37,7 +241,7 @@ function createDocxQuoteRuns(quote: string, highlights?: CitationHighlight[]): T
     ];
   }
 
-  const segments = splitQuoteIntoHighlightedSegments(quote, highlights);
+  const segments = splitQuoteIntoHighlightedSegments(cleanQuote, highlights);
   const runs: TextRun[] = [];
 
   runs.push(
@@ -237,19 +441,8 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
       );
 
       for (const pText of processed.contentParagraphs) {
-        childrenElements.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: stripMarkdown(pText),
-                size: 22, // 11pt
-                color: "1E293B",
-                font: "Calibri"
-              })
-            ],
-            spacing: { after: 160, line: 280 }
-          })
-        );
+        const pElements = renderMarkdownBlockToDocx(pText, primaryColor);
+        childrenElements.push(...pElements);
       }
     }
 
@@ -755,7 +948,88 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
       }
     }
 
-    // 4.5. SECTION CONCORDANCE & EXÉGÈSE STRONG
+    // 4. SECTION ÉTUDES & RÉPONSES DU DOCK IA
+    if (processed.aiItems && processed.aiItems.length > 0) {
+      childrenElements.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `ÉTUDES & RÉPONSES DU DOCK IA (${processed.aiItems.length})`,
+              bold: true,
+              size: 20,
+              color: primaryColor,
+              font: "Arial"
+            })
+          ],
+          spacing: { before: 360, after: 180 }
+        })
+      );
+
+      for (const item of processed.aiItems) {
+        const bodyParagraphs = renderMarkdownBlockToDocx(item.content, primaryColor);
+
+        const aiTable = new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          rows: [
+            new TableRow({
+              children: [
+                new TableCell({
+                  children: [
+                    new Paragraph({
+                      children: [
+                        new TextRun({
+                          text: `Assistant IA — ${stripMarkdown(item.title)}${item.date ? ` (${item.date})` : ''}`,
+                          bold: true,
+                          size: 21,
+                          color: primaryColor,
+                          font: "Arial"
+                        })
+                      ],
+                      spacing: { before: 80, after: 120 }
+                    }),
+                    ...bodyParagraphs,
+                    new Paragraph({
+                      alignment: AlignmentType.RIGHT,
+                      children: [
+                        new TextRun({
+                          text: `Assistant IA King's Sword${item.sourceIndex ? ` [${item.sourceIndex}]` : ''}`,
+                          bold: true,
+                          size: 18,
+                          color: primaryColor,
+                          font: "Arial"
+                        })
+                      ],
+                      spacing: { before: 80, after: 60 }
+                    })
+                  ],
+                  shading: {
+                    type: ShadingType.CLEAR,
+                    fill: "F0FDFA", // Subtle Teal tint
+                    color: "auto"
+                  },
+                  borders: {
+                    left: {
+                      style: BorderStyle.SINGLE,
+                      size: 24,
+                      color: primaryColor
+                    },
+                    top: { style: BorderStyle.NONE },
+                    right: { style: BorderStyle.NONE },
+                    bottom: { style: BorderStyle.NONE }
+                  },
+                  margins: { top: 140, bottom: 140, left: 200, right: 200 }
+                })
+              ]
+            })
+          ]
+        });
+
+        childrenElements.push(aiTable);
+        childrenElements.push(new Paragraph({ spacing: { after: 180 } }));
+      }
+    }
+
+    // 5. SECTION CONCORDANCE & EXÉGÈSE STRONG
     if (processed.strongItems && processed.strongItems.length > 0) {
       childrenElements.push(
         new Paragraph({
@@ -773,106 +1047,185 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
       );
 
       for (const item of processed.strongItems) {
+        const strongChildren: Paragraph[] = [];
+
+        // En-tête de la carte Strong
+        strongChildren.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `Strong ${item.strongNumber} : ${stripMarkdown(item.word)} `,
+                bold: true,
+                size: 21,
+                color: "0F172A",
+                font: "Arial"
+              }),
+              ...(item.original ? [
+                new TextRun({
+                  text: `(${stripMarkdown(item.original)}) `,
+                  size: 20,
+                  color: primaryColor,
+                  font: "Calibri"
+                })
+              ] : []),
+              new TextRun({
+                text: `— [${stripMarkdown(item.pronunciation)}] (${item.type === 'hebrew' ? 'Hébreu' : 'Grec'})`,
+                size: 19,
+                color: mutedColor,
+                font: "Calibri"
+              })
+            ],
+            spacing: { before: 60, after: 60 }
+          })
+        );
+
+        // Métadonnées d'exégèse (Nature, Racine, Traductions LSG, Fréquence)
+        const metaRuns: TextRun[] = [];
+        if (item.partOfSpeech) {
+          metaRuns.push(new TextRun({ text: "Nature : ", bold: true, size: 18, color: primaryColor, font: "Calibri" }));
+          metaRuns.push(new TextRun({ text: `${stripMarkdown(item.partOfSpeech)}   `, size: 18, color: "334155", font: "Calibri" }));
+        }
+        if (item.etymology) {
+          metaRuns.push(new TextRun({ text: "Racine : ", bold: true, size: 18, color: primaryColor, font: "Calibri" }));
+          metaRuns.push(new TextRun({ text: `${stripMarkdown(item.etymology)}   `, size: 18, color: "334155", font: "Calibri" }));
+        }
+        if (item.translationsLSG) {
+          metaRuns.push(new TextRun({ text: "Traductions LSG : ", bold: true, size: 18, color: primaryColor, font: "Calibri" }));
+          metaRuns.push(new TextRun({ text: `${stripMarkdown(item.translationsLSG)}   `, size: 18, color: "334155", font: "Calibri" }));
+        }
+        if (item.occurrencesCountStr) {
+          metaRuns.push(new TextRun({ text: "Fréquence : ", bold: true, size: 18, color: primaryColor, font: "Calibri" }));
+          metaRuns.push(new TextRun({ text: `${stripMarkdown(item.occurrencesCountStr)}`, size: 18, color: "334155", font: "Calibri" }));
+        }
+
+        if (metaRuns.length > 0) {
+          strongChildren.push(
+            new Paragraph({
+              children: metaRuns,
+              spacing: { before: 40, after: 60 }
+            })
+          );
+        }
+
+        // Définition Littérale (paragraphes découpés sans fusion anarchique)
+        strongChildren.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "Définition Littérale :",
+                bold: true,
+                size: 19,
+                color: primaryColor,
+                font: "Calibri"
+              })
+            ],
+            spacing: { before: 40, after: 20 }
+          })
+        );
+        const defParagraphs = item.definition.split('\n').filter(Boolean);
+        for (const dLine of defParagraphs) {
+          strongChildren.push(
+            new Paragraph({
+              children: parseInlineRuns(dLine, { size: 20, color: "334155", font: "Georgia" }),
+              spacing: { after: 40, line: 260 }
+            })
+          );
+        }
+
+        // Éclairage dans le Message (paragraphes découpés avec italique propre)
+        if (item.messageContext) {
+          strongChildren.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: "Éclairage dans le Message du Temps de la Fin :",
+                  bold: true,
+                  size: 19,
+                  color: primaryColor,
+                  font: "Calibri"
+                })
+              ],
+              spacing: { before: 50, after: 20 }
+            })
+          );
+          const msgParagraphs = item.messageContext.split('\n').filter(Boolean);
+          for (const mLine of msgParagraphs) {
+            strongChildren.push(
+              new Paragraph({
+                children: parseInlineRuns(mLine, { size: 20, color: "1E293B", font: "Georgia", italics: true }),
+                spacing: { after: 40, line: 260 }
+              })
+            );
+          }
+        }
+
+        // Verset d'origine
+        if (item.originVerseRef && item.originVerseText) {
+          strongChildren.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `Verset d'origine (${item.originVerseRef}) : `,
+                  bold: true,
+                  size: 19,
+                  color: primaryColor,
+                  font: "Calibri"
+                }),
+                new TextRun({
+                  text: `« ${stripMarkdown(item.originVerseText)} »`,
+                  italics: true,
+                  size: 19,
+                  color: "475569",
+                  font: "Georgia"
+                })
+              ],
+              spacing: { before: 50, after: 40, line: 240 }
+            })
+          );
+        }
+
+        // Autres occurrences
+        if (item.allOccurrences && item.allOccurrences.length > 1) {
+          strongChildren.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `(+ ${item.allOccurrences.length - 1} autre${item.allOccurrences.length - 1 > 1 ? 's' : ''} occurrence${item.allOccurrences.length - 1 > 1 ? 's' : ''} répertoriée${item.allOccurrences.length - 1 > 1 ? 's' : ''} dans les Écritures)`,
+                  italics: true,
+                  size: 17,
+                  color: mutedColor,
+                  font: "Calibri"
+                })
+              ],
+              spacing: { before: 20, after: 40 }
+            })
+          );
+        }
+
+        // Signature / Source
+        strongChildren.push(
+          new Paragraph({
+            alignment: AlignmentType.RIGHT,
+            children: [
+              new TextRun({
+                text: `Concordance Strong${item.sourceIndex ? ` [${item.sourceIndex}]` : ''}`,
+                bold: true,
+                size: 18,
+                color: primaryColor,
+                font: "Arial"
+              })
+            ],
+            spacing: { before: 60, after: 60 }
+          })
+        );
+
         const strongTable = new Table({
           width: { size: 100, type: WidthType.PERCENTAGE },
           rows: [
             new TableRow({
               children: [
                 new TableCell({
-                  children: [
-                    new Paragraph({
-                      children: [
-                        new TextRun({
-                          text: `Strong ${item.strongNumber} : ${stripMarkdown(item.word)} `,
-                          bold: true,
-                          size: 21,
-                          color: "0F172A",
-                          font: "Arial"
-                        }),
-                        ...(item.original ? [
-                          new TextRun({
-                            text: `(${stripMarkdown(item.original)}) `,
-                            size: 20,
-                            color: primaryColor,
-                            font: "Calibri"
-                          })
-                        ] : []),
-                        new TextRun({
-                          text: `— [${stripMarkdown(item.pronunciation)}] (${item.type === 'hebrew' ? 'Hébreu' : 'Grec'})`,
-                          size: 19,
-                          color: mutedColor,
-                          font: "Calibri"
-                        })
-                      ],
-                      spacing: { before: 60, after: 60 }
-                    }),
-                    new Paragraph({
-                      children: [
-                        new TextRun({
-                          text: "Définition Littérale : ",
-                          bold: true,
-                          size: 19,
-                          color: primaryColor,
-                          font: "Calibri"
-                        }),
-                        new TextRun({
-                          text: stripMarkdown(item.definition),
-                          size: 20,
-                          color: "334155",
-                          font: "Georgia"
-                        })
-                      ],
-                      spacing: { before: 40, after: 40 }
-                    }),
-                    ...(item.messageContext ? [
-                      new Paragraph({
-                        children: [
-                          new TextRun({
-                            text: "Éclairage dans le Message : ",
-                            bold: true,
-                            size: 19,
-                            color: primaryColor,
-                            font: "Calibri"
-                          }),
-                          new TextRun({
-                            text: stripMarkdown(item.messageContext),
-                            italics: true,
-                            size: 20,
-                            color: "1E293B",
-                            font: "Georgia"
-                          })
-                        ],
-                        spacing: { before: 40, after: 40 }
-                      })
-                    ] : []),
-                    ...(item.originVerseRef && item.originVerseText ? [
-                      new Paragraph({
-                        children: [
-                          new TextRun({
-                            text: `Verset d'origine (${item.originVerseRef}) : « ${stripMarkdown(item.originVerseText)} »`,
-                            italics: true,
-                            size: 19,
-                            color: "475569",
-                            font: "Georgia"
-                          })
-                        ],
-                        spacing: { before: 40, after: 40 }
-                      })
-                    ] : []),
-                    new Paragraph({
-                      alignment: AlignmentType.RIGHT,
-                      children: [
-                        new TextRun({
-                          text: `Concordance Strong${item.sourceIndex ? ` [${item.sourceIndex}]` : ''}`,
-                          bold: true,
-                          size: 18,
-                          color: primaryColor,
-                          font: "Arial"
-                        })
-                      ],
-                      spacing: { before: 60, after: 60 }
-                    })
-                  ],
+                  children: strongChildren,
                   shading: {
                     type: ShadingType.CLEAR,
                     fill: "F8FAFC",
@@ -900,7 +1253,7 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
       }
     }
 
-    // 5. SECTION DICTIONNAIRE & LEXIQUE BIBLIQUE
+    // 6. SECTION DICTIONNAIRE & LEXIQUE BIBLIQUE
     if (processed.definitionItems && processed.definitionItems.length > 0) {
       childrenElements.push(
         new Paragraph({
@@ -918,78 +1271,108 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
       );
 
       for (const item of processed.definitionItems) {
+        const defChildren: Paragraph[] = [];
+
+        // Mot vedette
+        defChildren.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: stripMarkdown(item.word).toUpperCase(),
+                bold: true,
+                size: 22,
+                color: "0F172A",
+                font: "Arial"
+              })
+            ],
+            spacing: { before: 60, after: 60 }
+          })
+        );
+
+        // Définition multi-lignes
+        const defLines = item.definition.split('\n').filter(Boolean);
+        for (const dLine of defLines) {
+          defChildren.push(
+            new Paragraph({
+              children: parseInlineRuns(dLine, { size: 21, color: "334155", font: "Georgia" }),
+              spacing: { before: 30, after: 40, line: 260 }
+            })
+          );
+        }
+
+        // Étymologie
+        if (item.etymology) {
+          defChildren.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: "Étymologie : ",
+                  bold: true,
+                  size: 19,
+                  color: primaryColor,
+                  font: "Calibri"
+                }),
+                new TextRun({
+                  text: stripMarkdown(item.etymology),
+                  italics: true,
+                  size: 19,
+                  color: "64748B",
+                  font: "Georgia"
+                })
+              ],
+              spacing: { before: 40, after: 30 }
+            })
+          );
+        }
+
+        // Synonymes
+        if (item.synonyms && item.synonyms.length > 0) {
+          defChildren.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: "Synonymes : ",
+                  bold: true,
+                  size: 19,
+                  color: primaryColor,
+                  font: "Arial"
+                }),
+                new TextRun({
+                  text: item.synonyms.map(s => stripMarkdown(s)).join(', '),
+                  size: 19,
+                  color: "1E293B",
+                  font: "Calibri"
+                })
+              ],
+              spacing: { before: 30, after: 30 }
+            })
+          );
+        }
+
+        // Signature / Source
+        defChildren.push(
+          new Paragraph({
+            alignment: AlignmentType.RIGHT,
+            children: [
+              new TextRun({
+                text: `Dictionnaire Biblique${item.sourceIndex ? ` [${item.sourceIndex}]` : ''}`,
+                bold: true,
+                size: 18,
+                color: primaryColor,
+                font: "Arial"
+              })
+            ],
+            spacing: { before: 60, after: 60 }
+          })
+        );
+
         const defTable = new Table({
           width: { size: 100, type: WidthType.PERCENTAGE },
           rows: [
             new TableRow({
               children: [
                 new TableCell({
-                  children: [
-                    new Paragraph({
-                      children: [
-                        new TextRun({
-                          text: stripMarkdown(item.word),
-                          bold: true,
-                          size: 22,
-                          color: "0F172A",
-                          font: "Arial"
-                        })
-                      ],
-                      spacing: { before: 60, after: 60 }
-                    }),
-                    new Paragraph({
-                      children: [
-                        new TextRun({
-                          text: stripMarkdown(item.definition),
-                          size: 21,
-                          color: "334155",
-                          font: "Georgia"
-                        })
-                      ],
-                      spacing: { before: 60, after: 60 }
-                    }),
-                    ...(item.etymology ? [
-                      new Paragraph({
-                        children: [
-                          new TextRun({
-                            text: `Étymologie : ${stripMarkdown(item.etymology)}`,
-                            italics: true,
-                            size: 19,
-                            color: "64748B",
-                            font: "Georgia"
-                          })
-                        ],
-                        spacing: { before: 40, after: 40 }
-                      })
-                    ] : []),
-                    ...(item.synonyms && item.synonyms.length > 0 ? [
-                      new Paragraph({
-                        children: [
-                          new TextRun({
-                            text: `Synonymes : ${item.synonyms.join(', ')}`,
-                            bold: true,
-                            size: 19,
-                            color: primaryColor,
-                            font: "Arial"
-                          })
-                        ],
-                        spacing: { before: 40, after: 40 }
-                      })
-                    ] : []),
-                    new Paragraph({
-                      alignment: AlignmentType.RIGHT,
-                      children: [
-                        new TextRun({
-                          text: `Dictionnaire Biblique${item.sourceIndex ? ` [${item.sourceIndex}]` : ''}`,
-                          bold: true,
-                          size: 18,
-                          color: primaryColor,
-                          font: "Arial"
-                        })
-                      ],
-                      spacing: { before: 60, after: 60 }
-                    })
-                  ],
+                  children: defChildren,
                   shading: {
                     type: ShadingType.CLEAR,
                     fill: "F8FAFC",

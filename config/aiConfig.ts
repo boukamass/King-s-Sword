@@ -54,12 +54,11 @@ export const aiConfig: {
   models: {
     // Modèle vérifié disponible et rapide
     primaryFastModel: "gemini-3.8-flash",
-    // Failover technique uniquement entre modèles rapides éprouvés
+    // Failover technique uniquement entre modèles modernes éprouvés
     fastFailoverCascade: [
       "gemini-3.8-flash",
-      "gemini-3.5-flash",
-      "gemini-1.5-flash",
-      "gemini-1.5-pro"
+      "gemini-flash-latest",
+      "gemini-3.1-pro-preview"
     ],
     // Modèle de raisonnement avancé pour les analyses complexes (non utilisé en failover aveugle)
     reasoningModel: "gemini-3.1-pro-preview",

@@ -12,7 +12,7 @@
  * 6. Détection stricte des expositions techniques de Chunk ID.
  */
 
-import { RetrievalEvidencePackage, CitationValidationResult } from '../types';
+import { RetrievalEvidencePackage, CitationValidationResult, ChatMessage } from '../types';
 import { formatEvidenceContextForGemini } from './autoRagRetrievalService';
 import { validateResponseCitations } from './citationValidationService';
 import { getGeminiApiKey } from '../utils/apiKeyHelper';
@@ -57,6 +57,7 @@ export interface GenerateNewRagOptions {
   systemInstruction?: string;
   temperature?: number;
   model?: string;
+  history?: ChatMessage[];
   onStreamChunk?: (token: string) => void;
 }
 
@@ -93,7 +94,8 @@ export async function generateNewRagResponse(
     geminiClient,
     systemInstruction,
     temperature = 0.2,
-    model = 'gemini-3.8-flash'
+    model = 'gemini-3.8-flash',
+    history = []
   } = options;
 
   // RÈGLE 8 : Cas answerable === false
@@ -125,7 +127,7 @@ export async function generateNewRagResponse(
   else if (isStudy) detailLevel = 'etude';
   else if (isExplain) detailLevel = 'detaill';
 
-  // Phase B.1 : Désactivation du plafond artificiel à 2 passages déclenché par l'absence d'E5
+  // Phase B.1 : Exploitation généreuse des preuves documentaires
   let effectiveEvidence = evidencePackage.evidence;
   const decisionJournal = evidencePackage.decisionJournal;
   const hasVectorSignal = evidencePackage.vectorMethod && evidencePackage.vectorMethod !== 'BM25_ONLY' && (decisionJournal?.topVectorScore ?? 0) > 0;
@@ -142,8 +144,8 @@ export async function generateNewRagResponse(
     effectiveEvidence = effectiveEvidence.slice(0, 2);
   }
 
-  // Ajustement du nombre de passages max et de la taille de sortie selon le niveau de détail
-  const targetPassageCount = detailLevel === 'etude' ? 25 : detailLevel === 'detaill' ? 12 : 5;
+  // Ajustement généreux du nombre de passages max selon le niveau de détail
+  const targetPassageCount = detailLevel === 'etude' ? 35 : detailLevel === 'court' ? 6 : 22;
   if (effectiveEvidence.length > targetPassageCount) {
     effectiveEvidence = effectiveEvidence.slice(0, targetPassageCount);
   }
@@ -185,52 +187,87 @@ export async function generateNewRagResponse(
     };
   }
 
-  // Configuration dynamique par Niveau de Détail (Phase B.2 & B.5)
+  // Configuration dynamique par Niveau de Détail : budget généreux de tokens pour éviter toute condensation
   const effectiveTemperature = detailLevel === 'court' ? 0.2 : 0.35;
-  const effectiveMaxOutputTokens = detailLevel === 'etude' ? 6000 : detailLevel === 'detaill' ? 3500 : 1500;
+  const effectiveMaxOutputTokens = detailLevel === 'court' ? 2000 : 8192;
 
-  const defaultSysInstruction = `Tu es l'assistant d'étude théologique de King's Sword, expert des sermons de William Marrion Branham et des Écritures.
+  const defaultSysInstruction = `Tu es l'assistant d'étude théologique de King's Sword, doté de la rigueur, de la profondeur d'analyse et de la capacité de raisonnement des systèmes d'IA les plus avancés (comme Google NotebookLM, Claude ou ChatGPT), expert des sermons de William Marrion Branham, de l'Exposé des Sept Âges et des Saintes Écritures.
 
-DIRECTIVES DE RÉPONSE ET FORMAT STRICT (JSON) :
-Tu dois impérativement renvoyer un objet JSON respectant le schéma avec les champs 'sources_suffisantes', 'reponse' et facultativement 'avertissement'.
+DIRECTIVES FONDAMENTALES DE RAISONNEMENT, D'EXÉGÈSE ET FORMAT STRICT (JSON) :
+Tu dois impérativement renvoyer un objet JSON respectant le schéma avec les champs 'sources_suffisantes', 'reponse' et facultativement 'avertissement', 'pistes_approfondissement'.
 
-1. DÉCISION DU CHAMP 'sources_suffisantes' (3 ÉTATS STRICTS) :
-- Évalue si les extraits textuels fournis contiennent les éléments nécessaires pour traiter le sujet doctrinal, prophétique ou scripturaire de la question.
-- Renvoyer "suffisantes" si les extraits fournis traitent pleinement et directement du sujet de la question.
-- Renvoyer "partielles" si les extraits abordent le sujet de manière indirecte, incomplète, ou si de nombreux aspects doctrinaux importants de la question manquent dans les extraits reçus. (Dans ce cas, spécifie dans le champ 'avertissement' un message expliquant la couverture partielle).
-- Renvoyer "insuffisantes" si le sujet est totalement absent des extraits, profane ou hors-domaine.
+1. DÉCISION DU CHAMP 'sources_suffisantes' (EXPLOITATION MAXIMALE DU CORPUS) :
+- Ton devoir d'assistant de recherche est d'exploiter TOUT ce qui est présent dans les extraits textuels fournis pour instruire, éclairer et nourrir la réflexion du chercheur.
+- Renvoyer "suffisantes" si les extraits fournis traitent directement et amplement du sujet demandé.
+- Renvoyer "partielles" si le sujet est abordé de manière indirecte, sous l'angle de principes spirituels plus larges, ou si certains aspects manquent dans les extraits reçus (par exemple : si la question porte sur un aspect pratique comme « la gestion des finances dans un couple », et que les extraits disponibles abordent les richesses matérielles de Laodicée, la foi, l'intendance, la mise en garde contre l'amour de l'argent, ou les rôles spirituels). Dans ce cas, NE REFUSE EN AUCUN CAS LA QUESTION : qualifie la couverture de "partielles", analyse en profondeur ces principes, cite tous les extraits pertinents et explique leur portée spirituelle.
+- Renvoyer "insuffisantes" UNIQUEMENT si la requête est totalement étrangère au domaine spirituel, prophétique et biblique (sujet profane sans aucun rapport comme une recette de cuisine, du code informatique, etc.) et qu'aucun extrait fourni ne contient le moindre principe scripturaire exploitable.
 
-2. EN CAS DE REFUS (sources_suffisantes = "insuffisantes") :
-- Rédige dans le champ 'reponse' un message très court de 2 phrases au maximum.
-- Commence obligatoirement par : « Les textes disponibles ne traitent pas de ce sujet. »
-- Si pertinent, ajoute une brève suggestion de reformulation ou de recherche orientée vers le Message.
-- Ne dresse AUCUNE liste des thèmes des passages non pertinents reçus.
-- N'inclus AUCUNE section "### Sources consultées" ni "### Pistes d'approfondissement".
+2. EN CAS DE COUVERTURE PARTIELLE OU PRINCIPES CONNEXES (sources_suffisantes = "partielles") :
+- NE JAMAIS expédier la réponse avec un refus laconique de deux phrases. Déploie au contraire une étude théologique substantielle, développée et pédagogique.
+- Explique avec clarté et discernement ce que les textes fournis contiennent : expose ce qui est directement affirmé dans les extraits disponibles, et dégage avec rigueur les principes spirituels, éthiques et bibliques applicables.
+- Inclus OBLIGATOIREMENT des blocs de citations textuelles exactes des extraits fournis avec leur référence : > « ... » [Réf: ID_SERMON, §N].
+- Si le sujet spécifique fait l'objet de prédications majeures de William Marrion Branham non encore chargées dans la sélection active (par exemple pour le couple et la famille : « Le Mariage et le Divorce », « Questions et Réponses », « La Conduite, l'Ordre et la Doctrine de l'Église »), mentionne explicitement ces sermons de référence pour guider l'étudiant et lui suggérer de les importer dans l'application.
 
-3. EN CAS D'ACCEPTATION (sources_suffisantes = "suffisantes" ou "partielles") :
-- Rédige une réponse substantielle, très bien développée, pédagogique et structurée.
-- Contextualise chaque extrait (cadre historique, spirituel et doctrinal de la prédication ou du passage).
-- Détailler minutieusement les arguments et le raisonnement du prédicateur / texte.
-- Mentionne les exemples, illustrations et versets bibliques cités.
-- Informations factuelles (lieu, date, personnes) : doivent IMPÉRATIVEMENT provenir d'un passage ou des métadonnées fournies. Sinon ne l'énonce pas.
-- Structure obligatoirement ton exposé en deux grandes parties :
-  ### Ce que disent les textes
-  (Analyse détaillée, citations exactes avec leurs références [Réf: ID_SERMON, §N], explication du contexte)
+3. DÉVELOPPEMENT MAGISTRAL ET CITATIONS OBLIGATOIRES (sources_suffisantes = "suffisantes" ou "partielles") :
+- RAISONNEMENT PROFOND ET DÉVELOPPÉ : Déploie une explication magistrale, très détaillée, pédagogique et structurée en profondeur (comme une note de synthèse approfondie de NotebookLM). Ne condense JAMAIS artificiellement tes explications.
+- SUITE DE DISCUSSION & MULTI-TURN : Si cette question fait suite à un échange précédent (question de relance, demande d'approfondissement, clarification), prends pleinement en compte l'historique de la conversation, assure une continuité sans faille, et réponds précisément dans le prolongement de ce qui a été dit tout en restant rigoureusement fondé sur les documents fournis.
+- CITATIONS TEXTUELLES INTÉGRALES INDISPENSABLES : Chaque point doctrinal, argument spirituel ou principe DOIT IMPÉRATIVEMENT être étayé par une ou plusieurs citations textuelles authentiques en bloc sous la forme :
+  > « Extrait textuel exact du sermon ou passage... » [Réf: ID_SERMON, §N]
+- EXÉGÈSE ET ANALYSE DE CHAQUE EXTRAIT : Pour chaque citation, analyse en détail le contexte de la prédication (date, lieu), la pensée de William Marrion Branham ou du passage biblique, et démontre l'harmonie avec les autres sermons et l'Exposé.
+- Structure recommandée de l'étude dans le champ 'reponse' :
+  ## [Titre du thème étudié]
+  ### Introduction & Fondement
+  (Cadre historique et scripturaire, mise en perspective avec le corpus disponible)
 
-  ### Synthèse & Enseignement
-  (Synthèse doctrinale explicative. Ne recopie PAS les blocs de citations déjà donnés ci-dessus ; explique, relie les passages entre eux, et indique ce qui est explicite dans le texte et ce qui est interprétation. Toute affirmation de synthèse doit être étayée par une référence de paragraphe [Réf: ID_SERMON, §N] ou marquée explicitement comme "(interprétation)".)
+  ### Développement doctrinal & Analyse approfondie des citations
+  (Exposé substantiel section par section, intégrant systématiquement des blocs de citations exactes > « ... » [Réf: ID_SERMON, §N] immédiatement suivis de leur commentaire théologique et prophétique détaillé)
 
-- Termine obligatoirement par la section "### Passages consultés" listant UNIQUEMENT les paragraphes et documents réellement cités dans la réponse avec leurs numéros de paragraphes exacts [Réf: ID_SERMON, §N].
-- Les "Pistes d'approfondissement" seront retournées dans le champ JSON séparé 'pistes_approfondissement' pour garantir zéro troncation.`;
+  ### Synthèse spirituelle & Application pratique
+  (Harmonie doctrinale, principes d'intendance, de foi et de conduite pour l'Épouse du Seigneur Jésus-Christ)
+
+  ### Sermons de référence conseillés (si pertinent)
+  (Mention des titres de prédications majeures de William Branham pour approfondir si le sujet dépasse le corpus actuellement actif)
+
+  ### Passages consultés
+  (Liste des références exactes [Réf: ID_SERMON, §N] citées dans la réponse)
+
+4. EN CAS D'INSUFFISANCE TOTALE (sources_suffisantes = "insuffisantes", réservé aux sujets profanes/hors-domaine) :
+- Rédige un message clair et bienveillant expliquant pourquoi la requête ne relève pas des ressources spirituelles et scripturaires disponibles.
+
+- 'pistes_approfondissement' : Retourne 2 à 3 questions d'étude biblique pertinentes et stimulantes dans le champ JSON séparé.`;
 
   const sysInstruction = systemInstruction || defaultSysInstruction;
+
+  // Préparation du payload multi-tours pour Gemini si un historique est disponible
+  let contentsPayload: any;
+  if (Array.isArray(history) && history.length > 0) {
+    const cleanHistory = history
+      .filter(h => h.content && !h.content.startsWith('❌') && !h.content.startsWith('> ⏱️') && !h.content.startsWith('🔍 **Aucun passage'))
+      .slice(-6)
+      .map(h => ({
+        role: h.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: h.content.substring(0, 4000) }]
+      }));
+
+    contentsPayload = cleanHistory.length > 0
+      ? [
+          ...cleanHistory,
+          {
+            role: 'user',
+            parts: [{ text: promptContents }]
+          }
+        ]
+      : promptContents;
+  } else {
+    contentsPayload = promptContents;
+  }
 
   const t0 = Date.now();
 
   try {
     const response = await client.generateContent({
       model,
-      contents: promptContents,
+      contents: contentsPayload,
       config: {
         systemInstruction: sysInstruction,
         temperature: effectiveTemperature,
@@ -241,15 +278,15 @@ Tu dois impérativement renvoyer un objet JSON respectant le schéma avec les ch
           properties: {
             sources_suffisantes: {
               type: Type.STRING,
-              description: "Évalue la couverture : 'suffisantes' (sujet pleinement traité), 'partielles' (sujet abordé de façon parcellaire ou incomplète), ou 'insuffisantes' (sujet absent, profane ou hors-domaine)."
+              description: "Évalue la couverture : 'suffisantes' (sujet directement traité), 'partielles' (sujet abordé via des principes spirituels connexes, ou corpus restreint), ou 'insuffisantes' (sujet totalement profane ou hors-domaine spirituel)."
             },
             reponse: {
               type: Type.STRING,
-              description: "Si 'suffisantes' ou 'partielles': étude théologique structurée en '### Ce que disent les textes', '### Synthèse & Enseignement', et '### Passages consultés'. Si 'insuffisantes': message court de 2 phrases max débutant par 'Les textes disponibles ne traitent pas de ce sujet.'"
+              description: "Si 'suffisantes' ou 'partielles': étude théologique approfondie structurée avec citations exactes > « ... » [Réf: ID, §N], analyse et synthèse. Si 'insuffisantes': explication claire et courtoise."
             },
             avertissement: {
               type: Type.STRING,
-              description: "Si sources_suffisantes='partielles', réclame ou propose un court avertissement expliquant la couverture partielle. Sinon, laisser vide ou null."
+              description: "Si sources_suffisantes='partielles', message précisant la portée des extraits disponibles et les principes dégagés. Sinon, laisser vide ou null."
             },
             pistes_approfondissement: {
               type: Type.ARRAY,

@@ -306,6 +306,5 @@ DIRECTIVES DE RÉPONSE STRICTES POUR L'ASSISTANT THÉOLOGIQUE :
 3. INTÉGRITÉ DES CITATIONS : Cite toujours la phrase ou le passage entier du paragraphe. Ne tronque JAMAIS une citation aux limites de chunks et ne coupe pas une phrase en deux fragments disjoints.
 4. N'utilise AUCUNE information extérieure et n'extrapole pas au-delà des extraits fournis.
 5. Dans la section finale '### Pistes d'approfondissement', formule uniquement des questions ouvertes de réflexion et n'inclus AUCUNE balise de référence [Réf: ...].
-6. Si les extraits ci-dessus ne permettent pas de répondre précisément à la question, déclare :
-   « Les documents disponibles dans la base documentaire ne contiennent pas d'informations suffisantes pour répondre à cette question. »`;
+6. Si la question est ciblée mais que le corpus restreint ne l'aborde que via des principes spirituels plus larges ou thèmes connexes (ex. richesses matérielles, foi, intendance chrétienne), déploie une analyse doctrinale complète en citant les extraits disponibles et en indiquant les sermons clés pour aller plus loin. Ne déclare une insuffisance que si la question est totalement profane ou hors-domaine.`;
 }

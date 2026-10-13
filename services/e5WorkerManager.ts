@@ -233,7 +233,7 @@ export async function computeE5BatchInWorker(
   const results: WorkerBatchResultItem[] = [];
 
   for (const item of items) {
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise(resolve => setTimeout(resolve, 50));
     const vec = await computeE5Embedding(item.text, prefix);
     results.push({ id: item.id, vector: vec });
   }

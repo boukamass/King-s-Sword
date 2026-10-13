@@ -674,55 +674,33 @@ ipcMain.handle('db:saveChunks', (event, chunks) => {
       `);
 
       for (const c of chunkList) {
-        const hasIncomingEmbedding = Boolean(
-          c.embedding && (
-            (Array.isArray(c.embedding) && c.embedding.length > 0) ||
-            (c.embedding instanceof Float32Array && c.embedding.length > 0) ||
-            (c.embedding instanceof Int8Array && c.embedding.length > 0)
-          )
-        );
+        let embeddingBlob = null;
+        if (c.embedding) {
+          if (Buffer.isBuffer(c.embedding)) {
+            embeddingBlob = c.embedding;
+          } else if (ArrayBuffer.isView(c.embedding)) {
+            embeddingBlob = Buffer.from(c.embedding.buffer, c.embedding.byteOffset, c.embedding.byteLength);
+          } else if (Array.isArray(c.embedding)) {
+            if (c.embedding.length === 384) {
+              embeddingBlob = Buffer.from(new Int8Array(c.embedding).buffer);
+            } else if (c.embedding.length === 3072) {
+              embeddingBlob = Buffer.from(new Float32Array(c.embedding).buffer);
+            }
+          } else if (typeof c.embedding === 'object' && c.embedding !== null) {
+            const vals = Object.values(c.embedding);
+            if (vals.length === 384) {
+              embeddingBlob = Buffer.from(new Int8Array(vals).buffer);
+            } else if (vals.length === 3072) {
+              embeddingBlob = Buffer.from(new Float32Array(vals).buffer);
+            }
+          }
+        }
+
+        const hasIncomingEmbedding = Boolean(embeddingBlob && embeddingBlob.length > 0);
         const existing = selectStmt.get(c.chunkId);
         if (existing && existing.content_hash && existing.content_hash === c.contentHash && (!hasIncomingEmbedding || existing.has_embedding)) {
           unchanged++;
         } else {
-          let embeddingBlob = null;
-          if (hasIncomingEmbedding) {
-            let vec = null;
-            if (Array.isArray(c.embedding)) {
-              vec = c.embedding;
-            } else if (c.embedding instanceof Float32Array || c.embedding instanceof Int8Array) {
-              vec = Array.from(c.embedding);
-            } else if (typeof c.embedding === 'object' && c.embedding !== null) {
-              vec = Object.values(c.embedding);
-            }
-
-            if (c.embedding instanceof Int8Array && c.embedding.length === 384) {
-              embeddingBlob = Buffer.from(c.embedding.buffer, c.embedding.byteOffset, c.embedding.byteLength);
-            } else if (vec && vec.length === 384) {
-              const int8 = new Int8Array(vec);
-              embeddingBlob = Buffer.from(int8.buffer, int8.byteOffset, int8.byteLength);
-            } else if (vec && vec.length === 3072) {
-              let isValid = true;
-              for (let i = 0; i < 3072; i++) {
-                const val = vec[i];
-                if (typeof val !== 'number' || !Number.isFinite(val) || Number.isNaN(val)) {
-                  isValid = false;
-                  break;
-                }
-              }
-              if (isValid) {
-                const float32 = new Float32Array(vec);
-                embeddingBlob = Buffer.from(float32.buffer, float32.byteOffset, float32.byteLength); // 12288 octets (Gemini)
-              } else {
-                console.warn(`[DB] Embedding invalide (NaN/Infinity) rejeté pour chunk ${c.chunkId}`);
-              }
-            } else if (vec && vec.length === 768 && c.embedding instanceof Int8Array) {
-              embeddingBlob = Buffer.from(c.embedding.buffer, c.embedding.byteOffset, c.embedding.byteLength);
-            } else if (vec) {
-              console.warn(`[DB] Dimension d'embedding non reconnue (${vec.length}) ignorée pour chunk ${c.chunkId}`);
-            }
-          }
-
           upsertStmt.run(
             c.chunkId,
             c.sermonId,
@@ -1040,6 +1018,42 @@ function createWindow() {
       };
     } catch (err) {
       return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('system:getPrecalculatedEmbeddings', async () => {
+    try {
+      const resourcesPath = app.isPackaged ? process.resourcesPath : __dirname;
+      const candidatesMeta = [
+        path.join(resourcesPath, 'public', 'corpus_embeddings_384d_meta.json'),
+        path.join(resourcesPath, 'dist', 'corpus_embeddings_384d_meta.json'),
+        path.join(resourcesPath, 'app.asar', 'dist', 'corpus_embeddings_384d_meta.json'),
+        path.join(__dirname, 'public', 'corpus_embeddings_384d_meta.json'),
+        path.join(__dirname, 'dist', 'corpus_embeddings_384d_meta.json')
+      ];
+      const candidatesBin = [
+        path.join(resourcesPath, 'public', 'corpus_embeddings_384d.bin'),
+        path.join(resourcesPath, 'dist', 'corpus_embeddings_384d.bin'),
+        path.join(resourcesPath, 'app.asar', 'dist', 'corpus_embeddings_384d.bin'),
+        path.join(__dirname, 'public', 'corpus_embeddings_384d.bin'),
+        path.join(__dirname, 'dist', 'corpus_embeddings_384d.bin')
+      ];
+
+      let foundMeta = candidatesMeta.find(p => fs.existsSync(p));
+      let foundBin = candidatesBin.find(p => fs.existsSync(p));
+
+      if (foundMeta && foundBin) {
+        const meta = JSON.parse(fs.readFileSync(foundMeta, 'utf8'));
+        const binBuffer = fs.readFileSync(foundBin);
+        return {
+          success: true,
+          metadata: meta,
+          binaryBuffer: binBuffer
+        };
+      }
+      return { success: false, error: 'Fichiers precalcules introuvables sur disque' };
+    } catch (e) {
+      return { success: false, error: e.message };
     }
   });
 }

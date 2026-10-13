@@ -489,6 +489,12 @@ export interface ElectronAPI {
       isPackaged?: boolean;
       error?: string;
     }>;
+    getPrecalculatedEmbeddings?: () => Promise<{
+      success: boolean;
+      metadata?: any;
+      binaryBuffer?: any;
+      error?: string;
+    }>;
   };
 }
 

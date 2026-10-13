@@ -184,11 +184,13 @@ const AIAssistant: React.FC = () => {
     totalQueries: 0,
     fallbackCount: 0
   });  const [indexProgress, setIndexProgress] = useState<CorpusIndexProgress | null>(null);
+  const hasTriggeredInitRef = useRef(false);
 
   useEffect(() => {
     loadPersistedProgressState().then(initial => {
       setIndexProgress(initial);
-      if (!initial || initial.status !== 'READY') {
+      if (!hasTriggeredInitRef.current && (!initial || initial.status !== 'READY')) {
+        hasTriggeredInitRef.current = true;
         initializeCorpusIndex({ loadedSermonsMap: sermonsMap }).catch(err => {
           console.warn('[AIAssistant] Erreur auto-indexation:', err);
         });
@@ -767,8 +769,9 @@ const AIAssistant: React.FC = () => {
           const unifiedResult = await executeUnifiedRagAssistantFlow(msg, autoRagContext, {
             loadedSermonsMap: sermonsMap,
             bibleVersion,
-            maxEvidenceCount: 8,
-            topK: 15
+            maxEvidenceCount: 16,
+            topK: 25,
+            history: historyToUse
           });
 
           if (abortController.signal.aborted) return;
@@ -909,8 +912,9 @@ const AIAssistant: React.FC = () => {
           const unifiedResult = await executeUnifiedRagAssistantFlow(msg, contextSermonIds, {
             loadedSermonsMap: sermonsMap,
             bibleVersion,
-            maxEvidenceCount: 8,
-            topK: 15
+            maxEvidenceCount: 16,
+            topK: 25,
+            history: historyToUse
           });
 
           if (abortController.signal.aborted) return;

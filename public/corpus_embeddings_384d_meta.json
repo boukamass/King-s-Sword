@@ -1,12 +1,12 @@
 {
-  "version": "2.0.0",
+  "version": "2.1.0",
   "model_id": "Xenova/multilingual-e5-small",
   "model": "Xenova/multilingual-e5-small",
   "dimension": 384,
   "quantization": "int8",
   "bytesPerVector": 384,
-  "totalChunks": 1434,
-  "generatedAt": "2026-10-10T08:54:33.532Z",
+  "totalChunks": 1450,
+  "generatedAt": "2026-10-12T15:20:48.566Z",
   "chunks": [
     {
       "chunkId": "expose-ch-0_c1_p1_p1",
@@ -11478,6 +11478,134 @@
       "startParagraph": 55,
       "endParagraph": 55,
       "offset": 550272,
+      "length": 384
+    },
+    {
+      "chunkId": "63-0324M_c1_p1_p2",
+      "sermonId": "63-0324M",
+      "startParagraph": 1,
+      "endParagraph": 2,
+      "offset": 550656,
+      "length": 384
+    },
+    {
+      "chunkId": "63-0324M_c2_p2_p2",
+      "sermonId": "63-0324M",
+      "startParagraph": 2,
+      "endParagraph": 2,
+      "offset": 551040,
+      "length": 384
+    },
+    {
+      "chunkId": "63-0324M_c3_p3_p3",
+      "sermonId": "63-0324M",
+      "startParagraph": 3,
+      "endParagraph": 3,
+      "offset": 551424,
+      "length": 384
+    },
+    {
+      "chunkId": "63-0324M_c4_p4_p5",
+      "sermonId": "63-0324M",
+      "startParagraph": 4,
+      "endParagraph": 5,
+      "offset": 551808,
+      "length": 384
+    },
+    {
+      "chunkId": "63-0324M_c5_p5_p5",
+      "sermonId": "63-0324M",
+      "startParagraph": 5,
+      "endParagraph": 5,
+      "offset": 552192,
+      "length": 384
+    },
+    {
+      "chunkId": "65-1212_c1_p1_p2",
+      "sermonId": "65-1212",
+      "startParagraph": 1,
+      "endParagraph": 2,
+      "offset": 552576,
+      "length": 384
+    },
+    {
+      "chunkId": "65-1212_c2_p2_p3",
+      "sermonId": "65-1212",
+      "startParagraph": 2,
+      "endParagraph": 3,
+      "offset": 552960,
+      "length": 384
+    },
+    {
+      "chunkId": "65-1212_c3_p3_p3",
+      "sermonId": "65-1212",
+      "startParagraph": 3,
+      "endParagraph": 3,
+      "offset": 553344,
+      "length": 384
+    },
+    {
+      "chunkId": "64-0719M_c1_p1_p2",
+      "sermonId": "64-0719M",
+      "startParagraph": 1,
+      "endParagraph": 2,
+      "offset": 553728,
+      "length": 384
+    },
+    {
+      "chunkId": "64-0719M_c2_p2_p2",
+      "sermonId": "64-0719M",
+      "startParagraph": 2,
+      "endParagraph": 2,
+      "offset": 554112,
+      "length": 384
+    },
+    {
+      "chunkId": "64-0719M_c3_p3_p4",
+      "sermonId": "64-0719M",
+      "startParagraph": 3,
+      "endParagraph": 4,
+      "offset": 554496,
+      "length": 384
+    },
+    {
+      "chunkId": "64-0719M_c4_p4_p4",
+      "sermonId": "64-0719M",
+      "startParagraph": 4,
+      "endParagraph": 4,
+      "offset": 554880,
+      "length": 384
+    },
+    {
+      "chunkId": "65-0725M_c1_p1_p2",
+      "sermonId": "65-0725M",
+      "startParagraph": 1,
+      "endParagraph": 2,
+      "offset": 555264,
+      "length": 384
+    },
+    {
+      "chunkId": "65-0725M_c2_p2_p2",
+      "sermonId": "65-0725M",
+      "startParagraph": 2,
+      "endParagraph": 2,
+      "offset": 555648,
+      "length": 384
+    },
+    {
+      "chunkId": "65-0725M_c3_p3_p4",
+      "sermonId": "65-0725M",
+      "startParagraph": 3,
+      "endParagraph": 4,
+      "offset": 556032,
+      "length": 384
+    },
+    {
+      "chunkId": "65-0725M_c4_p4_p4",
+      "sermonId": "65-0725M",
+      "startParagraph": 4,
+      "endParagraph": 4,
+      "offset": 556416,
       "length": 384
     }
   ]
