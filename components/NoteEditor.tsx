@@ -745,7 +745,7 @@ const NoteEditor: React.FC = () => {
             .replace(/…/g, '...')
             .replace(/\u00A0/g, ' ')
             .replace(/[\u200B-\u200D\uFEFF]/g, '')
-            .replace(/\s+/g, ' ')
+            .replace(/[ \t]+/g, ' ')
             .trim();
     };
 
@@ -1017,6 +1017,94 @@ const NoteEditor: React.FC = () => {
                 [51, 65, 85] // Slate
             );
 
+            // 4.3. Études & Réponses du Dock IA
+            if (processedNote.aiItems && processedNote.aiItems.length > 0) {
+                checkPageBreak(30);
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(11);
+                doc.setTextColor(13, 148, 136); // Deep Teal
+                doc.text(`ÉTUDES & RÉPONSES DU DOCK IA (${processedNote.aiItems.length})`, margin, y);
+                y += 8;
+
+                for (const item of processedNote.aiItems) {
+                    checkPageBreak(35);
+                    const startAiY = y;
+
+                    // En-tête de l'étude IA
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(10.5);
+                    doc.setTextColor(13, 148, 136);
+                    const aiTitle = cleanPdfText(`Assistant IA — ${item.title}${item.date ? ` (${item.date})` : ''}`);
+                    const titleLines = doc.splitTextToSize(aiTitle, maxLineWidth - 12);
+                    doc.text(titleLines, margin + 4, y);
+                    y += titleLines.length * 5 + 3;
+
+                    // Traitement du contenu structuré (titres, puces, numéros, paragraphes)
+                    const lines = item.content.split('\n');
+                    for (let li = 0; li < lines.length; li++) {
+                        const rawL = lines[li].trim();
+                        if (!rawL) continue;
+
+                        if (/^#{1,6}\s+/.test(rawL)) {
+                            const subText = cleanPdfText(rawL.replace(/^#{1,6}\s+/, ''));
+                            checkPageBreak(12);
+                            y += 2;
+                            doc.setFont('helvetica', 'bold');
+                            doc.setFontSize(9.5);
+                            doc.setTextColor(15, 23, 42);
+                            const subLines = doc.splitTextToSize(subText, maxLineWidth - 12);
+                            doc.text(subLines, margin + 4, y);
+                            y += subLines.length * 4.5 + 2;
+                        } else if (/^[-*]\s+/.test(rawL)) {
+                            const bulletText = `•  ${cleanPdfText(rawL.replace(/^[-*]\s+/, ''))}`;
+                            const bLines = doc.splitTextToSize(bulletText, maxLineWidth - 16);
+                            checkPageBreak(bLines.length * 4.5 + 2);
+                            doc.setFont('times', 'normal');
+                            doc.setFontSize(9.5);
+                            doc.setTextColor(30, 41, 59);
+                            doc.text(bLines, margin + 8, y);
+                            y += bLines.length * 4.5 + 1.5;
+                        } else if (/^\d+\.\s+/.test(rawL)) {
+                            const numMatch = rawL.match(/^(\d+\.)\s+(.+)$/);
+                            const nText = numMatch ? `${numMatch[1]}  ${cleanPdfText(numMatch[2])}` : cleanPdfText(rawL);
+                            const nLines = doc.splitTextToSize(nText, maxLineWidth - 16);
+                            checkPageBreak(nLines.length * 4.5 + 2);
+                            doc.setFont('times', 'normal');
+                            doc.setFontSize(9.5);
+                            doc.setTextColor(30, 41, 59);
+                            doc.text(nLines, margin + 8, y);
+                            y += nLines.length * 4.5 + 1.5;
+                        } else {
+                            const cleanP = cleanPdfText(rawL);
+                            if (!cleanP) continue;
+                            const pLines = doc.splitTextToSize(cleanP, maxLineWidth - 12);
+                            checkPageBreak(pLines.length * 4.5 + 2);
+                            doc.setFont('times', 'normal');
+                            doc.setFontSize(9.5);
+                            doc.setTextColor(30, 41, 59);
+                            doc.text(pLines, margin + 4, y);
+                            y += pLines.length * 4.5 + 2;
+                        }
+                    }
+
+                    // Signature / Source
+                    checkPageBreak(10);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(8.5);
+                    doc.setTextColor(13, 148, 136);
+                    const sigText = cleanPdfText(`Assistant IA King's Sword${item.sourceIndex ? ` [${item.sourceIndex}]` : ''}`);
+                    doc.text(sigText, pageWidth - margin, y, { align: 'right' });
+                    y += 4;
+
+                    // Bordure gauche décorative
+                    doc.setDrawColor(13, 148, 136);
+                    doc.setLineWidth(0.8);
+                    doc.line(margin, startAiY - 2, margin, y);
+
+                    y += 6;
+                }
+            }
+
             // 4.5. Concordance & Exégèse Strong
             if (processedNote.strongItems && processedNote.strongItems.length > 0) {
                 checkPageBreak(30);
@@ -1028,53 +1116,110 @@ const NoteEditor: React.FC = () => {
 
                 for (const item of processedNote.strongItems) {
                     checkPageBreak(30);
+                    const startStrongY = y;
+
                     doc.setFont('helvetica', 'bold');
                     doc.setFontSize(10);
                     doc.setTextColor(15, 23, 42);
                     const titleLine = cleanPdfText(`Strong ${item.strongNumber} : ${item.word} ${item.original ? `(${item.original})` : ''} - [${item.pronunciation}] (${item.type === 'hebrew' ? 'Hébreu' : 'Grec'})`);
-                    doc.text(titleLine, margin, y);
+                    doc.text(titleLine, margin + 4, y);
                     y += 5;
 
-                    doc.setFont('helvetica', 'normal');
-                    doc.setFontSize(9.5);
-                    doc.setTextColor(51, 65, 85);
-                    const defLine = cleanPdfText(`Définition : ${item.definition}`).replace(/\*\*/g, '').replace(/\*/g, '');
-                    const defLines = doc.splitTextToSize(defLine, maxLineWidth);
-                    checkPageBreak(defLines.length * 4.5 + 4);
-                    doc.text(defLines, margin, y);
-                    y += defLines.length * 4.5 + 2;
+                    // Métadonnées exégèse
+                    const metaParts: string[] = [];
+                    if (item.partOfSpeech) metaParts.push(`Nature: ${cleanPdfText(item.partOfSpeech)}`);
+                    if (item.etymology) metaParts.push(`Racine: ${cleanPdfText(item.etymology)}`);
+                    if (item.translationsLSG) metaParts.push(`Traductions LSG: ${cleanPdfText(item.translationsLSG)}`);
+                    if (item.occurrencesCountStr) metaParts.push(`Fréquence: ${cleanPdfText(item.occurrencesCountStr)}`);
 
-                    if (item.messageContext) {
-                        doc.setFont('helvetica', 'italic');
-                        doc.setFontSize(9);
-                        doc.setTextColor(13, 148, 136);
-                        const msgLine = cleanPdfText(`Éclairage dans le Message : ${item.messageContext}`).replace(/\*\*/g, '').replace(/\*/g, '');
-                        const mLines = doc.splitTextToSize(msgLine, maxLineWidth);
-                        checkPageBreak(mLines.length * 4.5 + 3);
-                        doc.text(mLines, margin, y);
-                        y += mLines.length * 4.5 + 2;
+                    if (metaParts.length > 0) {
+                        doc.setFont('helvetica', 'normal');
+                        doc.setFontSize(8.5);
+                        doc.setTextColor(100, 116, 139);
+                        const metaLines = doc.splitTextToSize(metaParts.join('  |  '), maxLineWidth - 12);
+                        checkPageBreak(metaLines.length * 4 + 2);
+                        doc.text(metaLines, margin + 4, y);
+                        y += metaLines.length * 4 + 2;
                     }
 
+                    // Définition par paragraphes
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(9);
+                    doc.setTextColor(13, 148, 136);
+                    doc.text("Définition :", margin + 4, y);
+                    y += 4.5;
+
+                    doc.setFont('times', 'normal');
+                    doc.setFontSize(9.5);
+                    doc.setTextColor(51, 65, 85);
+                    const defParagraphs = item.definition.split('\n').filter(Boolean);
+                    for (const dp of defParagraphs) {
+                        const cleanD = cleanPdfText(dp);
+                        if (!cleanD) continue;
+                        const dLines = doc.splitTextToSize(cleanD, maxLineWidth - 12);
+                        checkPageBreak(dLines.length * 4.5 + 2);
+                        doc.text(dLines, margin + 4, y);
+                        y += dLines.length * 4.5 + 1.5;
+                    }
+
+                    // Éclairage dans le Message
+                    if (item.messageContext) {
+                        y += 1.5;
+                        doc.setFont('helvetica', 'bold');
+                        doc.setFontSize(9);
+                        doc.setTextColor(13, 148, 136);
+                        doc.text("Éclairage dans le Message :", margin + 4, y);
+                        y += 4.5;
+
+                        doc.setFont('times', 'italic');
+                        doc.setFontSize(9.5);
+                        doc.setTextColor(30, 41, 59);
+                        const msgParagraphs = item.messageContext.split('\n').filter(Boolean);
+                        for (const mp of msgParagraphs) {
+                            const cleanM = cleanPdfText(mp);
+                            if (!cleanM) continue;
+                            const mLines = doc.splitTextToSize(cleanM, maxLineWidth - 12);
+                            checkPageBreak(mLines.length * 4.5 + 2);
+                            doc.text(mLines, margin + 4, y);
+                            y += mLines.length * 4.5 + 1.5;
+                        }
+                    }
+
+                    // Verset d'origine
                     if (item.originVerseRef && item.originVerseText) {
+                        y += 1.5;
                         doc.setFont('helvetica', 'normal');
                         doc.setFontSize(8.5);
                         doc.setTextColor(71, 85, 105);
                         const vLine = cleanPdfText(`Verset d'origine (${item.originVerseRef}) : "${item.originVerseText}"`);
-                        const vLines = doc.splitTextToSize(vLine, maxLineWidth);
+                        const vLines = doc.splitTextToSize(vLine, maxLineWidth - 12);
                         checkPageBreak(vLines.length * 4 + 3);
-                        doc.text(vLines, margin, y);
+                        doc.text(vLines, margin + 4, y);
                         y += vLines.length * 4 + 2;
                     }
 
+                    // Autres occurrences
                     if (item.allOccurrences && item.allOccurrences.length > 1) {
                         doc.setFont('helvetica', 'italic');
                         doc.setFontSize(8);
                         doc.setTextColor(148, 163, 184);
-                        doc.text(`(+ ${item.allOccurrences.length - 1} autre(s) occurrence(s) dans les Écritures)`, margin, y);
+                        doc.text(`(+ ${item.allOccurrences.length - 1} autre(s) occurrence(s) dans les Écritures)`, margin + 4, y);
                         y += 4;
                     }
 
+                    // Signature
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(8.5);
+                    doc.setTextColor(13, 148, 136);
+                    doc.text(cleanPdfText(`Concordance Strong${item.sourceIndex ? ` [${item.sourceIndex}]` : ''}`), pageWidth - margin, y, { align: 'right' });
                     y += 4;
+
+                    // Bordure décorative gauche
+                    doc.setDrawColor(13, 148, 136);
+                    doc.setLineWidth(0.8);
+                    doc.line(margin, startStrongY - 2, margin, y);
+
+                    y += 5;
                 }
             }
 
@@ -1089,43 +1234,64 @@ const NoteEditor: React.FC = () => {
 
                 for (const item of processedNote.definitionItems) {
                     checkPageBreak(25);
+                    const startDefY = y;
+
                     doc.setFont('helvetica', 'bold');
-                    doc.setFontSize(10);
+                    doc.setFontSize(10.5);
                     doc.setTextColor(15, 23, 42);
-                    doc.text(cleanPdfText(item.word.toUpperCase()), margin, y);
+                    doc.text(cleanPdfText(item.word.toUpperCase()), margin + 4, y);
                     y += 5;
 
-                    doc.setFont('helvetica', 'normal');
+                    doc.setFont('times', 'normal');
                     doc.setFontSize(9.5);
                     doc.setTextColor(51, 65, 85);
-                    const defLines = doc.splitTextToSize(cleanPdfText(item.definition).replace(/\*\*/g, '').replace(/\*/g, ''), maxLineWidth);
-                    checkPageBreak(defLines.length * 4.5 + 4);
-                    doc.text(defLines, margin, y);
-                    y += defLines.length * 4.5 + 2;
+                    const defParagraphs = item.definition.split('\n').filter(Boolean);
+                    for (const dp of defParagraphs) {
+                        const cleanD = cleanPdfText(dp);
+                        if (!cleanD) continue;
+                        const dLines = doc.splitTextToSize(cleanD, maxLineWidth - 12);
+                        checkPageBreak(dLines.length * 4.5 + 2);
+                        doc.text(dLines, margin + 4, y);
+                        y += dLines.length * 4.5 + 1.5;
+                    }
 
                     if (item.etymology) {
+                        y += 1;
                         doc.setFont('helvetica', 'italic');
                         doc.setFontSize(8.5);
                         doc.setTextColor(100, 116, 139);
-                        const etyLine = cleanPdfText(`Étymologie : ${item.etymology}`).replace(/\*\*/g, '').replace(/\*/g, '');
-                        const eLines = doc.splitTextToSize(etyLine, maxLineWidth);
-                        checkPageBreak(eLines.length * 4 + 3);
-                        doc.text(eLines, margin, y);
-                        y += eLines.length * 4 + 2;
+                        const etyLine = cleanPdfText(`Étymologie : ${item.etymology}`);
+                        const eLines = doc.splitTextToSize(etyLine, maxLineWidth - 12);
+                        checkPageBreak(eLines.length * 4 + 2);
+                        doc.text(eLines, margin + 4, y);
+                        y += eLines.length * 4 + 1.5;
                     }
 
                     if (item.synonyms && item.synonyms.length > 0) {
+                        y += 1;
                         doc.setFont('helvetica', 'normal');
                         doc.setFontSize(8.5);
                         doc.setTextColor(13, 148, 136);
                         const synLine = cleanPdfText(`Synonymes : ${item.synonyms.join(', ')}`);
-                        const sLines = doc.splitTextToSize(synLine, maxLineWidth);
-                        checkPageBreak(sLines.length * 4 + 3);
-                        doc.text(sLines, margin, y);
-                        y += sLines.length * 4 + 2;
+                        const sLines = doc.splitTextToSize(synLine, maxLineWidth - 12);
+                        checkPageBreak(sLines.length * 4 + 2);
+                        doc.text(sLines, margin + 4, y);
+                        y += sLines.length * 4 + 1.5;
                     }
 
+                    // Signature
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(8.5);
+                    doc.setTextColor(13, 148, 136);
+                    doc.text(cleanPdfText(`Dictionnaire Biblique${item.sourceIndex ? ` [${item.sourceIndex}]` : ''}`), pageWidth - margin, y, { align: 'right' });
                     y += 4;
+
+                    // Bordure décorative gauche
+                    doc.setDrawColor(13, 148, 136);
+                    doc.setLineWidth(0.8);
+                    doc.line(margin, startDefY - 2, margin, y);
+
+                    y += 5;
                 }
             }
 
@@ -1264,6 +1430,13 @@ const NoteEditor: React.FC = () => {
                                 .comment-box .comment-text { font-size: 9.5pt; font-style: italic; color: #334155; margin: 0; }
                                 .citation-box { padding: 10px 14px; border-left: 3.5px solid #0d9488; background: #f8fafc; font-style: italic; font-size: 10pt; color: #1e293b; margin: 10px 0; border-radius: 0 6px 6px 0; }
                                 .citation-ref { text-align: right; font-size: 8.5pt; font-weight: bold; color: #0f766e; font-style: normal; margin-top: 6px; }
+                                .ai-item-box { padding: 12px 16px; border-left: 4px solid #0f766e; background: #f0fdfa; font-size: 10pt; color: #1e293b; margin: 12px 0; border-radius: 0 6px 6px 0; }
+                                .print-rich-content h1, .print-rich-content h2, .print-rich-content h3 { color: #0f766e; margin-top: 8px; margin-bottom: 4px; font-weight: 700; }
+                                .print-rich-content ul { padding-left: 18px; margin: 6px 0; list-style-type: disc; }
+                                .print-rich-content ol { padding-left: 18px; margin: 6px 0; list-style-type: decimal; }
+                                .print-rich-content li { margin-bottom: 3px; }
+                                .print-rich-content strong { color: #0f172a; font-weight: 700; }
+                                .print-rich-content p { margin-bottom: 6px; }
                                 mark, .print-highlight { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; padding: 1px 3px; border-radius: 2px; }
                                 .page-break-inside-avoid { page-break-inside: avoid; break-inside: avoid; }
                                 img { max-width: 100%; max-height: 220px; object-fit: contain; }
@@ -2829,6 +3002,142 @@ const NoteEditor: React.FC = () => {
                               </div>
                             )}
 
+                            {/* Section Études & Réponses du Dock IA */}
+                            {processedNote.aiItems && processedNote.aiItems.length > 0 && (
+                              <div className="space-y-4">
+                                <div className="flex items-center justify-between px-2">
+                                  <h4 className="text-xs font-black uppercase tracking-wider text-teal-600 dark:text-teal-400 flex items-center gap-2">
+                                    <Sparkles className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                                    <span>Études & Réponses du Dock IA ({processedNote.aiItems.length})</span>
+                                  </h4>
+                                </div>
+
+                                {processedNote.aiItems.map((item, idx) => {
+                                  const isDragging = draggedCitationId === item.citationId;
+                                  const isDragOver = dragOverCitationId === item.citationId;
+
+                                  return (
+                                    <div
+                                      key={item.citationId || idx}
+                                      data-citation-id={item.citationId}
+                                      onDragOver={(e) => {
+                                        e.preventDefault();
+                                        if (dragOverCitationId !== item.citationId) {
+                                          setDragOverCitationId(item.citationId);
+                                        }
+                                      }}
+                                      onDragLeave={() => {
+                                        if (dragOverCitationId === item.citationId) {
+                                          setDragOverCitationId(null);
+                                        }
+                                      }}
+                                      onDrop={(e) => {
+                                        e.preventDefault();
+                                        setDragOverCitationId(null);
+                                        if (draggedCitationId && item.citationId && draggedCitationId !== item.citationId) {
+                                          handleReorderCitations(draggedCitationId, item.citationId);
+                                        }
+                                      }}
+                                      className={`p-5 rounded-2xl border transition-all duration-300 relative group/card ${
+                                        isDragOver
+                                          ? 'border-teal-500 bg-teal-500/10 ring-2 ring-teal-500/30'
+                                          : isDragging
+                                            ? 'opacity-40 border-dashed border-teal-500'
+                                            : 'border-teal-200/70 dark:border-teal-900/40 bg-teal-50/20 dark:bg-teal-950/20 hover:border-teal-500/50 shadow-xs'
+                                      }`}
+                                    >
+                                      {/* Header */}
+                                      <div className="flex items-start justify-between gap-4 mb-3 border-b border-teal-100 dark:border-teal-900/50 pb-2.5">
+                                        <div className="flex items-center gap-2.5 min-w-0 flex-wrap">
+                                          <div className="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
+                                            <Sparkles className="w-4 h-4" />
+                                          </div>
+                                          <div>
+                                            <div className="text-[10px] font-black uppercase tracking-wider text-teal-700 dark:text-teal-400">
+                                              Assistant IA
+                                              {item.date && <span className="font-mono text-zinc-400 ml-1.5 font-normal">({item.date})</span>}
+                                              {item.sourceIndex && (
+                                                <span className="text-zinc-500 font-bold ml-1.5">[{item.sourceIndex}]</span>
+                                              )}
+                                            </div>
+                                            <h5 className="text-sm sm:text-base font-extrabold text-zinc-900 dark:text-white truncate">
+                                              {item.title}
+                                            </h5>
+                                          </div>
+                                        </div>
+
+                                        {/* Action buttons */}
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          <div
+                                            draggable={Boolean(item.citationId)}
+                                            onDragStart={(e) => {
+                                              setDraggedCitationId(item.citationId);
+                                              e.dataTransfer.setData('text/plain', item.citationId);
+                                            }}
+                                            onDragEnd={() => {
+                                              setDraggedCitationId(null);
+                                              setDragOverCitationId(null);
+                                            }}
+                                            className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-grab active:cursor-grabbing transition-colors"
+                                            title="Glisser pour déplacer cette étude"
+                                          >
+                                            <GripVertical className="w-4 h-4" />
+                                          </div>
+
+                                          <button
+                                            type="button"
+                                            onClick={() => handleMoveCitation(item.citationId, 'up', processedNote.aiItems.map(a => ({ citationId: a.citationId })))}
+                                            disabled={idx === 0}
+                                            className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 disabled:opacity-20 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                                            title="Monter"
+                                          >
+                                            <ChevronUp className="w-4 h-4" />
+                                          </button>
+
+                                          <button
+                                            type="button"
+                                            onClick={() => handleMoveCitation(item.citationId, 'down', processedNote.aiItems.map(a => ({ citationId: a.citationId })))}
+                                            disabled={idx === processedNote.aiItems.length - 1}
+                                            className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 disabled:opacity-20 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                                            title="Descendre"
+                                          >
+                                            <ChevronDown className="w-4 h-4" />
+                                          </button>
+
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              navigator.clipboard.writeText(item.content);
+                                              addNotification("Étude de l'Assistant copiée dans le presse-papiers.", "success");
+                                            }}
+                                            className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-teal-600 dark:hover:text-teal-400 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-950/30 transition-colors"
+                                            title="Copier le texte"
+                                          >
+                                            <Copy className="w-4 h-4" />
+                                          </button>
+
+                                          <button
+                                            type="button"
+                                            onClick={() => removeCitationFromNote(note.id, item.citationId)}
+                                            className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                                            title="Supprimer cette étude de la note"
+                                          >
+                                            <Trash2 className="w-4 h-4" />
+                                          </button>
+                                        </div>
+                                      </div>
+
+                                      {/* Rich Content Display */}
+                                      <div
+                                        className="text-zinc-800 dark:text-zinc-200 text-sm leading-relaxed select-text space-y-2.5"
+                                        dangerouslySetInnerHTML={{ __html: renderRichContent(item.content) }}
+                                      />
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
                             {/* Section Concordance & Exégèse Strong */}
                             {processedNote.strongItems && processedNote.strongItems.length > 0 && (
                               <div className="space-y-4">
@@ -3567,6 +3876,32 @@ const NoteEditor: React.FC = () => {
                     </div>
                 )}
 
+                {/* 3.5. Études & Réponses du Dock IA */}
+                {processedNote.aiItems && processedNote.aiItems.length > 0 && (
+                    <div className="mb-8 space-y-4">
+                        <div className="flex items-center gap-2 border-b border-teal-600/30 pb-1.5 mb-3">
+                            <span className="w-2 h-2 rounded-full bg-teal-700"></span>
+                            <h2 className="text-xs font-black uppercase tracking-wider text-teal-900 m-0">
+                                Études & Réponses du Dock IA ({processedNote.aiItems.length})
+                            </h2>
+                        </div>
+                        {processedNote.aiItems.map((item, i) => (
+                            <div key={item.citationId || i} className="ai-item-box page-break-inside-avoid bg-teal-50/40 p-4 rounded-r-lg border-l-4 border-teal-700 my-4 text-slate-800">
+                                <div className="font-bold text-teal-900 text-[13px] mb-2 pb-1 border-b border-teal-600/20">
+                                    Assistant IA — {stripMarkdown(item.title)} {item.date ? `(${item.date})` : ''}
+                                </div>
+                                <div 
+                                    className="text-[12px] leading-relaxed text-slate-800 print-rich-content space-y-2"
+                                    dangerouslySetInnerHTML={{ __html: renderRichContent(item.content) }}
+                                />
+                                <div className="citation-ref text-right mt-2 text-[10.5px] font-bold text-teal-800">
+                                    Assistant IA King's Sword {item.sourceIndex ? `[${item.sourceIndex}]` : ''}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
                 {/* 4. Concordance & Exégèse Strong */}
                 {processedNote.strongItems && processedNote.strongItems.length > 0 && (
                     <div className="mb-8 space-y-4">
@@ -3579,11 +3914,11 @@ const NoteEditor: React.FC = () => {
                                 <p className="font-bold text-slate-900 not-italic text-[13px] m-0">
                                     Strong {item.strongNumber} : {stripMarkdown(item.word)} {item.original ? `(${stripMarkdown(item.original)})` : ''} — [{stripMarkdown(item.pronunciation)}] ({item.type === 'hebrew' ? 'Hébreu' : 'Grec'})
                                 </p>
-                                <div className="mt-1.5 text-slate-800 text-[12px] leading-relaxed">
+                                <div className="mt-1.5 text-slate-800 text-[12px] leading-relaxed whitespace-pre-line">
                                     <strong className="text-teal-900">Définition :</strong> {stripMarkdown(item.definition)}
                                 </div>
                                 {item.messageContext && (
-                                    <div className="mt-1.5 text-slate-800 italic text-[12px] leading-relaxed">
+                                    <div className="mt-1.5 text-slate-800 italic text-[12px] leading-relaxed whitespace-pre-line">
                                         <strong className="text-teal-800 not-italic">Éclairage dans le Message :</strong> {stripMarkdown(item.messageContext)}
                                     </div>
                                 )}
@@ -3616,7 +3951,7 @@ const NoteEditor: React.FC = () => {
                         {processedNote.definitionItems.map((item, i) => (
                             <div key={item.citationId || i} className="citation-box page-break-inside-avoid bg-slate-50/70 p-3.5 rounded-r-lg border-l-4 border-teal-700 my-3">
                                 <p className="font-bold text-slate-900 not-italic text-[13px] m-0">{stripMarkdown(item.word)}</p>
-                                <p className="mt-1 text-slate-800 text-[12px] leading-relaxed m-0">{stripMarkdown(item.definition)}</p>
+                                <p className="mt-1 text-slate-800 text-[12px] leading-relaxed m-0 whitespace-pre-line">{stripMarkdown(item.definition)}</p>
                                 {item.etymology && (
                                     <p className="text-[11.5px] italic text-slate-600 mt-1 m-0">Étymologie : {stripMarkdown(item.etymology)}</p>
                                 )}

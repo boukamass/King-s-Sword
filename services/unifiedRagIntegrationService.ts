@@ -32,7 +32,8 @@ import {
   AIContext,
   AIContextSource,
   RetrievalEvidencePackage,
-  CitationValidationResult
+  CitationValidationResult,
+  ChatMessage
 } from '../types';
 import { BibleVersion } from '../types/bible';
 import { executeUnifiedRagPipeline, UnifiedRagOptions } from './unifiedRagService';
@@ -48,6 +49,7 @@ import {
   formatCoverageSummary, 
   cleanPistesDapprofondissement 
 } from './theologicalExegesisService';
+import { extractSubstantiveQueryTerms } from './rerankingService';
 import { aiConfig } from '../config/aiConfig';
 
 export interface UnifiedRagIntegrationOptions extends UnifiedRagOptions {
@@ -58,6 +60,7 @@ export interface UnifiedRagIntegrationOptions extends UnifiedRagOptions {
   model?: string;
   bibleVersion?: BibleVersion;
   forceGenerate?: boolean;
+  history?: ChatMessage[];
 }
 
 export interface UnifiedRagExecutionResult {
@@ -130,15 +133,37 @@ export async function executeUnifiedRagAssistantFlow(
   }
 
   // 1. Exécution du Retrieval Unified RAG sous contrainte stricte de l'AI Context
+  // Enrichissement contextuel de la requête pour les questions de relance / multi-tours
+  let retrievalQuery = cleanQuery;
+  if (Array.isArray(options.history) && options.history.length > 0) {
+    const isFollowUp = /\b(pourquoi|comment|qui|que|quoi|et pour|ce que tu viens|ce point|cette phrase|cette citation|ce sujet|approfondis|developpe|explique|plus de citations|ensuite|autre|deuxieme|troisieme|quatrieme|precedent|suivant)\b/i.test(cleanQuery) || cleanQuery.split(/\s+/).length <= 4;
+    if (isFollowUp) {
+      const lastUserMsg = [...options.history].reverse().find(m => m.role === 'user' && m.content !== cleanQuery);
+      const lastAssistantMsg = [...options.history].reverse().find(m => m.role === 'assistant' && m.content && !m.content.startsWith('❌'));
+      
+      const prevKeywords: string[] = [];
+      if (lastUserMsg && lastUserMsg.content) {
+        prevKeywords.push(...extractSubstantiveQueryTerms(lastUserMsg.content).slice(0, 3));
+      }
+      if (lastAssistantMsg && lastAssistantMsg.content) {
+        prevKeywords.push(...extractSubstantiveQueryTerms(lastAssistantMsg.content).slice(0, 3));
+      }
+      const uniqueKeywords = Array.from(new Set(prevKeywords));
+      if (uniqueKeywords.length > 0) {
+        retrievalQuery = `${cleanQuery} ${uniqueKeywords.join(' ')}`;
+      }
+    }
+  }
+
   const isStudy = await detectExhaustiveStudyIntent(cleanQuery, {
     apiKey: options.apiKey,
     geminiClient: options.geminiClient
   });
   const isAllPassages = isAllPassagesRequest(cleanQuery);
-  const effectiveTopK = isAllPassages ? Math.max(options.topK || 10, 50) : (isStudy ? Math.max(options.topK || 10, 35) : (options.topK || 10));
-  const effectiveMaxEvidence = isAllPassages ? Math.max(options.maxEvidenceCount || 5, 25) : (isStudy ? Math.max(options.maxEvidenceCount || 5, 20) : (options.maxEvidenceCount || 5));
+  const effectiveTopK = isAllPassages ? Math.max(options.topK || 25, 50) : (isStudy ? Math.max(options.topK || 20, 35) : Math.max(options.topK || 20, 25));
+  const effectiveMaxEvidence = isAllPassages ? Math.max(options.maxEvidenceCount || 16, 25) : (isStudy ? Math.max(options.maxEvidenceCount || 16, 20) : Math.max(options.maxEvidenceCount || 12, 16));
 
-  const evidencePackage = await executeUnifiedRagPipeline(cleanQuery, aiContext, {
+  const evidencePackage = await executeUnifiedRagPipeline(retrievalQuery, aiContext, {
     topK: effectiveTopK,
     maxEvidenceCount: effectiveMaxEvidence,
     k: options.k,
@@ -202,7 +227,8 @@ export async function executeUnifiedRagAssistantFlow(
     geminiClient: options.geminiClient,
     systemInstruction: activeInstruction,
     temperature: options.temperature ?? aiConfig.models.autoRagTemperature,
-    model: options.model ?? aiConfig.models.primaryFastModel
+    model: options.model ?? aiConfig.models.primaryFastModel,
+    history: options.history
   });
 
   const latencyMs = Date.now() - t0;

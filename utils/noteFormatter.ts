@@ -74,6 +74,17 @@ export interface ProcessedStrongItem {
   orderIndex: number;
 }
 
+export interface ProcessedAiItem {
+  id: string;
+  citationId: string;
+  title: string;
+  date?: string;
+  content: string;
+  rawText: string;
+  sourceIndex?: number;
+  orderIndex: number;
+}
+
 export interface FormattedNoteSection {
   title?: string;
   type: 'main_content' | 'scripture_quote' | 'teaching_quote' | 'sources';
@@ -91,6 +102,7 @@ export interface ProcessedNoteData {
   teachingItems: NoteSectionItem[];
   definitionItems: ProcessedDefinitionItem[];
   strongItems: ProcessedStrongItem[];
+  aiItems: ProcessedAiItem[];
   scriptureCitations: {
     citationId: string;
     sermonId?: string;
@@ -353,21 +365,25 @@ export function cleanTextArtifacts(rawText: string): string {
   text = text.replace(/\[Réf:\s*([^\]]+)\]/gi, '');
   text = text.replace(/\[Source:\s*([^\]]+)\]/gi, '');
 
-  // 3. Suppression des "Para." ou "Para" résiduels orphelins (sans numéro)
+  // 3. Suppression des mentions ou tags parasites avec @ (ex: @sermon, @ref, @1963 ou @ isolés)
+  text = text.replace(/@([a-zA-Z0-9_\-\.]+)/g, '$1');
+  text = text.replace(/@/g, '');
+
+  // 4. Suppression des "Para." ou "Para" résiduels orphelins (sans numéro)
   text = text.replace(/\bPara\.\s*(?=[^\d]|$)/gi, '');
   text = text.replace(/\bPara\b(?=[^\d]|$)/gi, '');
 
-  // 4. Correction des fautes de caractères corrompus / symboles parasites
+  // 5. Correction des fautes de caractères corrompus / symboles parasites
   text = text.replace(/Hiddékel\s*\/\s*;/gi, 'Hiddékel');
   text = text.replace(/[\t]/g, ' ');
 
-  // 5. Normalisation des espaces avant la ponctuation
+  // 6. Normalisation des espaces avant la ponctuation
   text = text.replace(/\s+([.,;:!%?])/g, '$1');
 
-  // 6. Remplacement des multiples espaces consécutifs
-  text = text.replace(/ {2,}/g, ' ');
+  // 7. Remplacement des multiples espaces consécutifs (sans écraser les retours à la ligne)
+  text = text.replace(/[ \t]{2,}/g, ' ');
 
-  // 7. Nettoyage des guillemets vides ou collés
+  // 8. Nettoyage des guillemets vides ou collés
   text = text.replace(/«\s+/g, '« ');
   text = text.replace(/\s+»/g, ' »');
 
@@ -382,9 +398,12 @@ export function stripMarkdown(text: string): string {
   if (!text) return '';
   return text
     // Supprimer les en-têtes markdown de type # Titre, ## Sous-titre, ### Section
-    .replace(/^#{1,6}\s+/gm, '')
-    // Supprimer tous les autres # résiduels isolés
-    .replace(/(^|\s)#+(\s|$)/g, '$1$2')
+    .replace(/^#{1,6}\s*/gm, '')
+    // Supprimer tous les autres # résiduels isolés ou collés à des mots
+    .replace(/#+/g, '')
+    // Supprimer les @ et @mentions techniques
+    .replace(/@\w+/g, '')
+    .replace(/@/g, '')
     // Supprimer les étoiles multiples ou simples (gras, italique, puces)
     .replace(/\*{1,4}/g, '')
     // Supprimer les soulignements markdown (_ ou __)
@@ -407,7 +426,7 @@ export function stripMarkdown(text: string): string {
     // Supprimer les barres obliques inverses d'échappement
     .replace(/\\([#*_~`\[\]()])/g, '$1')
     .replace(/\\/g, '')
-    // Espaces et sauts de ligne propres
+    // Espaces horizontaux propres sans écraser les retours à la ligne
     .replace(/[ \t]{2,}/g, ' ')
     .trim();
 }
@@ -535,6 +554,7 @@ export function processNoteData(note: Note, sermons?: Array<Partial<Sermon>>): P
   const teachingCitations: ProcessedNoteData['teachingCitations'] = [];
   const definitionItems: ProcessedDefinitionItem[] = [];
   const strongItems: ProcessedStrongItem[] = [];
+  const aiItems: ProcessedAiItem[] = [];
 
   if (note.citations && note.citations.length > 0) {
     const seenCitations = new Set<string>();
@@ -547,6 +567,28 @@ export function processNoteData(note: Note, sermons?: Array<Partial<Sermon>>): P
       const dateSnap = cleanTextArtifacts(citation.sermon_date_snapshot || '');
       const versionSnap = cleanTextArtifacts(citation.sermon_version_snapshot || '');
       const paraRef = formatParagraphRef(citation.paragraph_index);
+
+      // Détection des réponses / synthèses issues du Dock IA / Assistant IA
+      const isAiSource = citation.sermon_id?.startsWith('ia-') || 
+        citation.sermon_id?.startsWith('ai-') || 
+        citation.sermon_id?.includes('assistant') || 
+        /Assistant IA|Étude IA|Dock IA|Réponse IA|Recherche IA|Recherche Exégétique/i.test(titleSnap);
+
+      if (isAiSource) {
+        const cleanTitle = titleSnap || "Étude de l'Assistant IA";
+        const srcIdx = getOrAddSource(cleanTitle, 'general', 'Assistant IA / Exégèse', undefined, citation.id, citation.sermon_id, undefined, cleanQuote);
+        aiItems.push({
+          id: citation.id,
+          citationId: citation.id,
+          title: cleanTitle,
+          date: dateSnap || undefined,
+          content: cleanQuote,
+          rawText: cleanQuote,
+          sourceIndex: srcIdx,
+          orderIndex: aiItems.length * 10
+        });
+        continue;
+      }
 
       // Détection de l'exégèse Strong (Prioritaire)
       const isStrongSource = citation.sermon_id?.startsWith('strong') || 
@@ -847,6 +889,11 @@ export function processNoteData(note: Note, sermons?: Array<Partial<Sermon>>): P
         tc.sourceIndex = indexMapping.get(tc.sourceIndex);
       }
     }
+    for (const ai of aiItems) {
+      if (ai.sourceIndex && indexMapping.has(ai.sourceIndex)) {
+        ai.sourceIndex = indexMapping.get(ai.sourceIndex);
+      }
+    }
   }
 
   // Construction du Markdown récapitulatif
@@ -905,6 +952,14 @@ export function processNoteData(note: Note, sermons?: Array<Partial<Sermon>>): P
     }
   }
 
+  if (aiItems.length > 0) {
+    markdown += `### Études & Réponses du Dock IA\n\n`;
+    for (const item of aiItems) {
+      markdown += `#### ${item.title}${item.date ? ` (${item.date})` : ''}\n\n`;
+      markdown += `${item.content}\n\n`;
+    }
+  }
+
   if (strongItems.length > 0) {
     markdown += `### Concordance & Exégèse Strong\n\n`;
     for (const item of strongItems) {
@@ -947,6 +1002,7 @@ export function processNoteData(note: Note, sermons?: Array<Partial<Sermon>>): P
     teachingItems,
     definitionItems,
     strongItems,
+    aiItems,
     scriptureCitations,
     churchAgeCitations,
     teachingCitations,

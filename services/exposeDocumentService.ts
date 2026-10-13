@@ -231,119 +231,144 @@ export async function hydrateExposePrecalculatedEmbeddings(chunks: SermonChunk[]
   if (!Array.isArray(chunks) || chunks.length === 0) return;
 
   try {
-    // Mode Node.js / Electron
-    if (typeof process !== 'undefined' && process.versions && process.versions.node) {
-      if (!cachedMeta || !cachedNodeBuffer) {
-        const fs = await import('fs');
-        const path = await import('path');
-        const metaPath384 = path.resolve('public', 'corpus_embeddings_384d_meta.json');
-        const metaPathMain = path.resolve('public', 'corpus_embeddings_meta.json');
-        const metaPath = fs.existsSync(metaPath384) ? metaPath384 : metaPathMain;
-
-        const binPath384 = path.resolve('public', 'corpus_embeddings_384d.bin');
-        const binPath768 = path.resolve('public', 'corpus_embeddings_768d.bin');
-        const binPath = fs.existsSync(binPath384) ? binPath384 : binPath768;
-
-        if (fs.existsSync(metaPath) && fs.existsSync(binPath)) {
-          const rawMeta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-          // Filtrer rigoureusement sur model_id et dimension
-          if (rawMeta.dimension === 384 && (rawMeta.model_id === 'Xenova/multilingual-e5-small' || rawMeta.model === 'Xenova/multilingual-e5-small')) {
-            cachedMeta = rawMeta;
-            cachedNodeBuffer = fs.readFileSync(binPath);
-          } else if (rawMeta.dimension === 768) {
-            // Ancien index conservé mais ignoré pour les recherches vectorielles E5
-            console.info('[ExposeDocumentService] Ancien index 768D détecté et ignoré au profit de E5 384D.');
+    // 1. Mode Electron : lecture directe via IPC (< 5ms, 0 appel réseau)
+    if (typeof window !== 'undefined' && window.electronAPI?.system?.getPrecalculatedEmbeddings) {
+      if (!cachedMeta || !cachedArrayBuf) {
+        try {
+          const resp = await window.electronAPI.system.getPrecalculatedEmbeddings();
+          if (resp && resp.success && resp.metadata && resp.binaryBuffer) {
+            cachedMeta = resp.metadata;
+            const b = resp.binaryBuffer;
+            if (b instanceof ArrayBuffer) {
+              cachedArrayBuf = b;
+            } else if (ArrayBuffer.isView(b)) {
+              cachedArrayBuf = new Uint8Array(b.buffer, b.byteOffset, b.byteLength).slice().buffer;
+            } else if (b && typeof b === 'object' && b.type === 'Buffer' && Array.isArray(b.data)) {
+              cachedArrayBuf = new Uint8Array(b.data).buffer;
+            } else if (b && typeof b === 'object' && Array.isArray(b.data)) {
+              cachedArrayBuf = new Uint8Array(b.data).buffer;
+            } else {
+              cachedArrayBuf = new Uint8Array(b).buffer;
+            }
           }
+        } catch (ipcErr) {
+          console.warn('[ExposeDocumentService] Erreur IPC getPrecalculatedEmbeddings:', ipcErr);
         }
-      }
-
-      if (cachedMeta && cachedNodeBuffer) {
-        const chunkMap = new Map<string, SermonChunk>();
-        for (const c of chunks) {
-          if (!c.embedding || c.embedding.length === 0) chunkMap.set(c.chunkId, c);
-        }
-
-        for (const item of cachedMeta.chunks) {
-          const chunk = chunkMap.get(item.chunkId);
-          if (chunk && item.length === 384) {
-            chunk.embedding = new Int8Array(cachedNodeBuffer.buffer, cachedNodeBuffer.byteOffset + item.offset, item.length);
-          }
-        }
-        return;
       }
     }
 
-    // Mode Navigateur Web / SPA / Electron Renderer
-    if (typeof window !== 'undefined' && typeof fetch !== 'undefined') {
-      if (!cachedMeta || !cachedArrayBuf) {
-        const safeFetch = async (url: string): Promise<Response | null> => {
-          try {
-            const res = await fetch(url);
-            return res && res.ok ? res : null;
-          } catch {
-            return null;
-          }
-        };
+    // 2. Mode Node.js / CLI / Scripts
+    if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+      if (!cachedMeta || (!cachedNodeBuffer && !cachedArrayBuf)) {
+        try {
+          const fs = await import('fs');
+          const path = await import('path');
+          const metaCandidates = [
+            path.resolve('public', 'corpus_embeddings_384d_meta.json'),
+            path.resolve('dist', 'corpus_embeddings_384d_meta.json'),
+            path.resolve('public', 'corpus_embeddings_meta.json'),
+            path.resolve('dist', 'corpus_embeddings_meta.json')
+          ];
+          const binCandidates = [
+            path.resolve('public', 'corpus_embeddings_384d.bin'),
+            path.resolve('dist', 'corpus_embeddings_384d.bin'),
+            path.resolve('public', 'corpus_embeddings_768d.bin'),
+            path.resolve('dist', 'corpus_embeddings_768d.bin')
+          ];
 
-        const fetchFirstWorking = async (urls: string[]): Promise<Response | null> => {
-          for (const u of urls) {
-            const res = await safeFetch(u);
-            if (res) return res;
-          }
-          return null;
-        };
+          const metaPath = metaCandidates.find(p => fs.existsSync(p));
+          const binPath = binCandidates.find(p => fs.existsSync(p));
 
-        const loc = window.location;
-        let baseUrl = './';
-        if (loc) {
-          if (loc.protocol === 'file:') {
-            baseUrl = loc.href.substring(0, loc.href.lastIndexOf('/') + 1);
-          } else {
-            baseUrl = loc.origin + loc.pathname.replace(/\/[^\/]*$/, '/');
+          if (metaPath && binPath) {
+            const rawMeta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+            if (rawMeta.dimension === 384 && (rawMeta.model_id === 'Xenova/multilingual-e5-small' || rawMeta.model === 'Xenova/multilingual-e5-small')) {
+              cachedMeta = rawMeta;
+              cachedNodeBuffer = fs.readFileSync(binPath);
+            }
           }
+        } catch (e) {
+          // Ignore en environnement non-Node
         }
+      }
+    }
 
-        const metaCandidates = [
-          baseUrl + 'corpus_embeddings_384d_meta.json',
-          './corpus_embeddings_384d_meta.json',
-          'corpus_embeddings_384d_meta.json',
-          baseUrl + 'corpus_embeddings_meta.json',
-          './corpus_embeddings_meta.json',
-          'corpus_embeddings_meta.json'
-        ];
+    // 3. Mode Navigateur Web / SPA / Electron Renderer (fetch)
+    if ((!cachedMeta || (!cachedArrayBuf && !cachedNodeBuffer)) && typeof window !== 'undefined' && typeof fetch !== 'undefined') {
+      const safeFetch = async (url: string): Promise<Response | null> => {
+        try {
+          const res = await fetch(url);
+          return res && (res.ok || res.status === 0 || res.status === 200) ? res : null;
+        } catch {
+          return null;
+        }
+      };
 
-        const binCandidates = [
-          baseUrl + 'corpus_embeddings_384d.bin',
-          './corpus_embeddings_384d.bin',
-          'corpus_embeddings_384d.bin',
-          baseUrl + 'corpus_embeddings_768d.bin',
-          './corpus_embeddings_768d.bin',
-          'corpus_embeddings_768d.bin'
-        ];
+      const fetchFirstWorking = async (urls: string[]): Promise<Response | null> => {
+        for (const u of urls) {
+          const res = await safeFetch(u);
+          if (res) return res;
+        }
+        return null;
+      };
 
-        const metaRes = await fetchFirstWorking(metaCandidates);
-        const binRes = await fetchFirstWorking(binCandidates);
-
-        if (metaRes && binRes) {
-          const rawMeta = await metaRes.json();
-          if (rawMeta.dimension === 384 && (rawMeta.model_id === 'Xenova/multilingual-e5-small' || rawMeta.model === 'Xenova/multilingual-e5-small')) {
-            cachedMeta = rawMeta;
-            cachedArrayBuf = await binRes.arrayBuffer();
-          }
+      const loc = window.location;
+      let baseUrl = './';
+      if (loc) {
+        if (loc.protocol === 'file:') {
+          baseUrl = loc.href.substring(0, loc.href.lastIndexOf('/') + 1);
+        } else {
+          baseUrl = loc.origin + loc.pathname.replace(/\/[^\/]*$/, '/');
         }
       }
 
-      if (cachedMeta && cachedArrayBuf) {
-        const chunkMap = new Map<string, SermonChunk>();
-        for (const c of chunks) {
-          if (!c.embedding || c.embedding.length === 0) chunkMap.set(c.chunkId, c);
-        }
+      const metaCandidates = [
+        baseUrl + 'corpus_embeddings_384d_meta.json',
+        './corpus_embeddings_384d_meta.json',
+        'corpus_embeddings_384d_meta.json',
+        '/corpus_embeddings_384d_meta.json',
+        baseUrl + 'corpus_embeddings_meta.json',
+        './corpus_embeddings_meta.json',
+        'corpus_embeddings_meta.json',
+        '/corpus_embeddings_meta.json'
+      ];
 
-        for (const item of cachedMeta.chunks) {
-          const chunk = chunkMap.get(item.chunkId);
-          if (chunk && item.length === 384) {
-            chunk.embedding = new Int8Array(cachedArrayBuf, item.offset, item.length);
-          }
+      const binCandidates = [
+        baseUrl + 'corpus_embeddings_384d.bin',
+        './corpus_embeddings_384d.bin',
+        'corpus_embeddings_384d.bin',
+        '/corpus_embeddings_384d.bin',
+        baseUrl + 'corpus_embeddings_768d.bin',
+        './corpus_embeddings_768d.bin',
+        'corpus_embeddings_768d.bin',
+        '/corpus_embeddings_768d.bin'
+      ];
+
+      const metaRes = await fetchFirstWorking(metaCandidates);
+      const binRes = await fetchFirstWorking(binCandidates);
+
+      if (metaRes && binRes) {
+        const rawMeta = await metaRes.json();
+        if (rawMeta.dimension === 384 && (rawMeta.model_id === 'Xenova/multilingual-e5-small' || rawMeta.model === 'Xenova/multilingual-e5-small')) {
+          cachedMeta = rawMeta;
+          cachedArrayBuf = await binRes.arrayBuffer();
+        }
+      }
+    }
+
+    // 4. Application des vecteurs en mémoire
+    if (cachedMeta && (cachedArrayBuf || cachedNodeBuffer)) {
+      const chunkMap = new Map<string, SermonChunk>();
+      for (const c of chunks) {
+        if (!c.embedding || c.embedding.length === 0) chunkMap.set(c.chunkId, c);
+      }
+
+      const buf = cachedArrayBuf || cachedNodeBuffer.buffer;
+      const baseOffset = cachedNodeBuffer ? cachedNodeBuffer.byteOffset : 0;
+
+      for (const item of cachedMeta.chunks) {
+        const chunk = chunkMap.get(item.chunkId);
+        if (chunk && item.length === 384) {
+          chunk.embedding = new Int8Array(buf, baseOffset + item.offset, item.length);
         }
       }
     }

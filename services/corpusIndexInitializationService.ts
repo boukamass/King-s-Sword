@@ -363,14 +363,48 @@ export async function initializeCorpusIndex(options: {
       sermonsProcessed: 0
     });
 
-    // Hydratation immédiate avec les embeddings précalculés
+    // Hydratation immédiate avec les embeddings précalculés (0ms de calcul)
     try {
       await hydrateExposePrecalculatedEmbeddings(officialChunks);
     } catch (e) {
       console.warn('[CorpusIndexInit] Hydratation précalculée ignorée:', e);
     }
 
-    // Sauvegarde immédiate dans FTS5 / Storage pour recherche lexicale textuelle instantanée
+    // Vérification directe en mémoire : si tous les chunks sont hydratés, passage immédiat en READY
+    let inMemoryValidCount = 0;
+    for (const chunk of officialChunks) {
+      if (chunk.embedding && validateEmbeddingVector(chunk.embedding, 384).valid) {
+        inMemoryValidCount++;
+      }
+    }
+
+    if (inMemoryValidCount === officialChunks.length && !options.forceReindex) {
+      notifyProgressUpdate({
+        status: 'READY',
+        embeddingsCreated: 0,
+        embeddingsReused: officialChunks.length,
+        chunksProcessed: officialChunks.length,
+        totalChunks: officialChunks.length,
+        sermonsProcessed: totalSermonsCount,
+        totalSermons: totalSermonsCount,
+        etaFormatted: 'Terminé',
+        lastIndexedAt: new Date().toISOString(),
+        errorMessage: null
+      });
+      isIndexingInProgress = false;
+      stopWatchdog();
+
+      // Sauvegarde asynchrone non-bloquante en arrière-plan sans geler l'UI
+      setTimeout(() => {
+        saveChunks(officialChunks).catch(err => {
+          console.warn('[CorpusIndexInit] Sauvegarde asynchrone chunks:', err);
+        });
+      }, 300);
+
+      return getCurrentIndexProgress();
+    }
+
+    // Sauvegarde dans FTS5 / Storage pour recherche lexicale textuelle instantanée
     await saveChunks(officialChunks);
 
     // Inspection des embeddings existants

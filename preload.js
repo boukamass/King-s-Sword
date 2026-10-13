@@ -49,6 +49,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     decryptSecureData: (cipherText) => ipcRenderer.invoke('security:decryptSecureData', cipherText),
   },
   system: {
-    getModelInfo: () => ipcRenderer.invoke('system:getModelInfo')
+    getModelInfo: () => ipcRenderer.invoke('system:getModelInfo'),
+    getPrecalculatedEmbeddings: () => ipcRenderer.invoke('system:getPrecalculatedEmbeddings')
   }
 });
