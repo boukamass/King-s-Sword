@@ -47,13 +47,15 @@ export function getWorkerDiagnosticState(): WorkerDiagnosticState {
 }
 
 /**
- * Nombre optimal de threads ONNX (la moitié des cœurs du système, minimum 1)
+ * Nombre optimal de threads ONNX (1 thread par défaut sans SharedArrayBuffer pour éviter le crash WASM)
  */
 export function getRecommendedThreadCount(): number {
-  if (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) {
-    return Math.max(1, Math.floor(navigator.hardwareConcurrency / 2));
+  if (typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated && typeof SharedArrayBuffer !== 'undefined') {
+    if (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) {
+      return Math.max(1, Math.floor(navigator.hardwareConcurrency / 2));
+    }
   }
-  return 2;
+  return 1;
 }
 
 /**
@@ -158,13 +160,15 @@ export async function initE5Worker(): Promise<boolean> {
         if (!cleanResPath.startsWith('/')) cleanResPath = '/' + cleanResPath;
         const resUrl = 'file://' + cleanResPath + '/';
         modelPath = resUrl + 'models/';
-        wasmPath = resUrl + 'wasm/';
+        // NOTE CRITIQUE : Les fichiers WebAssembly (*.wasm) sont toujours servis depuis le dossier d'assets dist/wasm/
+        // (accessible via baseUrl + 'wasm/'), et NON dans process.resourcesPath.
+        // On conserve wasmPath = baseUrl + 'wasm/' pour éviter l'erreur de fichier introuvable.
       }
 
       const promise = new Promise<boolean>((resolve, reject) => {
         const timeout = setTimeout(() => {
-          reject(new Error('Délai d\'attente de 8s dépassé pour l\'initialisation du Worker E5'));
-        }, 8000);
+          reject(new Error('Délai d\'attente de 30s dépassé pour l\'initialisation du Worker E5'));
+        }, 30000);
 
         pendingRequests.set(reqId, {
           resolve: (v) => { clearTimeout(timeout); resolve(v); },

@@ -57,11 +57,22 @@ self.onmessage = async (e: MessageEvent) => {
 
       if (env.backends?.onnx?.wasm) {
         if (wasmPath) {
-          env.backends.onnx.wasm.wasmPaths = wasmPath;
+          const cleanWasmPath = wasmPath.endsWith('/') ? wasmPath : wasmPath + '/';
+          env.backends.onnx.wasm.wasmPaths = cleanWasmPath;
         }
-        if (numThreads) {
-          env.backends.onnx.wasm.numThreads = numThreads;
-        }
+
+        // Sécurité WebAssembly dans le Web Worker :
+        // Le Worker s'exécute déjà dans un thread d'arrière-plan dédié (0 ms d'impact sur le thread de rendu).
+        // En environnement standard navigateur ou Electron sans isolation cross-origin stricte (headers COOP/COEP),
+        // SharedArrayBuffer est indisponible et onnxruntime-web requiert des scripts *.worker.js multi-threadés.
+        // Tenter numThreads > 1 déclenche alors : 'failed to asynchronously prepare wasm: [object ProgressEvent]'.
+        // On force donc numThreads = 1 (avec accélération SIMD ort-wasm-simd.wasm) pour un démarrage instantané et sans erreur.
+        const canUseSharedThreads = typeof self !== 'undefined' && 
+                                   (self as any).crossOriginIsolated === true && 
+                                   typeof SharedArrayBuffer !== 'undefined';
+
+        env.backends.onnx.wasm.numThreads = canUseSharedThreads && numThreads && numThreads > 1 ? numThreads : 1;
+        env.backends.onnx.wasm.proxy = false;
       }
 
       extractorInstance = await pipeline('feature-extraction', 'Xenova/multilingual-e5-small', {

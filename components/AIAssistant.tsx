@@ -191,9 +191,12 @@ const AIAssistant: React.FC = () => {
       setIndexProgress(initial);
       if (!hasTriggeredInitRef.current && (!initial || initial.status !== 'READY')) {
         hasTriggeredInitRef.current = true;
-        initializeCorpusIndex({ loadedSermonsMap: sermonsMap }).catch(err => {
-          console.warn('[AIAssistant] Erreur auto-indexation:', err);
-        });
+        // Démarrage différé en douceur pour préserver 100% de la fluidité UI au lancement
+        setTimeout(() => {
+          initializeCorpusIndex({ loadedSermonsMap: sermonsMap }).catch(err => {
+            console.warn('[AIAssistant] Erreur auto-indexation:', err);
+          });
+        }, 8000);
       }
     });
     const unsubscribe = subscribeIndexProgress(updated => {

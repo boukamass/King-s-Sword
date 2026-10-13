@@ -14,6 +14,7 @@ const WEB_CHUNKS_KEY = 'ks_sermon_chunks_store_v1';
 
 // Cache mémoire pour accès synchrone rapide en mode Web
 let webMemoryCache: Map<string, SermonChunk> | null = null;
+let persistTimer: any = null;
 
 async function initWebMemoryCache(): Promise<Map<string, SermonChunk>> {
   if (webMemoryCache) return webMemoryCache;
@@ -30,6 +31,17 @@ async function initWebMemoryCache(): Promise<Map<string, SermonChunk>> {
   return webMemoryCache;
 }
 
+/**
+ * Force l'écriture immédiate du cache mémoire dans IndexedDB (flush)
+ */
+export async function flushChunkStorage(): Promise<void> {
+  if (persistTimer) {
+    clearTimeout(persistTimer);
+    persistTimer = null;
+  }
+  await persistWebMemoryCache();
+}
+
 async function persistWebMemoryCache(): Promise<void> {
   if (!webMemoryCache) return;
   if (typeof indexedDB === 'undefined') return;
@@ -41,10 +53,21 @@ async function persistWebMemoryCache(): Promise<void> {
   }
 }
 
+function scheduleDebouncedPersist(): void {
+  if (persistTimer) return;
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    persistWebMemoryCache().catch(() => {});
+  }, 2500);
+}
+
 /**
  * Enregistre un ensemble de chunks de manière incrémentale avec détection de contentHash.
  */
-export async function saveChunks(chunks: SermonChunk[]): Promise<{ count: number; saved: number; unchanged: number }> {
+export async function saveChunks(
+  chunks: SermonChunk[],
+  options?: { immediate?: boolean }
+): Promise<{ count: number; saved: number; unchanged: number }> {
   if (!Array.isArray(chunks) || chunks.length === 0) {
     return { count: 0, saved: 0, unchanged: 0 };
   }
@@ -90,7 +113,11 @@ export async function saveChunks(chunks: SermonChunk[]): Promise<{ count: number
   }
 
   if (saved > 0) {
-    await persistWebMemoryCache();
+    if (options?.immediate) {
+      await flushChunkStorage();
+    } else {
+      scheduleDebouncedPersist();
+    }
   }
 
   return { count: chunks.length, saved, unchanged };

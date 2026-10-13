@@ -17,7 +17,7 @@
 
 import { SermonChunk } from '../types';
 import { computeChunkHash } from './chunkingService';
-import { saveChunks, getChunkById, getAllChunks } from './chunkStorageService';
+import { saveChunks, getChunkById, getAllChunks, flushChunkStorage } from './chunkStorageService';
 import { LOCAL_E5_CONFIG, validateEmbeddingVector } from './embeddingService';
 import { computeE5BatchInWorker } from './e5WorkerManager';
 import { useAppStore } from '../store';
@@ -448,14 +448,14 @@ export async function runIncrementalEmbeddingIndexing(
     const remainingToEmbed = sortedChunksToEmbed.length - (i + batch.length);
     const etaFormatted = formatETA(remainingToEmbed, chunksPerSec);
 
-    // ORDONNANCEUR ADAPTATIF :
-    // - Inactif : 0 ms de délai (pleine vitesse)
-    // - Actif (l'utilisateur interagit) : 500 ms de délai pour soulager l'interface
+    // ORDONNANCEUR ADAPTATIF DOUX :
+    // - Inactif : 40 ms de pause minimale pour laisser l'Event Loop et le rendu respirer sans à-coups
+    // - Actif (l'utilisateur interagit : frappe, défilement, clics) : 1200 ms de délai pour laisser 100% de fluidité à l'UI
     let adaptiveDelay = opts.delayBetweenBatchesMs;
     if (isUserActive) {
-      adaptiveDelay = 500;
+      adaptiveDelay = Math.max(1200, opts.delayBetweenBatchesMs);
     } else {
-      adaptiveDelay = 0;
+      adaptiveDelay = Math.max(40, opts.delayBetweenBatchesMs);
     }
 
     if (i + batchSize < sortedChunksToEmbed.length && adaptiveDelay > 0) {
@@ -480,6 +480,13 @@ export async function runIncrementalEmbeddingIndexing(
       details: { caseA, caseB, caseC, caseD },
       errors
     });
+  }
+
+  // Flush final du stockage pour garantir la persistance des nouveaux embeddings
+  try {
+    await flushChunkStorage();
+  } catch (e) {
+    console.warn('[EmbeddingIndex] Erreur flush stockage:', e);
   }
 
   const finalElapsedMs = Math.round((performance.now() - startTime) * 100) / 100;
