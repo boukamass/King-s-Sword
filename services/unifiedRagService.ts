@@ -94,12 +94,17 @@ export function parseContextSourceString(idOrObj: string | AIContextSource): AIC
 
   const raw = idOrObj.trim();
 
-  // 1. Bible (ex: bible-jhn-3, bible-jhn-3-16, bible-mat-5)
-  if (raw.startsWith('bible-')) {
-    const parts = raw.split('-');
+  // Détection du ciblage granulaire par paragraphe (-p-N)
+  const pMatch = raw.match(/^(.*?)-p-(\d+)$/);
+  const baseRaw = pMatch ? pMatch[1] : raw;
+  const targetParaNum = pMatch ? parseInt(pMatch[2], 10) : undefined;
+
+  // 1. Bible (ex: bible-jhn-3, bible-jhn-3-16, bible-jhn-3-p-16, bible-mat-5)
+  if (baseRaw.startsWith('bible-')) {
+    const parts = baseRaw.split('-');
     const bookId = parts[1]?.toUpperCase() || 'GEN';
     const chapterStr = parts[2] || '1';
-    const verseStr = parts[3];
+    const verseStr = targetParaNum ? String(targetParaNum) : (parts[3] === 'p' ? parts[4] : parts[3]);
 
     const meta = BIBLE_BOOKS_META.find(b => b.id.toUpperCase() === bookId.toUpperCase());
     const bookName = meta ? meta.name : bookId;
@@ -123,45 +128,49 @@ export function parseContextSourceString(idOrObj: string | AIContextSource): AIC
     };
   }
 
-  // 2. Exposé Chapitre (ex: expose-ch-8, expose-ch-1)
-  if (raw.startsWith('expose-ch-')) {
-    const ch = raw.replace('expose-ch-', '');
+  // 2. Exposé Chapitre (ex: expose-ch-8, expose-ch-1, expose-ch-1-p-12)
+  if (baseRaw.startsWith('expose-ch-')) {
+    const ch = baseRaw.replace('expose-ch-', '');
     return {
       sourceType: 'expose',
-      sourceId: raw,
-      title: `Exposé - Chapitre ${ch}`,
-      selectedUnit: { type: 'chapter', id: ch }
+      sourceId: baseRaw,
+      title: targetParaNum ? `Exposé - Chapitre ${ch} (§ ${targetParaNum})` : `Exposé - Chapitre ${ch}`,
+      selectedUnit: targetParaNum ? { type: 'paragraph', id: targetParaNum, paragraphIndex: targetParaNum } : { type: 'chapter', id: ch },
+      allowedParagraphIds: targetParaNum ? [targetParaNum] : undefined
     };
   }
 
-  // 3. Exposé Page (ex: expose-pg-15)
-  if (raw.startsWith('expose-pg-')) {
-    const pg = parseInt(raw.replace('expose-pg-', ''), 10);
+  // 3. Exposé Page (ex: expose-pg-15, expose-pg-15-p-3)
+  if (baseRaw.startsWith('expose-pg-')) {
+    const pg = parseInt(baseRaw.replace('expose-pg-', ''), 10);
     return {
       sourceType: 'expose',
-      sourceId: raw,
-      title: `Exposé - Page ${pg}`,
-      selectedUnit: { type: 'page', id: pg }
+      sourceId: baseRaw,
+      title: targetParaNum ? `Exposé - Page ${pg} (§ ${targetParaNum})` : `Exposé - Page ${pg}`,
+      selectedUnit: targetParaNum ? { type: 'paragraph', id: targetParaNum, paragraphIndex: targetParaNum } : { type: 'page', id: pg },
+      allowedParagraphIds: targetParaNum ? [targetParaNum] : undefined
     };
   }
 
-  // 4. Chant (ex: song-1, song-12)
-  if (raw.startsWith('song-')) {
-    const sId = raw.replace('song-', '');
+  // 4. Chant (ex: song-1, song-12, song-12-p-2)
+  if (baseRaw.startsWith('song-')) {
+    const sId = baseRaw.replace('song-', '');
     return {
       sourceType: 'song',
-      sourceId: raw,
-      title: `Cantique #${sId}`,
-      selectedUnit: { type: 'document', id: sId }
+      sourceId: baseRaw,
+      title: targetParaNum ? `Cantique #${sId} (Strophe ${targetParaNum})` : `Cantique #${sId}`,
+      selectedUnit: targetParaNum ? { type: 'paragraph', id: targetParaNum, paragraphIndex: targetParaNum } : { type: 'document', id: sId },
+      allowedParagraphIds: targetParaNum ? [targetParaNum] : undefined
     };
   }
 
-  // 5. Sermon standard (ex: 63-0324M, 65-1212)
+  // 5. Sermon standard (ex: 63-0324M, 65-1212, 63-0324M-p-15)
   return {
     sourceType: 'sermon',
-    sourceId: raw,
-    title: raw,
-    selectedUnit: { type: 'document', id: raw }
+    sourceId: baseRaw,
+    title: targetParaNum ? `${baseRaw} (§ ${targetParaNum})` : baseRaw,
+    selectedUnit: targetParaNum ? { type: 'paragraph', id: targetParaNum, paragraphIndex: targetParaNum } : { type: 'document', id: baseRaw },
+    allowedParagraphIds: targetParaNum ? [targetParaNum] : undefined
   };
 }
 

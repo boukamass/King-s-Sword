@@ -219,18 +219,12 @@ const App: React.FC = () => {
         if (w < 60) { if (notesOpen) setNotesOpen(false); }
         else { if (!notesOpen && w > 40) setNotesOpen(true); setNotesWidth(w); }
       } else if (activeHandle.current === 'ai') {
-        // Permet d'élargir le panneau pour occuper au moins 2/3 (67%) et jusqu'à 75% de l'écran
         const maxAiWidth = Math.min(
           Math.floor(window.innerWidth * 0.75),
           window.innerWidth - 200
         );
         const w = Math.max(280, Math.min(maxAiWidth, window.innerWidth - clientX));
         
-        // Si l'utilisateur élargit le panneau au-delà de 52% de l'écran et que la barre latérale est ouverte, fermer la barre latérale
-        if (w > window.innerWidth * 0.52 && sidebarOpen) {
-          setSidebarOpen(false);
-        }
-
         if (w < 80) { 
           if (aiOpen) setAiOpen(false); 
         } else { 
@@ -239,7 +233,7 @@ const App: React.FC = () => {
         }
       }
     });
-  }, [aiOpen, notesOpen, aiWidth, sidebarOpen, notesWidth, setAiWidth, setNotesWidth, setAiOpen, setNotesOpen, setSidebarOpen]);
+  }, [aiOpen, notesOpen, aiWidth, notesWidth, setAiWidth, setNotesWidth, setAiOpen, setNotesOpen]);
 
   useEffect(() => {
     if (isResizing) { window.addEventListener('mousemove', handleResizingMove); window.addEventListener('mouseup', stopResizing); }
@@ -284,9 +278,9 @@ const App: React.FC = () => {
 
   const transitionClass = isResizing ? "transition-none" : "transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1)";
   const SIDEBAR_FIXED_WIDTH = 400;
-  const effectiveSidebarWidth = isFullscreen ? 0 : ((activeNoteId ? false : sidebarOpen) ? SIDEBAR_FIXED_WIDTH : 0);
-  const effectiveNotesWidth = isFullscreen ? 0 : ((activeNoteId ? false : notesOpen) ? notesWidth : 0);
-  const effectiveAiWidth = isFullscreen ? 0 : ((activeNoteId ? false : aiOpen) ? aiWidth : 0);
+  const effectiveSidebarWidth = isFullscreen ? 0 : (sidebarOpen ? SIDEBAR_FIXED_WIDTH : 0);
+  const effectiveNotesWidth = isFullscreen ? 0 : (notesOpen ? notesWidth : 0);
+  const effectiveAiWidth = isFullscreen ? 0 : (aiOpen ? aiWidth : 0);
 
   return (
     <div className="flex h-screen w-full bg-slate-50 dark:bg-zinc-950 overflow-hidden app-container flex-col">

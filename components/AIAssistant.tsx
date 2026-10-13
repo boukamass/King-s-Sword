@@ -47,7 +47,8 @@ import {
   Check,
   Undo2,
   Copy,
-  Square
+  Square,
+  Eraser
 } from 'lucide-react';
 
 export function extractFollowUpQuestions(content: string): string[] {
@@ -252,6 +253,37 @@ const AIAssistant: React.FC = () => {
   const [searchConvQuery, setSearchConvQuery] = useState('');
   const [editingConvId, setEditingConvId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
+  const conversationsDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Fermeture automatique de la liste déroulante des discussions au clic extérieur ou touche Échap
+  useEffect(() => {
+    if (!isConversationsDrawerOpen) return;
+
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (
+        conversationsDropdownRef.current &&
+        !conversationsDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsConversationsDrawerOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsConversationsDrawerOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isConversationsDrawerOpen]);
 
   // Persistance dans localStorage
   useEffect(() => {
@@ -428,8 +460,8 @@ const AIAssistant: React.FC = () => {
     addNotification("Historique des discussions réinitialisé", "success");
   };
 
-  // Nettoyage des messages de la discussion courante
-  const handleClearChat = (targetId = chatKey) => {
+  // Nettoyage de tout le contenu des messages d'une discussion sans supprimer la discussion
+  const handleClearChat = (targetId = chatKey, preserveTitle = true) => {
     useAppStore.setState(state => {
       const next = {
         ...state.chatHistory,
@@ -440,8 +472,59 @@ const AIAssistant: React.FC = () => {
       } catch {}
       return { chatHistory: next };
     });
-    setConversations(prev => prev.map(c => c.id === targetId ? { ...c, title: 'Nouvelle discussion', updatedAt: new Date().toISOString() } : c));
-    addNotification("Discussion vidée", "info");
+    if (!preserveTitle) {
+      setConversations(prev => prev.map(c => c.id === targetId ? { ...c, title: 'Nouvelle discussion', updatedAt: new Date().toISOString() } : c));
+    } else {
+      setConversations(prev => prev.map(c => c.id === targetId ? { ...c, updatedAt: new Date().toISOString() } : c));
+    }
+    if (editingIndex !== null) {
+      setEditingIndex(null);
+      setEditingText('');
+    }
+    addNotification("Contenu de la discussion vidé", "info");
+  };
+
+  // Suppression d'une question et de sa réponse associée
+  const handleDeleteQuestionAndAnswer = (index: number) => {
+    useAppStore.setState(state => {
+      const currentList = state.chatHistory[chatKey] || [];
+      if (index < 0 || index >= currentList.length) return state;
+
+      const nextList = [...currentList];
+      const targetMsg = nextList[index];
+
+      if (targetMsg?.role === 'user') {
+        // Si le message suivant est la réponse de l'assistant, supprimer les deux ensemble
+        if (nextList[index + 1]?.role === 'assistant') {
+          nextList.splice(index, 2);
+        } else {
+          nextList.splice(index, 1);
+        }
+      } else if (targetMsg?.role === 'assistant') {
+        // Si le message précédent était la question de l'utilisateur, supprimer les deux ensemble
+        if (index > 0 && nextList[index - 1]?.role === 'user') {
+          nextList.splice(index - 1, 2);
+        } else {
+          nextList.splice(index, 1);
+        }
+      } else {
+        nextList.splice(index, 1);
+      }
+
+      const next = {
+        ...state.chatHistory,
+        [chatKey]: nextList
+      };
+      try {
+        localStorage.setItem('kings_sword_ai_chat_history_v1', JSON.stringify(next));
+      } catch {}
+      return { chatHistory: next };
+    });
+    if (editingIndex === index || (index > 0 && editingIndex === index - 1)) {
+      setEditingIndex(null);
+      setEditingText('');
+    }
+    addNotification("Question et réponse supprimées", "info");
   };
 
   // Filtrage des conversations
@@ -462,51 +545,70 @@ const AIAssistant: React.FC = () => {
   const selectedSermonsMetadata = useMemo(() => {
     const uniqueMap = new Map<string, any>();
     contextSermonIds.forEach(id => {
-      if (id.startsWith('bible-')) {
-        const parts = id.split('-');
+      const pMatch = id.match(/^(.*?)-p-(\d+)$/);
+      const baseId = pMatch ? pMatch[1] : id;
+      const targetPara = pMatch ? parseInt(pMatch[2], 10) : undefined;
+
+      if (baseId.startsWith('bible-')) {
+        const parts = baseId.split('-');
         const bookId = parts[1];
         const chapterStr = parts[2];
         const meta = BIBLE_BOOKS_META.find(b => b.id.toUpperCase() === bookId.toUpperCase());
         if (meta) {
-          const title = chapterStr === 'all' 
-            ? `${meta.name} (Livre entier)`
-            : `${meta.name} ${chapterStr}`;
+          const title = targetPara
+            ? `${meta.name} ${chapterStr}:${targetPara}`
+            : (chapterStr === 'all' 
+              ? `${meta.name} (Livre entier)`
+              : `${meta.name} ${chapterStr}`);
           uniqueMap.set(id, {
             id,
             title,
-            date: bibleVersion.toUpperCase(),
+            date: targetPara ? `Verset ${targetPara} • ${bibleVersion.toUpperCase()}` : bibleVersion.toUpperCase(),
             city: meta.testament === 'OT' ? 'Ancien Testament' : 'Nouveau Testament'
           });
         }
-      } else if (id.startsWith('song-')) {
-        const rawId = id.replace('song-', '');
+      } else if (baseId.startsWith('song-')) {
+        const rawId = baseId.replace('song-', '');
         const found = allLoadedSongs.find(s => String(s.id) === rawId);
+        const songTitle = found ? `${found.id}. ${found.title}` : `Cantique #${rawId}`;
         uniqueMap.set(id, {
           id,
-          title: found ? `${found.id}. ${found.title}` : `Cantique #${rawId}`,
-          date: 'Cantique',
+          title: targetPara ? `${songTitle} (Strophe ${targetPara})` : songTitle,
+          date: targetPara ? `Strophe ${targetPara}` : 'Cantique',
           city: found?.language ? getSongLanguageBadge(found.language) : 'FR'
         });
-      } else if (id.startsWith('expose-pg-')) {
-        const pg = id.replace('expose-pg-', '');
+      } else if (baseId.startsWith('expose-pg-')) {
+        const pg = baseId.replace('expose-pg-', '');
         uniqueMap.set(id, {
           id,
-          title: `Exposé des Sept Âges - Page ${pg}`,
-          date: 'Exposé',
+          title: targetPara ? `Exposé Page ${pg} (§ ${targetPara})` : `Exposé des Sept Âges - Page ${pg}`,
+          date: targetPara ? `§ ${targetPara} • Exposé` : 'Exposé',
           city: 'W.M. Branham'
         });
-      } else if (id.startsWith('expose-ch-')) {
-        const ch = id.replace('expose-ch-', '');
+      } else if (baseId.startsWith('expose-ch-')) {
+        const ch = baseId.replace('expose-ch-', '');
         uniqueMap.set(id, {
           id,
-          title: `Exposé - Chapitre ${ch}`,
-          date: 'Exposé',
+          title: targetPara ? `Exposé Ch. ${ch} (§ ${targetPara})` : `Exposé - Chapitre ${ch}`,
+          date: targetPara ? `§ ${targetPara} • Exposé` : 'Exposé',
           city: 'W.M. Branham'
         });
       } else {
-        const s = sermonsMap.get(id) || sermons.find(item => item.id === id);
+        const s = sermonsMap.get(baseId) || sermons.find(item => item.id === baseId);
         if (s) {
-          uniqueMap.set(id, s);
+          uniqueMap.set(id, {
+            ...s,
+            id,
+            title: targetPara ? `${s.title} (§ ${targetPara})` : s.title,
+            date: targetPara ? `§ ${targetPara} • ${s.date}` : s.date
+          });
+        } else if (targetPara) {
+          uniqueMap.set(id, {
+            id,
+            title: `${baseId} (§ ${targetPara})`,
+            date: `§ ${targetPara}`,
+            city: 'W.M. Branham'
+          });
         }
       }
     });
@@ -633,32 +735,56 @@ const AIAssistant: React.FC = () => {
   const getFullSermons = async (ids: string[]): Promise<Sermon[]> => {
     const uniqueIds = Array.from(new Set(ids));
     const results = await Promise.all(uniqueIds.map(async id => {
-      if (id.startsWith('bible-')) {
-        const parts = id.split('-');
+      const pMatch = id.match(/^(.*?)-p-(\d+)$/);
+      const baseId = pMatch ? pMatch[1] : id;
+      const targetPara = pMatch ? parseInt(pMatch[2], 10) : undefined;
+
+      let baseDoc: Sermon | null = null;
+      if (baseId.startsWith('bible-')) {
+        const parts = baseId.split('-');
         const bookId = parts[1];
         const chapterStr = parts[2];
         if (chapterStr === 'all') {
-          return await getBibleBookSermon(bookId, bibleVersion);
+          baseDoc = await getBibleBookSermon(bookId, bibleVersion);
         } else {
           const chapter = parseInt(chapterStr, 10) || 1;
-          return await getBibleChapterSermon(bookId, chapter, bibleVersion);
+          baseDoc = await getBibleChapterSermon(bookId, chapter, bibleVersion);
         }
+      } else if (baseId.startsWith('song-')) {
+        baseDoc = await getSongAsSermon(baseId);
+      } else if (baseId.startsWith('expose-pg-')) {
+        const pageNum = parseInt(baseId.replace('expose-pg-', ''), 10);
+        baseDoc = await getExposePage(pageNum);
+      } else if (baseId.startsWith('expose-ch-')) {
+        const chNum = baseId.replace('expose-ch-', '');
+        baseDoc = await getExposeChapter(chNum);
+      } else if (!isSqliteAvailable) {
+        baseDoc = sermonsMap.get(baseId) as Sermon;
+      } else {
+        baseDoc = await getSermonById(baseId);
       }
-      if (id.startsWith('song-')) {
-        return await getSongAsSermon(id);
-      }
-      if (id.startsWith('expose-pg-')) {
-        const pageNum = parseInt(id.replace('expose-pg-', ''), 10);
-        return await getExposePage(pageNum);
-      }
-      if (id.startsWith('expose-ch-')) {
-        const chNum = id.replace('expose-ch-', '');
-        return await getExposeChapter(chNum);
-      }
-      if (!isSqliteAvailable) {
-        return sermonsMap.get(id) as Sermon;
-      }
-      return await getSermonById(id);
+
+      if (!baseDoc || !baseDoc.text) return null;
+      if (!targetPara) return baseDoc;
+
+      const isSongDoc = baseId.startsWith('song-');
+      const paras = splitSermonIntoParagraphs(baseDoc.text, isSongDoc);
+      const paraIdx = targetPara - 1;
+      const singleText = (paraIdx >= 0 && paraIdx < paras.length) ? paras[paraIdx] : '';
+      if (!singleText) return null;
+
+      const label = baseId.startsWith('bible-')
+        ? `Verset ${targetPara}`
+        : isSongDoc
+          ? `Strophe ${targetPara}`
+          : `§ ${targetPara}`;
+
+      return {
+        ...baseDoc,
+        id,
+        title: `${baseDoc.title} (${label})`,
+        text: `${label}. ${singleText}`
+      };
     }));
     return results.filter((s): s is Sermon => !!s && !!s.text);
   };
@@ -1066,7 +1192,7 @@ const AIAssistant: React.FC = () => {
       />
       
       {/* Header */}
-      <div className="px-5 h-14 border-b border-zinc-100 dark:border-zinc-800/50 flex items-center justify-between shrink-0 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-3xl z-50">
+      <div className="px-5 h-14 border-b border-zinc-100 dark:border-zinc-800/50 flex items-center justify-between shrink-0 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-3xl z-30">
         <div 
           onClick={toggleAI}
           className="flex items-center gap-3 cursor-pointer group/ai-title hover:opacity-80 transition-all active:scale-95"
@@ -1099,74 +1225,226 @@ const AIAssistant: React.FC = () => {
         </div>
       </div>
 
-      {/* Barre de sélection active de la discussion */}
-      <div className="px-3 py-1.5 bg-white/50 dark:bg-zinc-900/50 border-b border-zinc-200/50 dark:border-zinc-800/50 flex items-center justify-between gap-1.5">
-        {editingConvId === currentConversation.id ? (
-          <form 
-            onSubmit={(e) => saveRenaming(currentConversation.id, e)} 
-            className="flex-1 min-w-0 flex items-center gap-1"
-          >
-            <input
-              type="text"
-              value={editingTitle}
-              onChange={(e) => setEditingTitle(e.target.value)}
-              placeholder="Titre de la discussion..."
-              autoFocus
-              className="flex-1 min-w-0 px-2 py-1 text-xs font-bold rounded-lg bg-white dark:bg-zinc-950 border border-teal-500 focus:outline-none text-zinc-900 dark:text-zinc-100"
-            />
-            <button
-              type="submit"
-              data-tooltip="Enregistrer le titre"
-              className="w-6 h-6 flex items-center justify-center bg-teal-600 hover:bg-teal-500 text-white rounded-md cursor-pointer shrink-0 shadow-2xs"
+      {/* Zone sélecteur et tiroir déroulant des discussions avec fermeture automatique au clic extérieur */}
+      <div ref={conversationsDropdownRef} className="relative z-40">
+        {/* Barre de sélection active de la discussion */}
+        <div className="px-3 py-1.5 bg-white/50 dark:bg-zinc-900/50 border-b border-zinc-200/50 dark:border-zinc-800/50 flex items-center justify-between gap-1.5">
+          {editingConvId === currentConversation.id ? (
+            <form 
+              onSubmit={(e) => saveRenaming(currentConversation.id, e)} 
+              className="flex-1 min-w-0 flex items-center gap-1"
             >
-              <Check className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={cancelRenaming}
-              data-tooltip="Annuler"
-              className="w-6 h-6 flex items-center justify-center bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 rounded-md cursor-pointer shrink-0"
-            >
-              <Undo2 className="w-3.5 h-3.5" />
-            </button>
-          </form>
-        ) : (
-          <div className="flex-1 min-w-0 flex items-center gap-1 bg-zinc-100/80 dark:bg-zinc-800/80 rounded-lg p-0.5">
-            <button
-              onClick={() => setIsConversationsDrawerOpen(prev => !prev)}
-              className="flex-1 min-w-0 flex items-center gap-1.5 px-2 py-1 hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80 rounded-md transition-all text-left group cursor-pointer"
-              data-tooltip="Afficher les discussions enregistrées"
-            >
-              <MessageSquare className="w-3 h-3 text-teal-600 shrink-0" />
-              <span className="text-[11px] font-bold text-zinc-800 dark:text-zinc-200 truncate flex-1">
-                {currentConversation.title}
-              </span>
-              <span className="text-[9px] text-zinc-400 font-mono shrink-0">
-                ({history.length} msg)
-              </span>
-              <ChevronDown className={`w-3 h-3 text-zinc-400 transition-transform ${isConversationsDrawerOpen ? 'rotate-180' : ''}`} />
-            </button>
+              <input
+                type="text"
+                value={editingTitle}
+                onChange={(e) => setEditingTitle(e.target.value)}
+                placeholder="Titre de la discussion..."
+                autoFocus
+                className="flex-1 min-w-0 px-2 py-1 text-xs font-bold rounded-lg bg-white dark:bg-zinc-950 border border-teal-500 focus:outline-none text-zinc-900 dark:text-zinc-100"
+              />
+              <button
+                type="submit"
+                data-tooltip="Enregistrer le titre"
+                className="w-6 h-6 flex items-center justify-center bg-teal-600 hover:bg-teal-500 text-white rounded-md cursor-pointer shrink-0 shadow-2xs"
+              >
+                <Check className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={cancelRenaming}
+                data-tooltip="Annuler"
+                className="w-6 h-6 flex items-center justify-center bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 rounded-md cursor-pointer shrink-0"
+              >
+                <Undo2 className="w-3.5 h-3.5" />
+              </button>
+            </form>
+          ) : (
+            <div className="flex-1 min-w-0 flex items-center gap-1 bg-zinc-100/80 dark:bg-zinc-800/80 rounded-lg p-0.5">
+              <button
+                onClick={() => setIsConversationsDrawerOpen(prev => !prev)}
+                className="flex-1 min-w-0 flex items-center gap-1.5 px-2 py-1 hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80 rounded-md transition-all text-left group cursor-pointer"
+                data-tooltip="Afficher les discussions enregistrées"
+              >
+                <MessageSquare className="w-3 h-3 text-teal-600 shrink-0" />
+                <span className="text-[11px] font-bold text-zinc-800 dark:text-zinc-200 truncate flex-1">
+                  {currentConversation.title}
+                </span>
+                <span className="text-[9px] text-zinc-400 font-mono shrink-0">
+                  ({history.length} msg)
+                </span>
+                <ChevronDown className={`w-3 h-3 text-zinc-400 transition-transform ${isConversationsDrawerOpen ? 'rotate-180' : ''}`} />
+              </button>
 
-            <button
-              type="button"
-              onClick={(e) => startRenaming(currentConversation.id, currentConversation.title, e)}
-              data-tooltip="Renommer cette discussion"
-              className="w-6 h-6 flex items-center justify-center text-zinc-400 hover:text-teal-600 hover:bg-white dark:hover:bg-zinc-900 rounded-md transition-colors cursor-pointer shrink-0"
-            >
-              <Pencil className="w-3 h-3" />
-            </button>
+              <button
+                type="button"
+                onClick={(e) => startRenaming(currentConversation.id, currentConversation.title, e)}
+                data-tooltip="Renommer cette discussion"
+                className="w-6 h-6 flex items-center justify-center text-zinc-400 hover:text-teal-600 hover:bg-white dark:hover:bg-zinc-900 rounded-md transition-colors cursor-pointer shrink-0"
+              >
+                <Pencil className="w-3 h-3" />
+              </button>
+
+              {history.length > 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleClearChat(currentConversation.id, true);
+                  }}
+                  data-tooltip="Vider tout le contenu de cette discussion"
+                  className="w-6 h-6 flex items-center justify-center text-zinc-400 hover:text-amber-600 hover:bg-white dark:hover:bg-zinc-900 rounded-md transition-colors cursor-pointer shrink-0"
+                >
+                  <Eraser className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Bouton + pour démarrer une nouvelle discussion */}
+          <button
+            type="button"
+            onClick={handleCreateNewChat}
+            data-tooltip="Démarrer une nouvelle discussion"
+            className="w-7 h-7 flex items-center justify-center bg-teal-600 hover:bg-teal-500 text-white rounded-lg transition-colors cursor-pointer shrink-0 shadow-sm active:scale-95 ml-1"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Tiroir déroulant de gestion des conversations multiples (en superposition absolue au-dessus de tous les éléments sans réduire l'espace de discussion) */}
+        {isConversationsDrawerOpen && (
+          <div className="absolute top-full left-0 right-0 p-3 border-b border-x border-zinc-200/90 dark:border-zinc-800/90 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md shadow-2xl space-y-2.5 z-50 animate-in fade-in slide-in-from-top-2 duration-200 max-h-[70vh] flex flex-col rounded-b-2xl">
+            <div className="flex items-center justify-between pb-1 border-b border-zinc-100 dark:border-zinc-800">
+              <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500">
+                Discussions sauvegardées ({conversations.length})
+              </span>
+            </div>
+
+            {conversations.length > 3 && (
+              <input
+                type="text"
+                placeholder="Filtrer les discussions..."
+                value={searchConvQuery}
+                onChange={(e) => setSearchConvQuery(e.target.value)}
+                className="w-full px-2.5 py-1 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs"
+              />
+            )}
+
+            <div className="max-h-56 overflow-y-auto space-y-1 custom-scrollbar">
+              {filteredConversations.map(conv => {
+                const isActive = conv.id === activeConvId;
+                const msgCount = (chatHistory[conv.id] || []).length;
+                const isEditingThis = editingConvId === conv.id;
+
+                if (isEditingThis) {
+                  return (
+                    <form
+                      key={conv.id}
+                      onSubmit={(e) => saveRenaming(conv.id, e)}
+                      className="flex items-center gap-1.5 p-1.5 rounded-xl bg-teal-50/50 dark:bg-teal-950/30 border border-teal-500/40"
+                    >
+                      <input
+                        type="text"
+                        value={editingTitle}
+                        onChange={(e) => setEditingTitle(e.target.value)}
+                        placeholder="Nom de la discussion..."
+                        autoFocus
+                        className="flex-1 min-w-0 px-2 py-1 text-xs font-bold rounded-lg bg-white dark:bg-zinc-950 border border-teal-500 focus:outline-none text-zinc-900 dark:text-zinc-100"
+                      />
+                      <button
+                        type="submit"
+                        data-tooltip="Enregistrer"
+                        className="w-6 h-6 flex items-center justify-center bg-teal-600 hover:bg-teal-500 text-white rounded-md cursor-pointer shrink-0"
+                      >
+                        <Check className="w-3 h-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelRenaming}
+                        data-tooltip="Annuler"
+                        className="w-6 h-6 flex items-center justify-center bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 rounded-md cursor-pointer shrink-0"
+                      >
+                        <Undo2 className="w-3 h-3" />
+                      </button>
+                    </form>
+                  );
+                }
+
+                return (
+                  <div
+                    key={conv.id}
+                    onClick={() => {
+                      setActiveConvId(conv.id);
+                      setIsConversationsDrawerOpen(false);
+                    }}
+                    className={`flex items-center justify-between p-2 rounded-xl text-xs transition-all cursor-pointer group ${
+                      isActive
+                        ? 'bg-teal-50 dark:bg-teal-950/40 text-teal-900 dark:text-teal-200 border border-teal-200 dark:border-teal-800 font-bold'
+                        : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <MessageSquare className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-teal-600' : 'text-zinc-400'}`} />
+                      <div className="min-w-0 flex-1">
+                        <span className="truncate block text-[11px]">{conv.title}</span>
+                        <span className="text-[9px] text-zinc-400 font-normal">
+                          {new Date(conv.updatedAt || conv.createdAt).toLocaleDateString()} • {msgCount} message{msgCount > 1 ? 's' : ''}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0 opacity-80 group-hover:opacity-100">
+                      {msgCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleClearChat(conv.id, true);
+                          }}
+                          data-tooltip="Vider tout le contenu de cette discussion"
+                          className="p-1 rounded-md text-zinc-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors cursor-pointer"
+                        >
+                          <Eraser className="w-3 h-3" />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => startRenaming(conv.id, conv.title, e)}
+                        data-tooltip="Renommer"
+                        className="p-1 rounded-md text-zinc-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/40 transition-colors cursor-pointer"
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteConversation(conv.id, e)}
+                        data-tooltip="Supprimer cette discussion"
+                        className="p-1 rounded-md text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
+              <button
+                onClick={handleClearAllHistory}
+                className="text-[10px] text-red-500 hover:text-red-600 font-bold hover:underline cursor-pointer"
+              >
+                Nettoyer tout l'historique
+              </button>
+              <button
+                onClick={() => setIsConversationsDrawerOpen(false)}
+                className="text-[10px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 font-semibold cursor-pointer"
+              >
+                Fermer
+              </button>
+            </div>
           </div>
         )}
-
-        {/* Bouton + pour démarrer une nouvelle discussion */}
-        <button
-          type="button"
-          onClick={handleCreateNewChat}
-          data-tooltip="Démarrer une nouvelle discussion"
-          className="w-7 h-7 flex items-center justify-center bg-teal-600 hover:bg-teal-500 text-white rounded-lg transition-colors cursor-pointer shrink-0 shadow-sm active:scale-95 ml-1"
-        >
-          <Plus className="w-4 h-4" />
-        </button>
       </div>
 
       {/* Notification fine, élégante et non-intrusive de l'état d'indexation / préparation */}
@@ -1202,146 +1480,14 @@ const AIAssistant: React.FC = () => {
         </div>
       )}
 
-      {/* Tiroir déroulant de gestion des conversations multiples */}
-      {isConversationsDrawerOpen && (
-        <div className="p-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xl space-y-2.5 z-30 animate-in fade-in slide-in-from-top-2 duration-200">
-          <div className="flex items-center justify-between pb-1 border-b border-zinc-100 dark:border-zinc-800">
-            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500">
-              Discussions sauvegardées ({conversations.length})
-            </span>
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={handleCreateNewChat}
-                className="flex items-center gap-1 px-2 py-0.5 rounded bg-teal-600/10 text-teal-600 dark:text-teal-400 border border-teal-600/20 text-[9px] font-bold hover:bg-teal-600 hover:text-white hover:border-teal-600 transition-all cursor-pointer"
-                data-tooltip="Créer une nouvelle discussion"
-              >
-                <Plus className="w-2.5 h-2.5" />
-                <span>Nouveau</span>
-              </button>
-              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                Disponible hors-ligne
-              </span>
-            </div>
-          </div>
-
-          {conversations.length > 3 && (
-            <input
-              type="text"
-              placeholder="Filtrer les discussions..."
-              value={searchConvQuery}
-              onChange={(e) => setSearchConvQuery(e.target.value)}
-              className="w-full px-2.5 py-1 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs"
-            />
-          )}
-
-          <div className="max-h-56 overflow-y-auto space-y-1 custom-scrollbar">
-            {filteredConversations.map(conv => {
-              const isActive = conv.id === activeConvId;
-              const msgCount = (chatHistory[conv.id] || []).length;
-              const isEditingThis = editingConvId === conv.id;
-
-              if (isEditingThis) {
-                return (
-                  <form
-                    key={conv.id}
-                    onSubmit={(e) => saveRenaming(conv.id, e)}
-                    className="flex items-center gap-1.5 p-1.5 rounded-xl bg-teal-50/50 dark:bg-teal-950/30 border border-teal-500/40"
-                  >
-                    <input
-                      type="text"
-                      value={editingTitle}
-                      onChange={(e) => setEditingTitle(e.target.value)}
-                      placeholder="Nom de la discussion..."
-                      autoFocus
-                      className="flex-1 min-w-0 px-2 py-1 text-xs font-bold rounded-lg bg-white dark:bg-zinc-950 border border-teal-500 focus:outline-none text-zinc-900 dark:text-zinc-100"
-                    />
-                    <button
-                      type="submit"
-                      data-tooltip="Enregistrer"
-                      className="w-6 h-6 flex items-center justify-center bg-teal-600 hover:bg-teal-500 text-white rounded-md cursor-pointer shrink-0"
-                    >
-                      <Check className="w-3 h-3" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={cancelRenaming}
-                      data-tooltip="Annuler"
-                      className="w-6 h-6 flex items-center justify-center bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 rounded-md cursor-pointer shrink-0"
-                    >
-                      <Undo2 className="w-3 h-3" />
-                    </button>
-                  </form>
-                );
-              }
-
-              return (
-                <div
-                  key={conv.id}
-                  onClick={() => {
-                    setActiveConvId(conv.id);
-                    setIsConversationsDrawerOpen(false);
-                  }}
-                  className={`flex items-center justify-between p-2 rounded-xl text-xs transition-all cursor-pointer group ${
-                    isActive
-                      ? 'bg-teal-50 dark:bg-teal-950/40 text-teal-900 dark:text-teal-200 border border-teal-200 dark:border-teal-800 font-bold'
-                      : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <MessageSquare className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-teal-600' : 'text-zinc-400'}`} />
-                    <div className="min-w-0 flex-1">
-                      <span className="truncate block text-[11px]">{conv.title}</span>
-                      <span className="text-[9px] text-zinc-400 font-normal">
-                        {new Date(conv.updatedAt || conv.createdAt).toLocaleDateString()} • {msgCount} message{msgCount > 1 ? 's' : ''}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1 shrink-0 opacity-80 group-hover:opacity-100">
-                    <button
-                      type="button"
-                      onClick={(e) => startRenaming(conv.id, conv.title, e)}
-                      data-tooltip="Renommer"
-                      className="p-1 rounded-md text-zinc-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/40 transition-colors cursor-pointer"
-                    >
-                      <Pencil className="w-3 h-3" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => handleDeleteConversation(conv.id, e)}
-                      data-tooltip="Supprimer cette discussion"
-                      className="p-1 rounded-md text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
-            <button
-              onClick={handleClearAllHistory}
-              className="text-[10px] text-red-500 hover:text-red-600 font-bold hover:underline cursor-pointer"
-            >
-              Nettoyer tout l'historique
-            </button>
-            <button
-              onClick={() => setIsConversationsDrawerOpen(false)}
-              className="text-[10px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 font-semibold cursor-pointer"
-            >
-              Fermer
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Sélecteur de Mode : Dock IA (Manuel) */}
       <div className="p-2 border-b border-zinc-200/60 dark:border-zinc-800/60 bg-white/40 dark:bg-zinc-900/40">
         <div className="flex p-1 bg-zinc-200/70 dark:bg-zinc-800/70 rounded-xl gap-1">
           <button
-            onClick={() => setAssistantMode('dock')}
+            onClick={() => {
+              setIsConversationsDrawerOpen(false);
+              setAssistantMode('dock');
+            }}
             className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
               assistantMode === 'dock'
                 ? 'bg-white dark:bg-zinc-900 text-teal-700 dark:text-teal-300 shadow-sm'
@@ -1510,13 +1656,22 @@ const AIAssistant: React.FC = () => {
                   ) : (
                     <div className="flex items-start gap-2 group/usermsg">
                       <p className="text-[13px] font-bold leading-relaxed tracking-tight break-words flex-1">{msg.content}</p>
-                      <button
-                        onClick={() => handleStartEdit(i, msg.content)}
-                        data-tooltip="Rééditer cette question"
-                        className="opacity-0 group-hover/usermsg:opacity-100 hover:opacity-100 p-1 text-teal-200 hover:text-white transition-opacity shrink-0 cursor-pointer rounded-md hover:bg-teal-500/20"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-1 opacity-0 group-hover/usermsg:opacity-100 transition-opacity shrink-0">
+                        <button
+                          onClick={() => handleStartEdit(i, msg.content)}
+                          data-tooltip="Rééditer cette question"
+                          className="p-1 text-teal-200 hover:text-white transition-colors cursor-pointer rounded-md hover:bg-teal-500/20"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteQuestionAndAnswer(i)}
+                          data-tooltip="Supprimer cette question et sa réponse"
+                          className="p-1 text-teal-200 hover:text-red-300 hover:bg-red-500/30 transition-colors cursor-pointer rounded-md"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   )
                 )}
@@ -1568,7 +1723,7 @@ const AIAssistant: React.FC = () => {
                   </div>
                 )}
 
-                {/* Actions rapides sur la réponse assistant (Notes & Copie) */}
+                {/* Actions rapides sur la réponse assistant (Notes, Copie & Suppression) */}
                 {msg.role === 'assistant' && (
                   <div className="absolute -right-2 -bottom-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all z-10">
                     <button 
@@ -1597,6 +1752,13 @@ const AIAssistant: React.FC = () => {
                       data-tooltip-icon="notes"
                     >
                       <Notebook className="w-3 h-3" />
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteQuestionAndAnswer(i)}
+                      className="w-7 h-7 flex items-center justify-center rounded-xl bg-white dark:bg-zinc-800 text-zinc-400 hover:text-red-500 transition-all shadow-md border border-zinc-100 dark:border-zinc-700 cursor-pointer"
+                      data-tooltip="Supprimer cette réponse et sa question"
+                    >
+                      <Trash2 className="w-3 h-3" />
                     </button>
                   </div>
                 )}

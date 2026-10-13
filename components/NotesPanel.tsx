@@ -3,8 +3,6 @@ import { useAppStore, sortNotesByRecency } from '../store';
 import { translations } from '../translations';
 import { Note, Citation } from '../types';
 import { normalizeText } from '../utils/textUtils';
-import { stripMarkdown } from '../utils/noteFormatter';
-import { HighlightedQuote } from './HighlightedQuote';
 import { 
   Plus, 
   X, 
@@ -14,15 +12,11 @@ import {
   NotebookPen,
   FileText,
   GripVertical,
-  Link2,
   Pencil,
   Hash,
-  ExternalLink,
-  Quote,
   Download,
   Upload,
-  CheckCircle2,
-  BookOpenCheck
+  CheckCircle2
 } from 'lucide-react';
 
 const PALETTE_COLORS: { name: string; key: string; bg: string; border: string; ring: string; }[] = [
@@ -40,7 +34,6 @@ const NoteCard = memo(({
   onDelete, 
   onUpdateTitle, 
   onUpdateColor,
-  onJumpToReader,
   isEditingTitle,
   setEditingNoteId,
   dragHandlers
@@ -50,22 +43,20 @@ const NoteCard = memo(({
   onDelete: (id: string) => void; 
   onUpdateTitle: (id: string, title: string) => void; 
   onUpdateColor: (id: string, color: string | undefined) => void; 
-  onJumpToReader: (citation: Citation) => void;
   isEditingTitle: boolean; 
   setEditingNoteId: (id: string | null) => void; 
   dragHandlers: any;
 }) => {
   const color = PALETTE_COLORS.find(c => c.key === n.color) || PALETTE_COLORS[0];
-  const firstCitation = n.citations.length > 0 ? n.citations[0] : null;
 
   return (
     <div 
       {...dragHandlers}
       onClick={onSelect} 
-      className={`group w-full p-4 rounded-2xl ${color.bg} border ${color.border} transition-all duration-300 hover:shadow-2xl hover:border-teal-600/50 cursor-pointer relative mb-3 overflow-hidden`}
+      className={`group w-full p-3.5 rounded-2xl ${color.bg} border ${color.border} transition-all duration-300 hover:shadow-xl hover:border-teal-600/50 cursor-pointer relative mb-2.5 overflow-hidden`}
     >
       <div className="flex justify-between items-start mb-1">
-        <div className="flex items-center gap-2 flex-1 min-w-0 pr-4">
+        <div className="flex items-center gap-2 flex-1 min-w-0 pr-3">
            <GripVertical className="w-3.5 h-3.5 text-zinc-300 dark:text-zinc-600 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing" />
            {isEditingTitle ? (
              <input
@@ -100,68 +91,20 @@ const NoteCard = memo(({
         </div>
       </div>
       
-      <div className="flex items-center gap-1 pl-5 mb-3 text-[8px] font-black uppercase tracking-wider text-zinc-400">
-        <Clock className="w-2.5 h-2.5" /> 
-        <span>{new Date(n.creationDate || n.date).toLocaleDateString()}</span>
-      </div>
-
-      <div className="pl-5 mb-3">
-        {firstCitation && (
-          <div className="flex flex-col gap-2 p-2.5 bg-white/50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200/50 dark:border-zinc-700/50 shadow-sm overflow-hidden">
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-md border border-teal-600/20 shrink-0">
-                {firstCitation.sermon_id?.startsWith('definition') ? (
-                  <BookOpenCheck className="w-2.5 h-2.5" />
-                ) : (
-                  <Link2 className="w-2.5 h-2.5" />
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                 <span className="text-[9px] font-black text-zinc-700 dark:text-zinc-300 uppercase tracking-tight truncate block">{firstCitation.sermon_title_snapshot}</span>
-              </div>
-              {!firstCitation.sermon_id?.startsWith('definition') && (
-                <button 
-                  onClick={(e) => { e.stopPropagation(); onJumpToReader(firstCitation); }}
-                  className="w-5 h-5 flex items-center justify-center bg-teal-600 text-white rounded-md hover:bg-teal-700 transition-all active:scale-90"
-                >
-                  <ExternalLink className="w-2.5 h-2.5" />
-                </button>
-              )}
-            </div>
-            
-            <div className="flex flex-wrap items-center gap-2 mt-1">
-               {firstCitation.sermon_id?.startsWith('definition') ? (
-                 <span className="text-[7px] font-black text-teal-700 dark:text-teal-300 bg-teal-600/10 px-1.5 py-0.5 rounded border border-teal-600/20">Dictionnaire Biblique</span>
-               ) : (
-                 <>
-                   <span className="text-[7px] font-black text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-200/50 dark:border-zinc-700/50">{firstCitation.sermon_date_snapshot}</span>
-                   {firstCitation.sermon_version_snapshot && (
-                     <span className="text-[7px] font-black text-teal-600 bg-teal-600/5 px-1.5 py-0.5 rounded border border-teal-600/10">[{firstCitation.sermon_version_snapshot}]</span>
-                   )}
-                   <span className="text-[7px] font-black text-amber-600 bg-amber-600/5 px-1.5 py-0.5 rounded border border-amber-600/10">Para. {firstCitation.paragraph_index ?? '—'}</span>
-                 </>
-               )}
-            </div>
+      <div className="flex items-center justify-between pl-5 pr-1 mt-1 mb-2">
+        <div className="flex items-center gap-1 text-[8.5px] font-bold uppercase tracking-wider text-zinc-400">
+          <Clock className="w-2.5 h-2.5" /> 
+          <span>{new Date(n.creationDate || n.date).toLocaleDateString()}</span>
+        </div>
+        {n.citations && n.citations.length > 0 && (
+          <div className="flex items-center gap-1 text-[8px] font-bold text-teal-700 dark:text-teal-300 bg-teal-600/10 px-2 py-0.5 rounded-full border border-teal-600/20">
+            <FileText className="w-2.5 h-2.5" />
+            <span>{n.citations.length} {n.citations.length > 1 ? 'extraits' : 'extrait'}</span>
           </div>
         )}
-
-        <div className="relative group/preview mt-2">
-           {n.content ? (
-             <p className="text-[11px] text-zinc-600 dark:text-zinc-400 line-clamp-2 leading-relaxed font-medium italic opacity-90 pl-1">
-               {stripMarkdown(n.content)}
-             </p>
-           ) : firstCitation ? (
-             <div className="flex gap-2 pl-1 border-l-2 border-teal-600/30 bg-teal-600/5 dark:bg-teal-600/10 p-2 rounded-r-lg">
-               <Quote className="w-3 h-3 text-teal-600/40 shrink-0" />
-               <p className="text-[10px] text-zinc-600 dark:text-zinc-400 line-clamp-2 leading-relaxed font-medium italic">
-                 <HighlightedQuote quote={stripMarkdown(firstCitation.quoted_text || '')} highlights={firstCitation.highlights} />
-               </p>
-             </div>
-           ) : null}
-        </div>
       </div>
 
-      <div className="pl-5 mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800/50 flex items-center justify-between">
+      <div className="pl-5 mt-2.5 pt-2 border-t border-zinc-100/80 dark:border-zinc-800/50 flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             {PALETTE_COLORS.map(c => (
               <button 
@@ -174,10 +117,6 @@ const NoteCard = memo(({
                 }`} 
               />
             ))}
-          </div>
-          <div className="flex items-center gap-1 text-[8px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-md">
-            <FileText className="w-2.5 h-2.5" />
-            <span>{n.citations.length}</span>
           </div>
       </div>
     </div>
@@ -262,7 +201,6 @@ const NotesPanel: React.FC = () => {
     }
     
     setActiveNoteId(null);
-    toggleNotes(); 
   };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -441,7 +379,6 @@ const NotesPanel: React.FC = () => {
                   onDelete={deleteNote}
                   onUpdateTitle={(id, title) => updateNote(id, { title })}
                   onUpdateColor={(id, color) => updateNote(id, { color })}
-                  onJumpToReader={(citation) => handleJumpToReader(citation, n.id)}
                   isEditingTitle={editingNoteId === n.id}
                   setEditingNoteId={setEditingNoteId}
                   dragHandlers={{

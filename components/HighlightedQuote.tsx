@@ -9,17 +9,23 @@ interface HighlightedQuoteProps {
   highlights?: CitationHighlight[];
   className?: string;
   isPrint?: boolean;
+  withGuillemets?: boolean;
 }
 
 export const HighlightedQuote: React.FC<HighlightedQuoteProps> = ({
   quote,
   highlights,
   className = '',
-  isPrint = false
+  isPrint = false,
+  withGuillemets = false
 }) => {
+  const cleanQuote = (quote || '').trim();
+  const alreadyHasGuillemets = cleanQuote.startsWith('«') && cleanQuote.endsWith('»');
+  const shouldAddGuillemets = withGuillemets && !alreadyHasGuillemets;
+
   const segments = useMemo(() => {
-    return splitQuoteIntoHighlightedSegments(quote, highlights);
-  }, [quote, highlights]);
+    return splitQuoteIntoHighlightedSegments(cleanQuote, highlights);
+  }, [cleanQuote, highlights]);
 
   const formattingClasses = `
     leading-relaxed text-zinc-800 dark:text-zinc-200
@@ -36,7 +42,8 @@ export const HighlightedQuote: React.FC<HighlightedQuoteProps> = ({
   `.replace(/\s+/g, ' ').trim();
 
   if (!highlights || highlights.length === 0 || (segments.length === 1 && !segments[0].isHighlighted)) {
-    const parsedHtml = marked.parse(quote || '', { breaks: true }) as string;
+    const textToParse = shouldAddGuillemets ? `«\u00A0${cleanQuote}\u00A0»` : cleanQuote;
+    const parsedHtml = marked.parse(textToParse, { breaks: true }) as string;
     return (
       <span 
         className={`${className} ${formattingClasses} block`}
@@ -47,6 +54,7 @@ export const HighlightedQuote: React.FC<HighlightedQuoteProps> = ({
 
   return (
     <span className={`${className} ${formattingClasses} block`}>
+      {shouldAddGuillemets && '«\u00A0'}
       {segments.map((seg, idx) => {
         const segHtml = marked.parseInline(seg.text || '', { breaks: true }) as string;
         if (!seg.isHighlighted) {
@@ -72,6 +80,7 @@ export const HighlightedQuote: React.FC<HighlightedQuoteProps> = ({
           />
         );
       })}
+      {shouldAddGuillemets && '\u00A0»'}
     </span>
   );
 };

@@ -915,19 +915,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   removeNotification: (id) => set(state => ({
     notifications: state.notifications.filter(n => n.id !== id)
   })),
-  setActiveNoteId: (id) => set({ activeNoteId: id, ...(id ? { sidebarOpen: false, notesOpen: false, aiOpen: false } : {}) }),
+  setActiveNoteId: (id) => set({ activeNoteId: id }),
   toggleSidebar: () => set(s => ({ sidebarOpen: !s.sidebarOpen })),
   toggleAI: () => set(s => ({ aiOpen: !s.aiOpen })),
-  toggleNotes: () => set(s => {
-    const next = !s.notesOpen;
-    return { notesOpen: next, ...(next ? { sidebarOpen: false } : {}) };
-  }),
+  toggleNotes: () => set(s => ({ notesOpen: !s.notesOpen })),
   toggleBibleModal: () => set(s => ({ isBibleModalOpen: !s.isBibleModalOpen })),
   setBibleModalOpen: (v) => set({ isBibleModalOpen: v }),
   setSidebarOpen: (v) => set({ sidebarOpen: v }),
   setAiOpen: (v) => set({ aiOpen: v }),
   setAssistantMode: (mode) => set({ assistantMode: mode }),
-  setNotesOpen: (v) => set({ notesOpen: v, ...(v ? { sidebarOpen: false } : {}) }),
+  setNotesOpen: (v) => set({ notesOpen: v }),
   setCityFilter: (f) => set({ cityFilter: Array.isArray(f) ? f.filter(Boolean) : (typeof f === 'string' && f.trim() ? [f.trim()] : []) }),
   setYearFilter: (f) => set({ yearFilter: Array.isArray(f) ? f.filter(Boolean) : (typeof f === 'string' && f.trim() ? [f.trim()] : []) }),
   setMonthFilter: (f) => set({ monthFilter: Array.isArray(f) ? f.filter(Boolean) : (typeof f === 'string' && f.trim() ? [f.trim()] : []) }),
@@ -1043,10 +1040,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     };
     set(state => ({ 
       notes: sortNotesByRecency([newNote, ...state.notes]), 
-      activeNoteId: newNote.id,
-      notesOpen: false,
-      sidebarOpen: false,
-      aiOpen: false
+      activeNoteId: newNote.id
     }));
     await saveNoteToDB(newNote);
   },

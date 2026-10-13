@@ -81,6 +81,7 @@ import {
 } from 'lucide-react';
 import SongModal from './SongModal';
 import { useModalActive } from '../utils/modalUtils';
+import { BIBLE_VERSIONS_META } from '../types/bible';
 import { STRONG_LEXICON, findBibleOccurrences, getOrGenerateStrongEntry, asyncGetOrGenerateStrongEntry, lookupStrongNumber, getChapterVerseStrongs } from '../services/bibleExegesisService';
 import { findSermonOccurrencesForStrong, getOrGenerateStrongMessageContext } from '../services/strongLexiconService';
 import { 
@@ -683,7 +684,6 @@ const Reader: React.FC = () => {
 
   useEffect(() => {
     if (selectedStrongInfo) {
-      setSidebarOpen(false);
       setIsLoadingOccurrences(true);
       setIsLoadingSermonOccurrences(true);
       setIsLoadingStrongEntry(true);
@@ -1023,11 +1023,6 @@ const Reader: React.FC = () => {
     }
   }, [sidebarWidth, aiWidth, notesWidth, sidebarOpen, aiOpen, notesOpen, handleTextSelection]);
 
-  useEffect(() => {
-    if (activeDefinition) {
-      setSidebarOpen(false);
-    }
-  }, [activeDefinition, setSidebarOpen]);
 
   useEffect(() => {
     broadcastChannel.current = new BroadcastChannel('kings_sword_projection');
@@ -1697,6 +1692,255 @@ const Reader: React.FC = () => {
       addNotification(t.copy_success, "success");
     }
   }, [selection, addNotification, t.copy_success]);
+
+  const [copiedSegIdx, setCopiedSegIdx] = useState<number | null>(null);
+  const copyResetTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyResetTimeoutRef.current) {
+        clearTimeout(copyResetTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleCopyParagraph = useCallback(async (segIdx: number, rawText: string) => {
+    if (!sermon) return;
+
+    // 1. Détermination du numéro de paragraphe ou verset
+    const leadingNum = extractLeadingParagraphNumber(rawText);
+    const paraNum = leadingNum || (segIdx + 1);
+
+    // 2. Nettoyage du texte et extraction des surlignages réels du paragraphe pour affichage fidèle dans Word/Docs
+    const HIGHLIGHT_COLOR_HEX: Record<string, string> = {
+      amber: '#FEF08A',
+      teal: '#99F6E4',
+      sky: '#BAE6FD',
+      rose: '#FECDD3',
+      violet: '#E9D5FF',
+      lime: '#D9F99D',
+      orange: '#FED7AA',
+      default: '#E4E4E7'
+    };
+
+    const escapeHtml = (str: string) => {
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    };
+
+    const seg = structuredSegments[segIdx];
+    let quoteWords = seg?.words || [];
+
+    if (leadingNum && seg && seg.words && seg.words.length > 0) {
+      const match = rawText.trim().match(/^(?:\[?\s*\d+\s*\]?|\d+[\.\)\:\-\s]|E-\d+|\§\s*\d+)\s*/i);
+      if (match) {
+        const prefixLen = match[0].length;
+        let accumulated = 0;
+        let sliceIdx = 0;
+        for (let i = 0; i < seg.words.length; i++) {
+          accumulated += seg.words[i].text.length;
+          if (accumulated >= prefixLen) {
+            sliceIdx = i + 1;
+            break;
+          }
+        }
+        while (sliceIdx < seg.words.length && /^\s+$/.test(seg.words[sliceIdx].text)) {
+          sliceIdx++;
+        }
+        quoteWords = seg.words.slice(sliceIdx);
+      }
+    }
+
+    // Regrouper les mots consécutifs par couleur de surlignage
+    interface SpanRun {
+      text: string;
+      color: string | null;
+    }
+    const runs: SpanRun[] = [];
+    let currentRun: SpanRun | null = null;
+
+    if (quoteWords.length > 0) {
+      for (const w of quoteWords) {
+        const h = highlightMap.get(w.globalIndex);
+        const color = h?.color || null;
+
+        if (currentRun && currentRun.color === color) {
+          currentRun.text += w.text;
+        } else {
+          if (currentRun) runs.push(currentRun);
+          currentRun = { text: w.text, color };
+        }
+      }
+      if (currentRun) runs.push(currentRun);
+
+      // Retirer les guillemets existants au tout début et à la toute fin pour un encadrement propre
+      if (runs.length > 0) {
+        runs[0].text = runs[0].text.replace(/^[«"“]\s*/, '');
+        const last = runs.length - 1;
+        runs[last].text = runs[last].text.replace(/\s*[»"”]$/, '');
+      }
+    }
+
+    let plainQuoteText = '';
+    let htmlQuoteText = '';
+
+    if (runs.length > 0) {
+      plainQuoteText = runs.map(r => r.text).join('').trim();
+      htmlQuoteText = runs.map(r => {
+        if (r.color) {
+          const hex = HIGHLIGHT_COLOR_HEX[r.color] || '#FEF08A';
+          return `<span style="background-color: ${hex}; background: ${hex}; mso-highlight: yellow; padding: 1px 2px; border-radius: 2px;">${escapeHtml(r.text)}</span>`;
+        }
+        return escapeHtml(r.text);
+      }).join('').trim();
+    } else {
+      let cleanFallback = rawText.trim().replace(/^(?:\[?\s*\d+\s*\]?|\d+[\.\)\:\-\s]|E-\d+|\§\s*\d+)\s*/i, '').trim();
+      cleanFallback = cleanFallback.replace(/^[«"“]\s*/, '').replace(/\s*[»"”]$/, '').trim();
+      plainQuoteText = cleanFallback || rawText.trim();
+      htmlQuoteText = escapeHtml(plainQuoteText);
+    }
+
+    // Le texte copié commence par son numéro de paragraphe avec le symbole § (ex: § 45. « ... » pour sermons et exposé)
+    const prefix = (isBible || isBibleChapter) ? `${paraNum}. ` : isSong ? `${paraNum}. ` : `§ ${paraNum}. `;
+    const formattedQuote = `${prefix}« ${plainQuoteText} »`;
+    const htmlFormattedQuote = `<strong style="color: #0f766e;">${escapeHtml(prefix)}</strong>«&nbsp;${htmlQuoteText}&nbsp;»`;
+
+    // 3. Construction de la référence complète selon le type de document (sans répéter le numéro de paragraphe en bas)
+    let referenceBlock = '';
+    let htmlReferenceBlock = '';
+
+    if (isBible || isBibleChapter) {
+      // Cas de la Sainte Bible : spécifier la version
+      const verMeta = BIBLE_VERSIONS_META[bibleVersion];
+      const versionLabel = verMeta?.label ? `Version ${verMeta.label}` : (sermon.version ? `Version ${sermon.version}` : 'Version Louis Segond 1910');
+
+      let verseRef = '';
+      if (sermon.title) {
+        const cleanTitle = sermon.title.replace(/\s*\(Livre entier\)/i, '').trim();
+        verseRef = `${cleanTitle}:${paraNum}`;
+      } else {
+        verseRef = `Verset ${paraNum}`;
+      }
+
+      referenceBlock = `— ${verseRef} (${versionLabel})`;
+      htmlReferenceBlock = `<strong style="color: #111827; font-style: normal;">— ${escapeHtml(verseRef)} (${escapeHtml(versionLabel)})</strong>`;
+    } else if (isExpose) {
+      // Cas de l'Exposé des Sept Âges : spécifier l'auteur Rev. William Marrion Branham sans répéter le § en bas
+      const cleanChapterTitle = (sermon.title || '')
+        .replace(/^Exposé des Sept Âges(?:\s*de l'Église)?\s*[-–—]?\s*/i, '')
+        .trim();
+      const sourceTitle = cleanChapterTitle 
+        ? `Exposé des Sept Âges de l'Église — ${cleanChapterTitle}`
+        : `Exposé des Sept Âges de l'Église`;
+
+      referenceBlock = `— Rev. William Marrion Branham\n${sourceTitle}`;
+      htmlReferenceBlock = `— Rev. William Marrion Branham<br><strong style="color: #111827; font-style: normal;">${escapeHtml(sourceTitle)}</strong>`;
+    } else if (isSong) {
+      // Cas des Cantiques
+      referenceBlock = `— ${sermon.title || 'Cantique'}\nRecueil de Cantiques`;
+      htmlReferenceBlock = `<strong style="color: #111827; font-style: normal;">— ${escapeHtml(sermon.title || 'Cantique')}</strong><br>Recueil de Cantiques`;
+    } else {
+      // Cas des Sermons : spécifier l'auteur Rev. William Marrion Branham sans répéter le § en bas
+      const metaParts: string[] = [];
+      if (sermon.date && sermon.date.trim()) {
+        metaParts.push(sermon.date.trim());
+      }
+      if (sermon.city && sermon.city.trim() && sermon.city !== 'W.M. Branham') {
+        metaParts.push(sermon.city.trim());
+      }
+      const metaSuffix = metaParts.length > 0 ? ` (${metaParts.join(', ')})` : '';
+
+      referenceBlock = `— Rev. William Marrion Branham\n${sermon.title}${metaSuffix}`;
+      htmlReferenceBlock = `— Rev. William Marrion Branham<br><strong style="color: #111827; font-style: normal;">${escapeHtml(sermon.title)}${escapeHtml(metaSuffix)}</strong>`;
+    }
+
+    // 4. Formats finaux Plain Text et HTML enrichi (Word, Google Docs, Pages)
+    const fullTextToCopy = `${formattedQuote}\n\n${referenceBlock}`;
+    const fullHtmlToCopy = `<div style="font-family: 'Segoe UI', Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.6; color: #1f2937;"><p style="margin: 0 0 10pt 0; line-height: 1.6;">${htmlFormattedQuote}</p><p style="margin: 10pt 0 0 0; font-size: 10pt; line-height: 1.4; color: #4b5563; font-style: italic;">${htmlReferenceBlock}</p></div>`;
+
+    // 5. Copie vers le presse-papiers avec support HTML et repli garanti
+    let success = false;
+
+    // A. API Moderne Clipboard avec text/html + text/plain simultanés
+    if (navigator?.clipboard?.write && typeof ClipboardItem !== 'undefined') {
+      try {
+        const htmlBlob = new Blob([fullHtmlToCopy], { type: 'text/html' });
+        const textBlob = new Blob([fullTextToCopy], { type: 'text/plain' });
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/html': htmlBlob,
+            'text/plain': textBlob
+          })
+        ]);
+        success = true;
+      } catch (clipErr) {
+        // Fallback vers événement copy ci-dessous
+      }
+    }
+
+    // B. Événement copy DOM (Word et navigateurs supportant text/html)
+    if (!success) {
+      try {
+        const handleCopyEvent = (e: ClipboardEvent) => {
+          e.clipboardData?.setData('text/html', fullHtmlToCopy);
+          e.clipboardData?.setData('text/plain', fullTextToCopy);
+          e.preventDefault();
+        };
+        document.addEventListener('copy', handleCopyEvent);
+        success = document.execCommand('copy');
+        document.removeEventListener('copy', handleCopyEvent);
+      } catch (e) {
+        success = false;
+      }
+    }
+
+    // C. Fallback API writeText
+    if (!success) {
+      try {
+        if (navigator?.clipboard?.writeText) {
+          await navigator.clipboard.writeText(fullTextToCopy);
+          success = true;
+        }
+      } catch (err) {}
+    }
+
+    // D. Fallback textarea
+    if (!success) {
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = fullTextToCopy;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        textarea.style.top = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        success = document.execCommand('copy');
+        document.body.removeChild(textarea);
+      } catch (e) {
+        success = false;
+      }
+    }
+
+    if (success) {
+      setCopiedSegIdx(segIdx);
+      if (copyResetTimeoutRef.current) {
+        clearTimeout(copyResetTimeoutRef.current);
+      }
+      copyResetTimeoutRef.current = setTimeout(() => {
+        setCopiedSegIdx(null);
+      }, 2200);
+
+      const label = isBibleChapter ? "Verset" : isSong ? "Extrait du cantique" : "Paragraphe";
+      addNotification(`${label} et référence copiés avec surlignages`, "success");
+    } else {
+      addNotification("Impossible de copier dans le presse-papiers", "error");
+    }
+  }, [sermon, isBible, isBibleChapter, isExpose, isSong, bibleVersion, structuredSegments, highlightMap, addNotification]);
 
   const handleDefine = async () => {
     if (!selection) return;
@@ -2682,7 +2926,6 @@ const Reader: React.FC = () => {
                             key={idx}
                             onClick={() => {
                               setSelectedStrongNumber(null);
-                              setSidebarOpen(false);
                               if (occ.isExpose) {
                                 useAppStore.setState({
                                   libraryMode: 'expose',
@@ -2765,7 +3008,6 @@ const Reader: React.FC = () => {
                             key={idx} 
                             onClick={() => {
                               setSelectedStrongNumber(null);
-                              setSidebarOpen(false);
                               useAppStore.setState({
                                 libraryMode: 'bible',
                                 selectedBibleBookId: occ.bookId,
@@ -2990,7 +3232,6 @@ const Reader: React.FC = () => {
               <ActionButton 
                 onClick={() => {
                   setIsSongModalOpen(true);
-                  setSidebarOpen(false);
                 }} 
                 icon={Edit3} 
                 tooltip="Modifier les données de ce cantique" 
@@ -3611,39 +3852,65 @@ const Reader: React.FC = () => {
                       </button>
                       <button
                         type="button"
-                        onClick={(e) => { 
-                          e.stopPropagation(); 
-                          if (activeSermon?.id) {
-                            const isBible = activeSermon.id.startsWith('bible-');
-                            const docLabel = isBible ? "Chapitre biblique" : isSong ? "Cantique" : isExpose ? "Page de l'Exposé" : "Sermon";
-                            
-                            if (isCurrentInDock) {
-                              let newManual = manualContextIds.filter(x => x !== activeSermon.id);
-                              if (isBible) {
-                                const parts = activeSermon.id.split('-');
-                                const bookId = parts[1];
-                                if (bookId) {
-                                  newManual = newManual.filter(x => x !== `bible-${bookId}-all`);
-                                }
-                              }
-                              setManualContextIds(newManual);
-                              addNotification(`${docLabel} retiré du dock IA`, "info");
-                            } else {
-                              toggleContextSermon(activeSermon.id, true);
-                              addNotification(`${docLabel} ajouté au dock IA`, "success");
-                            }
-                          }
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCopyParagraph(segIdx, seg.text);
                         }}
                         className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer border ${
-                          isCurrentInDock
-                            ? 'bg-teal-600 text-white border-teal-600'
-                            : 'bg-white dark:bg-zinc-900 hover:bg-teal-600 text-teal-700 dark:text-teal-300 hover:text-white border-teal-600/40 dark:border-teal-500/40'
+                          copiedSegIdx === segIdx
+                            ? 'bg-sky-600 text-white border-sky-600 ring-2 ring-sky-500/30 font-extrabold'
+                            : 'bg-white dark:bg-zinc-900 hover:bg-sky-600 text-sky-700 dark:text-sky-300 hover:text-white border-sky-600/40 dark:border-sky-500/40'
                         }`}
-                        data-tooltip={isCurrentInDock ? `Retirer ce ${isBibleChapter ? 'chapitre' : 'sermon'} du dock IA` : `Ajouter ce ${isBibleChapter ? 'chapitre' : 'sermon'} au dock IA`}
+                        data-tooltip={
+                          isBibleChapter 
+                            ? "Copier ce verset avec sa référence complète" 
+                            : isSong 
+                              ? "Copier avec sa référence complète" 
+                              : "Copier ce paragraphe avec sa référence complète"
+                        }
                       >
-                        {isCurrentInDock ? <Check className="w-3 h-3 stroke-[2.5]" /> : <Layers className="w-3 h-3" />}
-                        <span>{isCurrentInDock ? "Dans le Dock IA" : "+ Dock IA"}</span>
+                        {copiedSegIdx === segIdx ? <Check className="w-3 h-3 stroke-[2.5]" /> : <Copy className="w-3 h-3" />}
+                        <span>{copiedSegIdx === segIdx ? "Copié !" : "Copier"}</span>
                       </button>
+                      {(() => {
+                        const paraNum = segIdx + 1;
+                        const targetDocId = sermon?.id || activeSermon?.id || '';
+                        const paraDockId = `${targetDocId}-p-${paraNum}`;
+                        const isSegInDock = manualContextIds.includes(paraDockId);
+                        const paraLabel = isBibleChapter 
+                          ? `Verset ${paraNum}` 
+                          : isSong 
+                            ? (isChorus ? `Refrain` : `Strophe ${paraNum}`) 
+                            : isExpose 
+                              ? `§ ${paraNum} (Exposé)` 
+                              : `§ ${paraNum}`;
+
+                        return (
+                          <button
+                            type="button"
+                            onClick={(e) => { 
+                              e.stopPropagation(); 
+                              if (targetDocId) {
+                                toggleContextSermon(paraDockId, true);
+                                if (isSegInDock) {
+                                  addNotification(`${paraLabel} retiré du dock IA`, "info");
+                                } else {
+                                  addNotification(`${paraLabel} ajouté au dock IA (Assistant ouvert)`, "success");
+                                }
+                              }
+                            }}
+                            className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer border ${
+                              isSegInDock
+                                ? 'bg-teal-600 text-white border-teal-600'
+                                : 'bg-white dark:bg-zinc-900 hover:bg-teal-600 text-teal-700 dark:text-teal-300 hover:text-white border-teal-600/40 dark:border-teal-500/40'
+                            }`}
+                            data-tooltip={isSegInDock ? `Retirer ce ${isBibleChapter ? 'verset' : isSong ? 'strophe' : 'paragraphe'} (${paraLabel}) du dock IA` : `Ajouter ce ${isBibleChapter ? 'verset' : isSong ? 'strophe' : 'paragraphe'} (${paraLabel}) au dock IA`}
+                          >
+                            {isSegInDock ? <Check className="w-3 h-3 stroke-[2.5]" /> : <Layers className="w-3 h-3" />}
+                            <span>{isSegInDock ? "Dans le Dock IA" : "+ Dock IA"}</span>
+                          </button>
+                        );
+                      })()}
                       {/* Bouton Favori Verset / Paragraphe */}
                       <button
                         type="button"

@@ -35,7 +35,7 @@ const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({
   highlights,
   onClose 
 }) => {
-  const { notes, addNote, addCitationToNote, addNotification, sermons, setSidebarOpen, setNotesOpen, setAiOpen } = useAppStore();
+  const { notes, addNote, addCitationToNote, addNotification, sermons } = useAppStore();
   const [view, setView] = useState<'list' | 'new_note'>('list');
   const [newNoteTitle, setNewNoteTitle] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -47,12 +47,6 @@ const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({
     if (highlights && highlights.length > 0) return highlights;
     return extractHighlightsFromSermon(sermon, selectionText, paragraphIndex);
   }, [highlights, sermon, selectionText, paragraphIndex]);
-
-  useEffect(() => {
-    setSidebarOpen(false);
-    setNotesOpen(false);
-    setAiOpen(false);
-  }, [setSidebarOpen, setNotesOpen, setAiOpen]);
 
   useEffect(() => {
     if (view === 'new_note' && titleInputRef.current) {

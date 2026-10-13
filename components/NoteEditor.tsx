@@ -92,7 +92,6 @@ const NoteEditor: React.FC = () => {
         removeImageFromNote,
         removeCitationFromNote,
         updateNoteCitations,
-        setSidebarOpen,
         triggerStudyRequest,
     } = useAppStore();
 
@@ -367,11 +366,6 @@ const NoteEditor: React.FC = () => {
     const titleInputRef = useRef<HTMLInputElement>(null);
     const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
     const directFileInputRef = useRef<HTMLInputElement>(null);
-
-    // Ferme automatiquement le panneau de la bibliothèque lors de la consultation du journal
-    useEffect(() => {
-        setSidebarOpen(false);
-    }, [setSidebarOpen]);
 
     // Charge les images et dossiers média au montage ou à l'ouverture de la galerie
     useEffect(() => {
@@ -2140,7 +2134,7 @@ const NoteEditor: React.FC = () => {
                                           <blockquote 
                                             className="text-zinc-800 dark:text-zinc-200 italic serif-text text-base leading-[1.8] select-text"
                                           >
-                                            « <HighlightedQuote quote={item.quote} highlights={item.highlights} /> »
+                                            <HighlightedQuote quote={item.quote} highlights={item.highlights} withGuillemets />
                                           </blockquote>
                                         </div>
                                       )}
@@ -2558,7 +2552,7 @@ const NoteEditor: React.FC = () => {
                                           <blockquote 
                                             className="text-zinc-800 dark:text-zinc-200 italic serif-text text-base leading-[1.8] select-text"
                                           >
-                                            « <HighlightedQuote quote={item.quote} highlights={item.highlights} /> »
+                                            <HighlightedQuote quote={item.quote} highlights={item.highlights} withGuillemets />
                                           </blockquote>
                                         </div>
                                       )}
@@ -3791,7 +3785,7 @@ const NoteEditor: React.FC = () => {
                             return (
                                 <div key={item.id || i} className="citation-box page-break-inside-avoid bg-slate-50/70 p-3.5 rounded-r-lg border-l-4 border-teal-600 my-3">
                                     <p className="text-[13px] text-slate-800 leading-relaxed italic m-0">
-                                        « <HighlightedQuote quote={stripMarkdown(item.quote)} highlights={item.highlights} isPrint /> »
+                                        <HighlightedQuote quote={stripMarkdown(item.quote)} highlights={item.highlights} isPrint withGuillemets />
                                     </p>
                                     <div className="citation-ref text-right mt-2 text-[11px] font-bold text-teal-800">
                                         {stripMarkdown(item.reference || 'Bible')} {item.sourceIndex ? `[${item.sourceIndex}]` : ''}
@@ -3828,7 +3822,7 @@ const NoteEditor: React.FC = () => {
                             return (
                                 <div key={item.id || i} className="citation-box page-break-inside-avoid bg-amber-50/50 p-3.5 rounded-r-lg border-l-4 border-amber-600 my-3">
                                     <p className="text-[13px] text-slate-800 leading-relaxed italic m-0">
-                                        « <HighlightedQuote quote={stripMarkdown(item.quote)} highlights={item.highlights} isPrint /> »
+                                        <HighlightedQuote quote={stripMarkdown(item.quote)} highlights={item.highlights} isPrint withGuillemets />
                                     </p>
                                     <div className="citation-ref text-right mt-2 text-[11px] font-bold text-amber-900">
                                         {stripMarkdown(item.sourceTitle || "Exposé des Sept Âges")} {item.sourceMeta ? `— ${stripMarkdown(item.sourceMeta)}` : ''} {item.sourceIndex ? `[${item.sourceIndex}]` : ''}
@@ -3865,7 +3859,7 @@ const NoteEditor: React.FC = () => {
                             return (
                                 <div key={item.id || i} className="citation-box page-break-inside-avoid bg-slate-50/70 p-3.5 rounded-r-lg border-l-4 border-slate-600 my-3">
                                     <p className="text-[13px] text-slate-800 leading-relaxed italic m-0">
-                                        « <HighlightedQuote quote={stripMarkdown(item.quote)} highlights={item.highlights} isPrint /> »
+                                        <HighlightedQuote quote={stripMarkdown(item.quote)} highlights={item.highlights} isPrint withGuillemets />
                                     </p>
                                     <div className="citation-ref text-right mt-2 text-[11px] font-bold text-slate-700">
                                         {stripMarkdown(item.sourceTitle || 'Enseignement')} {item.sourceMeta ? `— ${stripMarkdown(item.sourceMeta)}` : ''} {item.sourceIndex ? `[${item.sourceIndex}]` : ''}
