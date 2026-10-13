@@ -114,10 +114,14 @@ function notifyProgressUpdate(update: Partial<CorpusIndexProgress>): void {
       console.warn('[CorpusIndexInit] Erreur listener:', e);
     }
   });
-  persistProgressState(currentProgress).catch(() => {});
+  const isKeyStatusChange = !!(update.status && (update.status === 'READY' || update.status === 'ERROR' || update.status === 'PARTIAL'));
+  persistProgressState(currentProgress, isKeyStatusChange).catch(() => {});
 }
 
-async function persistProgressState(prog: CorpusIndexProgress): Promise<void> {
+let persistProgressTimer: any = null;
+let pendingProgressToPersist: CorpusIndexProgress | null = null;
+
+async function doPersistProgress(prog: CorpusIndexProgress): Promise<void> {
   try {
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem(INDEX_STATUS_STORAGE_KEY, JSON.stringify(prog));
@@ -127,6 +131,28 @@ async function persistProgressState(prog: CorpusIndexProgress): Promise<void> {
     }
   } catch (e) {
     // Ignorer
+  }
+}
+
+async function persistProgressState(prog: CorpusIndexProgress, immediate: boolean = false): Promise<void> {
+  pendingProgressToPersist = prog;
+
+  if (immediate || prog.status === 'READY' || prog.status === 'ERROR' || prog.status === 'PARTIAL') {
+    if (persistProgressTimer) {
+      clearTimeout(persistProgressTimer);
+      persistProgressTimer = null;
+    }
+    await doPersistProgress(prog);
+    return;
+  }
+
+  if (!persistProgressTimer) {
+    persistProgressTimer = setTimeout(() => {
+      persistProgressTimer = null;
+      if (pendingProgressToPersist) {
+        doPersistProgress(pendingProgressToPersist).catch(() => {});
+      }
+    }, 2500);
   }
 }
 

@@ -93,7 +93,20 @@ async function run() {
       console.log(`[fetch-model] Déjà présent et valide: ${path.basename(item.dest)}`);
     }
   }
-  console.log(`[fetch-model] Tous les modèles sont prêts dans ${modelDir}.`);
+
+  // Synchronisation vers public/models pour garantir la disponibilité dans Vite et le build Web
+  const publicModelDir = path.join(rootDir, 'public', 'models', 'Xenova', 'multilingual-e5-small');
+  const publicOnnxDir = path.join(publicModelDir, 'onnx');
+  fs.mkdirSync(publicOnnxDir, { recursive: true });
+  for (const item of FILES) {
+    const rel = path.relative(modelDir, item.dest);
+    const pubDest = path.join(publicModelDir, rel);
+    if (!fs.existsSync(pubDest) || fs.statSync(pubDest).size !== fs.statSync(item.dest).size) {
+      fs.copyFileSync(item.dest, pubDest);
+    }
+  }
+
+  console.log(`[fetch-model] Tous les modèles sont prêts dans ${modelDir} et synchronisés dans public/models.`);
 }
 
 run().catch(err => {

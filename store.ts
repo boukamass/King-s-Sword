@@ -384,11 +384,12 @@ export const useAppStore = create<AppState>((set, get) => ({
 
         const notes = await getAllNotes();
         set({ sermons: uniqueMetadata, sermonsMap: map, notes: sortNotesByRecency(notes), isLoading: false, loadingProgress: 100 });
+        // Démarrage différé de l'indexation (8s) pour que l'interface se lance à 100% de fluidité
         setTimeout(() => {
           initializeCorpusIndex({ loadedSermonsMap: map }).catch(err => {
             console.warn('[Store] Erreur indexation automatique corpus:', err);
           });
-        }, 150);
+        }, 8000);
         return;
       }
 
@@ -408,11 +409,12 @@ export const useAppStore = create<AppState>((set, get) => ({
 
         const notes = await getAllNotes();
         set({ sermons: metadata, sermonsMap: map, notes: sortNotesByRecency(notes), isLoading: false, loadingProgress: 100 });
+        // Démarrage différé de l'indexation (8s) pour que l'interface se lance à 100% de fluidité
         setTimeout(() => {
           initializeCorpusIndex({ loadedSermonsMap: map }).catch(err => {
             console.warn('[Store] Erreur indexation automatique corpus SQLite:', err);
           });
-        }, 150);
+        }, 8000);
       }
     } catch (error) {
       console.error("DB Init Error:", error);

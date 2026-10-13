@@ -1,11 +1,11 @@
 {
-  "timestamp": "2026-10-05T09:04:31.366Z",
+  "timestamp": "2026-10-13T03:07:28.319Z",
   "phase": "2F.14",
   "title": "Indexation Automatique du Corpus au Premier Lancement",
   "status": "FIRST_RUN_INDEXING_FAILED",
   "totalTests": 10,
-  "passCount": 4,
-  "failCount": 6,
+  "passCount": 5,
+  "failCount": 5,
   "detectedCorpusLocation": {
     "web": "/library.json",
     "electron": "window.electronAPI.db / process.resourcesPath / library.json"
@@ -59,12 +59,12 @@
     },
     {
       "title": "Gestion d'erreur 429/503 : passage propre en état PARTIAL/ERROR sans effacer les 15 embeddings valides",
-      "status": "PASS",
+      "status": "FAIL",
       "details": ""
     },
     {
       "title": "Reprise automatique post-erreur : l'index retrouve l'état READY avec succès",
-      "status": "FAIL",
+      "status": "PASS",
       "details": ""
     },
     {
@@ -74,7 +74,7 @@
     },
     {
       "title": "Corpus déjà indexé : L'état READY est conservé de manière persistante",
-      "status": "FAIL",
+      "status": "PASS",
       "details": ""
     },
     {
