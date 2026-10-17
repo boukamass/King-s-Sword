@@ -22,10 +22,10 @@ import { loadPersistedProgressState, subscribeIndexProgress, CorpusIndexProgress
 import { Sermon, ChatMessage } from '../types';
 import { splitSermonIntoParagraphs, extractLeadingParagraphNumber } from '../utils/textUtils';
 import { 
-  Sparkles, 
+  Lightbulb, 
   X, 
   Send, 
-  Notebook, 
+  NotebookPen, 
   BookOpen,
   Trash2,
   Layers,
@@ -43,6 +43,7 @@ import {
   Plus,
   MessageSquare,
   ChevronDown,
+  ChevronRight,
   Pencil,
   Check,
   Undo2,
@@ -52,10 +53,10 @@ import {
 } from 'lucide-react';
 
 export function extractFollowUpQuestions(content: string): string[] {
-  if (!content || (!content.includes('Pistes') && !content.includes('💡') && !content.includes('approfondissement'))) {
+  if (!content || (!content.includes('Pistes') && !content.includes('approfondissement'))) {
     return [];
   }
-  const parts = content.split(/###\s*(?:💡\s*)?Pistes d'approfondissement/i);
+  const parts = content.split(/###\s*(?:[^\w\s]\s*)?Pistes d'approfondissement/i);
   if (parts.length < 2) return [];
   const section = parts[1];
   const lines = section.split('\n');
@@ -92,7 +93,7 @@ const RefusalPassagesBlock: React.FC<{
           onClick={() => setIsOpen(!isOpen)}
           className="flex items-center gap-1.5 text-xs font-bold text-zinc-600 dark:text-zinc-400 hover:text-teal-600 dark:hover:text-teal-400 cursor-pointer text-left focus:outline-none"
         >
-          <span className="inline-block transition-transform duration-200" style={{ transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+          <ChevronRight className={`w-3.5 h-3.5 transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-90 text-teal-600' : ''}`} />
           <span>Passages les plus proches trouvés ({Math.min(5, passages.length)})</span>
         </button>
         
@@ -377,7 +378,7 @@ const AIAssistant: React.FC = () => {
       } else {
         addChatMessage(chatKey, {
           role: 'assistant',
-          content: `❌ **Échec de génération forcée** : ${unifiedResult.errorMessage || 'Impossible d\'obtenir une réponse du modèle.'}`,
+          content: `**Échec de génération forcée** : ${unifiedResult.errorMessage || 'Impossible d\'obtenir une réponse du modèle.'}`,
           timestamp: new Date().toISOString()
         });
       }
@@ -385,7 +386,7 @@ const AIAssistant: React.FC = () => {
       if (abortController.signal.aborted) return;
       addChatMessage(chatKey, {
         role: 'assistant',
-        content: `❌ **Erreur** : ${err?.message || String(err)}`,
+        content: `**Erreur** : ${err?.message || String(err)}`,
         timestamp: new Date().toISOString()
       });
     } finally {
@@ -633,8 +634,8 @@ const AIAssistant: React.FC = () => {
 
   // Transforme les balises de référence [Réf: ID_SERMON, Para. N], [Réf: expose-ch-N, §P], etc. en liens interactifs cliquables
   const formatAIResponse = (text: string) => {
-    // Supprimer la section "💡 Pistes d'approfondissement" du corps du message pour ne pas l'inclure dans la réponse texte
-    const textWithoutPistes = (text || '').replace(/(?:#{1,4}\s*(?:💡\s*)?(?:Pistes d'approfondissement|Pistes d'etude|Questions de reflexion|Pistes d'exploration|Pistes d'approfondissement suggérées)[\s\S]*)/i, '').trim();
+    // Supprimer la section "Pistes d'approfondissement" du corps du message pour ne pas l'inclure dans la réponse texte
+    const textWithoutPistes = (text || '').replace(/(?:#{1,4}\s*(?:[^\w\s]\s*)?(?:Pistes d'approfondissement|Pistes d'etude|Questions de reflexion|Pistes d'exploration|Pistes d'approfondissement suggérées)[\s\S]*)/i, '').trim();
 
     // Regex universelle pour capturer toutes les variantes de citations dans le corps du texte
     // Exemples: [Réf: 63-0324M, §2], [Réf: expose-ch-4, §151], [Réf: expose-ch-8, Para. 98], (Réf: 65-1212, §10), [63-0324M, §5], etc.
@@ -687,8 +688,9 @@ const AIAssistant: React.FC = () => {
 
       const targetId = foundSermon ? foundSermon.id : cleanId;
       const paraLabel = rawParaNum ? `§${pNum}` : '';
+      const bookIconSvg = `<svg class="w-2.5 h-2.5 inline-block shrink-0 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`;
 
-      return `<a href="#" data-sermon-id="${targetId}" data-para-num="${pNum}" class="sermon-ref inline-flex items-center gap-1 px-2 py-0.5 bg-teal-600/10 dark:bg-teal-400/15 text-teal-800 dark:text-teal-200 rounded-md text-[9.5px] font-black hover:bg-teal-600/25 transition-all border border-teal-600/20 mx-1 align-middle shadow-xs cursor-pointer select-none group/badge" title="Ouvrir dans le lecteur (${titleDisplay})"><span>📖 ${paraLabel ? `${paraLabel} — ` : ''}${titleDisplay}</span></a>`;
+      return `<a href="#" data-sermon-id="${targetId}" data-para-num="${pNum}" class="sermon-ref inline-flex items-center gap-1.5 px-2 py-0.5 bg-teal-600/10 dark:bg-teal-400/15 text-teal-800 dark:text-teal-200 rounded-md text-[9.5px] font-black hover:bg-teal-600/25 transition-all border border-teal-600/20 mx-1 align-middle shadow-xs cursor-pointer select-none group/badge" title="Ouvrir dans le lecteur (${titleDisplay})">${bookIconSvg}<span>${paraLabel ? `${paraLabel} — ` : ''}${titleDisplay}</span></a>`;
     });
 
     return marked(formattedText, { breaks: true });
@@ -925,9 +927,9 @@ const AIAssistant: React.FC = () => {
 
             let refusalText = '';
             if (isUnreliableClose) {
-              refusalText = `⚠️ **Passages proches trouvés mais peu fiables (signal partiel)** :\n${pkg.reason || "Des passages proches ont été trouvés dans le corpus, mais le signal documentaire reste trop partiel pour garantir une réponse doctrinale certaine."}`;
+              refusalText = `**Passages proches trouvés mais peu fiables (signal partiel)** :\n${pkg.reason || "Des passages proches ont été trouvés dans le corpus, mais le signal documentaire reste trop partiel pour garantir une réponse doctrinale certaine."}`;
             } else {
-              refusalText = `🔍 **Aucun passage lié trouvé** :\n${pkg.reason || "Les textes disponibles ne traitent pas de ce sujet."}`;
+              refusalText = `**Aucun passage lié trouvé** :\n${pkg.reason || "Les textes disponibles ne traitent pas de ce sujet."}`;
             }
 
             const fallbackClosest = (pkg.evidence || []).map(e => ({
@@ -976,7 +978,7 @@ const AIAssistant: React.FC = () => {
             } else {
               const errorMsg: ChatMessageWithSources = {
                 role: 'assistant',
-                content: `❌ **Erreur de génération Gemini** : ${unifiedResult.errorMessage || 'Impossible de joindre le modèle de génération.'}`,
+                content: `**Erreur de génération Gemini** : ${unifiedResult.errorMessage || 'Impossible de joindre le modèle de génération.'}`,
                 timestamp: new Date().toISOString(),
               };
               addChatMessage(chatKey, errorMsg);
@@ -1000,7 +1002,7 @@ const AIAssistant: React.FC = () => {
           if (!ragResult.hasResults || ragResult.paragraphs.length === 0) {
             const noResultMsg: ChatMessageWithSources = {
               role: 'assistant',
-              content: `🔍 **Aucun passage pertinent n'a été trouvé dans les sermons disponibles pour :** *"${msg}"*.\n\nLes termes doctrinaux analysés (*${ragResult.keywordsUsed.join(', ') || 'aucun'}*) ne correspondent à aucun extrait significatif dans la bibliothèque actuelle. Vous pouvez reformuler votre question avec des termes doctrinaux plus spécifiques ou ajouter manuellement des sermons dans le Dock IA.`,
+              content: `**Aucun passage pertinent n'a été trouvé dans les sermons disponibles pour :** *"${msg}"*.\n\nLes termes doctrinaux analysés (*${ragResult.keywordsUsed.join(', ') || 'aucun'}*) ne correspondent à aucun extrait significatif dans la bibliothèque actuelle. Vous pouvez reformuler votre question avec des termes doctrinaux plus spécifiques ou ajouter manuellement des sermons dans le Dock IA.`,
               timestamp: new Date().toISOString(),
             };
             if (!abortController.signal.aborted) addChatMessage(chatKey, noResultMsg);
@@ -1069,9 +1071,9 @@ const AIAssistant: React.FC = () => {
 
             let refusalText = '';
             if (isUnreliableClose) {
-              refusalText = `⚠️ **Passages proches trouvés mais peu fiables (signal partiel)** :\n${pkg.reason || "Les ressources sélectionnées dans le Dock IA contiennent des passages proches, mais le signal documentaire reste trop partiel pour garantir une réponse doctrinale certaine."}`;
+              refusalText = `**Passages proches trouvés mais peu fiables (signal partiel)** :\n${pkg.reason || "Les ressources sélectionnées dans le Dock IA contiennent des passages proches, mais le signal documentaire reste trop partiel pour garantir une réponse doctrinale certaine."}`;
             } else {
-              refusalText = `🔍 **Aucun passage lié trouvé** :\n${pkg.reason || "Aucun passage lié à cette question n'a été trouvé dans les documents sélectionnés. Le sujet demandé ne figure pas dans les ressources choisies."}`;
+              refusalText = `**Aucun passage lié trouvé** :\n${pkg.reason || "Aucun passage lié à cette question n'a été trouvé dans les documents sélectionnés. Le sujet demandé ne figure pas dans les ressources choisies."}`;
             }
 
             const abstentionMsg: ChatMessageWithSources = {
@@ -1112,7 +1114,7 @@ const AIAssistant: React.FC = () => {
             } else {
               const errorMsg: ChatMessageWithSources = {
                 role: 'assistant',
-                content: `❌ **Erreur de génération Gemini** : ${unifiedResult.errorMessage || 'Impossible de joindre le modèle de génération.'}`,
+                content: `**Erreur de génération Gemini** : ${unifiedResult.errorMessage || 'Impossible de joindre le modèle de génération.'}`,
                 timestamp: new Date().toISOString(),
               };
               addChatMessage(chatKey, errorMsg);
@@ -1167,7 +1169,7 @@ const AIAssistant: React.FC = () => {
       if (abortController.signal.aborted || e?.name === 'AbortError') return;
       let displayMessage = e?.message || "Une erreur est survenue lors de l'analyse.";
       if (displayMessage.includes("Failed to call the Gemini API") || displayMessage.includes("Google Gemini")) {
-        displayMessage = "❌ Connexion au service d'analyse IA impossible. Veuillez vérifier votre connexion Internet ou votre clé d'accès.";
+        displayMessage = "Connexion au service d'analyse IA impossible. Veuillez vérifier votre connexion Internet ou votre clé d'accès.";
       }
       addChatMessage(chatKey, { 
         role: 'assistant', 
@@ -1198,7 +1200,7 @@ const AIAssistant: React.FC = () => {
           className="flex items-center gap-3 cursor-pointer group/ai-title hover:opacity-80 transition-all active:scale-95"
         >
           <div className="w-7 h-7 flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-lg border border-teal-600/20 shadow-lg group-hover/ai-title:border-teal-600/40 transition-all">
-            <Sparkles className="w-4 h-4" />
+            <Lightbulb className="w-4 h-4" />
           </div>
           <div className="flex items-center gap-2">
             <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-900 dark:text-zinc-50 leading-none group-hover/ai-title:text-teal-600 transition-colors">ASSISTANT IA</h2>
@@ -1587,7 +1589,7 @@ const AIAssistant: React.FC = () => {
         {history.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-4 my-auto opacity-70">
             <div className="w-12 h-12 rounded-2xl bg-teal-600/10 text-teal-600 flex items-center justify-center border border-teal-600/20 shadow-inner">
-              <Sparkles className="w-6 h-6" />
+              <Lightbulb className="w-6 h-6" />
             </div>
             <div>
               <h3 className="text-xs font-black uppercase tracking-wider text-zinc-800 dark:text-zinc-100">
@@ -1751,7 +1753,7 @@ const AIAssistant: React.FC = () => {
                       data-tooltip="Ajouter cette réponse au journal de notes"
                       data-tooltip-icon="notes"
                     >
-                      <Notebook className="w-3 h-3" />
+                      <NotebookPen className="w-3 h-3" />
                     </button>
                     <button 
                       onClick={() => handleDeleteQuestionAndAnswer(i)}
@@ -1768,7 +1770,7 @@ const AIAssistant: React.FC = () => {
               {msg.role === 'assistant' && extractFollowUpQuestions(msg.content).length > 0 && (
                 <div className="mt-2 flex flex-col gap-1 w-full pl-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
                   <span className="text-[8px] font-black uppercase tracking-wider text-teal-700 dark:text-teal-400 flex items-center gap-1">
-                    <Sparkles className="w-2.5 h-2.5" /> Pistes d'approfondissement suggérées :
+                    <Lightbulb className="w-2.5 h-2.5" /> Pistes d'approfondissement suggérées :
                   </span>
                   <div className="flex flex-col gap-1 mt-0.5 max-w-[94%]">
                     {extractFollowUpQuestions(msg.content).map((q, qIdx) => (
@@ -1777,7 +1779,7 @@ const AIAssistant: React.FC = () => {
                         onClick={() => handleSend(q)}
                         className="text-left px-2.5 py-1.5 rounded-xl bg-white/80 dark:bg-zinc-800/80 border border-teal-600/20 hover:border-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/50 text-teal-900 dark:text-teal-200 text-[10.5px] font-semibold transition-all cursor-pointer shadow-2xs hover:shadow-xs flex items-center gap-1.5"
                       >
-                        <span className="text-teal-600 font-bold shrink-0">💡</span>
+                        <Lightbulb className="w-3 h-3 text-teal-600 shrink-0" />
                         <span className="truncate">{q}</span>
                       </button>
                     ))}

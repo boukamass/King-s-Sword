@@ -14,7 +14,7 @@ import {
   NotebookPen, 
   Calendar, 
   MapPin, 
-  Sparkles, 
+  Lightbulb, 
   Hash, 
   Quote, 
   Image as ImageIcon, 
@@ -27,6 +27,7 @@ import {
   Check, 
   Eye, 
   Folder,
+  Tag,
   BookOpen,
   ScrollText,
   GripVertical,
@@ -1584,23 +1585,31 @@ const NoteEditor: React.FC = () => {
                         {/* Bloc Titre et Contenu Principal */}
                         <div className="group bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60 rounded-[40px] p-10 shadow-sm hover:shadow-xl transition-all duration-500">
                             <div className="flex items-center gap-4 mb-8">
-                                <div className="w-10 h-10 flex items-center justify-center bg-teal-600 text-white rounded-2xl text-sm shadow-xl shadow-teal-600/20">📝</div>
-                                <div className="flex-1">
-                                    {editingTitle ? (
-                                        <input
-                                            ref={titleInputRef}
-                                            type="text"
-                                            value={note.title}
-                                            onChange={e => updateNote(note.id, { title: e.target.value })}
-                                            onBlur={handleTitleBlur}
-                                            onKeyDown={e => e.key === 'Enter' && handleTitleBlur()}
-                                            className="text-2xl font-black text-zinc-900 dark:text-white uppercase tracking-tight bg-transparent border-none focus:ring-0 p-0 w-full"
-                                        />
-                                    ) : (
-                                        <h3 onClick={() => setEditingTitle(true)} data-tooltip="Cliquer pour modifier le titre" className="text-2xl font-black text-zinc-900 dark:text-white uppercase tracking-tight cursor-text hover:text-teal-600 transition-colors">
-                                            {processedNote.title}
-                                        </h3>
-                                    )}
+                                <div className="w-10 h-10 flex items-center justify-center bg-teal-600 text-white rounded-2xl text-sm shadow-xl shadow-teal-600/20">
+                                    <NotebookPen className="w-5 h-5 text-white" />
+                                </div>
+                                <div className="flex-1 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                    <div className="flex-1">
+                                        {editingTitle ? (
+                                            <input
+                                                ref={titleInputRef}
+                                                type="text"
+                                                value={note.title}
+                                                onChange={e => updateNote(note.id, { title: e.target.value })}
+                                                onBlur={handleTitleBlur}
+                                                onKeyDown={e => e.key === 'Enter' && handleTitleBlur()}
+                                                className="text-2xl font-black text-zinc-900 dark:text-white uppercase tracking-tight bg-transparent border-none focus:ring-0 p-0 w-full"
+                                            />
+                                        ) : (
+                                            <h3 onClick={() => setEditingTitle(true)} data-tooltip="Cliquer pour modifier le titre" className="text-2xl font-black text-zinc-900 dark:text-white uppercase tracking-tight cursor-text hover:text-teal-600 transition-colors">
+                                                {processedNote.title}
+                                            </h3>
+                                        )}
+                                    </div>
+                                    <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-teal-600/10 text-teal-700 dark:text-teal-300 border border-teal-600/20 rounded-full text-xs font-bold shrink-0">
+                                        <Tag className="w-3.5 h-3.5 text-teal-600" />
+                                        <span>{note.theme || 'Général'}</span>
+                                    </div>
                                 </div>
                             </div>
 
@@ -3001,7 +3010,7 @@ const NoteEditor: React.FC = () => {
                               <div className="space-y-4">
                                 <div className="flex items-center justify-between px-2">
                                   <h4 className="text-xs font-black uppercase tracking-wider text-teal-600 dark:text-teal-400 flex items-center gap-2">
-                                    <Sparkles className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                                    <Lightbulb className="w-4 h-4 text-teal-600 dark:text-teal-400" />
                                     <span>Études & Réponses du Dock IA ({processedNote.aiItems.length})</span>
                                   </h4>
                                 </div>
@@ -3044,7 +3053,7 @@ const NoteEditor: React.FC = () => {
                                       <div className="flex items-start justify-between gap-4 mb-3 border-b border-teal-100 dark:border-teal-900/50 pb-2.5">
                                         <div className="flex items-center gap-2.5 min-w-0 flex-wrap">
                                           <div className="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
-                                            <Sparkles className="w-4 h-4" />
+                                            <Lightbulb className="w-4 h-4" />
                                           </div>
                                           <div>
                                             <div className="text-[10px] font-black uppercase tracking-wider text-teal-700 dark:text-teal-400">
@@ -3693,7 +3702,7 @@ const NoteEditor: React.FC = () => {
                           <button onClick={() => { handleCopy(); setSelection(null); }} data-tooltip="Copier le texte sélectionné" className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-zinc-500/10 text-zinc-800 dark:text-zinc-200 rounded-xl active:scale-95 transition-colors cursor-pointer"><Copy className="w-4 h-4 text-zinc-500" /><span className="text-[8px] font-bold uppercase tracking-tight">Copier</span></button>
                           <div className="w-px h-6 bg-zinc-200/80 dark:bg-zinc-700/80 my-auto mx-1" />
                           <button onClick={() => { handleDefine(); setSelection(null); }} data-tooltip="Définir ce mot dans le dictionnaire" data-tooltip-icon="book" className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-sky-500/15 text-zinc-800 dark:text-zinc-200 rounded-xl active:scale-95 transition-colors cursor-pointer"><BookOpen className="w-4 h-4 text-sky-500" /><span className="text-[8px] font-bold uppercase tracking-tight">Définir</span></button>
-                          <button onClick={() => { triggerStudyRequest(selection.text); setSelection(null); }} data-tooltip="Étudier avec l'assistant IA" data-tooltip-icon="sparkles" className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-teal-600/15 text-zinc-800 dark:text-zinc-200 rounded-xl active:scale-95 transition-colors cursor-pointer"><Sparkles className="w-4 h-4 text-teal-600 animate-pulse" /><span className="text-[8px] font-bold uppercase tracking-tight">Étudier</span></button>
+                          <button onClick={() => { triggerStudyRequest(selection.text); setSelection(null); }} data-tooltip="Étudier avec l'assistant IA" data-tooltip-icon="lightbulb" className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-teal-600/15 text-zinc-800 dark:text-zinc-200 rounded-xl active:scale-95 transition-colors cursor-pointer"><Lightbulb className="w-4 h-4 text-teal-600 animate-pulse" /><span className="text-[8px] font-bold uppercase tracking-tight">Étudier</span></button>
                           <div className="w-px h-6 bg-zinc-200/80 dark:bg-zinc-700/80 my-auto mx-1" />
                           <button 
                             onClick={() => { 

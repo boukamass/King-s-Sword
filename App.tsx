@@ -7,7 +7,7 @@ import AIAssistant from './components/AIAssistant';
 import NotesPanel from './components/NotesPanel';
 import Notifications from './components/Notifications';
 import NoteEditor from './components/NoteEditor';
-import { Sparkles, NotebookPen, Info, Trash2, HelpCircle, BookOpen, Star, Clock, Edit3 } from 'lucide-react';
+import { Lightbulb, NotebookPen, Info, Trash2, HelpCircle, BookOpen, Star, Clock, Pencil, Bookmark } from 'lucide-react';
 import { ProjectionView, MaskView } from './components/ProjectionView';
 import { ImageProjectionModal } from './components/ImageProjectionModal';
 import { AnnouncementModal } from './components/AnnouncementModal';
@@ -98,13 +98,15 @@ const GlobalTooltip = memo(() => {
     if (!data.icon || data.icon === 'none') return null;
     switch (data.icon) {
       case 'trash': return <Trash2 className="w-3 h-3 text-red-400 shrink-0" />;
-      case 'sparkles': return <Sparkles className="w-3 h-3 text-teal-400 shrink-0" />;
+      case 'lightbulb':
+      case 'sparkles': return <Lightbulb className="w-3 h-3 text-teal-400 shrink-0" />;
       case 'info': return <Info className="w-3 h-3 text-teal-400 shrink-0" />;
       case 'notes': return <NotebookPen className="w-3 h-3 text-teal-400 shrink-0" />;
       case 'book': return <BookOpen className="w-3 h-3 text-teal-400 shrink-0" />;
       case 'star': return <Star className="w-3 h-3 text-amber-400 shrink-0" />;
+      case 'bookmark': return <Bookmark className="w-3 h-3 text-amber-400 shrink-0" />;
       case 'clock': return <Clock className="w-3 h-3 text-teal-400 shrink-0" />;
-      case 'edit': return <Edit3 className="w-3 h-3 text-sky-400 shrink-0" />;
+      case 'edit': return <Pencil className="w-3 h-3 text-teal-400 shrink-0" />;
       case 'help': return <HelpCircle className="w-3 h-3 text-amber-400 shrink-0" />;
       default: return null;
     }
@@ -319,10 +321,10 @@ const App: React.FC = () => {
                 <button
                   onClick={toggleAI}
                   data-tooltip="Ouvrir l'Assistant IA"
-                  data-tooltip-icon="sparkles"
+                  data-tooltip-icon="lightbulb"
                   className="flex items-center justify-center w-10 h-10 bg-white/95 dark:bg-zinc-800/95 backdrop-blur-md text-zinc-600 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl shadow-lg hover:bg-teal-600/10 hover:text-teal-600 hover:border-teal-600/30 transition-all duration-200 active:scale-95 cursor-pointer shrink-0"
                 >
-                  <Sparkles className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                  <Lightbulb className="w-4 h-4 text-teal-600 dark:text-teal-400" />
                 </button>
               )}
             </div>

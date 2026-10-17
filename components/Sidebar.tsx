@@ -31,14 +31,16 @@ import {
   BookText,
   Music,
   Plus,
-  Edit3,
+  Pencil,
   Trash2,
   Image as ImageIcon,
   Megaphone,
   SlidersHorizontal,
   Star,
   Bookmark,
-  Heart
+  Heart,
+  ArrowDown,
+  ArrowUp
 } from 'lucide-react';
 
 import { Song } from '../types';
@@ -716,7 +718,7 @@ const SongItem = memo(({
           data-tooltip="Modifier ce cantique"
           className="p-1.5 text-zinc-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-white dark:hover:bg-zinc-800 rounded-lg transition-all border border-transparent hover:border-slate-200 dark:hover:border-zinc-700 shadow-2xs"
         >
-          <Edit3 className="w-3.5 h-3.5" />
+          <Pencil className="w-3.5 h-3.5" />
         </button>
         <button
           onClick={onDelete}
@@ -1418,7 +1420,7 @@ const Sidebar: React.FC = () => {
             className="relative w-7 h-7 flex items-center justify-center text-slate-400 hover:text-amber-500 transition-all active:scale-95" 
             data-tooltip="Favoris et Documents Récents"
           >
-            <Star className={`w-3.5 h-3.5 ${favoritesCount > 0 ? 'text-amber-500 fill-amber-500/20' : ''}`} />
+            <Bookmark className={`w-3.5 h-3.5 ${favoritesCount > 0 ? 'text-amber-500 fill-amber-500/20' : ''}`} />
             {favoritesCount > 0 && (
               <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] flex items-center justify-center bg-amber-500 text-black text-[8px] font-black rounded-full px-0.5 shadow-xs">
                 {favoritesCount > 99 ? '99+' : favoritesCount}
@@ -1555,7 +1557,7 @@ const Sidebar: React.FC = () => {
                     }`}
                   >
                     <span>N°</span>
-                    <span>{songsSortOrder === 'number-desc' ? '▼' : '▲'}</span>
+                    {songsSortOrder === 'number-desc' ? <ArrowDown className="w-2.5 h-2.5" /> : <ArrowUp className="w-2.5 h-2.5" />}
                   </button>
                   <button
                     onClick={() => {
@@ -1571,7 +1573,7 @@ const Sidebar: React.FC = () => {
                     }`}
                   >
                     <span>A-Z</span>
-                    <span>{songsSortOrder === 'title-desc' ? '▼' : '▲'}</span>
+                    {songsSortOrder === 'title-desc' ? <ArrowDown className="w-2.5 h-2.5" /> : <ArrowUp className="w-2.5 h-2.5" />}
                   </button>
                 </div>
 

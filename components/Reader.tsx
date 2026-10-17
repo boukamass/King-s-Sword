@@ -35,7 +35,7 @@ import {
   RotateCcw, 
   RotateCw, 
   Highlighter, 
-  Sparkles, 
+  Lightbulb, 
   NotebookPen, 
   Check,
   X, 
@@ -72,7 +72,7 @@ import {
   ChevronRight,
   PanelLeftOpen,
   Music,
-  Edit3,
+  Pencil,
   Library,
   BookText,
   ListOrdered,
@@ -212,7 +212,7 @@ const WordComponent = memo(({
       <span 
         onClick={handleRemove}
         data-tooltip={highlight ? "Cliquer pour supprimer" : "Masquer le surlignage intelligent"}
-        data-tooltip-icon={highlight ? "trash" : "sparkles"}
+        data-tooltip-icon={highlight ? "trash" : "lightbulb"}
         className={`${highlightColorClass} cursor-pointer hover:brightness-105 transition-all py-0.5`}
       >
         {content}
@@ -3062,7 +3062,7 @@ const Reader: React.FC = () => {
                     }}
                     className="flex-1 py-2.5 px-3.5 bg-gradient-to-r from-teal-600 to-teal-500 text-white font-bold text-xs rounded-xl shadow-md hover:shadow-lg transition-all active:scale-95 uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+                    <Lightbulb className="w-3.5 h-3.5 animate-pulse" />
                     <span>Étudier avec l'Assistant IA</span>
                   </button>
                   <button
@@ -3233,7 +3233,7 @@ const Reader: React.FC = () => {
                 onClick={() => {
                   setIsSongModalOpen(true);
                 }} 
-                icon={Edit3} 
+                icon={Pencil} 
                 tooltip="Modifier les données de ce cantique" 
                 isFullscreen={isOSFullscreen} 
                 baseFontSize={fontSize} 
@@ -3624,9 +3624,10 @@ const Reader: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setNavFilterText('')}
-                    className="absolute right-1 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 text-[9px] font-bold"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 flex items-center justify-center"
+                    data-tooltip="Effacer le filtre"
                   >
-                    ✕
+                    <X className="w-2.5 h-2.5" />
                   </button>
                 )}
               </div>
@@ -3977,7 +3978,7 @@ const Reader: React.FC = () => {
                 <button onClick={() => { handleCopy(); setSelection(null); }} data-tooltip="Copier le texte sélectionné" className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-zinc-500/10 text-zinc-800 dark:text-zinc-200 rounded-xl active:scale-95 transition-colors cursor-pointer"><Copy className="w-4 h-4 text-zinc-500" /><span className="text-[8px] font-bold uppercase tracking-tight">Copier</span></button>
                 <div className="w-px h-6 bg-zinc-200/80 dark:bg-zinc-700/80 my-auto mx-1" />
                 <button onClick={() => { handleDefine(); setSelection(null); }} data-tooltip="Définir ce mot dans le dictionnaire" data-tooltip-icon="book" className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-sky-500/15 text-zinc-800 dark:text-zinc-200 rounded-xl active:scale-95 transition-colors cursor-pointer"><BookOpen className="w-4 h-4 text-sky-500" /><span className="text-[8px] font-bold uppercase tracking-tight">Définir</span></button>
-                <button onClick={() => { triggerStudyRequest(selection.text); setSelection(null); }} data-tooltip="Étudier avec l'assistant IA" data-tooltip-icon="sparkles" className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-teal-600/15 text-zinc-800 dark:text-zinc-200 rounded-xl active:scale-95 transition-colors cursor-pointer"><Sparkles className="w-4 h-4 text-teal-600 animate-pulse" /><span className="text-[8px] font-bold uppercase tracking-tight">Étudier</span></button>
+                <button onClick={() => { triggerStudyRequest(selection.text); setSelection(null); }} data-tooltip="Étudier avec l'assistant IA" data-tooltip-icon="lightbulb" className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 hover:bg-teal-600/15 text-zinc-800 dark:text-zinc-200 rounded-xl active:scale-95 transition-colors cursor-pointer"><Lightbulb className="w-4 h-4 text-teal-600 animate-pulse" /><span className="text-[8px] font-bold uppercase tracking-tight">Étudier</span></button>
                 <div className="w-px h-6 bg-zinc-200/80 dark:bg-zinc-700/80 my-auto mx-1" />
                 <button 
                   onClick={() => { 

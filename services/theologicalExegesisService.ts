@@ -156,7 +156,7 @@ Réponds strictement par OUI ou NON.`,
 export function cleanPistesDapprofondissement(text: string): string {
   if (!text || typeof text !== 'string') return text;
 
-  const pistesHeaderRegex = /(#{1,4}\s*(?:💡\s*)?(?:Pistes d'approfondissement|Pistes d'etude|Questions de reflexion|Pistes d'exploration)[\s\S]*)/i;
+  const pistesHeaderRegex = /(#{1,4}\s*(?:[^\w\s]\s*)?(?:Pistes d'approfondissement|Pistes d'etude|Questions de reflexion|Pistes d'exploration)[\s\S]*)/i;
   const match = text.match(pistesHeaderRegex);
   if (!match || match.index === undefined) return text;
 
@@ -204,17 +204,17 @@ export function formatCoverageSummary(params: {
   let partialNotice = '';
   if (typeof totalFoundCount === 'number' && totalFoundCount > passagesCount) {
     countInfo = `${passagesCount} extraits retenus sur ${totalFoundCount} trouvés au total`;
-    partialNotice = `\n> ⚠️ *Note : Cette sélection regroupe les ${passagesCount} passages les plus probants parmi les ${totalFoundCount} occurrences répertoriées.*`;
+    partialNotice = `\n> *Note : Cette sélection regroupe les ${passagesCount} passages les plus probants parmi les ${totalFoundCount} occurrences répertoriées.*`;
   }
 
-  return `📊 **Couverture documentaire** : ${uniqueDocsCount} ${docType} et ${countInfo} analysés pour cette étude exhaustive.${partialNotice}`;
+  return `**Couverture documentaire** : ${uniqueDocsCount} ${docType} et ${countInfo} analysés pour cette étude exhaustive.${partialNotice}`;
 }
 
 export function getDeepDiveSystemInstruction(): string {
   return `
 DIRECTIVES SUPPLÉMENTAIRES POUR ÉTUDE EXHAUSTIVE ET PLAN THÉMATIQUE APPROFONDI (MODE ÉTUDE EXHAUSTIVE) :
 1. SECTIONS ANALYTIQUES OBLIGATOIRES AVEC CITATIONS VALIDÉES POUR CHAQUE SECTION :
-   - ## 📖 Titre & Thème de l'Étude
+   - ## Titre & Thème de l'Étude
    - ### I. Fondement Scripturaire & Définitions Clés (citations exactes [Réf: ID, §N])
    - ### II. Développement Doctrinal & Chronologique (citations exactes [Réf: ID, §N])
    - ### III. Concordance & Harmonie avec les Écritures et l'Exposé (citations exactes [Réf: ID, §N])

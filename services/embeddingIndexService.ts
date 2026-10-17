@@ -27,13 +27,18 @@ let isUserActive = false;
 let userActivityTimer: any = null;
 
 if (typeof window !== 'undefined') {
+  let lastActivityUpdate = 0;
   const setInactive = () => {
     isUserActive = false;
   };
   const handleActivity = () => {
     isUserActive = true;
-    if (userActivityTimer) clearTimeout(userActivityTimer);
-    userActivityTimer = setTimeout(setInactive, 12000); // Considéré inactif après 12s sans interaction
+    const now = Date.now();
+    if (now - lastActivityUpdate > 1000) {
+      lastActivityUpdate = now;
+      if (userActivityTimer) clearTimeout(userActivityTimer);
+      userActivityTimer = setTimeout(setInactive, 12000); // Considéré inactif après 12s sans interaction
+    }
   };
   window.addEventListener('mousemove', handleActivity, { passive: true });
   window.addEventListener('keydown', handleActivity, { passive: true });

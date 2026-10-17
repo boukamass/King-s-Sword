@@ -9,7 +9,7 @@ import {
   Plus, 
   Trash2, 
   Copy, 
-  Edit3, 
+  Pencil, 
   AlignLeft, 
   AlignCenter, 
   Eye, 
@@ -21,7 +21,6 @@ import {
   Search, 
   RotateCcw,
   Layers,
-  Sliders,
   Type,
   Image as ImageIcon,
   Wallpaper,
@@ -516,7 +515,7 @@ export const AnnouncementModal: React.FC = memo(() => {
                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
                 }`}
               >
-                <Edit3 className="w-3 h-3" />
+                <Pencil className="w-3 h-3" />
                 Éditeur
               </button>
               <button
@@ -956,10 +955,15 @@ export const AnnouncementModal: React.FC = memo(() => {
                 </div>
 
                 {/* Status message */}
-                <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-2 text-center">
-                  {isCurrentlyProjected 
-                    ? "✓ Cette annonce est actuellement affichée sur le second écran." 
-                    : "Cliquez sur « Projeter sur Grand Écran » pour l'envoyer au vidéoprojecteur."}
+                <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-2 text-center flex items-center justify-center gap-1.5">
+                  {isCurrentlyProjected ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 inline" />
+                      <span>Cette annonce est actuellement affichée sur le second écran.</span>
+                    </>
+                  ) : (
+                    "Cliquez sur « Projeter sur Grand Écran » pour l'envoyer au vidéoprojecteur."
+                  )}
                 </p>
               </div>
 
@@ -1210,7 +1214,7 @@ export const AnnouncementModal: React.FC = memo(() => {
                             data-tooltip="Éditer dans l'éditeur"
                             className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-teal-600 transition-all cursor-pointer"
                           >
-                            <Edit3 className="w-3.5 h-3.5" />
+                            <Pencil className="w-3.5 h-3.5" />
                           </button>
 
                           <button
@@ -1301,7 +1305,7 @@ export const AnnouncementModal: React.FC = memo(() => {
                             data-tooltip="Éditer dans l'éditeur"
                             className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-teal-600 transition-all cursor-pointer"
                           >
-                            <Edit3 className="w-3.5 h-3.5" />
+                            <Pencil className="w-3.5 h-3.5" />
                           </button>
                           <button
                             type="button"

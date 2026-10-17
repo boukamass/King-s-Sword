@@ -3,7 +3,7 @@ import { useAppStore } from '../store';
 import { 
   Copy, 
   Search, 
-  Sparkles, 
+  Lightbulb, 
   NotebookPen, 
   CheckSquare
 } from 'lucide-react';
@@ -279,7 +279,7 @@ export const GlobalContextMenu: React.FC = () => {
                 onClick={handleAskAI}
                 className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-teal-50 dark:hover:bg-teal-950/60 text-teal-900 dark:text-teal-200 hover:text-teal-700 dark:hover:text-teal-300 font-semibold transition-colors cursor-pointer group"
               >
-                <Sparkles className="w-3.5 h-3.5 text-amber-500 group-hover:scale-110 transition-transform" />
+                <Lightbulb className="w-3.5 h-3.5 text-amber-500 group-hover:scale-110 transition-transform" />
                 <span className="truncate">Poser à l'Assistant IA</span>
               </button>
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useModalActive } from '../utils/modalUtils';
-import { Key, Sparkles, Check, ExternalLink, X, CheckCircle2, AlertCircle, Loader2, Wifi, WifiOff } from 'lucide-react';
+import { Key, Lightbulb, Check, ExternalLink, X, CheckCircle2, AlertCircle, Loader2, Wifi, WifiOff, Lock } from 'lucide-react';
 import { getGeminiApiKey, setGeminiApiKey, cleanApiKey } from '../utils/apiKeyHelper';
 import { testGeminiApiKey } from '../services/geminiChatService';
 
@@ -105,7 +105,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
         <div className="px-6 py-5 border-b border-zinc-100 dark:border-zinc-800/60 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-950/50">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-2xl bg-teal-600/10 text-teal-600 border border-teal-600/20 flex items-center justify-center shadow-inner">
-              <Sparkles className="w-5 h-5" />
+              <Lightbulb className="w-5 h-5" />
             </div>
             <div>
               <h3 className="text-sm font-black uppercase tracking-wider text-zinc-900 dark:text-zinc-50">Configuration IA</h3>
@@ -142,7 +142,8 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
           {/* Guide multi-clés */}
           <div className="p-3 bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-900/40 rounded-2xl text-[11px] space-y-1.5 text-amber-900 dark:text-amber-200">
             <p className="font-bold flex items-center gap-1.5 text-amber-800 dark:text-amber-300">
-              💡 Astuce pour un accès continu :
+              <Lightbulb className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span>Astuce pour un accès continu :</span>
             </p>
             <ol className="list-decimal list-inside space-y-1 text-[10.5px] leading-relaxed opacity-90 pl-0.5">
               <li>Cliquez sur le lien ci-dessus pour générer une clé d'accès.</li>
@@ -174,8 +175,9 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
                 className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-mono text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 transition-all resize-none"
               />
             </div>
-            <p className="text-[10px] text-zinc-400 leading-tight">
-              🔒 Stockage 100% sécurisé et privé sur votre appareil. Vos données restent confidentielles.
+            <p className="text-[10px] text-zinc-400 leading-tight flex items-center gap-1.5">
+              <Lock className="w-3 h-3 text-slate-400 shrink-0 inline" />
+              <span>Stockage 100% sécurisé et privé sur votre appareil. Vos données restent confidentielles.</span>
             </p>
           </div>
 

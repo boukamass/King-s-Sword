@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
 import { useAppStore, SearchResult } from '../store';
 import { translations } from '../translations';
 import { SearchMode, Sermon } from '../types';
-import { FileText, Loader2, Calendar, Search, ChevronLeft, MapPin, Hash, NotebookPen, Layers, Type, BookOpenCheck, Headphones, PanelLeftOpen, Music, BookOpen, BookText, Library, Compass } from 'lucide-react';
+import { FileText, FileDown, Loader2, Calendar, Search, ChevronLeft, MapPin, Hash, NotebookPen, Layers, Type, BookOpenCheck, Headphones, PanelLeftOpen, Music, BookOpen, BookText, Library, Compass } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { searchSermons } from '../services/db';
 import { searchBibleVersesAdvanced } from '../services/bibleService';
@@ -109,7 +109,7 @@ const SearchResultCard = memo(({
                               ) : result.sermonId?.startsWith('expose-') ? (
                                 <BookText className="w-3.5 h-3.5 text-teal-600/60 shrink-0" />
                               ) : (
-                                <Calendar className="w-3.5 h-3.5 text-teal-600/60 shrink-0" />
+                                <Library className="w-3.5 h-3.5 text-teal-600/60 shrink-0" />
                               )}
                               <span className="font-mono">{result.date}</span>
                           </div>
@@ -410,7 +410,7 @@ const SearchResults: React.FC = () => {
                 data-tooltip="Exporter PDF"
                 className="w-9 h-9 flex items-center justify-center bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-400 hover:text-teal-600 transition-all active:scale-95 shadow-sm"
             >
-                <FileText className="w-4 h-4" />
+                <FileDown className="w-4 h-4" />
             </button>
             <button 
               onClick={() => { setIsFullTextSearch(false); setSearchQuery(''); }}
