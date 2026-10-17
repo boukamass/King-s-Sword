@@ -57,7 +57,13 @@ function scheduleDebouncedPersist(): void {
   if (persistTimer) return;
   persistTimer = setTimeout(() => {
     persistTimer = null;
-    persistWebMemoryCache().catch(() => {});
+    const scheduleIdle = typeof window !== 'undefined' && 'requestIdleCallback' in window
+      ? (fn: () => void) => (window as any).requestIdleCallback(fn, { timeout: 8000 })
+      : (fn: () => void) => fn();
+
+    scheduleIdle(() => {
+      persistWebMemoryCache().catch(() => {});
+    });
   }, 2500);
 }
 

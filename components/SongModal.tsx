@@ -9,7 +9,7 @@ import {
   X, 
   Save, 
   Eye, 
-  Edit3, 
+  Pencil, 
   MonitorPlay, 
   Loader2, 
   Plus, 
@@ -475,7 +475,7 @@ export const SongModal: React.FC<SongModalProps> = ({
                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
                 }`}
               >
-                <Edit3 className="w-3 h-3" />
+                <Pencil className="w-3 h-3" />
                 Éditer
               </button>
               <button

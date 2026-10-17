@@ -373,7 +373,7 @@ export const QuickAccessModal: React.FC<QuickAccessModalProps> = ({
                   {searchQuery.trim()
                     ? "Essayez d'autres mots-clés ou désactivez le filtre par catégorie."
                     : activeTab === 'favorites'
-                      ? "Cliquez sur l'icône étoile ★ sur un sermon, un verset biblique ou un cantique pour le retrouver instantanément ici."
+                      ? "Cliquez sur l'icône de mise en favoris sur un sermon, un verset biblique ou un cantique pour le retrouver instantanément ici."
                       : "Seuls les sermons, versets et cantiques que vous projetez sur grand écran s'afficheront ici."}
                 </p>
               </div>

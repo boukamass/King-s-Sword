@@ -609,7 +609,7 @@ export const generateProjectionSnapshot = async (
       ctx.font = 'bold 26px sans-serif';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
-      ctx.fillText(`📖 ${payload.activeDefinition.word}`, defCardX + 30, defCardY + 20);
+      ctx.fillText(payload.activeDefinition.word, defCardX + 30, defCardY + 20);
 
       ctx.fillStyle = '#f4f4f5';
       ctx.font = '20px sans-serif';
@@ -781,7 +781,7 @@ export const executeProjectionCapture = async (): Promise<void> => {
       caption: `Capture de projection enregistrée le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
     });
 
-    state.addNotification('📸 Projection capturée et ajoutée automatiquement à la galerie !', 'success');
+    state.addNotification('Projection capturée et ajoutée automatiquement à la galerie !', 'success');
   } catch (err) {
     console.error('Erreur lors de la capture:', err);
     state.addNotification('Impossible de capturer la projection', 'error');

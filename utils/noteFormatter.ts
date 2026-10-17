@@ -305,12 +305,12 @@ export function parseStrongText(rawQuote: string, title?: string, dateOrType?: s
   const typeMatch = clean.match(/Type\s*:\s*\*?(Hébreu|Grec)\*?/i);
   if (typeMatch) type = typeMatch[1].toLowerCase() === 'grec' ? 'greek' : 'hebrew';
 
-  const defMatch = clean.match(/(?:###\s*💡\s*Définition Littérale|\*\*Définition\s*:\*\*)\s*\n*([\s\S]+?)(?=\n*###|\n*\*\*Éclairage|\n*\*\*Occurrences|$)/i);
+  const defMatch = clean.match(/(?:###\s*(?:[^\w\s]\s*)?Définition Littérale|\*\*Définition\s*:\*\*)\s*\n*([\s\S]+?)(?=\n*###|\n*\*\*Éclairage|\n*\*\*Occurrences|$)/i);
   if (defMatch) {
     definition = defMatch[1].replace(/\*\*/g, '').trim();
   }
 
-  const msgMatch = clean.match(/(?:###\s*✨\s*Éclairage dans le Message|\*\*Éclairage du Message\s*:\*\*)\s*\n*([\s\S]+?)(?=\n*###|\n*\*\*Occurrences|$)/i);
+  const msgMatch = clean.match(/(?:###\s*(?:[^\w\s]\s*)?Éclairage dans le Message|\*\*Éclairage du Message\s*:\*\*)\s*\n*([\s\S]+?)(?=\n*###|\n*\*\*Occurrences|$)/i);
   if (msgMatch) {
     messageContext = msgMatch[1].replace(/\*\*/g, '').trim();
   }
@@ -772,7 +772,7 @@ export function processNoteData(note: Note, sermons?: Array<Partial<Sermon>>): P
 
   // Assainissement de la zone de commentaire : extraire les blocs d'exégèse Strong historiques résiduels
   // afin de ne jamais polluer la zone de commentaire de la note.
-  const legacyStrongRegex = /(?:---\s*)?#{2,3}\s*📜\s*Exégèse Strong\s+([HG]\d+)[\s\S]*?(?=(?:---\s*)?#{2,3}\s*📜\s*Exégèse Strong|$)/gi;
+  const legacyStrongRegex = /(?:---\s*)?#{2,3}\s*(?:[^\w\s]\s*)?Exégèse Strong\s+([HG]\d+)[\s\S]*?(?=(?:---\s*)?#{2,3}\s*(?:[^\w\s]\s*)?Exégèse Strong|$)/gi;
   let sanitizedContent = rawContent;
   let legacyMatch: RegExpExecArray | null;
   while ((legacyMatch = legacyStrongRegex.exec(rawContent)) !== null) {
@@ -911,7 +911,7 @@ export function processNoteData(note: Note, sermons?: Array<Partial<Sermon>>): P
         if (item.separatorType === 'subtitle') {
           markdown += `#### ${item.text}\n\n`;
         } else {
-          markdown += `> 💬 *${item.text}*\n\n`;
+          markdown += `> *${item.text}*\n\n`;
         }
       } else {
         markdown += `> « ${item.quote} »\n\n`;
@@ -927,7 +927,7 @@ export function processNoteData(note: Note, sermons?: Array<Partial<Sermon>>): P
         if (item.separatorType === 'subtitle') {
           markdown += `#### ${item.text}\n\n`;
         } else {
-          markdown += `> 💬 *${item.text}*\n\n`;
+          markdown += `> *${item.text}*\n\n`;
         }
       } else {
         markdown += `> « ${item.quote} »\n\n`;
@@ -943,7 +943,7 @@ export function processNoteData(note: Note, sermons?: Array<Partial<Sermon>>): P
         if (item.separatorType === 'subtitle') {
           markdown += `#### ${item.text}\n\n`;
         } else {
-          markdown += `> 💬 *${item.text}*\n\n`;
+          markdown += `> *${item.text}*\n\n`;
         }
       } else {
         markdown += `> « ${item.quote} »\n\n`;

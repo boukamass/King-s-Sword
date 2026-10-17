@@ -2,7 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { useModalActive } from '../utils/modalUtils';
 import { useAppStore } from '../store';
-import { X, ShieldCheck, FileText, Lock, BookOpen, AlertCircle, Copy, Code, Sparkles, Phone, Mail, Heart } from 'lucide-react';
+import { X, ShieldCheck, FileText, Lock, BookOpen, AlertCircle, Copy, Code, Lightbulb, Phone, Mail, Heart } from 'lucide-react';
 import { APP_VERSION } from '../utils/version';
 
 interface TermsModalProps {
@@ -120,7 +120,7 @@ export const TermsModal: React.FC<TermsModalProps> = ({ isOpen, onClose }) => {
           {/* Section 5: Assistant IA, Recherche Algorithmique & Responsabilités */}
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100 font-bold uppercase tracking-wider text-[11px]">
-              <Sparkles className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+              <Lightbulb className="w-4 h-4 text-teal-600 dark:text-teal-400" />
               <span>5. Assistant IA, Limites Technologiques & Précautions Obligatoires</span>
             </div>
             <div className="pl-6 space-y-2 text-[11px] text-zinc-600 dark:text-zinc-400">

@@ -56,10 +56,10 @@ SOURCES ET RÉFÉRENCES CROISÉES DU CONTEXTE :
 ${otherSermonsContext || "Aucune source secondaire ajoutée au Dock IA."}
 
 STRUCTURE OBLIGATOIRE DE LA RÉPONSE :
-1. 📖 **Exégèse & Contexte Immédiat** : Analyse détaillée du sens textuel, des mots-clés, de la portée originelle et du moment où cette vérité a été proclamée.
-2. 🏛️ **Fondements & Portée Doctrinale** : Développement théologique approfondi des doctrines et principes bibliques/prophétiques sous-jacents (citations explicites à l'appui).
-3. 🔗 **Harmonie & Références Croisées** : Rapprochements précis avec les autres sermons du contexte ou passages des Écritures, mettant en lumière la cohérence et l'enchaînement de la révélation.
-4. 💡 **Synthèse & Application Spirituelle** : Synthèse percutante des leçons concrètes, avertissements et exhortations pour la foi pratique.
+1. **Exégèse & Contexte Immédiat** : Analyse détaillée du sens textuel, des mots-clés, de la portée originelle et du moment où cette vérité a été proclamée.
+2. **Fondements & Portée Doctrinale** : Développement théologique approfondi des doctrines et principes bibliques/prophétiques sous-jacents (citations explicites à l'appui).
+3. **Harmonie & Références Croisées** : Rapprochements précis avec les autres sermons du contexte ou passages des Écritures, mettant en lumière la cohérence et l'enchaînement de la révélation.
+4. **Synthèse & Application Spirituelle** : Synthèse percutante des leçons concrètes, avertissements et exhortations pour la foi pratique.
 
 RÈGLE DE CITATION STRICTE :
 Chaque citation ou argument textuel DOIT obligatoirement être référencé sous le format exact :
@@ -100,7 +100,7 @@ Chaque citation ou argument textuel DOIT obligatoirement être référencé sous
         currentSermon.text.substring(0, 10000),
         []
       );
-      return `> ℹ️ **Mode Local (Ollama)** : *Analyse contextuelle générée par Ollama.*\n\n${res.text}`;
+      return `> **Mode Local (Ollama)** : *Analyse contextuelle générée par Ollama.*\n\n${res.text}`;
     }
   } catch (ollamaErr) {
     console.warn("Ollama non joignable pour l'analyse:", ollamaErr);
@@ -109,7 +109,7 @@ Chaque citation ou argument textuel DOIT obligatoirement être référencé sous
   // 3. Synthèse locale offline de la sélection
   return `### Analyse Thématique (Mode Hors-Ligne)
 
-> ℹ️ **Mode Secours Local** : *Gemini indisponible ou hors-ligne. Analyse générée à partir du sermon local.*
+> **Mode Secours Local** : *Gemini indisponible ou hors-ligne. Analyse générée à partir du sermon local.*
 
 **Extrait ciblé :**
 > "${selection}"

@@ -74,6 +74,7 @@ export interface Note {
   date: string;
   updatedAt?: string;
   color?: string;
+  theme?: string;
   order: number;
 }
 

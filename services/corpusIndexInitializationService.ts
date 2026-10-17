@@ -421,11 +421,15 @@ export async function initializeCorpusIndex(options: {
       stopWatchdog();
 
       // Sauvegarde asynchrone non-bloquante en arrière-plan sans geler l'UI
-      setTimeout(() => {
+      const scheduleBackgroundSave = typeof window !== 'undefined' && 'requestIdleCallback' in window
+        ? (fn: () => void) => (window as any).requestIdleCallback(fn, { timeout: 10000 })
+        : (fn: () => void) => setTimeout(fn, 1500);
+
+      scheduleBackgroundSave(() => {
         saveChunks(officialChunks).catch(err => {
           console.warn('[CorpusIndexInit] Sauvegarde asynchrone chunks:', err);
         });
-      }, 300);
+      });
 
       return getCurrentIndexProgress();
     }

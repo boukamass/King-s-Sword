@@ -309,7 +309,7 @@ QUESTION DU CHERCHEUR :
 
     // Conserver un historique généreux pour assurer une continuité parfaite des questions de suite
     const cleanHistory = history
-      .filter(h => !h.content.startsWith('❌') && !h.content.startsWith('> ⏱️') && !h.content.startsWith('> ⚠️') && !h.content.startsWith('> ℹ️'))
+      .filter(h => h.content && !h.content.startsWith('**Erreur') && !h.content.toLowerCase().startsWith('erreur') && !h.content.startsWith('> **Information') && !h.content.startsWith('> **Mode') && !h.content.includes('\u274C') && !h.content.includes('\u26A0'))
       .slice(-6)
       .map(h => ({ 
         role: h.role === 'assistant' ? 'model' : 'user',
@@ -427,14 +427,14 @@ QUESTION DU CHERCHEUR :
       // mais que le moteur RAG local a déjà trouvé les extraits exacts des sermons :
       // On affiche directement ces extraits locaux à l'utilisateur pour ne pas bloquer son étude !
       if ((classified.type === 'QUOTA_EXHAUSTED' || classified.type === 'SERVICE_UNAVAILABLE') && options.retrievedParagraphs && options.retrievedParagraphs.length > 0) {
-        let fallbackText = `> ⏱️ **Information Quota d'analyse** : *${classified.userMessage}*\n\n*Voici les extraits exacts sélectionnés directement dans vos sermons locaux pour votre question :*\n\n`;
+        let fallbackText = `> **Information Quota d'analyse** : *${classified.userMessage}*\n\n*Voici les extraits exacts sélectionnés directement dans vos sermons locaux pour votre question :*\n\n`;
 
         options.retrievedParagraphs.forEach((p, idx) => {
           fallbackText += `### Extrait ${idx + 1} : *${p.title}* (${p.date || 'Non daté'}) — §${p.paragraphIndex}\n`;
           fallbackText += `> « ${p.content} » [Réf: ${p.sermonId}, Para. ${p.paragraphIndex}]\n\n`;
         });
 
-        fallbackText += `\n---\n*💡 Astuce : Vous pouvez ajouter une seconde clé dans la fenêtre "Clé Active" pour basculer dessus automatiquement en cas de saturation de quota.*`;
+        fallbackText += `\n---\n*Astuce : Vous pouvez ajouter une seconde clé dans la fenêtre "Clé Active" pour basculer dessus automatiquement en cas de saturation de quota.*`;
 
         const sources: GeminiSource[] = options.retrievedParagraphs.map(p => ({
           title: `${p.title} (${p.date || 'Non daté'}) — §${p.paragraphIndex}`,
@@ -457,7 +457,7 @@ QUESTION DU CHERCHEUR :
 
       if (classified.type === 'API_KEY_INVALID' || classified.type === 'PERMISSION_DENIED') {
         return {
-          text: `❌ **Erreur de clé d'accès IA**\n\n${classified.userMessage}\n\n*Pour vérifier votre clé, cliquez sur "Clé Active" en haut de l'Assistant IA.*`,
+          text: `**Erreur de clé d'accès IA**\n\n${classified.userMessage}\n\n*Pour vérifier votre clé, cliquez sur "Clé Active" en haut de l'Assistant IA.*`,
           sources: [],
           engineUsed: 'gemini',
           errorDetails: {
@@ -486,7 +486,7 @@ QUESTION DU CHERCHEUR :
         : (ollamaRes.sources || [{ title: 'Moteur Local Hors-Ligne', uri: 'local://ollama' }]);
 
       return {
-        text: `> ℹ️ **Mode Local** : *Réponse générée par votre serveur local.*\n\n${ollamaRes.text}`,
+        text: `> **Mode Local** : *Réponse générée par votre serveur local.*\n\n${ollamaRes.text}`,
         sources: fallbackSources,
         retrievedParagraphs: options.retrievedParagraphs,
         engineUsed: 'ollama'
@@ -513,8 +513,8 @@ QUESTION DU CHERCHEUR :
     : (localAnalysis.sources || [{ title: 'Index Local Hors-Ligne', uri: 'local://search' }]);
 
   const notice = !apiKey 
-    ? `> ℹ️ **Mode Index Local** : *Aucune clé d'accès configurée. Analyse produite par l'index documentaire local.* (Cliquez sur "Activer IA" en haut pour configurer une clé)\n\n`
-    : `> ℹ️ **Mode Secours Local** : *Connexion au service d'analyse indisponible${lastReason}. Analyse produite automatiquement par le moteur local pour ne pas bloquer votre recherche.*\n\n`;
+    ? `> **Mode Index Local** : *Aucune clé d'accès configurée. Analyse produite par l'index documentaire local.* (Cliquez sur "Activer IA" en haut pour configurer une clé)\n\n`
+    : `> **Mode Secours Local** : *Connexion au service d'analyse indisponible${lastReason}. Analyse produite automatiquement par le moteur local pour ne pas bloquer votre recherche.*\n\n`;
 
   return {
     text: `${notice}${localAnalysis.text}`,

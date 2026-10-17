@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   CorpusIndexProgress,
   subscribeIndexProgress,
@@ -54,6 +54,7 @@ export const CorpusIndexingIndicator: React.FC<{
   const [isRestarting, setIsRestarting] = useState(false);
 
   const [controls, setControls] = useState(getIndexingControlsState());
+  const dismissTimerRef = useRef<any>(null);
 
   useEffect(() => {
     loadPersistedProgressState().then(initial => setProgress(initial));
@@ -61,11 +62,15 @@ export const CorpusIndexingIndicator: React.FC<{
       setProgress(updated);
       setControls(getIndexingControlsState());
       if (updated.status === 'READY') {
-        const timer = setTimeout(() => {
+        if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
+        dismissTimerRef.current = setTimeout(() => {
           setIsDismissed(true);
         }, 5000);
-        return () => clearTimeout(timer);
       } else {
+        if (dismissTimerRef.current) {
+          clearTimeout(dismissTimerRef.current);
+          dismissTimerRef.current = null;
+        }
         setIsDismissed(false);
       }
     });
@@ -75,6 +80,7 @@ export const CorpusIndexingIndicator: React.FC<{
     });
 
     return () => {
+      if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
       unsubProgress();
       unsubResources();
     };

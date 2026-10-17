@@ -1,6 +1,6 @@
 {
   "name": "kings-sword",
-  "version": "2.8.47",
+  "version": "2.8.51",
   "description": "Logiciel d'étude des sermons de W.M. Branham",
   "main": "main.js",
   "author": "Bienvenu Massamba & Gastin Ngakosso",
@@ -86,6 +86,7 @@
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.5.4",
     "concurrently": "^8.2.2",
+    "cross-env": "^10.1.0",
     "electron": "^29.1.0",
     "electron-builder": "^24.13.3",
     "electron-rebuild": "^3.2.9",

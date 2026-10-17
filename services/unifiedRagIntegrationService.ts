@@ -139,7 +139,7 @@ export async function executeUnifiedRagAssistantFlow(
     const isFollowUp = /\b(pourquoi|comment|qui|que|quoi|et pour|ce que tu viens|ce point|cette phrase|cette citation|ce sujet|approfondis|developpe|explique|plus de citations|ensuite|autre|deuxieme|troisieme|quatrieme|precedent|suivant)\b/i.test(cleanQuery) || cleanQuery.split(/\s+/).length <= 4;
     if (isFollowUp) {
       const lastUserMsg = [...options.history].reverse().find(m => m.role === 'user' && m.content !== cleanQuery);
-      const lastAssistantMsg = [...options.history].reverse().find(m => m.role === 'assistant' && m.content && !m.content.startsWith('❌'));
+      const lastAssistantMsg = [...options.history].reverse().find(m => m.role === 'assistant' && m.content && !m.content.startsWith('**Erreur') && !m.content.toLowerCase().startsWith('erreur'));
       
       const prevKeywords: string[] = [];
       if (lastUserMsg && lastUserMsg.content) {

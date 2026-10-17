@@ -242,7 +242,7 @@ Tu dois impérativement renvoyer un objet JSON respectant le schéma avec les ch
   let contentsPayload: any;
   if (Array.isArray(history) && history.length > 0) {
     const cleanHistory = history
-      .filter(h => h.content && !h.content.startsWith('❌') && !h.content.startsWith('> ⏱️') && !h.content.startsWith('🔍 **Aucun passage'))
+      .filter(h => h.content && !h.content.startsWith('**Erreur') && !h.content.toLowerCase().startsWith('erreur') && !h.content.startsWith('> **Information') && !h.content.startsWith('**Aucun passage') && !h.content.includes('\u274C') && !h.content.includes('\u26A0'))
       .slice(-6)
       .map(h => ({
         role: h.role === 'assistant' ? 'model' : 'user',
@@ -425,8 +425,8 @@ Tu dois impérativement renvoyer un objet JSON respectant le schéma avec les ch
     // Si couverture partielle, injecter l'avertissement au début de la réponse
     if ((coverageState as string) === 'partielles') {
       const warnMsg = warningText || "Note : Les textes disponibles dans le corpus ne couvrent que partiellement cette question. Les éléments présentés ci-dessous s'appuient strictement sur les extraits disponibles.";
-      if (!finalAnswerText.includes('⚠️')) {
-        finalAnswerText = `⚠️ **Couverture partielle** : ${warnMsg}\n\n${finalAnswerText}`;
+      if (!finalAnswerText.includes('Couverture partielle')) {
+        finalAnswerText = `**Couverture partielle** : ${warnMsg}\n\n${finalAnswerText}`;
       }
     }
 
