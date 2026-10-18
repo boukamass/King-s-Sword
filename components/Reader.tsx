@@ -3658,9 +3658,12 @@ const Reader: React.FC = () => {
                         } else {
                           setJumpToParagraph(num);
                         }
+                      }}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
                         handleProjectSegment(idx, true);
                       }}
-                      data-tooltip={`${isBibleChapter ? 'Verset' : isSong ? 'Strophe' : 'Paragraphe'} ${num}${previewSnippet ? ` : "${previewSnippet}..."` : ''}`}
+                      data-tooltip={`${isBibleChapter ? 'Verset' : isSong ? 'Strophe' : 'Paragraphe'} ${num} (Clic : défiler • Double-clic : projeter)${previewSnippet ? ` : "${previewSnippet}..."` : ''}`}
                       className={`h-7 rounded-md text-[10.5px] font-black flex items-center justify-center transition-all cursor-pointer select-none font-mono active:scale-90 shadow-2xs relative ${
                         isProjected
                           ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-400 scale-105 z-10'

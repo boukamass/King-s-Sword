@@ -18,9 +18,16 @@ import { getBibleChapterSermon, getBibleBookSermon, searchBibleVersesAdvanced } 
 import { fetchJsonSafe } from './utils/fetchHelper';
 import { getStoredMediaImages, saveStoredMediaImages, getStoredMediaFolders, saveStoredMediaFolders } from './services/imageMediaService';
 import { initGeminiApiKey } from './utils/apiKeyHelper';
-import { initializeCorpusIndex } from './services/corpusIndexInitializationService';
+import { 
+  initializeCorpusIndex, 
+  isIndexingPausedOnStartup, 
+  setIndexingPausedInitialState, 
+  registerSermonsMapForIndexing 
+} from './services/corpusIndexInitializationService';
 
 const generateUUID = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 9));
+
+let previousSidebarStateBeforeNote: boolean | null = null;
 
 export const getNoteTimestamp = (n: Note): number => {
   const dates = [
@@ -384,12 +391,21 @@ export const useAppStore = create<AppState>((set, get) => ({
 
         const notes = await getAllNotes();
         set({ sermons: uniqueMetadata, sermonsMap: map, notes: sortNotesByRecency(notes), isLoading: false, loadingProgress: 100 });
-        // Démarrage différé de l'indexation (8s) pour que l'interface se lance à 100% de fluidité
-        setTimeout(() => {
-          initializeCorpusIndex({ loadedSermonsMap: map }).catch(err => {
-            console.warn('[Store] Erreur indexation automatique corpus:', err);
-          });
-        }, 8000);
+        
+        // Enregistrer la carte des sermons pour permettre le démarrage à volonté
+        registerSermonsMapForIndexing(map);
+
+        if (isIndexingPausedOnStartup()) {
+          // Si configuré en pause au lancement : aucun calcul lourd n'est lancé, interface ultra-fluide à 100%
+          setIndexingPausedInitialState();
+        } else {
+          // Démarrage différé de l'indexation (8s) uniquement si l'utilisateur a activé l'indexation au démarrage
+          setTimeout(() => {
+            initializeCorpusIndex({ loadedSermonsMap: map }).catch(err => {
+              console.warn('[Store] Erreur indexation automatique corpus:', err);
+            });
+          }, 8000);
+        }
         return;
       }
 
@@ -409,12 +425,21 @@ export const useAppStore = create<AppState>((set, get) => ({
 
         const notes = await getAllNotes();
         set({ sermons: metadata, sermonsMap: map, notes: sortNotesByRecency(notes), isLoading: false, loadingProgress: 100 });
-        // Démarrage différé de l'indexation (8s) pour que l'interface se lance à 100% de fluidité
-        setTimeout(() => {
-          initializeCorpusIndex({ loadedSermonsMap: map }).catch(err => {
-            console.warn('[Store] Erreur indexation automatique corpus SQLite:', err);
-          });
-        }, 8000);
+        
+        // Enregistrer la carte des sermons pour permettre le démarrage à volonté
+        registerSermonsMapForIndexing(map);
+
+        if (isIndexingPausedOnStartup()) {
+          // Si configuré en pause au lancement : aucun calcul lourd n'est lancé, interface ultra-fluide à 100%
+          setIndexingPausedInitialState();
+        } else {
+          // Démarrage différé de l'indexation (8s) uniquement si l'utilisateur a activé l'indexation au démarrage
+          setTimeout(() => {
+            initializeCorpusIndex({ loadedSermonsMap: map }).catch(err => {
+              console.warn('[Store] Erreur indexation automatique corpus SQLite:', err);
+            });
+          }, 8000);
+        }
       }
     } catch (error) {
       console.error("DB Init Error:", error);
@@ -915,13 +940,36 @@ export const useAppStore = create<AppState>((set, get) => ({
   removeNotification: (id) => set(state => ({
     notifications: state.notifications.filter(n => n.id !== id)
   })),
-  setActiveNoteId: (id) => set({ activeNoteId: id }),
-  toggleSidebar: () => set(s => ({ sidebarOpen: !s.sidebarOpen })),
+  setActiveNoteId: (id) => set(state => {
+    if (id) {
+      if (previousSidebarStateBeforeNote === null) {
+        previousSidebarStateBeforeNote = state.sidebarOpen;
+      }
+      return { 
+        activeNoteId: id,
+        sidebarOpen: false
+      };
+    } else {
+      const restoreSidebar = previousSidebarStateBeforeNote;
+      previousSidebarStateBeforeNote = null;
+      return {
+        activeNoteId: null,
+        sidebarOpen: restoreSidebar !== null ? restoreSidebar : state.sidebarOpen
+      };
+    }
+  }),
+  toggleSidebar: () => {
+    previousSidebarStateBeforeNote = null;
+    return set(s => ({ sidebarOpen: !s.sidebarOpen }));
+  },
   toggleAI: () => set(s => ({ aiOpen: !s.aiOpen })),
   toggleNotes: () => set(s => ({ notesOpen: !s.notesOpen })),
   toggleBibleModal: () => set(s => ({ isBibleModalOpen: !s.isBibleModalOpen })),
   setBibleModalOpen: (v) => set({ isBibleModalOpen: v }),
-  setSidebarOpen: (v) => set({ sidebarOpen: v }),
+  setSidebarOpen: (v) => {
+    previousSidebarStateBeforeNote = null;
+    return set({ sidebarOpen: v });
+  },
   setAiOpen: (v) => set({ aiOpen: v }),
   setAssistantMode: (mode) => set({ assistantMode: mode }),
   setNotesOpen: (v) => set({ notesOpen: v }),
@@ -1038,10 +1086,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       ...partial,
       citations: dedupedCitations
     };
-    set(state => ({ 
-      notes: sortNotesByRecency([newNote, ...state.notes]), 
-      activeNoteId: newNote.id
-    }));
+    set(state => {
+      if (previousSidebarStateBeforeNote === null) {
+        previousSidebarStateBeforeNote = state.sidebarOpen;
+      }
+      return { 
+        notes: sortNotesByRecency([newNote, ...state.notes]), 
+        activeNoteId: newNote.id,
+        sidebarOpen: false
+      };
+    });
     await saveNoteToDB(newNote);
   },
 

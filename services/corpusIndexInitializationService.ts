@@ -8,7 +8,7 @@
 import { Sermon, SermonChunk } from '../types';
 import { createLibraryChunks, computeChunkHash } from './chunkingService';
 import { saveChunks, getAllChunks } from './chunkStorageService';
-import { runIncrementalEmbeddingIndexing, EmbeddingIndexResult } from './embeddingIndexService';
+import { runIncrementalEmbeddingIndexing, EmbeddingIndexResult, pauseIndexing, resumeIndexing, getIndexingControlsState } from './embeddingIndexService';
 import { validateEmbeddingVector } from './embeddingService';
 import { loadExposeAsSermons, hydrateExposePrecalculatedEmbeddings, createExposeDocumentChunks } from './exposeDocumentService';
 import { getWorkerDiagnosticState } from './e5WorkerManager';
@@ -48,6 +48,50 @@ export interface CorpusIndexProgress {
 }
 
 const INDEX_STATUS_STORAGE_KEY = 'ks_corpus_index_status_v1';
+export const INDEXING_PAUSE_ON_STARTUP_KEY = 'ks_indexing_paused_on_startup';
+
+let registeredSermonsMap: Map<string, Sermon | Omit<Sermon, 'text'>> | Map<string, any> | undefined = undefined;
+
+export function registerSermonsMapForIndexing(map: Map<string, Sermon | Omit<Sermon, 'text'>> | Map<string, any>): void {
+  registeredSermonsMap = map;
+}
+
+export function getRegisteredSermonsMap(): Map<string, any> | undefined {
+  return registeredSermonsMap;
+}
+
+/**
+ * Indique si l'indexation doit être mise en pause au démarrage de l'application
+ * pour éviter les ralentissements système au lancement.
+ * Par défaut : true (en pause au démarrage pour fluidité maximale).
+ */
+export function isIndexingPausedOnStartup(): boolean {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const stored = localStorage.getItem(INDEXING_PAUSE_ON_STARTUP_KEY);
+      if (stored === null) {
+        return true; // En pause par défaut au lancement pour garantir la fluidité
+      }
+      return stored === 'true';
+    }
+  } catch (e) {
+    // Ignorer
+  }
+  return true;
+}
+
+/**
+ * Configure la préférence de pause au lancement
+ */
+export function setIndexingPausedOnStartup(paused: boolean): void {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(INDEXING_PAUSE_ON_STARTUP_KEY, paused ? 'true' : 'false');
+    }
+  } catch (e) {
+    // Ignorer
+  }
+}
 
 let isIndexingInProgress = false;
 let watchdogInterval: any = null;
@@ -174,13 +218,82 @@ export async function loadPersistedProgressState(): Promise<CorpusIndexProgress>
     // RÉINITIALISATION AU DÉMARRAGE : réinitialise tout état 'en cours' hérité d'une session précédente
     if (currentProgress.status === 'SCANNING' || currentProgress.status === 'CHUNKING' || currentProgress.status === 'EMBEDDING') {
       currentProgress.status = currentProgress.chunksProcessed > 0 ? 'PARTIAL' : 'NOT_STARTED';
-      currentProgress.errorMessage = 'Session précédente interrompue. Prêt à relancer.';
+      currentProgress.errorMessage = null;
+    }
+    if (isIndexingPausedOnStartup() && currentProgress.status !== 'READY') {
+      currentProgress.isPaused = true;
+      currentProgress.pauseReason = 'Indexation en pause au démarrage (Démarrer à volonté)';
     }
     isIndexingInProgress = false;
   } catch (e) {
     // Ignorer
   }
   return getCurrentIndexProgress();
+}
+
+/**
+ * Configure l'état initial en pause au démarrage sans lancer aucun calcul lourd
+ */
+export async function setIndexingPausedInitialState(): Promise<CorpusIndexProgress> {
+  pauseIndexing();
+  const loaded = await loadPersistedProgressState();
+  if (loaded.status !== 'READY') {
+    notifyProgressUpdate({
+      isPaused: true,
+      pauseReason: 'Indexation en pause au démarrage (Démarrer à volonté)'
+    });
+  }
+  return getCurrentIndexProgress();
+}
+
+/**
+ * Démarre ou reprend l'indexation à la demande de l'utilisateur
+ */
+export async function startOrResumeIndexing(options: {
+  loadedSermonsMap?: Map<string, Sermon | Omit<Sermon, 'text'>> | Map<string, any>;
+  forceReindex?: boolean;
+} = {}): Promise<CorpusIndexProgress> {
+  resumeIndexing();
+  notifyProgressUpdate({
+    isPaused: false,
+    pauseReason: null
+  });
+
+  if (!isIndexingInProgress) {
+    const map = options.loadedSermonsMap || registeredSermonsMap;
+    return initializeCorpusIndex({
+      loadedSermonsMap: map,
+      forceReindex: options.forceReindex
+    });
+  }
+
+  return getCurrentIndexProgress();
+}
+
+/**
+ * Met en pause l'indexation en cours
+ */
+export function pauseActiveIndexing(): void {
+  pauseIndexing();
+  notifyProgressUpdate({
+    isPaused: true,
+    pauseReason: 'Indexation mise en pause manuellement'
+  });
+}
+
+/**
+ * Bascule l'état de pause / reprise
+ */
+export async function toggleIndexingPause(options: {
+  loadedSermonsMap?: Map<string, Sermon | Omit<Sermon, 'text'>> | Map<string, any>;
+} = {}): Promise<CorpusIndexProgress> {
+  const controls = getIndexingControlsState();
+  if (currentProgress.isPaused || controls.isPaused) {
+    return startOrResumeIndexing(options);
+  } else {
+    pauseActiveIndexing();
+    return getCurrentIndexProgress();
+  }
 }
 
 function startWatchdog(): void {
@@ -191,6 +304,13 @@ function startWatchdog(): void {
   watchdogInterval = setInterval(() => {
     if (!isIndexingInProgress) {
       stopWatchdog();
+      return;
+    }
+
+    // SI EN PAUSE : Ne jamais déclencher le watchdog d'erreur
+    const indexingControls = getIndexingControlsState();
+    if (currentProgress.isPaused || indexingControls.isPaused) {
+      lastProgressTime = Date.now();
       return;
     }
 
