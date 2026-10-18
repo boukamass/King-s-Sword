@@ -5,6 +5,7 @@ import { useModalActive } from '../utils/modalUtils';
 import { translations } from '../translations';
 import { marked } from 'marked';
 import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import { 
   Printer, 
   FileText, 
@@ -59,6 +60,7 @@ import { processNoteData, cleanTextArtifacts, stripMarkdown, NoteSectionItem, Pr
 import { detectImageMeta } from '../services/imageMediaService';
 import { HighlightedQuote } from './HighlightedQuote';
 import { splitQuoteIntoHighlightedSegments, HIGHLIGHT_HEX_MAP } from '../utils/highlightUtils';
+import { getAllNoteThemes, addCustomTheme } from '../utils/themeUtils';
 
 const ActionButton = ({ onClick, icon: Icon, tooltip }: { onClick: () => void; icon: React.ElementType; tooltip: string }) => (
   <button 
@@ -94,6 +96,8 @@ const NoteEditor: React.FC = () => {
         removeCitationFromNote,
         updateNoteCitations,
         triggerStudyRequest,
+        sidebarOpen,
+        toggleSidebar,
     } = useAppStore();
 
     const note = notes.find(n => n.id === activeNoteId);
@@ -107,6 +111,102 @@ const NoteEditor: React.FC = () => {
     const [selectedFolderId, setSelectedFolderId] = useState<string>('ALL');
     const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
     const [isImportingDirect, setIsImportingDirect] = useState(false);
+
+    // États du sélecteur interactif de thème pour le journal d'étude
+    const [showThemePicker, setShowThemePicker] = useState(false);
+    const [newThemeInput, setNewThemeInput] = useState('');
+    const [isCreatingTheme, setIsCreatingTheme] = useState(false);
+    const allThemes = React.useMemo(() => getAllNoteThemes(notes), [notes]);
+
+    // États et références pour la recherche dynamique dans la note consultée
+    const [isInNoteSearchOpen, setIsInNoteSearchOpen] = useState(false);
+    const [inNoteSearchQuery, setInNoteSearchQuery] = useState('');
+    const [activeMatchIndex, setActiveMatchIndex] = useState(0);
+    const [totalMatchesCount, setTotalMatchesCount] = useState(0);
+    const inNoteSearchInputRef = useRef<HTMLInputElement>(null);
+
+    // Écouteur de raccourci clavier Ctrl+F / Cmd+F
+    useEffect(() => {
+        const handleGlobalKeyDown = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+                e.preventDefault();
+                setIsInNoteSearchOpen(true);
+                setTimeout(() => {
+                    if (inNoteSearchInputRef.current) {
+                        inNoteSearchInputRef.current.focus();
+                        inNoteSearchInputRef.current.select();
+                    }
+                }, 100);
+            }
+        };
+        window.addEventListener('keydown', handleGlobalKeyDown);
+        return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+    }, []);
+
+    // Focus automatique de l'input quand la recherche s'ouvre
+    useEffect(() => {
+        if (isInNoteSearchOpen && inNoteSearchInputRef.current) {
+            inNoteSearchInputRef.current.focus();
+            inNoteSearchInputRef.current.select();
+        }
+    }, [isInNoteSearchOpen]);
+
+    // Formatage texte avec surlignage des termes recherchés dans la note
+    const highlightInNoteMatches = useCallback((text: string) => {
+        if (!text) return '';
+        if (!inNoteSearchQuery || !inNoteSearchQuery.trim()) return text;
+        const escapedQuery = inNoteSearchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`(${escapedQuery})`, 'gi');
+        return text.replace(regex, '<mark class="in-note-search-match bg-amber-300 dark:bg-amber-500/70 text-zinc-900 font-bold px-0.5 rounded shadow-2xs">$1</mark>');
+    }, [inNoteSearchQuery]);
+
+    // Navigation entre les occurrences trouvées dans la note
+    const updateSearchMatchesAndScroll = useCallback(() => {
+        if (!noteScrollContainerRef.current) return;
+        const matches = Array.from(noteScrollContainerRef.current.querySelectorAll('.in-note-search-match'));
+        setTotalMatchesCount(matches.length);
+
+        if (matches.length === 0) {
+            setActiveMatchIndex(0);
+            return;
+        }
+
+        const validIndex = activeMatchIndex % matches.length;
+        matches.forEach((el, idx) => {
+            if (idx === validIndex) {
+                el.classList.add('active-search-match', 'bg-teal-500', 'text-white', 'ring-2', 'ring-teal-400', 'font-black', 'px-1', 'rounded', 'shadow-sm');
+                el.classList.remove('bg-amber-300', 'dark:bg-amber-500/70', 'text-zinc-900');
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } else {
+                el.classList.remove('active-search-match', 'bg-teal-500', 'text-white', 'ring-2', 'ring-teal-400', 'font-black');
+                el.classList.add('bg-amber-300', 'dark:bg-amber-500/70', 'text-zinc-900', 'font-bold', 'px-0.5', 'rounded');
+            }
+        });
+    }, [activeMatchIndex]);
+
+    useEffect(() => {
+        if (inNoteSearchQuery.trim()) {
+            const timer = setTimeout(() => {
+                updateSearchMatchesAndScroll();
+            }, 100);
+            return () => clearTimeout(timer);
+        } else {
+            setTotalMatchesCount(0);
+            setActiveMatchIndex(0);
+        }
+    }, [inNoteSearchQuery, activeMatchIndex, updateSearchMatchesAndScroll]);
+
+    const handleNextMatch = () => {
+        if (totalMatchesCount > 0) {
+            setActiveMatchIndex(prev => (prev + 1) % totalMatchesCount);
+        }
+    };
+
+    const handlePrevMatch = () => {
+        if (totalMatchesCount > 0) {
+            setActiveMatchIndex(prev => (prev - 1 + totalMatchesCount) % totalMatchesCount);
+        }
+    };
 
     // États de Drag and Drop pour la réorganisation des sources et références
     const [draggedSourceIdx, setDraggedSourceIdx] = useState<number | null>(null);
@@ -386,6 +486,13 @@ const NoteEditor: React.FC = () => {
             setActiveNoteId(null);
         }
     }, [note, activeNoteId, setActiveNoteId]);
+
+    // Fermeture automatique du panneau / tiroir de la bibliothèque dès la consultation d'une note
+    useEffect(() => {
+        if (sidebarOpen) {
+            useAppStore.setState({ sidebarOpen: false });
+        }
+    }, [sidebarOpen]);
     
     useEffect(() => {
         if (editingTitle && titleInputRef.current) {
@@ -696,6 +803,12 @@ const NoteEditor: React.FC = () => {
         const replacement = '<blockquote class="border-l-4 border-teal-600/40 bg-teal-600/5 py-3 px-5 rounded-r-2xl my-6 text-sm italic serif-text relative"><div class="absolute -left-2 -top-2 w-6 h-6 bg-white dark:bg-zinc-900 rounded-full flex items-center justify-center border border-teal-600/20 text-teal-600/40"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1 0 2.5 0 5-2.5 5s-2.5-1.25-2.5-2.5"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c1 0 1 0 1 1 0 2.5 0 5-2.5 5s-2.5-1.25-2.5-2.5"/></svg></div>';
         html = html.replace(/<blockquote>\s*<p><strong>Note de l’Assistant :<\/strong>/g, `${replacement}<p><strong>Note de l’Assistant :</strong>`);
         html = html.replace(/<blockquote>\s*<p><strong>Note de l'Assistant :<\/strong>/g, `${replacement}<p><strong>Note de l'Assistant :</strong>`);
+
+        if (inNoteSearchQuery && inNoteSearchQuery.trim().length >= 1) {
+            const escapedQuery = inNoteSearchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`(${escapedQuery})`, 'gi');
+            html = html.replace(regex, (m) => `<mark class="in-note-search-match bg-amber-300 dark:bg-amber-500/70 text-zinc-900 font-bold px-0.5 rounded shadow-2xs">${m}</mark>`);
+        }
         
         return html;
     };
@@ -746,630 +859,91 @@ const NoteEditor: React.FC = () => {
 
     const handleExportPdf = async () => {
         if (!note) return;
+        addNotification("Génération du document PDF haute fidélité...", "info");
         try {
-            const doc = new jsPDF();
-            const pageWidth = doc.internal.pageSize.width;
-            const pageHeight = doc.internal.pageSize.height;
-            const margin = 15;
-            const maxLineWidth = pageWidth - margin * 2;
-            let y = margin;
-            
-            const checkPageBreak = (neededHeight: number) => {
-                if (y + neededHeight > pageHeight - 20) {
-                    doc.addPage();
-                    y = margin;
-                }
-            };
-
-            // Header
-            const cleanTitle = cleanPdfText(processedNote.title);
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(10);
-            doc.setTextColor(13, 148, 136);
-            doc.text(`KING'S SWORD  |  ${cleanTitle}`, margin, y);
-            y += 8;
-
-            doc.setDrawColor(13, 148, 136);
-            doc.setLineWidth(0.5);
-            doc.line(margin, y, pageWidth - margin, y);
-            y += 12;
-
-            // Metadata (Date uniquement)
-            doc.setFont('helvetica', 'italic');
-            doc.setFontSize(9);
-            doc.setTextColor(100, 116, 139);
-            const formattedDate = note.date 
-              ? new Date(note.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
-              : new Date().toLocaleDateString('fr-FR');
-            doc.text(`Date : ${formattedDate}`, margin, y);
-            y += 14;
-
-            // 1. Contenu principal
-            if (processedNote.contentParagraphs.length > 0) {
-                checkPageBreak(25);
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(11);
-                doc.setTextColor(13, 148, 136);
-                doc.text("CONTENU PRINCIPAL", margin, y);
-                y += 7;
-
-                doc.setFont('times', 'normal');
-                doc.setFontSize(10.5);
-                doc.setTextColor(30, 41, 59);
-
-                for (const pText of processedNote.contentParagraphs) {
-                    const cleanP = cleanPdfText(pText);
-                    if (!cleanP) continue;
-                    const pLines = doc.splitTextToSize(cleanP, maxLineWidth);
-                    checkPageBreak(pLines.length * 5 + 6);
-                    doc.text(pLines, margin, y);
-                    y += pLines.length * 5 + 4;
-                }
-                y += 6;
+            const printEl = document.getElementById("printable-note-container");
+            if (!printEl) {
+                addNotification("Erreur : Conteneur d'impression introuvable.", "error");
+                return;
             }
 
-            // Helper to render section items (Citations + Separators)
-            const renderPdfSection = (
-                sectionTitle: string, 
-                items: NoteSectionItem[], 
-                titleColor: [number, number, number] = [13, 148, 136],
-                subColor: [number, number, number] = [13, 148, 136]
-            ) => {
-                if (!items || items.length === 0) return;
+            // Création d'un conteneur hors-champ aux dimensions exactes du format A4 (largeur 794px à 96 DPI)
+            const offscreen = document.createElement("div");
+            offscreen.style.position = "fixed";
+            offscreen.style.left = "-9999px";
+            offscreen.style.top = "0";
+            offscreen.style.width = "794px";
+            offscreen.style.backgroundColor = "#ffffff";
+            offscreen.style.zIndex = "-1000";
+            offscreen.style.color = "#0f172a";
 
-                checkPageBreak(30);
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(11);
-                doc.setTextColor(titleColor[0], titleColor[1], titleColor[2]);
-                doc.text(sectionTitle, margin, y);
-                y += 8;
+            // Cloner le conteneur et le rendre visible dans le wrapper hors-champ
+            const clone = printEl.cloneNode(true) as HTMLElement;
+            clone.style.display = "block";
+            clone.classList.remove("hidden");
+            clone.classList.remove("print:block");
+            clone.className = "p-10 bg-white text-slate-900 font-sans leading-relaxed";
+            offscreen.appendChild(clone);
+            document.body.appendChild(offscreen);
 
-                for (const item of items) {
-                    if (item.kind === 'separator') {
-                        if (item.separatorType === 'subtitle') {
-                            const cleanSub = cleanPdfText(item.text);
-                            checkPageBreak(18);
-                            y += 4;
-                            doc.setFont('helvetica', 'bold');
-                            doc.setFontSize(10);
-                            doc.setTextColor(subColor[0], subColor[1], subColor[2]);
-                            
-                            const textW = doc.getTextWidth(cleanSub);
-                            const startX = Math.max(margin, (pageWidth - textW) / 2);
-                            doc.text(cleanSub, startX, y);
-                            y += 8;
-                        } else {
-                            // Commentaire autonome
-                            const cleanComment = cleanPdfText(item.text);
-                            const commentLines = doc.splitTextToSize(cleanComment, maxLineWidth - 12);
-                            const neededH = commentLines.length * 4.8 + 12;
-                            checkPageBreak(neededH);
+            try {
+                const canvas = await html2canvas(clone, {
+                    scale: 2, // Résolution 192 DPI pour une netteté vectorielle absolue du texte et des icônes
+                    useCORS: true,
+                    logging: false,
+                    backgroundColor: "#ffffff"
+                });
 
-                            const startY = y;
-                            doc.setFont('helvetica', 'bold');
-                            doc.setFontSize(9);
-                            doc.setTextColor(titleColor[0], titleColor[1], titleColor[2]);
-                            doc.text("Remarque / Commentaire :", margin + 4, y);
-                            y += 5;
+                const pdf = new jsPDF({
+                    orientation: "p",
+                    unit: "mm",
+                    format: "a4"
+                });
 
-                            doc.setFont('times', 'italic');
-                            doc.setFontSize(10);
-                            doc.setTextColor(71, 85, 105);
-                            doc.text(commentLines, margin + 4, y);
-                            y += commentLines.length * 4.8 + 3;
+                const pdfWidth = 210;
+                const pdfHeight = 297;
+                const pageCanvasHeight = Math.floor(canvas.width * (pdfHeight / pdfWidth));
 
-                            // Left vertical bar for comment
-                            doc.setDrawColor(titleColor[0], titleColor[1], titleColor[2]);
-                            doc.setLineWidth(0.8);
-                            doc.line(margin, startY - 2, margin, y - 2);
+                let currentY = 0;
+                let pageIndex = 0;
 
-                            y += 5;
-                        }
-                    } else {
-                        // Citation avec préservation intégrale des surlignages
-                        const cleanQuote = cleanPdfText(item.quote);
-                        const startQY = y;
-
-                        if (item.highlights && item.highlights.length > 0) {
-                            const segments = splitQuoteIntoHighlightedSegments(cleanQuote, item.highlights);
-                            if (segments.length > 0) {
-                                segments[0].text = `« ${segments[0].text}`;
-                                segments[segments.length - 1].text = `${segments[segments.length - 1].text} »`;
-                            }
-
-                            interface PdfToken {
-                                text: string;
-                                isHighlighted: boolean;
-                                color?: string;
-                                width: number;
-                            }
-                            doc.setFont('times', 'italic');
-                            doc.setFontSize(10.5);
-
-                            const tokens: PdfToken[] = [];
-                            for (const seg of segments) {
-                                const words = seg.text.split(/(\s+)/);
-                                for (const w of words) {
-                                    if (w.length > 0) {
-                                        tokens.push({
-                                            text: w,
-                                            isHighlighted: !!seg.isHighlighted,
-                                            color: seg.color,
-                                            width: doc.getTextWidth(w)
-                                        });
-                                    }
-                                }
-                            }
-
-                            const quoteMaxWidth = maxLineWidth - 12;
-                            const lines: PdfToken[][] = [];
-                            let currentLine: PdfToken[] = [];
-                            let currentLineWidth = 0;
-
-                            for (const token of tokens) {
-                                if (token.text === '\n') {
-                                    lines.push(currentLine);
-                                    currentLine = [];
-                                    currentLineWidth = 0;
-                                    continue;
-                                }
-                                if (currentLine.length > 0 && currentLineWidth + token.width > quoteMaxWidth && token.text.trim().length > 0) {
-                                    lines.push(currentLine);
-                                    currentLine = [];
-                                    currentLineWidth = 0;
-                                }
-                                if (currentLine.length === 0 && token.text.trim().length === 0) {
-                                    continue;
-                                }
-                                currentLine.push(token);
-                                currentLineWidth += token.width;
-                            }
-                            if (currentLine.length > 0) {
-                                lines.push(currentLine);
-                            }
-
-                            const quoteLineHeight = 4.8;
-                            const neededH = lines.length * quoteLineHeight + 14;
-                            checkPageBreak(neededH);
-
-                            for (const lineTokens of lines) {
-                                let curX = margin + 4;
-                                for (const t of lineTokens) {
-                                    if (t.isHighlighted) {
-                                        const hex = HIGHLIGHT_HEX_MAP[t.color || 'amber']?.hex || 'FEF08A';
-                                        const r = parseInt(hex.substring(0, 2), 16);
-                                        const g = parseInt(hex.substring(2, 4), 16);
-                                        const b = parseInt(hex.substring(4, 6), 16);
-                                        doc.setFillColor(r, g, b);
-                                        doc.rect(curX - 0.2, y - 3.2, t.width + 0.4, 4.3, 'F');
-                                        doc.setTextColor(30, 41, 59);
-                                    } else {
-                                        doc.setTextColor(51, 65, 85);
-                                    }
-                                    doc.text(t.text, curX, y);
-                                    curX += t.width;
-                                }
-                                y += quoteLineHeight;
-                            }
-                            y += 3;
-                        } else {
-                            const qLines = doc.splitTextToSize(`« ${cleanQuote} »`, maxLineWidth - 12);
-                            const neededH = qLines.length * 4.8 + 14;
-                            checkPageBreak(neededH);
-
-                            doc.setFont('times', 'italic');
-                            doc.setFontSize(10.5);
-                            doc.setTextColor(51, 65, 85);
-                            doc.text(qLines, margin + 4, y);
-                            y += qLines.length * 4.8 + 3;
-                        }
-
-                        doc.setFont('helvetica', 'bold');
-                        doc.setFontSize(8.5);
-                        doc.setTextColor(titleColor[0], titleColor[1], titleColor[2]);
-
-                        let refLabel = item.reference || '';
-                        if (!refLabel) {
-                            const meta = item.sourceMeta ? ` - ${item.sourceMeta}` : '';
-                            refLabel = `${item.sourceTitle || 'Source'}${meta}`;
-                        }
-                        const fullRef = cleanPdfText(`${refLabel}${item.sourceIndex ? ` [${item.sourceIndex}]` : ''}`);
-                        doc.text(fullRef, pageWidth - margin, y, { align: 'right' });
-                        y += 4;
-
-                        // Left vertical accent line for quote
-                        doc.setDrawColor(203, 213, 225);
-                        doc.setLineWidth(0.6);
-                        doc.line(margin, startQY - 2, margin, y);
-
-                        y += 6;
+                while (currentY < canvas.height) {
+                    const sliceHeight = Math.min(pageCanvasHeight, canvas.height - currentY);
+                    const pageCanvas = document.createElement("canvas");
+                    pageCanvas.width = canvas.width;
+                    pageCanvas.height = pageCanvasHeight;
+                    const pctx = pageCanvas.getContext("2d");
+                    if (pctx) {
+                        pctx.fillStyle = "#ffffff";
+                        pctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+                        pctx.drawImage(
+                            canvas,
+                            0, currentY, canvas.width, sliceHeight,
+                            0, 0, canvas.width, sliceHeight
+                        );
                     }
+
+                    if (pageIndex > 0) {
+                        pdf.addPage("a4", "portrait");
+                    }
+                    const imgData = pageCanvas.toDataURL("image/jpeg", 0.98);
+                    pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight);
+
+                    currentY += sliceHeight;
+                    pageIndex++;
                 }
-                y += 4;
-            };
 
-            // 2. Citations bibliques
-            renderPdfSection(
-                "CITATIONS BIBLIQUES", 
-                processedNote.scriptureItems, 
-                [13, 148, 136], // Deep Teal
-                [13, 148, 136]
-            );
-
-            // 3. Citations de l'Exposé des Sept Âges
-            renderPdfSection(
-                "CITATIONS DE L'EXPOSÉ DES SEPT ÂGES", 
-                processedNote.churchAgeItems, 
-                [13, 148, 136], 
-                [180, 83, 9] // Warm Amber
-            );
-
-            // 4. Citations & Enseignements
-            renderPdfSection(
-                "CITATIONS & ENSEIGNEMENTS", 
-                processedNote.teachingItems, 
-                [13, 148, 136], 
-                [51, 65, 85] // Slate
-            );
-
-            // 4.3. Études & Réponses du Dock IA
-            if (processedNote.aiItems && processedNote.aiItems.length > 0) {
-                checkPageBreak(30);
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(11);
-                doc.setTextColor(13, 148, 136); // Deep Teal
-                doc.text(`ÉTUDES & RÉPONSES DU DOCK IA (${processedNote.aiItems.length})`, margin, y);
-                y += 8;
-
-                for (const item of processedNote.aiItems) {
-                    checkPageBreak(35);
-                    const startAiY = y;
-
-                    // En-tête de l'étude IA
-                    doc.setFont('helvetica', 'bold');
-                    doc.setFontSize(10.5);
-                    doc.setTextColor(13, 148, 136);
-                    const aiTitle = cleanPdfText(`Assistant IA — ${item.title}${item.date ? ` (${item.date})` : ''}`);
-                    const titleLines = doc.splitTextToSize(aiTitle, maxLineWidth - 12);
-                    doc.text(titleLines, margin + 4, y);
-                    y += titleLines.length * 5 + 3;
-
-                    // Traitement du contenu structuré (titres, puces, numéros, paragraphes)
-                    const lines = item.content.split('\n');
-                    for (let li = 0; li < lines.length; li++) {
-                        const rawL = lines[li].trim();
-                        if (!rawL) continue;
-
-                        if (/^#{1,6}\s+/.test(rawL)) {
-                            const subText = cleanPdfText(rawL.replace(/^#{1,6}\s+/, ''));
-                            checkPageBreak(12);
-                            y += 2;
-                            doc.setFont('helvetica', 'bold');
-                            doc.setFontSize(9.5);
-                            doc.setTextColor(15, 23, 42);
-                            const subLines = doc.splitTextToSize(subText, maxLineWidth - 12);
-                            doc.text(subLines, margin + 4, y);
-                            y += subLines.length * 4.5 + 2;
-                        } else if (/^[-*]\s+/.test(rawL)) {
-                            const bulletText = `•  ${cleanPdfText(rawL.replace(/^[-*]\s+/, ''))}`;
-                            const bLines = doc.splitTextToSize(bulletText, maxLineWidth - 16);
-                            checkPageBreak(bLines.length * 4.5 + 2);
-                            doc.setFont('times', 'normal');
-                            doc.setFontSize(9.5);
-                            doc.setTextColor(30, 41, 59);
-                            doc.text(bLines, margin + 8, y);
-                            y += bLines.length * 4.5 + 1.5;
-                        } else if (/^\d+\.\s+/.test(rawL)) {
-                            const numMatch = rawL.match(/^(\d+\.)\s+(.+)$/);
-                            const nText = numMatch ? `${numMatch[1]}  ${cleanPdfText(numMatch[2])}` : cleanPdfText(rawL);
-                            const nLines = doc.splitTextToSize(nText, maxLineWidth - 16);
-                            checkPageBreak(nLines.length * 4.5 + 2);
-                            doc.setFont('times', 'normal');
-                            doc.setFontSize(9.5);
-                            doc.setTextColor(30, 41, 59);
-                            doc.text(nLines, margin + 8, y);
-                            y += nLines.length * 4.5 + 1.5;
-                        } else {
-                            const cleanP = cleanPdfText(rawL);
-                            if (!cleanP) continue;
-                            const pLines = doc.splitTextToSize(cleanP, maxLineWidth - 12);
-                            checkPageBreak(pLines.length * 4.5 + 2);
-                            doc.setFont('times', 'normal');
-                            doc.setFontSize(9.5);
-                            doc.setTextColor(30, 41, 59);
-                            doc.text(pLines, margin + 4, y);
-                            y += pLines.length * 4.5 + 2;
-                        }
-                    }
-
-                    // Signature / Source
-                    checkPageBreak(10);
-                    doc.setFont('helvetica', 'bold');
-                    doc.setFontSize(8.5);
-                    doc.setTextColor(13, 148, 136);
-                    const sigText = cleanPdfText(`Assistant IA King's Sword${item.sourceIndex ? ` [${item.sourceIndex}]` : ''}`);
-                    doc.text(sigText, pageWidth - margin, y, { align: 'right' });
-                    y += 4;
-
-                    // Bordure gauche décorative
-                    doc.setDrawColor(13, 148, 136);
-                    doc.setLineWidth(0.8);
-                    doc.line(margin, startAiY - 2, margin, y);
-
-                    y += 6;
+                const safeFileName = (note.title || "Note").replace(/[/\\?%*:|"<>]/g, "_").trim();
+                pdf.save(`${safeFileName}.pdf`);
+                addNotification("Note exportée en PDF avec succès !", "success");
+            } finally {
+                if (document.body.contains(offscreen)) {
+                    document.body.removeChild(offscreen);
                 }
             }
-
-            // 4.5. Concordance & Exégèse Strong
-            if (processedNote.strongItems && processedNote.strongItems.length > 0) {
-                checkPageBreak(30);
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(11);
-                doc.setTextColor(13, 148, 136);
-                doc.text(`CONCORDANCE & EXÉGÈSE STRONG (${processedNote.strongItems.length})`, margin, y);
-                y += 8;
-
-                for (const item of processedNote.strongItems) {
-                    checkPageBreak(30);
-                    const startStrongY = y;
-
-                    doc.setFont('helvetica', 'bold');
-                    doc.setFontSize(10);
-                    doc.setTextColor(15, 23, 42);
-                    const titleLine = cleanPdfText(`Strong ${item.strongNumber} : ${item.word} ${item.original ? `(${item.original})` : ''} - [${item.pronunciation}] (${item.type === 'hebrew' ? 'Hébreu' : 'Grec'})`);
-                    doc.text(titleLine, margin + 4, y);
-                    y += 5;
-
-                    // Métadonnées exégèse
-                    const metaParts: string[] = [];
-                    if (item.partOfSpeech) metaParts.push(`Nature: ${cleanPdfText(item.partOfSpeech)}`);
-                    if (item.etymology) metaParts.push(`Racine: ${cleanPdfText(item.etymology)}`);
-                    if (item.translationsLSG) metaParts.push(`Traductions LSG: ${cleanPdfText(item.translationsLSG)}`);
-                    if (item.occurrencesCountStr) metaParts.push(`Fréquence: ${cleanPdfText(item.occurrencesCountStr)}`);
-
-                    if (metaParts.length > 0) {
-                        doc.setFont('helvetica', 'normal');
-                        doc.setFontSize(8.5);
-                        doc.setTextColor(100, 116, 139);
-                        const metaLines = doc.splitTextToSize(metaParts.join('  |  '), maxLineWidth - 12);
-                        checkPageBreak(metaLines.length * 4 + 2);
-                        doc.text(metaLines, margin + 4, y);
-                        y += metaLines.length * 4 + 2;
-                    }
-
-                    // Définition par paragraphes
-                    doc.setFont('helvetica', 'bold');
-                    doc.setFontSize(9);
-                    doc.setTextColor(13, 148, 136);
-                    doc.text("Définition :", margin + 4, y);
-                    y += 4.5;
-
-                    doc.setFont('times', 'normal');
-                    doc.setFontSize(9.5);
-                    doc.setTextColor(51, 65, 85);
-                    const defParagraphs = item.definition.split('\n').filter(Boolean);
-                    for (const dp of defParagraphs) {
-                        const cleanD = cleanPdfText(dp);
-                        if (!cleanD) continue;
-                        const dLines = doc.splitTextToSize(cleanD, maxLineWidth - 12);
-                        checkPageBreak(dLines.length * 4.5 + 2);
-                        doc.text(dLines, margin + 4, y);
-                        y += dLines.length * 4.5 + 1.5;
-                    }
-
-                    // Éclairage dans le Message
-                    if (item.messageContext) {
-                        y += 1.5;
-                        doc.setFont('helvetica', 'bold');
-                        doc.setFontSize(9);
-                        doc.setTextColor(13, 148, 136);
-                        doc.text("Éclairage dans le Message :", margin + 4, y);
-                        y += 4.5;
-
-                        doc.setFont('times', 'italic');
-                        doc.setFontSize(9.5);
-                        doc.setTextColor(30, 41, 59);
-                        const msgParagraphs = item.messageContext.split('\n').filter(Boolean);
-                        for (const mp of msgParagraphs) {
-                            const cleanM = cleanPdfText(mp);
-                            if (!cleanM) continue;
-                            const mLines = doc.splitTextToSize(cleanM, maxLineWidth - 12);
-                            checkPageBreak(mLines.length * 4.5 + 2);
-                            doc.text(mLines, margin + 4, y);
-                            y += mLines.length * 4.5 + 1.5;
-                        }
-                    }
-
-                    // Verset d'origine
-                    if (item.originVerseRef && item.originVerseText) {
-                        y += 1.5;
-                        doc.setFont('helvetica', 'normal');
-                        doc.setFontSize(8.5);
-                        doc.setTextColor(71, 85, 105);
-                        const vLine = cleanPdfText(`Verset d'origine (${item.originVerseRef}) : "${item.originVerseText}"`);
-                        const vLines = doc.splitTextToSize(vLine, maxLineWidth - 12);
-                        checkPageBreak(vLines.length * 4 + 3);
-                        doc.text(vLines, margin + 4, y);
-                        y += vLines.length * 4 + 2;
-                    }
-
-                    // Autres occurrences
-                    if (item.allOccurrences && item.allOccurrences.length > 1) {
-                        doc.setFont('helvetica', 'italic');
-                        doc.setFontSize(8);
-                        doc.setTextColor(148, 163, 184);
-                        doc.text(`(+ ${item.allOccurrences.length - 1} autre(s) occurrence(s) dans les Écritures)`, margin + 4, y);
-                        y += 4;
-                    }
-
-                    // Signature
-                    doc.setFont('helvetica', 'bold');
-                    doc.setFontSize(8.5);
-                    doc.setTextColor(13, 148, 136);
-                    doc.text(cleanPdfText(`Concordance Strong${item.sourceIndex ? ` [${item.sourceIndex}]` : ''}`), pageWidth - margin, y, { align: 'right' });
-                    y += 4;
-
-                    // Bordure décorative gauche
-                    doc.setDrawColor(13, 148, 136);
-                    doc.setLineWidth(0.8);
-                    doc.line(margin, startStrongY - 2, margin, y);
-
-                    y += 5;
-                }
-            }
-
-            // 5. Dictionnaire & Lexique Biblique
-            if (processedNote.definitionItems && processedNote.definitionItems.length > 0) {
-                checkPageBreak(30);
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(11);
-                doc.setTextColor(13, 148, 136);
-                doc.text(`DICTIONNAIRE & LEXIQUE BIBLIQUE (${processedNote.definitionItems.length})`, margin, y);
-                y += 8;
-
-                for (const item of processedNote.definitionItems) {
-                    checkPageBreak(25);
-                    const startDefY = y;
-
-                    doc.setFont('helvetica', 'bold');
-                    doc.setFontSize(10.5);
-                    doc.setTextColor(15, 23, 42);
-                    doc.text(cleanPdfText(item.word.toUpperCase()), margin + 4, y);
-                    y += 5;
-
-                    doc.setFont('times', 'normal');
-                    doc.setFontSize(9.5);
-                    doc.setTextColor(51, 65, 85);
-                    const defParagraphs = item.definition.split('\n').filter(Boolean);
-                    for (const dp of defParagraphs) {
-                        const cleanD = cleanPdfText(dp);
-                        if (!cleanD) continue;
-                        const dLines = doc.splitTextToSize(cleanD, maxLineWidth - 12);
-                        checkPageBreak(dLines.length * 4.5 + 2);
-                        doc.text(dLines, margin + 4, y);
-                        y += dLines.length * 4.5 + 1.5;
-                    }
-
-                    if (item.etymology) {
-                        y += 1;
-                        doc.setFont('helvetica', 'italic');
-                        doc.setFontSize(8.5);
-                        doc.setTextColor(100, 116, 139);
-                        const etyLine = cleanPdfText(`Étymologie : ${item.etymology}`);
-                        const eLines = doc.splitTextToSize(etyLine, maxLineWidth - 12);
-                        checkPageBreak(eLines.length * 4 + 2);
-                        doc.text(eLines, margin + 4, y);
-                        y += eLines.length * 4 + 1.5;
-                    }
-
-                    if (item.synonyms && item.synonyms.length > 0) {
-                        y += 1;
-                        doc.setFont('helvetica', 'normal');
-                        doc.setFontSize(8.5);
-                        doc.setTextColor(13, 148, 136);
-                        const synLine = cleanPdfText(`Synonymes : ${item.synonyms.join(', ')}`);
-                        const sLines = doc.splitTextToSize(synLine, maxLineWidth - 12);
-                        checkPageBreak(sLines.length * 4 + 2);
-                        doc.text(sLines, margin + 4, y);
-                        y += sLines.length * 4 + 1.5;
-                    }
-
-                    // Signature
-                    doc.setFont('helvetica', 'bold');
-                    doc.setFontSize(8.5);
-                    doc.setTextColor(13, 148, 136);
-                    doc.text(cleanPdfText(`Dictionnaire Biblique${item.sourceIndex ? ` [${item.sourceIndex}]` : ''}`), pageWidth - margin, y, { align: 'right' });
-                    y += 4;
-
-                    // Bordure décorative gauche
-                    doc.setDrawColor(13, 148, 136);
-                    doc.setLineWidth(0.8);
-                    doc.line(margin, startDefY - 2, margin, y);
-
-                    y += 5;
-                }
-            }
-
-            // 6. Images & Illustrations
-            if (note.images && note.images.length > 0) {
-                checkPageBreak(30);
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(11);
-                doc.setTextColor(13, 148, 136);
-                doc.text(`IMAGES & ILLUSTRATIONS (${note.images.length})`, margin, y);
-                y += 8;
-
-                for (let i = 0; i < note.images.length; i++) {
-                    const img = note.images[i];
-                    try {
-                        checkPageBreak(65);
-                        // Tenter d'ajouter l'image si c'est un format supporté (data URI ou URL valide)
-                        const imgWidth = Math.min(maxLineWidth, 120);
-                        const imgHeight = 60;
-                        doc.addImage(img.url, 'PNG', margin, y, imgWidth, imgHeight, undefined, 'FAST');
-                        y += imgHeight + 4;
-                        if (img.caption || img.name) {
-                            doc.setFont('helvetica', 'italic');
-                            doc.setFontSize(8.5);
-                            doc.setTextColor(100, 116, 139);
-                            doc.text(cleanPdfText(`Figure ${i + 1} : ${img.caption || img.name}`), margin, y);
-                            y += 6;
-                        }
-                    } catch (e) {
-                        // En cas d'erreur de rendu de l'image (CORS ou blob invalide), mentionner le titre
-                        if (img.caption || img.name) {
-                            doc.setFont('helvetica', 'italic');
-                            doc.setFontSize(8.5);
-                            doc.setTextColor(100, 116, 139);
-                            doc.text(cleanPdfText(`[Image : ${img.caption || img.name}]`), margin, y);
-                            y += 5;
-                        }
-                    }
-                }
-                y += 4;
-            }
-
-            // 7. Sources & Références (Bibliographie)
-            if (processedNote.sources.length > 0) {
-                checkPageBreak(30);
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(11);
-                doc.setTextColor(13, 148, 136);
-                doc.text(`SOURCES & RÉFÉRENCES (${processedNote.sources.length})`, margin, y);
-                y += 8;
-
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(9);
-                doc.setTextColor(51, 65, 85);
-
-                for (const src of processedNote.sources) {
-                    const srcLine = cleanPdfText(`[${src.index}] ${src.formattedLine}`);
-                    const sLines = doc.splitTextToSize(srcLine, maxLineWidth);
-                    checkPageBreak(sLines.length * 4.5 + 4);
-                    doc.text(sLines, margin, y);
-                    y += sLines.length * 4.5 + 3;
-                }
-            }
-
-            // Ajout universel des pieds de page (Numérotation & Titre) sur chaque page du PDF
-            const totalPages = doc.getNumberOfPages();
-            for (let pageIdx = 1; pageIdx <= totalPages; pageIdx++) {
-                doc.setPage(pageIdx);
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(8);
-                doc.setTextColor(148, 163, 184);
-                doc.setDrawColor(226, 232, 240);
-                doc.setLineWidth(0.4);
-                doc.line(margin, pageHeight - 12, pageWidth - margin, pageHeight - 12);
-                doc.text(`King's Sword — ${cleanTitle}`, margin, pageHeight - 7);
-                doc.text(`Page ${pageIdx} sur ${totalPages}`, pageWidth - margin, pageHeight - 7, { align: 'right' });
-            }
-
-            doc.save(`${processedNote.title.toLowerCase().replace(/\s+/g, '_')}.pdf`);
-            addNotification('Note exportée en PDF avec succès !', 'success');
         } catch (error) {
             console.error("PDF export error:", error);
-            addNotification("Erreur lors de l'exportation PDF.", 'error');
+            addNotification("Erreur lors de l'exportation PDF.", "error");
         }
     };
 
@@ -1519,7 +1093,15 @@ const NoteEditor: React.FC = () => {
             {/* Vue écran interactive */}
             <div className="no-print flex flex-col h-full">
                 <div className="px-6 h-14 border-b border-zinc-200/50 dark:border-zinc-800 flex items-center justify-between shrink-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-2xl z-20">
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={toggleSidebar}
+                            data-tooltip={sidebarOpen ? "Masquer la bibliothèque (Ctrl + B)" : "Afficher la bibliothèque (Ctrl + B)"}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-500 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
+                        >
+                            <BookOpen className="w-4 h-4" />
+                        </button>
                         <div className="w-8 h-8 flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-lg border border-teal-600/20 shadow-sm">
                             <NotebookPen className="w-4 h-4" />
                         </div>
@@ -1564,6 +1146,77 @@ const NoteEditor: React.FC = () => {
 
                         <div className="w-px h-5 bg-zinc-200 dark:bg-zinc-800 mx-1" />
 
+                        {/* Champ de recherche intégré directement sur la même barre d'actions */}
+                        {isInNoteSearchOpen ? (
+                          <div className="flex items-center gap-1.5 bg-zinc-100 dark:bg-zinc-800/90 px-2.5 py-1 rounded-xl border border-teal-500/60 ring-2 ring-teal-500/20 shadow-2xs animate-in fade-in zoom-in-95">
+                            <Search className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                            <input
+                              ref={inNoteSearchInputRef}
+                              type="text"
+                              value={inNoteSearchQuery}
+                              onChange={(e) => {
+                                setInNoteSearchQuery(e.target.value);
+                                setActiveMatchIndex(0);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  if (e.shiftKey) {
+                                    handlePrevMatch();
+                                  } else {
+                                    handleNextMatch();
+                                  }
+                                } else if (e.key === 'Escape') {
+                                  setIsInNoteSearchOpen(false);
+                                  setInNoteSearchQuery('');
+                                }
+                              }}
+                              placeholder="Rechercher..."
+                              className="w-28 sm:w-36 md:w-48 bg-transparent text-xs font-bold text-zinc-900 dark:text-zinc-100 outline-none placeholder-zinc-400"
+                            />
+
+                            {inNoteSearchQuery.trim() && (
+                              <span className="text-[10px] font-extrabold text-teal-700 dark:text-teal-300 bg-teal-600/10 px-1.5 py-0.2 rounded font-mono shrink-0 border border-teal-600/20">
+                                {totalMatchesCount > 0 ? `${activeMatchIndex + 1}/${totalMatchesCount}` : '0'}
+                              </span>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={handlePrevMatch}
+                              disabled={totalMatchesCount <= 0}
+                              data-tooltip="Précédent (Shift + Entrée)"
+                              className="p-0.5 rounded text-zinc-500 hover:text-teal-600 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                            >
+                              <ChevronUp className="w-3.5 h-3.5" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={handleNextMatch}
+                              disabled={totalMatchesCount <= 0}
+                              data-tooltip="Suivant (Entrée)"
+                              className="p-0.5 rounded text-zinc-500 hover:text-teal-600 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                            >
+                              <ChevronDown className="w-3.5 h-3.5" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsInNoteSearchOpen(false);
+                                setInNoteSearchQuery('');
+                              }}
+                              data-tooltip="Fermer la recherche"
+                              className="p-0.5 text-zinc-400 hover:text-red-500 hover:bg-white dark:hover:bg-zinc-700 rounded transition-colors cursor-pointer ml-0.5"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <ActionButton icon={Search} tooltip="Rechercher dans cette note (Ctrl + F)" onClick={() => setIsInNoteSearchOpen(true)} />
+                        )}
+
+                        <ActionButton icon={Folder} tooltip="Organiser / Changer de thème" onClick={() => setShowThemePicker(!showThemePicker)} />
                         <ActionButton icon={Printer} tooltip={t.print} onClick={handlePrint} />
                         <ActionButton icon={FileText} tooltip={t.export_pdf} onClick={handleExportPdf} />
                         <ActionButton icon={FileDown} tooltip="Exporter au format Word (.docx)" onClick={handleExportDocx} />
@@ -1606,12 +1259,109 @@ const NoteEditor: React.FC = () => {
                                             </h3>
                                         )}
                                     </div>
-                                    <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-teal-600/10 text-teal-700 dark:text-teal-300 border border-teal-600/20 rounded-full text-xs font-bold shrink-0">
-                                        <Tag className="w-3.5 h-3.5 text-teal-600" />
-                                        <span>{note.theme || 'Général'}</span>
+                                    
+                                    {/* Badge et Sélecteur Interactif de Thème */}
+                                    <div className="relative inline-block shrink-0">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowThemePicker(!showThemePicker)}
+                                            data-tooltip="Cliquer pour changer ou gérer le thème"
+                                            className="inline-flex items-center gap-1.5 px-3.5 py-1 bg-teal-600/10 hover:bg-teal-600/20 text-teal-700 dark:text-teal-300 border border-teal-600/20 hover:border-teal-600/40 rounded-full text-xs font-bold transition-all cursor-pointer shadow-2xs"
+                                        >
+                                            <Tag className="w-3.5 h-3.5 text-teal-600" />
+                                            <span>{note.theme || 'Général'}</span>
+                                            <ChevronDown className="w-3 h-3 text-teal-600/70" />
+                                        </button>
+
+                                        {showThemePicker && (
+                                            <div 
+                                                onClick={e => e.stopPropagation()}
+                                                className="absolute right-0 top-full mt-2 z-50 w-64 p-3 bg-white dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-2xl text-xs space-y-2 animate-in fade-in zoom-in-95"
+                                            >
+                                                <div className="flex items-center justify-between pb-2 border-b border-zinc-100 dark:border-zinc-700">
+                                                    <span className="font-extrabold text-xs text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
+                                                        <Folder className="w-4 h-4 text-teal-600" /> Thème de ce journal
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowThemePicker(false)}
+                                                        className="p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-lg"
+                                                    >
+                                                        <X className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+
+                                                <div className="max-h-48 overflow-y-auto space-y-1 custom-scrollbar pr-1">
+                                                    {allThemes.map((th) => {
+                                                        const isSelected = (note.theme || 'Général') === th;
+                                                        return (
+                                                            <button
+                                                                key={th}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    updateNote(note.id, { theme: th === 'Général' ? undefined : th });
+                                                                    setShowThemePicker(false);
+                                                                    addNotification(`Journal classé dans "${th}"`, 'success');
+                                                                }}
+                                                                className={`w-full text-left px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center justify-between transition-colors ${
+                                                                    isSelected
+                                                                        ? 'bg-teal-600 text-white shadow-2xs'
+                                                                        : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
+                                                                }`}
+                                                            >
+                                                                <span className="truncate">{th}</span>
+                                                                {isSelected && <Check className="w-3.5 h-3.5 text-white shrink-0" />}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+
+                                                {!isCreatingTheme ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setIsCreatingTheme(true)}
+                                                        className="w-full text-center py-1.5 text-xs font-bold text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/30 rounded-xl border border-dashed border-teal-600/30 transition-all flex items-center justify-center gap-1"
+                                                    >
+                                                        <Plus className="w-3.5 h-3.5" /> Nouveau Thème
+                                                    </button>
+                                                ) : (
+                                                    <form
+                                                        onSubmit={(e) => {
+                                                            e.preventDefault();
+                                                            if (newThemeInput.trim()) {
+                                                                const th = newThemeInput.trim();
+                                                                addCustomTheme(th);
+                                                                updateNote(note.id, { theme: th === 'Général' ? undefined : th });
+                                                                setNewThemeInput('');
+                                                                setIsCreatingTheme(false);
+                                                                setShowThemePicker(false);
+                                                                addNotification(`Thème "${th}" créé et assigné !`, 'success');
+                                                            }
+                                                        }}
+                                                        className="flex gap-1"
+                                                    >
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Nom du thème..."
+                                                            autoFocus
+                                                            value={newThemeInput}
+                                                            onChange={(e) => setNewThemeInput(e.target.value)}
+                                                            className="flex-1 px-2.5 py-1 bg-zinc-50 dark:bg-zinc-900 border border-teal-600 rounded-lg text-xs outline-none"
+                                                        />
+                                                        <button
+                                                            type="submit"
+                                                            className="px-2.5 py-1 bg-teal-600 text-white rounded-lg text-xs font-bold"
+                                                        >
+                                                            OK
+                                                        </button>
+                                                    </form>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
+
 
                             <div className="serif-text text-xl leading-relaxed text-zinc-700 dark:text-zinc-300 pl-8 border-l-2 border-teal-600/20 selection:bg-teal-600/10">
                                 {editingContent ? (
@@ -3772,7 +3522,7 @@ const NoteEditor: React.FC = () => {
                 {processedNote.scriptureItems && processedNote.scriptureItems.length > 0 && (
                     <div className="mb-8 space-y-4">
                         <div className="flex items-center gap-2 border-b border-teal-600/30 pb-1.5 mb-3">
-                            <span className="w-2 h-2 rounded-full bg-teal-700"></span>
+                            <BookOpen className="w-4 h-4 text-teal-700 shrink-0" />
                             <h2 className="text-xs font-black uppercase tracking-wider text-teal-900 m-0">Citations Bibliques</h2>
                         </div>
                         {processedNote.scriptureItems.map((item, i) => {
@@ -3809,7 +3559,7 @@ const NoteEditor: React.FC = () => {
                 {processedNote.churchAgeItems && processedNote.churchAgeItems.length > 0 && (
                     <div className="mb-8 space-y-4">
                         <div className="flex items-center gap-2 border-b border-amber-600/30 pb-1.5 mb-3">
-                            <span className="w-2 h-2 rounded-full bg-amber-600"></span>
+                            <ScrollText className="w-4 h-4 text-amber-600 shrink-0" />
                             <h2 className="text-xs font-black uppercase tracking-wider text-amber-900 m-0">Citations de l'Exposé des Sept Âges</h2>
                         </div>
                         {processedNote.churchAgeItems.map((item, i) => {
@@ -3846,7 +3596,7 @@ const NoteEditor: React.FC = () => {
                 {processedNote.teachingItems && processedNote.teachingItems.length > 0 && (
                     <div className="mb-8 space-y-4">
                         <div className="flex items-center gap-2 border-b border-slate-400/40 pb-1.5 mb-3">
-                            <span className="w-2 h-2 rounded-full bg-slate-700"></span>
+                            <Quote className="w-4 h-4 text-slate-700 shrink-0" />
                             <h2 className="text-xs font-black uppercase tracking-wider text-slate-800 m-0">Citations & Enseignements</h2>
                         </div>
                         {processedNote.teachingItems.map((item, i) => {
@@ -3883,21 +3633,33 @@ const NoteEditor: React.FC = () => {
                 {processedNote.aiItems && processedNote.aiItems.length > 0 && (
                     <div className="mb-8 space-y-4">
                         <div className="flex items-center gap-2 border-b border-teal-600/30 pb-1.5 mb-3">
-                            <span className="w-2 h-2 rounded-full bg-teal-700"></span>
+                            <Lightbulb className="w-4 h-4 text-teal-700 shrink-0" />
                             <h2 className="text-xs font-black uppercase tracking-wider text-teal-900 m-0">
                                 Études & Réponses du Dock IA ({processedNote.aiItems.length})
                             </h2>
                         </div>
                         {processedNote.aiItems.map((item, i) => (
-                            <div key={item.citationId || i} className="ai-item-box page-break-inside-avoid bg-teal-50/40 p-4 rounded-r-lg border-l-4 border-teal-700 my-4 text-slate-800">
-                                <div className="font-bold text-teal-900 text-[13px] mb-2 pb-1 border-b border-teal-600/20">
-                                    Assistant IA — {stripMarkdown(item.title)} {item.date ? `(${item.date})` : ''}
+                            <div key={item.citationId || i} className="ai-item-box page-break-inside-avoid bg-teal-50/50 p-5 rounded-2xl border border-teal-200/80 my-4 text-slate-800 shadow-xs">
+                                <div className="flex items-center gap-2.5 mb-3 pb-2 border-b border-teal-600/20">
+                                    <div className="w-7 h-7 rounded-lg bg-teal-600 text-white flex items-center justify-center shrink-0">
+                                        <Lightbulb className="w-3.5 h-3.5 text-white" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div className="text-[10px] font-black uppercase tracking-wider text-teal-700 flex items-center gap-1.5 flex-wrap">
+                                            <span>Assistant IA</span>
+                                            {item.date && <span className="font-mono text-slate-400 font-normal">({item.date})</span>}
+                                            {item.sourceIndex && <span className="text-teal-800 font-bold">[{item.sourceIndex}]</span>}
+                                        </div>
+                                        <div className="font-extrabold text-slate-900 text-sm truncate">
+                                            {stripMarkdown(item.title)}
+                                        </div>
+                                    </div>
                                 </div>
                                 <div 
-                                    className="text-[12px] leading-relaxed text-slate-800 print-rich-content space-y-2"
+                                    className="text-[12.5px] leading-relaxed text-slate-800 print-rich-content space-y-2.5"
                                     dangerouslySetInnerHTML={{ __html: renderRichContent(item.content) }}
                                 />
-                                <div className="citation-ref text-right mt-2 text-[10.5px] font-bold text-teal-800">
+                                <div className="citation-ref text-right mt-3 pt-1 border-t border-teal-600/10 text-[10.5px] font-bold text-teal-800">
                                     Assistant IA King's Sword {item.sourceIndex ? `[${item.sourceIndex}]` : ''}
                                 </div>
                             </div>
@@ -3909,7 +3671,7 @@ const NoteEditor: React.FC = () => {
                 {processedNote.strongItems && processedNote.strongItems.length > 0 && (
                     <div className="mb-8 space-y-4">
                         <div className="flex items-center gap-2 border-b border-teal-600/30 pb-1.5 mb-3">
-                            <span className="w-2 h-2 rounded-full bg-teal-700"></span>
+                            <Languages className="w-4 h-4 text-teal-700 shrink-0" />
                             <h2 className="text-xs font-black uppercase tracking-wider text-teal-900 m-0">Concordance & Exégèse Strong ({processedNote.strongItems.length})</h2>
                         </div>
                         {processedNote.strongItems.map((item, i) => (
@@ -3948,7 +3710,7 @@ const NoteEditor: React.FC = () => {
                 {processedNote.definitionItems && processedNote.definitionItems.length > 0 && (
                     <div className="mb-8 space-y-4">
                         <div className="flex items-center gap-2 border-b border-teal-600/30 pb-1.5 mb-3">
-                            <span className="w-2 h-2 rounded-full bg-teal-700"></span>
+                            <BookMarked className="w-4 h-4 text-teal-700 shrink-0" />
                             <h2 className="text-xs font-black uppercase tracking-wider text-teal-900 m-0">Dictionnaire & Lexique Biblique ({processedNote.definitionItems.length})</h2>
                         </div>
                         {processedNote.definitionItems.map((item, i) => (
@@ -3973,7 +3735,7 @@ const NoteEditor: React.FC = () => {
                 {note.images && note.images.length > 0 && (
                     <div className="mb-8 space-y-4 page-break-inside-avoid">
                         <div className="flex items-center gap-2 border-b border-teal-600/30 pb-1.5 mb-3">
-                            <span className="w-2 h-2 rounded-full bg-teal-700"></span>
+                            <ImageIcon className="w-4 h-4 text-teal-700 shrink-0" />
                             <h2 className="text-xs font-black uppercase tracking-wider text-teal-900 m-0">Images & Illustrations</h2>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
@@ -3993,7 +3755,10 @@ const NoteEditor: React.FC = () => {
                 {processedNote.sources.length > 0 && (
                     <div className="mt-8 pt-4 border-t-2 border-slate-300 page-break-inside-avoid">
                         <div className="flex items-center justify-between mb-2">
-                            <h2 className="text-xs font-black uppercase tracking-wider text-slate-900 m-0">Sources & Références ({processedNote.sources.length})</h2>
+                            <div className="flex items-center gap-2">
+                                <BookOpenCheck className="w-4 h-4 text-teal-800 shrink-0" />
+                                <h2 className="text-xs font-black uppercase tracking-wider text-slate-900 m-0">Sources & Références ({processedNote.sources.length})</h2>
+                            </div>
                             <span className="text-[10px] text-slate-500 font-mono">King's Sword Index</span>
                         </div>
                         <ul className="space-y-1.5 text-[11px] text-slate-700 list-none p-0 m-0">

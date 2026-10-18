@@ -16,6 +16,7 @@ import { DonationModal } from './components/DonationModal';
 import { IndexingBenchmarkModal } from './components/IndexingBenchmarkModal';
 import GlobalContextMenu from './components/GlobalContextMenu';
 import { useModalActive } from './utils/modalUtils';
+import { subscribeIndexProgress, CorpusIndexProgress } from './services/corpusIndexInitializationService';
 
 const GlobalTooltip = memo(() => {
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -201,6 +202,11 @@ const App: React.FC = () => {
     else document.documentElement.classList.remove('dark');
   }, [theme]);
 
+  const [indexProgress, setIndexProgress] = useState<CorpusIndexProgress | null>(null);
+  useEffect(() => {
+    return subscribeIndexProgress(p => setIndexProgress(p));
+  }, []);
+
   const stopResizing = useCallback(() => { 
     if (resizeRafId.current) cancelAnimationFrame(resizeRafId.current);
     activeHandle.current = null; 
@@ -320,11 +326,28 @@ const App: React.FC = () => {
               {!aiOpen && (
                 <button
                   onClick={toggleAI}
-                  data-tooltip="Ouvrir l'Assistant IA"
+                  data-tooltip={
+                    indexProgress && indexProgress.status !== 'READY'
+                      ? indexProgress.isPaused || indexProgress.status === 'NOT_STARTED'
+                        ? "Assistant IA (Indexation en pause — cliquer pour ouvrir/démarrer)"
+                        : "Assistant IA (Indexation active en arrière-plan)"
+                      : "Ouvrir l'Assistant IA"
+                  }
                   data-tooltip-icon="lightbulb"
-                  className="flex items-center justify-center w-10 h-10 bg-white/95 dark:bg-zinc-800/95 backdrop-blur-md text-zinc-600 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl shadow-lg hover:bg-teal-600/10 hover:text-teal-600 hover:border-teal-600/30 transition-all duration-200 active:scale-95 cursor-pointer shrink-0"
+                  className="relative flex items-center justify-center w-10 h-10 bg-white/95 dark:bg-zinc-800/95 backdrop-blur-md text-zinc-600 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl shadow-lg hover:bg-teal-600/10 hover:text-teal-600 hover:border-teal-600/30 transition-all duration-200 active:scale-95 cursor-pointer shrink-0"
                 >
                   <Lightbulb className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                  {indexProgress && indexProgress.status !== 'READY' && (
+                    <span 
+                      className={`absolute top-1.5 right-1.5 w-2 h-2 rounded-full border border-white dark:border-zinc-800 ${
+                        indexProgress.status === 'ERROR'
+                          ? 'bg-rose-500'
+                          : indexProgress.isPaused || indexProgress.status === 'NOT_STARTED'
+                            ? 'bg-amber-500'
+                            : 'bg-emerald-500 animate-pulse'
+                      }`} 
+                    />
+                  )}
                 </button>
               )}
             </div>

@@ -17,8 +17,17 @@ import { marked } from 'marked';
 import NoteSelectorModal from './NoteSelectorModal';
 import { ApiKeyModal } from './ApiKeyModal';
 import { hasValidGeminiApiKey } from '../utils/apiKeyHelper';
-import { CorpusIndexingIndicator } from './CorpusIndexingIndicator';
-import { loadPersistedProgressState, subscribeIndexProgress, CorpusIndexProgress, initializeCorpusIndex, forceResetIndexing } from '../services/corpusIndexInitializationService';
+import { 
+  loadPersistedProgressState, 
+  subscribeIndexProgress, 
+  CorpusIndexProgress, 
+  initializeCorpusIndex, 
+  forceResetIndexing,
+  startOrResumeIndexing,
+  pauseActiveIndexing,
+  isIndexingPausedOnStartup,
+  setIndexingPausedOnStartup
+} from '../services/corpusIndexInitializationService';
 import { Sermon, ChatMessage } from '../types';
 import { splitSermonIntoParagraphs, extractLeadingParagraphNumber } from '../utils/textUtils';
 import { 
@@ -49,7 +58,11 @@ import {
   Undo2,
   Copy,
   Square,
-  Eraser
+  Eraser,
+  Play,
+  Pause,
+  Settings2,
+  RotateCcw
 } from 'lucide-react';
 
 export function extractFollowUpQuestions(content: string): string[] {
@@ -185,20 +198,49 @@ const AIAssistant: React.FC = () => {
     lastMethod: '',
     totalQueries: 0,
     fallbackCount: 0
-  });  const [indexProgress, setIndexProgress] = useState<CorpusIndexProgress | null>(null);
+  });
+  const [indexProgress, setIndexProgress] = useState<CorpusIndexProgress | null>(null);
+  const [isPauseOnStartup, setIsPauseOnStartup] = useState<boolean>(() => isIndexingPausedOnStartup());
+  const [showIndexingSettings, setShowIndexingSettings] = useState(false);
   const hasTriggeredInitRef = useRef(false);
+
+  const handleStartOrResumeIndexing = () => {
+    startOrResumeIndexing({ loadedSermonsMap: sermonsMap }).then(p => {
+      setIndexProgress(p);
+    });
+    addNotification("Indexation démarrée en arrière-plan", "info");
+  };
+
+  const handlePauseIndexing = () => {
+    pauseActiveIndexing();
+    setIndexProgress(prev => prev ? { ...prev, isPaused: true, pauseReason: "Indexation en pause" } : null);
+    addNotification("Indexation mise en pause", "info");
+  };
+
+  const handleTogglePauseOnStartup = (val: boolean) => {
+    setIsPauseOnStartup(val);
+    setIndexingPausedOnStartup(val);
+    addNotification(
+      val
+        ? "L'indexation sera mise en pause au démarrage de l'application"
+        : "L'indexation démarrera automatiquement au lancement",
+      "info"
+    );
+  };
 
   useEffect(() => {
     loadPersistedProgressState().then(initial => {
       setIndexProgress(initial);
       if (!hasTriggeredInitRef.current && (!initial || initial.status !== 'READY')) {
         hasTriggeredInitRef.current = true;
-        // Démarrage différé en douceur pour préserver 100% de la fluidité UI au lancement
-        setTimeout(() => {
-          initializeCorpusIndex({ loadedSermonsMap: sermonsMap }).catch(err => {
-            console.warn('[AIAssistant] Erreur auto-indexation:', err);
-          });
-        }, 8000);
+        // Démarrage automatique uniquement si l'utilisateur n'a pas activé la pause au démarrage
+        if (!isIndexingPausedOnStartup()) {
+          setTimeout(() => {
+            initializeCorpusIndex({ loadedSermonsMap: sermonsMap }).catch(err => {
+              console.warn('[AIAssistant] Erreur auto-indexation:', err);
+            });
+          }, 8000);
+        }
       }
     });
     const unsubscribe = subscribeIndexProgress(updated => {
@@ -1451,34 +1493,90 @@ const AIAssistant: React.FC = () => {
 
       {/* Notification fine, élégante et non-intrusive de l'état d'indexation / préparation */}
       {(!indexProgress || indexProgress.status !== 'READY') && (
-        <div className="mx-3 my-1 px-3 py-1.5 bg-slate-100/80 dark:bg-zinc-800/60 border border-slate-200/80 dark:border-zinc-700/60 rounded-lg text-slate-600 dark:text-zinc-300 text-[11px] flex items-center justify-between gap-2 shrink-0 backdrop-blur-sm transition-all duration-200">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${indexProgress?.status === 'ERROR' ? 'bg-red-500' : 'bg-amber-500 animate-pulse'}`} />
-            <span className="truncate">
+        <div className="mx-3 my-1.5 p-2 bg-slate-100/90 dark:bg-zinc-800/80 border border-slate-200/90 dark:border-zinc-700/80 rounded-xl text-slate-700 dark:text-zinc-300 text-[11px] flex flex-col gap-1.5 shrink-0 backdrop-blur-sm shadow-2xs transition-all duration-200">
+          <div className="flex items-center justify-between gap-2 min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className={`w-2 h-2 rounded-full shrink-0 ${
+                indexProgress?.status === 'ERROR' 
+                  ? 'bg-rose-500' 
+                  : (indexProgress?.isPaused || indexProgress?.status === 'NOT_STARTED' || !indexProgress)
+                    ? 'bg-amber-500'
+                    : 'bg-emerald-500 animate-pulse'
+              }`} />
+              <div className="truncate text-[11px] leading-tight">
+                {indexProgress?.status === 'ERROR' ? (
+                  <span className="text-rose-600 dark:text-rose-400 font-semibold truncate block">
+                    Indexation interrompue : {indexProgress.errorMessage || 'Erreur d\'initialisation'}
+                  </span>
+                ) : (indexProgress?.isPaused || indexProgress?.status === 'NOT_STARTED' || !indexProgress) ? (
+                  <span className="font-medium text-amber-700 dark:text-amber-300 truncate block">
+                    Indexation en pause {indexProgress?.status === 'NOT_STARTED' ? 'au lancement (0% CPU)' : `(${Math.min(100, Math.round(((indexProgress?.chunksProcessed || 0) / Math.max(1, indexProgress?.totalChunks || 1)) * 100))}%)`}
+                  </span>
+                ) : (
+                  <span className="font-medium text-teal-700 dark:text-teal-300 truncate block">
+                    Indexation active : {indexProgress?.sermonsProcessed || 0} / {indexProgress?.totalSermons || (sermons.filter(s => !s.id.startsWith('expose-ch-')).length || sermons.length)} sermons ({Math.min(100, Math.round(((indexProgress?.chunksProcessed || 0) / Math.max(1, indexProgress?.totalChunks || 1)) * 100))}%)
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 shrink-0">
+              {/* Bouton Démarrer / Reprendre ou Pause */}
               {indexProgress?.status === 'ERROR' ? (
-                <span className="text-red-600 dark:text-red-400 font-medium">
-                  Indexation interrompue : {indexProgress.errorMessage || 'Erreur d\'initialisation'}
-                </span>
+                <button
+                  onClick={() => forceResetIndexing().then(p => setIndexProgress(p))}
+                  className="px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-700 dark:text-amber-300 hover:bg-amber-500/30 text-[10px] font-bold cursor-pointer flex items-center gap-1 transition"
+                  title="Relancer l'indexation"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Relancer</span>
+                </button>
+              ) : (indexProgress?.isPaused || indexProgress?.status === 'NOT_STARTED' || !indexProgress) ? (
+                <button
+                  onClick={handleStartOrResumeIndexing}
+                  className="px-2.5 py-1 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-[10px] font-bold cursor-pointer flex items-center gap-1.5 shadow-xs transition active:scale-95"
+                  title="Démarrer l'indexation du corpus à volonté"
+                >
+                  <Play className="w-3 h-3 fill-current" />
+                  <span>Démarrer</span>
+                </button>
               ) : (
-                <span>
-                  Indexation en arrière-plan : {indexProgress?.sermonsProcessed || 0} / {indexProgress?.totalSermons || (sermons.filter(s => !s.id.startsWith('expose-ch-')).length || sermons.length)} sermons ({Math.min(100, Math.round(((indexProgress?.chunksProcessed || 0) / Math.max(1, indexProgress?.totalChunks || 1)) * 100))}%)
-                </span>
+                <button
+                  onClick={handlePauseIndexing}
+                  className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-800 dark:text-amber-200 text-[10px] font-bold cursor-pointer flex items-center gap-1.5 transition active:scale-95"
+                  title="Mettre en pause l'indexation pour libérer les ressources"
+                >
+                  <Pause className="w-3 h-3" />
+                  <span>Pause</span>
+                </button>
               )}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {indexProgress?.status === 'ERROR' && (
+
+              {/* Bouton options/réglage démarrage */}
               <button
-                onClick={() => forceResetIndexing().then(p => setIndexProgress(p))}
-                className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 hover:bg-amber-500/30 text-[10px] font-semibold cursor-pointer"
+                onClick={() => setShowIndexingSettings(!showIndexingSettings)}
+                className={`p-1 rounded-lg transition cursor-pointer ${showIndexingSettings ? 'bg-zinc-300 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-700/60'}`}
+                title="Options de démarrage de l'indexation"
               >
-                Relancer
+                <Settings2 className="w-3.5 h-3.5" />
               </button>
-            )}
-            <span className="text-[10px] text-zinc-400 dark:text-zinc-500 select-none">
-              {indexProgress?.status === 'EMBEDDING' ? 'Vectorisation' : indexProgress?.status === 'CHUNKING' ? 'Découpage' : indexProgress?.status === 'ERROR' ? 'Erreur' : 'En cours'}
-            </span>
+            </div>
           </div>
+
+          {/* Sous-panneau compact des réglages */}
+          {showIndexingSettings && (
+            <div className="pt-1.5 mt-0.5 border-t border-slate-200/80 dark:border-zinc-700/80 flex items-center justify-between text-[10px]">
+              <label className="flex items-center gap-1.5 cursor-pointer text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 select-none">
+                <input
+                  type="checkbox"
+                  checked={isPauseOnStartup}
+                  onChange={(e) => handleTogglePauseOnStartup(e.target.checked)}
+                  className="rounded border-zinc-300 dark:border-zinc-600 text-teal-600 focus:ring-teal-500/20 w-3.5 h-3.5 cursor-pointer"
+                />
+                <span className="font-medium">Mettre en pause au lancement de l'application</span>
+              </label>
+              <span className="text-[9px] text-zinc-400 italic">Évite les ralentissements</span>
+            </div>
+          )}
         </div>
       )}
 

@@ -48,6 +48,7 @@ import { loadAllSongs, deleteSong, getSongLanguageLabel, getSongLanguageBadge } 
 import SongModal from './SongModal';
 import { TermsModal } from './TermsModal';
 import { getExposeTree, getExposePagesMeta, ExposeMetadataTree, ExposePage } from '../services/exposeService';
+import { subscribeIndexProgress, CorpusIndexProgress, startOrResumeIndexing, pauseActiveIndexing } from '../services/corpusIndexInitializationService';
 import { getFavorites, getRecents, QUICK_ACCESS_UPDATED_EVENT } from '../services/quickAccessService';
 import { APP_VERSION } from '../utils/version';
 
@@ -767,6 +768,11 @@ const SearchModeButton = memo(({ mode, label, tooltip, currentMode, setMode }: {
 const Sidebar: React.FC = () => {
   const sermons = useAppStore(s => s.sermons);
   const searchResults = useAppStore(s => s.searchResults);
+  const [indexProgress, setIndexProgress] = useState<CorpusIndexProgress | null>(null);
+
+  useEffect(() => {
+    return subscribeIndexProgress(p => setIndexProgress(p));
+  }, []);
   const selectedSermonId = useAppStore(s => s.selectedSermonId);
   const setSelectedSermonId = useAppStore(s => s.setSelectedSermonId);
   const selectedSearchParagraphId = useAppStore(s => s.selectedSearchParagraphId);
@@ -2168,6 +2174,28 @@ const Sidebar: React.FC = () => {
                   <p>Email : boukamass@gmail.com</p>
                 </div>
               </div>
+
+              {indexProgress && indexProgress.status !== 'READY' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (indexProgress.isPaused || indexProgress.status === 'NOT_STARTED') {
+                      startOrResumeIndexing();
+                    } else {
+                      pauseActiveIndexing();
+                    }
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-bold border transition cursor-pointer mt-1 ${
+                    indexProgress.isPaused || indexProgress.status === 'NOT_STARTED'
+                      ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 hover:bg-amber-500/20'
+                      : 'bg-teal-500/10 text-teal-700 dark:text-teal-300 border-teal-500/30 hover:bg-teal-500/20'
+                  }`}
+                  title={indexProgress.isPaused || indexProgress.status === 'NOT_STARTED' ? "Indexation en pause — Cliquer pour démarrer à volonté" : "Indexation active — Cliquer pour mettre en pause"}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${indexProgress.isPaused || indexProgress.status === 'NOT_STARTED' ? 'bg-amber-500' : 'bg-teal-500 animate-pulse'}`} />
+                  <span>Indexation IA : {indexProgress.isPaused || indexProgress.status === 'NOT_STARTED' ? 'En pause ▶ Démarrer' : 'En cours ⏸ Pause'}</span>
+                </button>
+              )}
 
               <div className="flex items-center justify-center gap-2 text-[8.5px] font-semibold text-zinc-500 dark:text-zinc-400 mt-1">
                 <span className="px-1.5 py-0.5 rounded bg-zinc-200/60 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 font-bold text-[8px]">

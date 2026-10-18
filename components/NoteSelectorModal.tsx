@@ -13,12 +13,15 @@ import {
   Quote, 
   FileText,
   Clock,
-  ArrowLeft
+  ArrowLeft,
+  Tag,
+  Folder
 } from 'lucide-react';
 import { normalizeText } from '../utils/textUtils';
 import { CitationHighlight } from '../types';
 import { extractHighlightsFromSermon } from '../utils/highlightUtils';
 import { HighlightedQuote } from './HighlightedQuote';
+import { getAllNoteThemes, addCustomTheme } from '../utils/themeUtils';
 
 interface NoteSelectorModalProps {
   selectionText: string;
@@ -38,8 +41,14 @@ const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({
   const { notes, addNote, addCitationToNote, addNotification, sermons } = useAppStore();
   const [view, setView] = useState<'list' | 'new_note'>('list');
   const [newNoteTitle, setNewNoteTitle] = useState('');
+  const [selectedTheme, setSelectedTheme] = useState<string>('Général');
+  const [customThemeInput, setCustomThemeInput] = useState<string>('');
+  const [isAddingCustomTheme, setIsAddingCustomTheme] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState('');
   const titleInputRef = useRef<HTMLInputElement>(null);
+
+  const allThemes = useMemo(() => getAllNoteThemes(notes), [notes]);
+
 
   useModalActive(true);
 
@@ -94,10 +103,12 @@ const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({
       highlights: effectiveHighlights && effectiveHighlights.length > 0 ? effectiveHighlights : undefined
     };
 
+    const finalTheme = selectedTheme !== 'Général' ? selectedTheme : undefined;
     addNote({
       title: newNoteTitle.trim(),
       content: "",
       citations: [newCitation],
+      theme: finalTheme
     });
     addNotification('Nouvelle note créée avec succès.', 'success');
     onClose();
@@ -277,7 +288,12 @@ const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({
                         {note.title}
                       </h3>
 
-                      <div className="flex items-center gap-2 mt-1 text-[10px] text-zinc-400">
+                      <div className="flex items-center gap-2 mt-1 text-[10px] text-zinc-400 flex-wrap">
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.2 bg-teal-600/10 text-teal-700 dark:text-teal-300 rounded font-bold">
+                          <Tag className="w-2.5 h-2.5" />
+                          {note.theme || 'Général'}
+                        </span>
+                        <span>•</span>
                         <Clock className="w-3 h-3 text-zinc-400" />
                         <span>{new Date(note.creationDate || note.date).toLocaleDateString()}</span>
                         <span>•</span>
@@ -312,8 +328,67 @@ const NoteSelectorModal: React.FC<NoteSelectorModalProps> = ({
                   className="w-full px-3.5 py-2.5 text-xs bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-teal-500 font-extrabold text-zinc-900 dark:text-zinc-100 shadow-xs"
                   placeholder="Ex: Étude sur l'Ouverture des Sceaux..."
                 />
+              </div>
+
+              {/* Sélecteur de Thème */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                    <Folder className="w-3.5 h-3.5 text-teal-600" />
+                    <span>Thème d'étude</span>
+                  </label>
+                </div>
+                <div className="flex gap-2">
+                  <select
+                    value={selectedTheme}
+                    onChange={(e) => setSelectedTheme(e.target.value)}
+                    className="flex-1 px-3 py-2 text-xs bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl font-bold text-zinc-800 dark:text-zinc-200 focus:outline-none focus:border-teal-500"
+                  >
+                    {allThemes.map((th) => (
+                      <option key={th} value={th}>
+                        {th}
+                      </option>
+                    ))}
+                  </select>
+
+                  {!isAddingCustomTheme ? (
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingCustomTheme(true)}
+                      className="px-3 py-2 bg-teal-600/10 hover:bg-teal-600/20 text-teal-700 dark:text-teal-300 border border-teal-600/20 text-xs font-bold rounded-xl flex items-center gap-1 shrink-0 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Thème</span>
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <input
+                        type="text"
+                        placeholder="Nouveau thème..."
+                        value={customThemeInput}
+                        onChange={(e) => setCustomThemeInput(e.target.value)}
+                        className="px-2.5 py-1.5 text-xs bg-white dark:bg-zinc-900 border border-teal-600 rounded-xl outline-none w-32"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (customThemeInput.trim()) {
+                            const th = customThemeInput.trim();
+                            addCustomTheme(th);
+                            setSelectedTheme(th);
+                            setCustomThemeInput('');
+                            setIsAddingCustomTheme(false);
+                          }
+                        }}
+                        className="px-2.5 py-1.5 bg-teal-600 text-white text-xs font-bold rounded-xl"
+                      >
+                        OK
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <p className="text-[11px] text-zinc-400 dark:text-zinc-500 italic">
-                  Un nouveau journal d'étude sera créé avec cet extrait comme première citation.
+                  Un nouveau journal d'étude sera créé dans le thème sélectionné.
                 </p>
               </div>
 

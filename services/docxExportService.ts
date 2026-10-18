@@ -22,6 +22,42 @@ import { processNoteData, stripMarkdown } from '../utils/noteFormatter';
 import { splitQuoteIntoHighlightedSegments, HIGHLIGHT_HEX_MAP } from '../utils/highlightUtils';
 
 /**
+ * Largeur disponible pour les cartes et tableaux en DXA (standard A4 : 11906 - 2 * 1440 = 9026 dxa)
+ * Empêche tout dépassement de bordure ou rognage dans Word.
+ */
+export const CARD_WIDTH_DXA = 9026;
+
+import iconPngMap from './iconPngBase64.json';
+
+const iconBytesCache = new Map<string, Uint8Array>();
+
+export function getIconBytes(key: string): Uint8Array | null {
+  if (iconBytesCache.has(key)) return iconBytesCache.get(key)!;
+  const b64 = (iconPngMap as Record<string, string>)[key];
+  if (!b64) return null;
+  try {
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    iconBytesCache.set(key, bytes);
+    return bytes;
+  } catch {
+    return null;
+  }
+}
+
+export function createIconRun(bytes: Uint8Array | null, size = 15): ImageRun | null {
+  if (!bytes || bytes.length === 0) return null;
+  return new ImageRun({
+    data: bytes,
+    transformation: { width: size, height: size },
+    type: 'png'
+  });
+}
+
+/**
  * Analyse une ligne de texte pour produire des TextRuns Word propres,
  * en traduisant les balises markdown de gras (**mot**) et d'italique (*mot*),
  * tout en éradiquant les artefacts parasites (#, @).
@@ -97,11 +133,11 @@ function renderMarkdownBlockToDocx(markdownText: string, primaryColor: string = 
         new Paragraph({
           children: parseInlineRuns(rawLine.replace(/^#\s+/, ''), {
             bold: true,
-            size: 24,
+            size: 26,
             color: primaryColor,
             font: "Arial"
           }),
-          spacing: { before: 200, after: 80 }
+          spacing: { before: 240, after: 100 }
         })
       );
     }
@@ -111,25 +147,39 @@ function renderMarkdownBlockToDocx(markdownText: string, primaryColor: string = 
         new Paragraph({
           children: parseInlineRuns(rawLine.replace(/^##\s+/, ''), {
             bold: true,
-            size: 22,
+            size: 23,
             color: primaryColor,
             font: "Arial"
           }),
-          spacing: { before: 180, after: 60 }
+          spacing: { before: 200, after: 80 }
         })
       );
     }
-    // Titre 3 ou sous-section (### Titre)
+    // Titre 3 (### Titre)
     else if (/^#{3,6}\s+/.test(rawLine)) {
       paragraphs.push(
         new Paragraph({
           children: parseInlineRuns(rawLine.replace(/^#{3,6}\s+/, ''), {
             bold: true,
-            size: 20,
+            size: 21,
             color: "334155",
             font: "Arial"
           }),
-          spacing: { before: 140, after: 40 }
+          spacing: { before: 160, after: 60 }
+        })
+      );
+    }
+    // Sous-titre ou intitulé gras en ligne isolée (ex: **1. Introduction :** ou **Question :**)
+    else if (/^\*\*[^*]+\*\*\s*$/.test(rawLine)) {
+      paragraphs.push(
+        new Paragraph({
+          children: parseInlineRuns(rawLine, {
+            bold: true,
+            size: 21,
+            color: primaryColor,
+            font: "Arial"
+          }),
+          spacing: { before: 140, after: 60 }
         })
       );
     }
@@ -143,8 +193,8 @@ function renderMarkdownBlockToDocx(markdownText: string, primaryColor: string = 
             color: "475569",
             font: "Georgia"
           }),
-          indent: { left: 360 },
-          spacing: { before: 60, after: 60, line: 240 }
+          indent: { left: 400 },
+          spacing: { before: 80, after: 80, line: 260 }
         })
       );
     }
@@ -161,12 +211,35 @@ function renderMarkdownBlockToDocx(markdownText: string, primaryColor: string = 
               font: "Arial"
             }),
             ...parseInlineRuns(rawLine.replace(/^[-*]\s+/, ''), {
-              size: 20,
+              size: 21,
               color: "1E293B",
               font: "Calibri"
             })
           ],
-          indent: { left: 280 },
+          indent: { left: 360 },
+          spacing: { after: 70, line: 250 }
+        })
+      );
+    }
+    // Sous-puce indentée
+    else if (/^\s+[-*]\s+/.test(lines[i])) {
+      paragraphs.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: "–  ",
+              bold: true,
+              color: "64748B",
+              size: 20,
+              font: "Arial"
+            }),
+            ...parseInlineRuns(rawLine.replace(/^[-*]\s+/, ''), {
+              size: 20,
+              color: "334155",
+              font: "Calibri"
+            })
+          ],
+          indent: { left: 720 },
           spacing: { after: 60, line: 240 }
         })
       );
@@ -182,17 +255,17 @@ function renderMarkdownBlockToDocx(markdownText: string, primaryColor: string = 
                 text: `${numMatch[1]}  `,
                 bold: true,
                 color: primaryColor,
-                size: 20,
+                size: 21,
                 font: "Calibri"
               }),
               ...parseInlineRuns(numMatch[2], {
-                size: 20,
+                size: 21,
                 color: "1E293B",
                 font: "Calibri"
               })
             ],
-            indent: { left: 280 },
-            spacing: { after: 60, line: 240 }
+            indent: { left: 360 },
+            spacing: { after: 70, line: 250 }
           })
         );
       } else {
@@ -362,27 +435,45 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
     const mutedColor = "64748B"; // Muted Gray
     const lightBg = "F8FAFC"; // Very light neutral
 
+    // Chargement instantané des icônes vectorielles en PNG
+    const aiIconBytes = getIconBytes('ai');
+    const scriptureIconBytes = getIconBytes('scripture');
+    const churchAgeIconBytes = getIconBytes('church_age');
+    const teachingIconBytes = getIconBytes('teaching');
+    const strongIconBytes = getIconBytes('strong');
+    const defIconBytes = getIconBytes('definition');
+    const noteIconBytes = getIconBytes('note');
+    const tagIconBytes = getIconBytes('tag');
+    const sourcesIconBytes = getIconBytes('sources');
+
     const processed = processNoteData(note);
     const childrenElements: (Paragraph | Table)[] = [];
+
+    const noteBannerIcon = createIconRun(noteIconBytes, 16);
+    const titleRuns: (TextRun | ImageRun)[] = [];
+    if (noteBannerIcon) {
+      titleRuns.push(noteBannerIcon, new TextRun({ text: "  " }));
+    }
+    titleRuns.push(
+      new TextRun({
+        text: "KING'S SWORD",
+        bold: true,
+        size: 18,
+        color: primaryColor,
+        font: "Arial",
+      }),
+      new TextRun({
+        text: `  |  ${processed.title}`,
+        size: 16,
+        color: mutedColor,
+        font: "Arial",
+      })
+    );
 
     // Header Title Banner
     childrenElements.push(
       new Paragraph({
-        children: [
-          new TextRun({
-            text: "KING'S SWORD",
-            bold: true,
-            size: 18,
-            color: primaryColor,
-            font: "Arial",
-          }),
-          new TextRun({
-            text: `  |  ${processed.title}`,
-            size: 16,
-            color: mutedColor,
-            font: "Arial",
-          })
-        ],
+        children: titleRuns,
         alignment: AlignmentType.LEFT,
         spacing: { after: 120 }
       })
@@ -403,31 +494,50 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
       })
     );
 
-    // Metadata Bar (Date uniquement)
+    // Metadata Bar (Date & Thème)
     const formattedDate = note.date 
       ? new Date(note.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
       : new Date().toLocaleDateString('fr-FR');
 
+    const metaRuns: (TextRun | ImageRun)[] = [
+      new TextRun({
+        text: `Date : ${formattedDate}`,
+        size: 18, // 9pt
+        italics: true,
+        color: mutedColor,
+        font: "Calibri"
+      })
+    ];
+
+    if (note.theme) {
+      const tagIcon = createIconRun(tagIconBytes, 12);
+      metaRuns.push(
+        new TextRun({ text: "   •   ", color: "CBD5E1" }),
+        ...(tagIcon ? [tagIcon, new TextRun({ text: " " })] : []),
+        new TextRun({
+          text: `Thème : ${note.theme}`,
+          size: 18,
+          italics: true,
+          color: primaryColor,
+          font: "Calibri"
+        })
+      );
+    }
+
     childrenElements.push(
       new Paragraph({
-        children: [
-          new TextRun({
-            text: `Date : ${formattedDate}`,
-            size: 18, // 9pt
-            italics: true,
-            color: mutedColor,
-            font: "Calibri"
-          })
-        ],
+        children: metaRuns,
         spacing: { after: 360 }
       })
     );
 
     // 1. SECTION CONTENU PRINCIPAL
     if (processed.contentParagraphs.length > 0) {
+      const section1Icon = createIconRun(noteIconBytes, 15);
       childrenElements.push(
         new Paragraph({
           children: [
+            ...(section1Icon ? [section1Icon, new TextRun({ text: "  " })] : []),
             new TextRun({
               text: "CONTENU PRINCIPAL",
               bold: true,
@@ -448,11 +558,13 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
 
     // 2. SECTION CITATIONS BIBLIQUES
     if (processed.scriptureItems && processed.scriptureItems.length > 0) {
+      const scriptureIcon = createIconRun(scriptureIconBytes, 16);
       childrenElements.push(
         new Paragraph({
           children: [
+            ...(scriptureIcon ? [scriptureIcon, new TextRun({ text: "  " })] : []),
             new TextRun({
-              text: "CITATIONS BIBLIQUES",
+              text: `CITATIONS BIBLIQUES (${processed.scriptureItems.length})`,
               bold: true,
               size: 20,
               color: primaryColor,
@@ -467,11 +579,13 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
         if (item.kind === 'separator') {
           if (item.separatorType === 'subtitle') {
             const subtitleTable = new Table({
-              width: { size: 100, type: WidthType.PERCENTAGE },
+              width: { size: CARD_WIDTH_DXA, type: WidthType.DXA },
+              columnWidths: [CARD_WIDTH_DXA],
               rows: [
                 new TableRow({
                   children: [
                     new TableCell({
+                      width: { size: CARD_WIDTH_DXA, type: WidthType.DXA },
                       children: [
                         new Paragraph({
                           alignment: AlignmentType.CENTER,
@@ -510,11 +624,13 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
           } else {
             // Commentaire / Réflexion séparateur autonome
             const commentTable = new Table({
-              width: { size: 100, type: WidthType.PERCENTAGE },
+              width: { size: CARD_WIDTH_DXA, type: WidthType.DXA },
+              columnWidths: [CARD_WIDTH_DXA],
               rows: [
                 new TableRow({
                   children: [
                     new TableCell({
+                      width: { size: CARD_WIDTH_DXA, type: WidthType.DXA },
                       children: [
                         new Paragraph({
                           children: [
@@ -562,11 +678,13 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
           }
         } else {
           const quoteTable = new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
+            width: { size: CARD_WIDTH_DXA, type: WidthType.DXA },
+            columnWidths: [CARD_WIDTH_DXA],
             rows: [
               new TableRow({
                 children: [
                   new TableCell({
+                    width: { size: CARD_WIDTH_DXA, type: WidthType.DXA },
                     children: [
                       new Paragraph({
                         children: createDocxQuoteRuns(item.quote, item.highlights),
@@ -616,14 +734,16 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
 
     // 3. SECTION CITATIONS DE L'EXPOSÉ DES SEPT ÂGES
     if (processed.churchAgeItems && processed.churchAgeItems.length > 0) {
+      const churchAgeIcon = createIconRun(churchAgeIconBytes, 16);
       childrenElements.push(
         new Paragraph({
           children: [
+            ...(churchAgeIcon ? [churchAgeIcon, new TextRun({ text: "  " })] : []),
             new TextRun({
-              text: "CITATIONS DE L'EXPOSÉ DES SEPT ÂGES",
+              text: `CITATIONS DE L'EXPOSÉ DES SEPT ÂGES (${processed.churchAgeItems.length})`,
               bold: true,
               size: 20,
-              color: primaryColor,
+              color: "B45309", // Warm Amber
               font: "Arial"
             })
           ],
@@ -635,11 +755,13 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
         if (item.kind === 'separator') {
           if (item.separatorType === 'subtitle') {
             const subtitleTable = new Table({
-              width: { size: 100, type: WidthType.PERCENTAGE },
+              width: { size: CARD_WIDTH_DXA, type: WidthType.DXA },
+              columnWidths: [CARD_WIDTH_DXA],
               rows: [
                 new TableRow({
                   children: [
                     new TableCell({
+                      width: { size: CARD_WIDTH_DXA, type: WidthType.DXA },
                       children: [
                         new Paragraph({
                           alignment: AlignmentType.CENTER,
@@ -677,11 +799,13 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
             childrenElements.push(new Paragraph({ spacing: { after: 140 } }));
           } else {
             const commentTable = new Table({
-              width: { size: 100, type: WidthType.PERCENTAGE },
+              width: { size: CARD_WIDTH_DXA, type: WidthType.DXA },
+              columnWidths: [CARD_WIDTH_DXA],
               rows: [
                 new TableRow({
                   children: [
                     new TableCell({
+                      width: { size: CARD_WIDTH_DXA, type: WidthType.DXA },
                       children: [
                         new Paragraph({
                           children: [
@@ -729,11 +853,13 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
           }
         } else {
           const quoteTable = new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
+            width: { size: CARD_WIDTH_DXA, type: WidthType.DXA },
+            columnWidths: [CARD_WIDTH_DXA],
             rows: [
               new TableRow({
                 children: [
                   new TableCell({
+                    width: { size: CARD_WIDTH_DXA, type: WidthType.DXA },
                     children: [
                       new Paragraph({
                         children: createDocxQuoteRuns(item.quote, item.highlights),
@@ -746,7 +872,7 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
                             text: `${item.sourceTitle || "Exposé des Sept Âges"}${item.sourceMeta ? ` — ${item.sourceMeta}` : ''}${item.sourceIndex ? ` [${item.sourceIndex}]` : ''}`,
                             bold: true,
                             size: 19,
-                            color: primaryColor,
+                            color: "B45309",
                             font: "Calibri"
                           })
                         ],
@@ -755,14 +881,14 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
                     ],
                     shading: {
                       type: ShadingType.CLEAR,
-                      fill: lightBg,
+                      fill: "FFFBEB",
                       color: "auto"
                     },
                     borders: {
                       left: {
                         style: BorderStyle.SINGLE,
                         size: 24,
-                        color: primaryColor
+                        color: "D97706"
                       },
                       top: { style: BorderStyle.NONE },
                       right: { style: BorderStyle.NONE },
@@ -783,11 +909,13 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
 
     // 4. SECTION CITATIONS & ENSEIGNEMENTS
     if (processed.teachingItems && processed.teachingItems.length > 0) {
+      const teachingIcon = createIconRun(teachingIconBytes, 16);
       childrenElements.push(
         new Paragraph({
           children: [
+            ...(teachingIcon ? [teachingIcon, new TextRun({ text: "  " })] : []),
             new TextRun({
-              text: "CITATIONS & ENSEIGNEMENTS",
+              text: `CITATIONS & ENSEIGNEMENTS (${processed.teachingItems.length})`,
               bold: true,
               size: 20,
               color: primaryColor,
@@ -802,11 +930,13 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
         if (item.kind === 'separator') {
           if (item.separatorType === 'subtitle') {
             const subtitleTable = new Table({
-              width: { size: 100, type: WidthType.PERCENTAGE },
+              width: { size: CARD_WIDTH_DXA, type: WidthType.DXA },
+              columnWidths: [CARD_WIDTH_DXA],
               rows: [
                 new TableRow({
                   children: [
                     new TableCell({
+                      width: { size: CARD_WIDTH_DXA, type: WidthType.DXA },
                       children: [
                         new Paragraph({
                           alignment: AlignmentType.CENTER,
@@ -844,11 +974,13 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
             childrenElements.push(new Paragraph({ spacing: { after: 140 } }));
           } else {
             const commentTable = new Table({
-              width: { size: 100, type: WidthType.PERCENTAGE },
+              width: { size: CARD_WIDTH_DXA, type: WidthType.DXA },
+              columnWidths: [CARD_WIDTH_DXA],
               rows: [
                 new TableRow({
                   children: [
                     new TableCell({
+                      width: { size: CARD_WIDTH_DXA, type: WidthType.DXA },
                       children: [
                         new Paragraph({
                           children: [
@@ -896,11 +1028,13 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
           }
         } else {
           const quoteTable = new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
+            width: { size: CARD_WIDTH_DXA, type: WidthType.DXA },
+            columnWidths: [CARD_WIDTH_DXA],
             rows: [
               new TableRow({
                 children: [
                   new TableCell({
+                    width: { size: CARD_WIDTH_DXA, type: WidthType.DXA },
                     children: [
                       new Paragraph({
                         children: createDocxQuoteRuns(item.quote, item.highlights),
@@ -948,11 +1082,13 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
       }
     }
 
-    // 4. SECTION ÉTUDES & RÉPONSES DU DOCK IA
+    // 4.5. SECTION ÉTUDES & RÉPONSES DU DOCK IA
     if (processed.aiItems && processed.aiItems.length > 0) {
+      const sectionAiIcon = createIconRun(aiIconBytes, 16);
       childrenElements.push(
         new Paragraph({
           children: [
+            ...(sectionAiIcon ? [sectionAiIcon, new TextRun({ text: "  " })] : []),
             new TextRun({
               text: `ÉTUDES & RÉPONSES DU DOCK IA (${processed.aiItems.length})`,
               bold: true,
@@ -967,73 +1103,147 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
 
       for (const item of processed.aiItems) {
         const bodyParagraphs = renderMarkdownBlockToDocx(item.content, primaryColor);
+        const cardAiIcon = createIconRun(aiIconBytes, 16);
 
-        const aiTable = new Table({
-          width: { size: 100, type: WidthType.PERCENTAGE },
-          rows: [
-            new TableRow({
-              children: [
-                new TableCell({
-                  children: [
-                    new Paragraph({
-                      children: [
-                        new TextRun({
-                          text: `Assistant IA — ${stripMarkdown(item.title)}${item.date ? ` (${item.date})` : ''}`,
-                          bold: true,
-                          size: 21,
-                          color: primaryColor,
-                          font: "Arial"
-                        })
-                      ],
-                      spacing: { before: 80, after: 120 }
-                    }),
-                    ...bodyParagraphs,
-                    new Paragraph({
-                      alignment: AlignmentType.RIGHT,
-                      children: [
-                        new TextRun({
-                          text: `Assistant IA King's Sword${item.sourceIndex ? ` [${item.sourceIndex}]` : ''}`,
-                          bold: true,
-                          size: 18,
-                          color: primaryColor,
-                          font: "Arial"
-                        })
-                      ],
-                      spacing: { before: 80, after: 60 }
-                    })
-                  ],
-                  shading: {
-                    type: ShadingType.CLEAR,
-                    fill: "F0FDFA", // Subtle Teal tint
-                    color: "auto"
-                  },
-                  borders: {
-                    left: {
-                      style: BorderStyle.SINGLE,
-                      size: 24,
-                      color: primaryColor
-                    },
-                    top: { style: BorderStyle.NONE },
-                    right: { style: BorderStyle.NONE },
-                    bottom: { style: BorderStyle.NONE }
-                  },
-                  margins: { top: 140, bottom: 140, left: 200, right: 200 }
+        // Header de l'étude avec Icône + Titre + Date + SourceIndex
+        childrenElements.push(
+          new Paragraph({
+            border: {
+              left: {
+                style: BorderStyle.SINGLE,
+                size: 24,
+                color: primaryColor,
+                space: 12
+              }
+            },
+            shading: {
+              type: ShadingType.CLEAR,
+              fill: "F0FDFA",
+              color: "auto"
+            },
+            indent: { left: 240, right: 180 },
+            children: [
+              ...(cardAiIcon ? [cardAiIcon, new TextRun({ text: "  " })] : []),
+              new TextRun({
+                text: `Assistant IA  |  ${stripMarkdown(item.title)}`,
+                bold: true,
+                size: 21,
+                color: primaryColor,
+                font: "Arial"
+              }),
+              ...(item.date ? [
+                new TextRun({
+                  text: `  (${item.date})`,
+                  size: 18,
+                  color: mutedColor,
+                  font: "Calibri"
                 })
-              ]
-            })
-          ]
-        });
+              ] : []),
+              ...(item.sourceIndex ? [
+                new TextRun({
+                  text: `  [${item.sourceIndex}]`,
+                  bold: true,
+                  size: 18,
+                  color: primaryColor,
+                  font: "Arial"
+                })
+              ] : [])
+            ],
+            spacing: { before: 180, after: 80 }
+          })
+        );
 
-        childrenElements.push(aiTable);
-        childrenElements.push(new Paragraph({ spacing: { after: 180 } }));
+        // Ligne de séparation intérieure subtile
+        childrenElements.push(
+          new Paragraph({
+            border: {
+              left: {
+                style: BorderStyle.SINGLE,
+                size: 24,
+                color: primaryColor,
+                space: 12
+              },
+              bottom: {
+                color: "CCFBF1",
+                style: BorderStyle.SINGLE,
+                size: 6
+              }
+            },
+            shading: {
+              type: ShadingType.CLEAR,
+              fill: "F0FDFA",
+              color: "auto"
+            },
+            indent: { left: 240, right: 180 },
+            spacing: { after: 120 }
+          })
+        );
+
+        // Paragraphes de contenu avec bordure gauche teal continue et fond clair F0FDFA
+        for (const bp of bodyParagraphs) {
+          childrenElements.push(
+            new Paragraph({
+              ...bp,
+              border: {
+                left: {
+                  style: BorderStyle.SINGLE,
+                  size: 24,
+                  color: primaryColor,
+                  space: 12
+                }
+              },
+              shading: {
+                type: ShadingType.CLEAR,
+                fill: "F0FDFA",
+                color: "auto"
+              },
+              indent: { left: 280, right: 180 }
+            })
+          );
+        }
+
+        // Signature officielle
+        childrenElements.push(
+          new Paragraph({
+            alignment: AlignmentType.RIGHT,
+            border: {
+              left: {
+                style: BorderStyle.SINGLE,
+                size: 24,
+                color: primaryColor,
+                space: 12
+              }
+            },
+            shading: {
+              type: ShadingType.CLEAR,
+              fill: "F0FDFA",
+              color: "auto"
+            },
+            indent: { left: 240, right: 180 },
+            children: [
+              new TextRun({
+                text: `Assistant IA King's Sword${item.sourceIndex ? ` [${item.sourceIndex}]` : ''}`,
+                bold: true,
+                size: 18,
+                color: primaryColor,
+                font: "Arial"
+              })
+            ],
+            spacing: { before: 100, after: 180 }
+          })
+        );
+
+        childrenElements.push(new Paragraph({ spacing: { after: 120 } }));
       }
     }
 
     // 5. SECTION CONCORDANCE & EXÉGÈSE STRONG
     if (processed.strongItems && processed.strongItems.length > 0) {
+      const strongIcon = createIconRun(strongIconBytes, 16);
       childrenElements.push(
         new Paragraph({
           children: [
+            ...(strongIcon ? [strongIcon, new TextRun({ text: "  " })] : []),
             new TextRun({
               text: `CONCORDANCE & EXÉGÈSE STRONG (${processed.strongItems.length})`,
               bold: true,
@@ -1220,11 +1430,13 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
         );
 
         const strongTable = new Table({
-          width: { size: 100, type: WidthType.PERCENTAGE },
+          width: { size: CARD_WIDTH_DXA, type: WidthType.DXA },
+          columnWidths: [CARD_WIDTH_DXA],
           rows: [
             new TableRow({
               children: [
                 new TableCell({
+                  width: { size: CARD_WIDTH_DXA, type: WidthType.DXA },
                   children: strongChildren,
                   shading: {
                     type: ShadingType.CLEAR,
@@ -1255,11 +1467,13 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
 
     // 6. SECTION DICTIONNAIRE & LEXIQUE BIBLIQUE
     if (processed.definitionItems && processed.definitionItems.length > 0) {
+      const defIcon = createIconRun(defIconBytes, 16);
       childrenElements.push(
         new Paragraph({
           children: [
+            ...(defIcon ? [defIcon, new TextRun({ text: "  " })] : []),
             new TextRun({
-              text: "DICTIONNAIRE & LEXIQUE BIBLIQUE",
+              text: `DICTIONNAIRE & LEXIQUE BIBLIQUE (${processed.definitionItems.length})`,
               bold: true,
               size: 20,
               color: primaryColor,
@@ -1367,11 +1581,13 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
         );
 
         const defTable = new Table({
-          width: { size: 100, type: WidthType.PERCENTAGE },
+          width: { size: CARD_WIDTH_DXA, type: WidthType.DXA },
+          columnWidths: [CARD_WIDTH_DXA],
           rows: [
             new TableRow({
               children: [
                 new TableCell({
+                  width: { size: CARD_WIDTH_DXA, type: WidthType.DXA },
                   children: defChildren,
                   shading: {
                     type: ShadingType.CLEAR,
@@ -1400,7 +1616,7 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
       }
     }
 
-    // 4. SECTION IMAGES
+    // 7. SECTION IMAGES
     if (note.images && note.images.length > 0) {
       childrenElements.push(
         new Paragraph({
@@ -1472,11 +1688,13 @@ export async function exportNoteToDocx(note: Note): Promise<boolean> {
       }
     }
 
-    // 5. SECTION SOURCES & RÉFÉRENCES (BIBLIOGRAPHIE)
+    // 8. SECTION SOURCES & RÉFÉRENCES (BIBLIOGRAPHIE)
     if (processed.sources.length > 0) {
+      const sourcesIcon = createIconRun(sourcesIconBytes, 16);
       childrenElements.push(
         new Paragraph({
           children: [
+            ...(sourcesIcon ? [sourcesIcon, new TextRun({ text: "  " })] : []),
             new TextRun({
               text: `SOURCES & RÉFÉRENCES (${processed.sources.length})`,
               bold: true,

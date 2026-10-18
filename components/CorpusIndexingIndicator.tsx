@@ -4,6 +4,10 @@ import {
   subscribeIndexProgress,
   loadPersistedProgressState,
   forceResetIndexing,
+  startOrResumeIndexing,
+  pauseActiveIndexing,
+  isIndexingPausedOnStartup,
+  setIndexingPausedOnStartup,
   IndexingStatus
 } from '../services/corpusIndexInitializationService';
 import {
@@ -54,6 +58,7 @@ export const CorpusIndexingIndicator: React.FC<{
   const [isRestarting, setIsRestarting] = useState(false);
 
   const [controls, setControls] = useState(getIndexingControlsState());
+  const [pauseOnStartup, setPauseOnStartup] = useState<boolean>(() => isIndexingPausedOnStartup());
   const dismissTimerRef = useRef<any>(null);
 
   useEffect(() => {
@@ -97,10 +102,10 @@ export const CorpusIndexingIndicator: React.FC<{
   const isNoSermonsError = progress.totalSermons === 0 || progress.errorMessage?.includes('Aucun sermon');
 
   const togglePause = () => {
-    if (controls.isManualPaused) {
-      resumeIndexing();
+    if (controls.isManualPaused || progress.isPaused || progress.status === 'NOT_STARTED') {
+      startOrResumeIndexing();
     } else {
-      pauseIndexing();
+      pauseActiveIndexing();
     }
     setControls(getIndexingControlsState());
   };
@@ -181,13 +186,17 @@ export const CorpusIndexingIndicator: React.FC<{
             </button>
           )}
 
-          {progress.status === 'EMBEDDING' && (
+          {progress.status !== 'READY' && !isNoSermonsError && (
             <button
               onClick={togglePause}
-              className="p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 transition cursor-pointer"
-              title={controls.isManualPaused ? "Reprendre l'indexation" : "Mettre en pause l'indexation"}
+              className={`p-1.5 rounded-lg transition cursor-pointer ${
+                controls.isManualPaused || progress.isPaused || progress.status === 'NOT_STARTED'
+                  ? 'bg-teal-600/20 text-teal-300 hover:bg-teal-600/30'
+                  : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-300'
+              }`}
+              title={controls.isManualPaused || progress.isPaused || progress.status === 'NOT_STARTED' ? "Démarrer ou reprendre l'indexation" : "Mettre en pause l'indexation"}
             >
-              {controls.isManualPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
+              {controls.isManualPaused || progress.isPaused || progress.status === 'NOT_STARTED' ? <Play className="w-3.5 h-3.5 fill-current" /> : <Pause className="w-3.5 h-3.5" />}
             </button>
           )}
 
@@ -236,15 +245,29 @@ export const CorpusIndexingIndicator: React.FC<{
         <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex flex-col gap-2 text-[11px] bg-slate-950/60 p-2.5 rounded-xl">
           <div className="font-bold text-amber-300 flex items-center gap-1.5">
             <Zap className="w-3.5 h-3.5 text-amber-400" />
-            <span>Mode d'indexation adaptatif :</span>
+            <span>Options & Démarrage :</span>
           </div>
+
+          <label className="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white transition">
+            <input
+              type="checkbox"
+              checked={pauseOnStartup}
+              onChange={(e) => {
+                const val = e.target.checked;
+                setPauseOnStartup(val);
+                setIndexingPausedOnStartup(val);
+              }}
+              className="rounded border-slate-700 bg-slate-800 text-teal-500 focus:ring-teal-500/20 cursor-pointer"
+            />
+            <span className="font-semibold text-amber-200">Mettre en pause au lancement de l'application (Évite les ralentissements)</span>
+          </label>
 
           <label className="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white transition">
             <input
               type="checkbox"
               checked={controls.isSelectionOnly}
               onChange={(e) => toggleSelectionOnly(e.target.checked)}
-              className="rounded border-slate-700 bg-slate-800 text-teal-500 focus:ring-teal-500/20"
+              className="rounded border-slate-700 bg-slate-800 text-teal-500 focus:ring-teal-500/20 cursor-pointer"
             />
             <span>Indexer seulement ma sélection (Dock IA & Sermon actif)</span>
           </label>
@@ -254,7 +277,7 @@ export const CorpusIndexingIndicator: React.FC<{
               type="checkbox"
               checked={controls.isKeywordsOnly}
               onChange={(e) => toggleKeywordsOnly(e.target.checked)}
-              className="rounded border-slate-700 bg-slate-800 text-teal-500 focus:ring-teal-500/20"
+              className="rounded border-slate-700 bg-slate-800 text-teal-500 focus:ring-teal-500/20 cursor-pointer"
             />
             <span>Mots-clés seulement (Recherche lexicale FTS5 instantanée)</span>
           </label>
