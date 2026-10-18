@@ -264,58 +264,111 @@ interface AppState {
   setNavigatedFromNoteId: (id: string | null) => void;
 }
 
+const SESSION_STORAGE_KEY = 'kings_sword_app_session_v2';
+
+interface SavedAppSession {
+  libraryMode?: LibraryMode;
+  selectedSermonId?: string | null;
+  activeNoteId?: string | null;
+  selectedBibleBookId?: string | null;
+  selectedBibleChapter?: number | null;
+  selectedBibleVerse?: number | null;
+  selectedExposeChapter?: string | null;
+  selectedExposeSection?: string | null;
+  jumpToParagraph?: number | null;
+  sidebarOpen?: boolean;
+  aiOpen?: boolean;
+  notesOpen?: boolean;
+  assistantMode?: 'auto-rag' | 'dock';
+  sidebarWidth?: number;
+  aiWidth?: number;
+  notesWidth?: number;
+  theme?: 'light' | 'dark';
+  fontSize?: number;
+  bibleVersion?: BibleVersion;
+  bibleTestamentFilter?: 'ALL' | 'OT' | 'NT';
+  songsSortOrder?: 'number-asc' | 'number-desc' | 'title-asc' | 'title-desc';
+  songLanguageFilter?: string | null;
+  searchQuery?: string;
+  searchMode?: SearchMode;
+  cityFilter?: string[];
+  yearFilter?: string[];
+  monthFilter?: string[];
+  dayFilter?: string[];
+  versionFilter?: string[];
+  timeFilter?: string | null;
+  audioFilter?: boolean;
+  languageFilter?: string;
+}
+
+const loadSavedSession = (): SavedAppSession => {
+  try {
+    if (typeof localStorage === 'undefined') return {};
+    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') return parsed;
+    }
+  } catch (e) {
+    console.warn('[Session] Failed to load initial app session:', e);
+  }
+  return {};
+};
+
+const initialSession = loadSavedSession();
+
 export const useAppStore = create<AppState>((set, get) => ({
   sermons: [],
   sermonsMap: new Map(),
   activeSermon: null,
   notes: [], 
-  selectedSermonId: null,
-  activeNoteId: null,
+  selectedSermonId: initialSession.selectedSermonId ?? null,
+  activeNoteId: initialSession.activeNoteId ?? null,
   contextSermonIds: [], 
   manualContextIds: [],
-  libraryMode: 'sermons',
+  libraryMode: initialSession.libraryMode ?? 'sermons',
   sourceSearchStates: {
-    sermons: { searchQuery: '', searchResults: [], isFullTextSearch: false, selectedSynonym: null, activeSynonyms: [], selectedSearchParagraphId: null, selectedSermonId: null, activeSermon: null, jumpToParagraph: null },
-    bible: { searchQuery: '', searchResults: [], isFullTextSearch: false, selectedSynonym: null, activeSynonyms: [], selectedSearchParagraphId: null, selectedSermonId: null, activeSermon: null, jumpToParagraph: null },
-    expose: { searchQuery: '', searchResults: [], isFullTextSearch: false, selectedSynonym: null, activeSynonyms: [], selectedSearchParagraphId: null, selectedSermonId: null, activeSermon: null, jumpToParagraph: null },
-    songs: { searchQuery: '', searchResults: [], isFullTextSearch: false, selectedSynonym: null, activeSynonyms: [], selectedSearchParagraphId: null, selectedSermonId: null, activeSermon: null, jumpToParagraph: null },
+    sermons: { searchQuery: '', searchResults: [], isFullTextSearch: false, selectedSynonym: null, activeSynonyms: [], selectedSearchParagraphId: null, selectedSermonId: initialSession.selectedSermonId ?? null, activeSermon: null, jumpToParagraph: initialSession.jumpToParagraph ?? null },
+    bible: { searchQuery: '', searchResults: [], isFullTextSearch: false, selectedSynonym: null, activeSynonyms: [], selectedSearchParagraphId: null, selectedSermonId: initialSession.selectedSermonId ?? null, activeSermon: null, jumpToParagraph: initialSession.jumpToParagraph ?? null },
+    expose: { searchQuery: '', searchResults: [], isFullTextSearch: false, selectedSynonym: null, activeSynonyms: [], selectedSearchParagraphId: null, selectedSermonId: initialSession.selectedSermonId ?? null, activeSermon: null, jumpToParagraph: initialSession.jumpToParagraph ?? null },
+    songs: { searchQuery: '', searchResults: [], isFullTextSearch: false, selectedSynonym: null, activeSynonyms: [], selectedSearchParagraphId: null, selectedSermonId: initialSession.selectedSermonId ?? null, activeSermon: null, jumpToParagraph: initialSession.jumpToParagraph ?? null },
   },
-  songsSortOrder: 'number-asc',
-  songLanguageFilter: null,
-  bibleTestamentFilter: 'ALL',
-  bibleVersion: 'lsg1910',
-  selectedBibleBookId: null,
-  selectedBibleChapter: null,
-  selectedBibleVerse: null,
-  selectedExposeChapter: null,
-  selectedExposeSection: null,
-  sidebarOpen: true,
-  aiOpen: false,
-  assistantMode: 'auto-rag',
-  notesOpen: false,
+  songsSortOrder: initialSession.songsSortOrder ?? 'number-asc',
+  songLanguageFilter: initialSession.songLanguageFilter ?? null,
+  bibleTestamentFilter: initialSession.bibleTestamentFilter ?? 'ALL',
+  bibleVersion: initialSession.bibleVersion ?? 'lsg1910',
+  selectedBibleBookId: initialSession.selectedBibleBookId ?? null,
+  selectedBibleChapter: initialSession.selectedBibleChapter ?? null,
+  selectedBibleVerse: initialSession.selectedBibleVerse ?? null,
+  selectedExposeChapter: initialSession.selectedExposeChapter ?? null,
+  selectedExposeSection: initialSession.selectedExposeSection ?? null,
+  sidebarOpen: initialSession.sidebarOpen ?? true,
+  aiOpen: initialSession.aiOpen ?? false,
+  assistantMode: initialSession.assistantMode ?? 'auto-rag',
+  notesOpen: initialSession.notesOpen ?? false,
   isLoading: true,
   isSearching: false,
   searchResults: [],
   loadingMessage: "Initialisation...",
   loadingProgress: 0,
-  searchQuery: '',
-  searchMode: SearchMode.EXACT_PHRASE,
+  searchQuery: initialSession.searchQuery ?? '',
+  searchMode: initialSession.searchMode ?? SearchMode.EXACT_PHRASE,
   isFullTextSearch: false,
   includeSynonyms: false,
   showOnlySynonyms: false,
   showOnlyQuery: false,
   activeSynonyms: [],
   selectedSynonym: null,
-  cityFilter: [],
-  yearFilter: [],
-  monthFilter: [],
-  dayFilter: [],
-  versionFilter: [], 
-  timeFilter: null,
-  audioFilter: false,
-  languageFilter: 'Français',
-  fontSize: 20,
-  theme: 'light',
+  cityFilter: initialSession.cityFilter ?? [],
+  yearFilter: initialSession.yearFilter ?? [],
+  monthFilter: initialSession.monthFilter ?? [],
+  dayFilter: initialSession.dayFilter ?? [],
+  versionFilter: initialSession.versionFilter ?? [], 
+  timeFilter: initialSession.timeFilter ?? null,
+  audioFilter: initialSession.audioFilter ?? false,
+  languageFilter: initialSession.languageFilter ?? 'Français',
+  fontSize: initialSession.fontSize ?? 20,
+  theme: initialSession.theme ?? 'light',
   notifications: [],
   chatHistory: (() => {
     try {
@@ -329,7 +382,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   })(),
   pendingStudyRequest: null,
   jumpToText: null,
-  jumpToParagraph: null,
+  jumpToParagraph: initialSession.jumpToParagraph ?? null,
   selectedSearchParagraphId: null,
   isReaderSearchVisible: false,
   isProjectionOpen: false,
@@ -346,9 +399,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   projectionBgImage: null,
   mediaImages: [],
   mediaFolders: [],
-  sidebarWidth: 400,
-  aiWidth: 400,
-  notesWidth: 350,
+  sidebarWidth: initialSession.sidebarWidth ?? 400,
+  aiWidth: initialSession.aiWidth ?? 400,
+  notesWidth: initialSession.notesWidth ?? 350,
   navigatedFromSearch: false,
   navigatedFromNoteId: null,
   lastSearchQuery: '',
@@ -392,6 +445,12 @@ export const useAppStore = create<AppState>((set, get) => ({
         const notes = await getAllNotes();
         set({ sermons: uniqueMetadata, sermonsMap: map, notes: sortNotesByRecency(notes), isLoading: false, loadingProgress: 100 });
         
+        // Restauration du document actif lors de la réouverture de l'application
+        const savedSermonId = get().selectedSermonId;
+        if (savedSermonId) {
+          get().setSelectedSermonId(savedSermonId, false, true).catch(() => {});
+        }
+
         // Enregistrer la carte des sermons pour permettre le démarrage à volonté
         registerSermonsMapForIndexing(map);
 
@@ -426,6 +485,12 @@ export const useAppStore = create<AppState>((set, get) => ({
         const notes = await getAllNotes();
         set({ sermons: metadata, sermonsMap: map, notes: sortNotesByRecency(notes), isLoading: false, loadingProgress: 100 });
         
+        // Restauration du document actif lors de la réouverture de l'application
+        const savedSermonId = get().selectedSermonId;
+        if (savedSermonId) {
+          get().setSelectedSermonId(savedSermonId, false, true).catch(() => {});
+        }
+
         // Enregistrer la carte des sermons pour permettre le démarrage à volonté
         registerSermonsMapForIndexing(map);
 
@@ -1437,3 +1502,47 @@ export const useAppStore = create<AppState>((set, get) => ({
   setNavigatedFromSearch: (v) => set({ navigatedFromSearch: v }),
   setNavigatedFromNoteId: (id) => set({ navigatedFromNoteId: id })
 }));
+
+// Auto-persistance réactive de l'état de session lors des changements
+useAppStore.subscribe((state) => {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    const sessionToSave: SavedAppSession = {
+      libraryMode: state.libraryMode,
+      selectedSermonId: state.selectedSermonId,
+      activeNoteId: state.activeNoteId,
+      selectedBibleBookId: state.selectedBibleBookId,
+      selectedBibleChapter: state.selectedBibleChapter,
+      selectedBibleVerse: state.selectedBibleVerse,
+      selectedExposeChapter: state.selectedExposeChapter,
+      selectedExposeSection: state.selectedExposeSection,
+      jumpToParagraph: state.jumpToParagraph,
+      sidebarOpen: state.sidebarOpen,
+      aiOpen: state.aiOpen,
+      notesOpen: state.notesOpen,
+      assistantMode: state.assistantMode,
+      sidebarWidth: state.sidebarWidth,
+      aiWidth: state.aiWidth,
+      notesWidth: state.notesWidth,
+      theme: state.theme,
+      fontSize: state.fontSize,
+      bibleVersion: state.bibleVersion,
+      bibleTestamentFilter: state.bibleTestamentFilter,
+      songsSortOrder: state.songsSortOrder,
+      songLanguageFilter: state.songLanguageFilter,
+      searchQuery: state.searchQuery,
+      searchMode: state.searchMode,
+      cityFilter: state.cityFilter,
+      yearFilter: state.yearFilter,
+      monthFilter: state.monthFilter,
+      dayFilter: state.dayFilter,
+      versionFilter: state.versionFilter,
+      timeFilter: state.timeFilter,
+      audioFilter: state.audioFilter,
+      languageFilter: state.languageFilter,
+    };
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionToSave));
+  } catch (e) {
+    // Ne rien bloquer si quota dépassé
+  }
+});

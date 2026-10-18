@@ -311,10 +311,34 @@ const NotesPanel: React.FC = () => {
   const t = translations[lang];
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedThemeFilter, setSelectedThemeFilter] = useState<string>('all');
+  const [selectedThemeFilter, setSelectedThemeFilter] = useState<string>(() => {
+    try {
+      return localStorage.getItem('kings_sword_selected_theme_filter') || 'all';
+    } catch {
+      return 'all';
+    }
+  });
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'grouped'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'grouped'>(() => {
+    try {
+      return (localStorage.getItem('kings_sword_notes_view_mode') as 'list' | 'grouped') || 'list';
+    } catch {
+      return 'list';
+    }
+  });
   const [collapsedThemes, setCollapsedThemes] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('kings_sword_selected_theme_filter', selectedThemeFilter);
+    } catch {}
+  }, [selectedThemeFilter]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('kings_sword_notes_view_mode', viewMode);
+    } catch {}
+  }, [viewMode]);
 
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
