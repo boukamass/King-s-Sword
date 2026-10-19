@@ -1015,11 +1015,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         sidebarOpen: false
       };
     } else {
-      const restoreSidebar = previousSidebarStateBeforeNote;
       previousSidebarStateBeforeNote = null;
       return {
         activeNoteId: null,
-        sidebarOpen: restoreSidebar !== null ? restoreSidebar : state.sidebarOpen
+        sidebarOpen: true
       };
     }
   }),

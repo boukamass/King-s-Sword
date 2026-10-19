@@ -97,7 +97,10 @@ const NoteEditor: React.FC = () => {
         updateNoteCitations,
         triggerStudyRequest,
         sidebarOpen,
+        setSidebarOpen,
         toggleSidebar,
+        notesOpen,
+        toggleNotes,
     } = useAppStore();
 
     const note = notes.find(n => n.id === activeNoteId);
@@ -117,6 +120,32 @@ const NoteEditor: React.FC = () => {
     const [newThemeInput, setNewThemeInput] = useState('');
     const [isCreatingTheme, setIsCreatingTheme] = useState(false);
     const allThemes = React.useMemo(() => getAllNoteThemes(notes), [notes]);
+    const themePickerRef = useRef<HTMLDivElement>(null);
+
+    // Auto-fermeture de la liste déroulante du thème de la note lors d'un clic à l'extérieur
+    useEffect(() => {
+        if (!showThemePicker) return;
+        const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+            if (themePickerRef.current && !themePickerRef.current.contains(e.target as Node)) {
+                setShowThemePicker(false);
+                setIsCreatingTheme(false);
+            }
+        };
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setShowThemePicker(false);
+                setIsCreatingTheme(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('touchstart', handleClickOutside);
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('touchstart', handleClickOutside);
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [showThemePicker]);
 
     // États et références pour la recherche dynamique dans la note consultée
     const [isInNoteSearchOpen, setIsInNoteSearchOpen] = useState(false);
@@ -859,7 +888,7 @@ const NoteEditor: React.FC = () => {
 
     const handleExportPdf = async () => {
         if (!note) return;
-        addNotification("Génération du document PDF haute fidélité...", "info");
+        addNotification("Capture HTML & Génération du document PDF...", "info");
         try {
             const printEl = document.getElementById("printable-note-container");
             if (!printEl) {
@@ -867,35 +896,132 @@ const NoteEditor: React.FC = () => {
                 return;
             }
 
-            // Création d'un conteneur hors-champ aux dimensions exactes du format A4 (largeur 794px à 96 DPI)
+            // Conteneur hors-champ pour la capture HTML
             const offscreen = document.createElement("div");
             offscreen.style.position = "fixed";
             offscreen.style.left = "-9999px";
             offscreen.style.top = "0";
-            offscreen.style.width = "794px";
+            offscreen.style.width = "794px"; // 794px = A4 à 96 DPI
             offscreen.style.backgroundColor = "#ffffff";
             offscreen.style.zIndex = "-1000";
             offscreen.style.color = "#0f172a";
 
-            // Cloner le conteneur et le rendre visible dans le wrapper hors-champ
             const clone = printEl.cloneNode(true) as HTMLElement;
             clone.style.display = "block";
             clone.classList.remove("hidden");
             clone.classList.remove("print:block");
-            clone.className = "p-10 bg-white text-slate-900 font-sans leading-relaxed";
+            clone.style.padding = "32px";
+            clone.style.backgroundColor = "#ffffff";
+            clone.style.color = "#0f172a";
+            clone.style.fontFamily = "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+
             offscreen.appendChild(clone);
             document.body.appendChild(offscreen);
 
             try {
                 const canvas = await html2canvas(clone, {
-                    scale: 2, // Résolution 192 DPI pour une netteté vectorielle absolue du texte et des icônes
+                    scale: 2, // Résolution 192 DPI pour une capture HTML nette
                     useCORS: true,
                     logging: false,
-                    backgroundColor: "#ffffff"
+                    backgroundColor: "#ffffff",
+                    onclone: (clonedDoc) => {
+                        // Supprimer les feuilles de style externes contenant des variables OKLCH incompatibles
+                        const styles = Array.from(clonedDoc.querySelectorAll("style, link[rel='stylesheet']"));
+                        styles.forEach(s => {
+                            if (s.textContent?.includes("oklch") || s.outerHTML.includes("tailwindcss")) {
+                                s.remove();
+                            }
+                        });
+
+                        // Injecter une feuille de style CSS propre et autonome avec des couleurs HEX/RGB standard
+                        const cleanStyle = clonedDoc.createElement("style");
+                        cleanStyle.textContent = `
+                            #printable-note-container {
+                                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+                                background-color: #ffffff !important;
+                                color: #0f172a !important;
+                                padding: 32px !important;
+                                display: block !important;
+                                box-sizing: border-box !important;
+                            }
+                            #printable-note-container * {
+                                box-sizing: border-box !important;
+                            }
+                            .border-b-2 { border-bottom: 2px solid #0f766e !important; }
+                            .border-teal-700 { border-color: #0f766e !important; }
+                            .pb-4 { padding-bottom: 16px !important; }
+                            .mb-7 { margin-bottom: 28px !important; }
+                            .mb-8 { margin-bottom: 32px !important; }
+                            .mb-3 { margin-bottom: 12px !important; }
+                            .mb-1 { margin-bottom: 4px !important; }
+                            .mt-2 { margin-top: 8px !important; }
+                            .my-3 { margin-top: 12px !important; margin-bottom: 12px !important; }
+                            .my-4 { margin-top: 16px !important; margin-bottom: 16px !important; }
+                            .pl-3 { padding-left: 12px !important; }
+                            .p-3\\.5 { padding: 14px !important; }
+                            .p-8 { padding: 32px !important; }
+                            .flex { display: flex !important; }
+                            .items-end { align-items: flex-end !important; }
+                            .items-center { align-items: center !important; }
+                            .justify-between { justify-content: space-between !important; }
+                            .gap-2 { gap: 8px !important; }
+                            .gap-3 { gap: 12px !important; }
+                            .gap-4 { gap: 16px !important; }
+                            .text-right { text-align: right !important; }
+                            .text-[11px] { font-size: 11px !important; }
+                            .text-[10px] { font-size: 10px !important; }
+                            .text-[13px] { font-size: 13px !important; line-height: 1.6 !important; }
+                            .text-2xl { font-size: 24px !important; }
+                            .text-xs { font-size: 12px !important; }
+                            .font-black { font-weight: 900 !important; }
+                            .font-bold { font-weight: 700 !important; }
+                            .font-sans { font-family: sans-serif !important; }
+                            .uppercase { text-transform: uppercase !important; }
+                            .tracking-\\[0\\.25em\\] { letter-spacing: 0.25em !important; }
+                            .tracking-wider { letter-spacing: 0.05em !important; }
+                            .tracking-tight { letter-spacing: -0.025em !important; }
+                            .text-teal-800 { color: #115e59 !important; }
+                            .text-teal-900 { color: #134e4a !important; }
+                            .text-teal-700 { color: #0f766e !important; }
+                            .text-teal-600 { color: #0d9488 !important; }
+                            .text-slate-900 { color: #0f172a !important; }
+                            .text-slate-800 { color: #1e293b !important; }
+                            .bg-teal-50 { background-color: #f0fdfa !important; }
+                            .bg-slate-50\\/70 { background-color: #f8fafc !important; }
+                            .bg-white { background-color: #ffffff !important; }
+                            .bg-teal-700 { background-color: #0f766e !important; }
+                            .border-teal-200 { border-color: #99f6e4 !important; }
+                            .border-teal-600 { border-color: #0d9488 !important; }
+                            .border-teal-600\\/30 { border-color: rgba(13, 148, 136, 0.3) !important; }
+                            .border-slate-200 { border-color: #e2e8f0 !important; }
+                            .border-l-4 { border-left-width: 4px !important; border-left-style: solid !important; }
+                            .border-l-2 { border-left-width: 2px !important; border-left-style: solid !important; }
+                            .border-b { border-bottom-width: 1px !important; border-bottom-style: solid !important; }
+                            .border { border-width: 1px !important; border-style: solid !important; }
+                            .rounded { border-radius: 4px !important; }
+                            .rounded-full { border-radius: 9999px !important; }
+                            .rounded-r-lg { border-top-right-radius: 8px !important; border-bottom-right-radius: 8px !important; }
+                            .italic { font-style: italic !important; }
+                            .shrink-0 { flex-shrink: 0 !important; }
+                            .inline-block { display: inline-block !important; }
+                            .w-2 { width: 8px !important; }
+                            .h-2 { height: 8px !important; }
+                            .w-4 { width: 16px !important; }
+                            .h-4 { height: 16px !important; }
+                            .m-0 { margin: 0 !important; }
+                        `;
+                        clonedDoc.head.appendChild(cleanStyle);
+
+                        const target = clonedDoc.getElementById("printable-note-container");
+                        if (target) {
+                            target.style.display = "block";
+                            target.style.visibility = "visible";
+                        }
+                    }
                 });
 
                 const pdf = new jsPDF({
-                    orientation: "p",
+                    orientation: "portrait",
                     unit: "mm",
                     format: "a4"
                 });
@@ -942,8 +1068,8 @@ const NoteEditor: React.FC = () => {
                 }
             }
         } catch (error) {
-            console.error("PDF export error:", error);
-            addNotification("Erreur lors de l'exportation PDF.", "error");
+            console.error("PDF export error (html2canvas):", error);
+            addNotification("Erreur lors de l'exportation PDF par html2canvas.", "error");
         }
     };
 
@@ -1094,14 +1220,6 @@ const NoteEditor: React.FC = () => {
             <div className="no-print flex flex-col h-full">
                 <div className="px-6 h-14 border-b border-zinc-200/50 dark:border-zinc-800 flex items-center justify-between shrink-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-2xl z-20">
                     <div className="flex items-center gap-3">
-                        <button
-                            type="button"
-                            onClick={toggleSidebar}
-                            data-tooltip={sidebarOpen ? "Masquer la bibliothèque (Ctrl + B)" : "Afficher la bibliothèque (Ctrl + B)"}
-                            className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-500 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
-                        >
-                            <BookOpen className="w-4 h-4" />
-                        </button>
                         <div className="w-8 h-8 flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-lg border border-teal-600/20 shadow-sm">
                             <NotebookPen className="w-4 h-4" />
                         </div>
@@ -1216,12 +1334,13 @@ const NoteEditor: React.FC = () => {
                           <ActionButton icon={Search} tooltip="Rechercher dans cette note (Ctrl + F)" onClick={() => setIsInNoteSearchOpen(true)} />
                         )}
 
-                        <ActionButton icon={Folder} tooltip="Organiser / Changer de thème" onClick={() => setShowThemePicker(!showThemePicker)} />
+                        <ActionButton icon={Folder} tooltip="Organiser / Changer de thème" onClick={(e) => { e.stopPropagation(); setShowThemePicker(!showThemePicker); }} />
                         <ActionButton icon={Printer} tooltip={t.print} onClick={handlePrint} />
                         <ActionButton icon={FileText} tooltip={t.export_pdf} onClick={handleExportPdf} />
                         <ActionButton icon={FileDown} tooltip="Exporter au format Word (.docx)" onClick={handleExportDocx} />
+                        <ActionButton icon={NotebookPen} tooltip={notesOpen ? "Masquer le panneau de notes" : "Afficher / Ouvrir le panneau de notes"} onClick={toggleNotes} />
                         <div className="w-px h-5 bg-zinc-200 dark:bg-zinc-800 mx-2" />
-                        <button onClick={() => setActiveNoteId(null)} data-tooltip="Fermer et retourner au lecteur" className="px-4 py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-red-500 hover:text-white dark:hover:bg-red-600 text-[9px] font-black uppercase tracking-[0.2em] rounded-lg transition-all active:scale-95 text-zinc-600 dark:text-zinc-300 shadow-sm flex items-center gap-1.5 cursor-pointer">
+                        <button onClick={() => { setActiveNoteId(null); setSidebarOpen(true); }} data-tooltip="Fermer et retourner au lecteur" className="px-4 py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-red-500 hover:text-white dark:hover:bg-red-600 text-[9px] font-black uppercase tracking-[0.2em] rounded-lg transition-all active:scale-95 text-zinc-600 dark:text-zinc-300 shadow-sm flex items-center gap-1.5 cursor-pointer">
                             <ChevronLeft className="w-3.5 h-3.5" />
                             <span>{t.reader_exit}</span>
                         </button>
@@ -1261,7 +1380,7 @@ const NoteEditor: React.FC = () => {
                                     </div>
                                     
                                     {/* Badge et Sélecteur Interactif de Thème */}
-                                    <div className="relative inline-block shrink-0">
+                                    <div ref={themePickerRef} className="relative inline-block shrink-0">
                                         <button
                                             type="button"
                                             onClick={() => setShowThemePicker(!showThemePicker)}
