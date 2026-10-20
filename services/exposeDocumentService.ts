@@ -18,10 +18,11 @@ import {
   RetrievalEvidencePackage,
   HybridSearchResult,
   RerankedSearchResult,
-  AnswerabilityAssessment
+  AnswerabilityAssessment,
+  MetadataFilter
 } from '../types';
 import { loadExposeData, cleanExposeText, ExposeTOC, ExposePage, ExposeParagraph } from './exposeService';
-import { computeChunkHash, DEFAULT_CHUNKING_OPTIONS } from './chunkingService';
+import { computeChunkHash, computeParagraphSha1, DEFAULT_CHUNKING_OPTIONS } from './chunkingService';
 import { mapParagraphsToChunkHits, fuseRankings } from './hybridRetrievalService';
 import { rerankHybridResults, assessAnswerability } from './rerankingService';
 import { buildRetrievalEvidencePackage } from './retrievalEvidenceService';
@@ -127,6 +128,20 @@ export async function loadExposeAsSermons(): Promise<Sermon[]> {
 export async function createExposeDocumentChunks(options?: ChunkingOptions): Promise<SermonChunk[]> {
   if (cachedExposeChunks && !options) return cachedExposeChunks;
 
+  // Tentative de chargement rapide de l'index pré-calculé (Étape 1)
+  if (!options) {
+    try {
+      const { loadPrecalculatedIndex } = await import('./precalculatedIndexService');
+      const precalc = await loadPrecalculatedIndex();
+      if (precalc.valid && precalc.hydratedChunks && precalc.hydratedChunks.length > 0) {
+        cachedExposeChunks = precalc.hydratedChunks;
+        return cachedExposeChunks;
+      }
+    } catch {
+      // Ignorer et repli sur le chunking canonique
+    }
+  }
+
   const docs = await loadExposeAsCanonicalDocuments();
   const opts: Required<ChunkingOptions> = {
     ...DEFAULT_CHUNKING_OPTIONS,
@@ -170,6 +185,8 @@ export async function createExposeDocumentChunks(options?: ChunkingOptions): Pro
       const endParagraph = paragraphIds[paragraphIds.length - 1];
       const chunkText = currentGroup.map(p => p.text).join('\n\n');
       const contentHash = computeChunkHash(doc.documentId, paragraphIds, chunkText);
+      const paragraphSha1s = currentGroup.map(p => computeParagraphSha1(p.text));
+      const paragraphSha1 = computeParagraphSha1(chunkText);
 
       // Métadonnées enrichies
       const primarySection = currentGroup.find(p => Boolean(p.sectionTitle))?.sectionTitle || null;
@@ -193,6 +210,8 @@ export async function createExposeDocumentChunks(options?: ChunkingOptions): Pro
         characterCount: chunkText.length,
         wordCount: chunkText.split(/\s+/).filter(Boolean).length,
         contentHash,
+        paragraphSha1,
+        paragraphSha1s,
         createdAt: nowIso,
         updatedAt: nowIso,
         metadata: {
@@ -436,7 +455,12 @@ export function extractExposeLexicalQueryTerms(query: string): string[] {
  */
 export async function searchExposeLexicalForRag(
   query: string,
-  options: { topK?: number; minScore?: number } = {}
+  options: {
+    topK?: number;
+    minScore?: number;
+    sermonIdFilter?: string[];
+    metadataFilter?: MetadataFilter;
+  } = {}
 ): Promise<Array<{ sermonId: string; paragraphIndex: number; score: number; text: string }>> {
   const cleanQuery = (query || '').trim();
   if (!cleanQuery) return [];
@@ -444,6 +468,12 @@ export async function searchExposeLexicalForRag(
   const docs = await loadExposeAsCanonicalDocuments();
   const topK = options.topK || 40;
   const minScore = options.minScore || 5;
+
+  // PRE-FILTERING STRICT BM25 : on restreint les chapitres/documents AVANT le scoring
+  const effectiveFilter = options.metadataFilter || (options.sermonIdFilter && options.sermonIdFilter.length > 0 ? { sermonIds: options.sermonIdFilter } : undefined);
+  const targetDocs = effectiveFilter?.sermonIds && effectiveFilter.sermonIds.length > 0
+    ? docs.filter(d => effectiveFilter.sermonIds!.includes(d.documentId))
+    : docs;
 
   const normalizedQuery = normalizeText(cleanQuery);
   const queryTerms = extractExposeLexicalQueryTerms(cleanQuery);
@@ -457,7 +487,7 @@ export async function searchExposeLexicalForRag(
     text: string;
   }> = [];
 
-  for (const doc of docs) {
+  for (const doc of targetDocs) {
     for (const p of doc.paragraphs) {
       const normText = normalizeText(p.text);
       let matchCount = 0;

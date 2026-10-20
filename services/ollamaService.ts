@@ -57,27 +57,38 @@ export const askOllamaChat = async (
   contextText: string,
   history: ChatMessage[],
   modelName: string = 'mistral',
-  baseUrl: string = DEFAULT_OLLAMA_URL
+  baseUrl: string = DEFAULT_OLLAMA_URL,
+  jsonSchema?: any
 ): Promise<OllamaResponse> => {
   const systemPrompt = `Tu es l'assistant de King's Sword, logiciel d'étude des sermons.
-Effectue une analyse théologique profonde et solennelle basée sur les sermons fournis.
-Cite fidèlement les passages du contexte.`;
+Effectue une analyse théologique basée EXCLUSIVEMENT sur les sermons fournis.
+Cite fidèlement les passages du contexte.
+RÈGLE SORTIE STRUCTURÉE JSON : Réponds sous forme d'un objet JSON respectant le schéma :
+{
+  "answerability": boolean,
+  "summary": string,
+  "arguments": [{ "pointTitle": string, "explanation": string, "citations": [{ "sourceId": string, "paragraphIndex": number, "exactQuote": string }] }],
+  "deepDiveQuestions": [string]
+}`;
 
   const contextSnippet = contextText ? `\nCONTEXTE DES SERMONS :\n${contextText.slice(0, 15000)}\n` : '';
   const fullPrompt = `${systemPrompt}\n${contextSnippet}\nQUESTION : ${prompt}`;
+
+  const requestBody: any = {
+    model: modelName,
+    prompt: fullPrompt,
+    stream: false,
+    format: jsonSchema || "json",
+    options: {
+      temperature: 0.2,
+    }
+  };
 
   try {
     const response = await fetch(`${baseUrl}/api/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: modelName,
-        prompt: fullPrompt,
-        stream: false,
-        options: {
-          temperature: 0.4,
-        }
-      })
+      body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {

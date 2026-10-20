@@ -1,0 +1,561 @@
+{
+  "La semence du serpent": [
+    {
+      "rank": 1,
+      "chunkId": "expose-ch-3_c123_p129_p129",
+      "sermonId": "expose-ch-3",
+      "citation": "[Réf: expose-ch-3, §129]",
+      "score": 0.906
+    },
+    {
+      "rank": 2,
+      "chunkId": "expose-ch-4_c69_p74_p75",
+      "sermonId": "expose-ch-4",
+      "citation": "[Réf: expose-ch-4, §74]",
+      "score": 0.8995
+    },
+    {
+      "rank": 3,
+      "chunkId": "expose-ch-9_c146_p161_p162",
+      "sermonId": "expose-ch-9",
+      "citation": "[Réf: expose-ch-9, §161]",
+      "score": 0.8844
+    },
+    {
+      "rank": 4,
+      "chunkId": "expose-ch-3_c15_p15_p15",
+      "sermonId": "expose-ch-3",
+      "citation": "[Réf: expose-ch-3, §15]",
+      "score": 0.6744
+    },
+    {
+      "rank": 5,
+      "chunkId": "expose-ch-4_c68_p73_p73",
+      "sermonId": "expose-ch-4",
+      "citation": "[Réf: expose-ch-4, §73]",
+      "score": 0.6738
+    },
+    {
+      "rank": 6,
+      "chunkId": "expose-ch-3_c125_p131_p131",
+      "sermonId": "expose-ch-3",
+      "citation": "[Réf: expose-ch-3, §131]",
+      "score": 0.46
+    },
+    {
+      "rank": 7,
+      "chunkId": "expose-ch-3_c131_p137_p137",
+      "sermonId": "expose-ch-3",
+      "citation": "[Réf: expose-ch-3, §137]",
+      "score": 0.4502
+    },
+    {
+      "rank": 8,
+      "chunkId": "expose-ch-3_c135_p141_p141",
+      "sermonId": "expose-ch-3",
+      "citation": "[Réf: expose-ch-3, §141]",
+      "score": 0.4479
+    },
+    {
+      "rank": 9,
+      "chunkId": "expose-ch-9_c147_p162_p162",
+      "sermonId": "expose-ch-9",
+      "citation": "[Réf: expose-ch-9, §162]",
+      "score": 0.436
+    }
+  ],
+  "Le septième ange messager terrestre": [
+    {
+      "rank": 1,
+      "chunkId": "expose-ch-9_c27_p32_p32",
+      "sermonId": "expose-ch-9",
+      "citation": "[Réf: expose-ch-9, §32]",
+      "score": 0.8715
+    },
+    {
+      "rank": 2,
+      "chunkId": "expose-ch-9_c29_p34_p34",
+      "sermonId": "expose-ch-9",
+      "citation": "[Réf: expose-ch-9, §34]",
+      "score": 0.7273
+    },
+    {
+      "rank": 3,
+      "chunkId": "expose-ch-2_c84_p87_p89",
+      "sermonId": "expose-ch-2",
+      "citation": "[Réf: expose-ch-2, §87]",
+      "score": 0.6855
+    },
+    {
+      "rank": 4,
+      "chunkId": "expose-ch-3_c45_p49_p49",
+      "sermonId": "expose-ch-3",
+      "citation": "[Réf: expose-ch-3, §49]",
+      "score": 0.6291
+    },
+    {
+      "rank": 5,
+      "chunkId": "expose-ch-9_c75_p85_p85",
+      "sermonId": "expose-ch-9",
+      "citation": "[Réf: expose-ch-9, §85]",
+      "score": 0.3415
+    },
+    {
+      "rank": 6,
+      "chunkId": "expose-ch-3_c10_p10_p10",
+      "sermonId": "expose-ch-3",
+      "citation": "[Réf: expose-ch-3, §10]",
+      "score": 0.3112
+    },
+    {
+      "rank": 7,
+      "chunkId": "expose-ch-3_c27_p31_p31",
+      "sermonId": "expose-ch-3",
+      "citation": "[Réf: expose-ch-3, §31]",
+      "score": 0.3087
+    },
+    {
+      "rank": 8,
+      "chunkId": "expose-ch-3_c47_p51_p51",
+      "sermonId": "expose-ch-3",
+      "citation": "[Réf: expose-ch-3, §51]",
+      "score": 0.2934
+    },
+    {
+      "rank": 9,
+      "chunkId": "expose-ch-7_c17_p26_p26",
+      "sermonId": "expose-ch-7",
+      "citation": "[Réf: expose-ch-7, §26]",
+      "score": 0.2911
+    },
+    {
+      "rank": 10,
+      "chunkId": "expose-ch-2_c64_p67_p67",
+      "sermonId": "expose-ch-2",
+      "citation": "[Réf: expose-ch-2, §67]",
+      "score": 0.2763
+    }
+  ],
+  "L église d Éphèse et le premier amour": [
+    {
+      "rank": 1,
+      "chunkId": "expose-ch-3_c39_p43_p43",
+      "sermonId": "expose-ch-3",
+      "citation": "[Réf: expose-ch-3, §43]",
+      "score": 0.907
+    },
+    {
+      "rank": 2,
+      "chunkId": "expose-ch-2_c26_p29_p29",
+      "sermonId": "expose-ch-2",
+      "citation": "[Réf: expose-ch-2, §29]",
+      "score": 0.7925
+    },
+    {
+      "rank": 3,
+      "chunkId": "expose-ch-3_c23_p24_p26",
+      "sermonId": "expose-ch-3",
+      "citation": "[Réf: expose-ch-3, §24]",
+      "score": 0.7263
+    },
+    {
+      "rank": 4,
+      "chunkId": "expose-ch-3_c38_p42_p42",
+      "sermonId": "expose-ch-3",
+      "citation": "[Réf: expose-ch-3, §42]",
+      "score": 0.7162
+    },
+    {
+      "rank": 5,
+      "chunkId": "expose-ch-3_c83_p88_p88",
+      "sermonId": "expose-ch-3",
+      "citation": "[Réf: expose-ch-3, §88]",
+      "score": 0.4574
+    },
+    {
+      "rank": 6,
+      "chunkId": "expose-ch-10_c9_p10_p10",
+      "sermonId": "expose-ch-10",
+      "citation": "[Réf: expose-ch-10, §6]",
+      "score": 0.4077
+    },
+    {
+      "rank": 7,
+      "chunkId": "expose-ch-3_c40_p44_p44",
+      "sermonId": "expose-ch-3",
+      "citation": "[Réf: expose-ch-3, §44]",
+      "score": 0.3774
+    },
+    {
+      "rank": 8,
+      "chunkId": "expose-ch-3_c93_p98_p98",
+      "sermonId": "expose-ch-3",
+      "citation": "[Réf: expose-ch-3, §98]",
+      "score": 0.3624
+    },
+    {
+      "rank": 9,
+      "chunkId": "expose-ch-9_c143_p156_p156",
+      "sermonId": "expose-ch-9",
+      "citation": "[Réf: expose-ch-9, §156]",
+      "score": 0.3204
+    }
+  ],
+  "Le baptême d eau au nom du Seigneur Jésus-Christ": [
+    {
+      "rank": 1,
+      "chunkId": "expose-ch-3_c103_p109_p109",
+      "sermonId": "expose-ch-3",
+      "citation": "[Réf: expose-ch-3, §109]",
+      "score": 0.9031
+    },
+    {
+      "rank": 2,
+      "chunkId": "expose-ch-1_c72_p88_p88",
+      "sermonId": "expose-ch-1",
+      "citation": "[Réf: expose-ch-1, §62]",
+      "score": 0.8996
+    },
+    {
+      "rank": 3,
+      "chunkId": "expose-ch-10_c20_p22_p22",
+      "sermonId": "expose-ch-10",
+      "citation": "[Réf: expose-ch-10, §22]",
+      "score": 0.46
+    },
+    {
+      "rank": 4,
+      "chunkId": "expose-ch-4_c146_p159_p159",
+      "sermonId": "expose-ch-4",
+      "citation": "[Réf: expose-ch-4, §159]",
+      "score": 0.4574
+    },
+    {
+      "rank": 5,
+      "chunkId": "expose-ch-6_c73_p82_p82",
+      "sermonId": "expose-ch-6",
+      "citation": "[Réf: expose-ch-6, §82]",
+      "score": 0.4549
+    },
+    {
+      "rank": 6,
+      "chunkId": "expose-ch-5_c88_p96_p98",
+      "sermonId": "expose-ch-5",
+      "citation": "[Réf: expose-ch-5, §96]",
+      "score": 0.4185
+    }
+  ],
+  "La colonne de feu et le ministère prophétique": [
+    {
+      "rank": 1,
+      "chunkId": "expose-ch-1_c60_p76_p76",
+      "sermonId": "expose-ch-1",
+      "citation": "[Réf: expose-ch-1, §58]",
+      "score": 0.7384
+    },
+    {
+      "rank": 2,
+      "chunkId": "expose-ch-9_c27_p32_p32",
+      "sermonId": "expose-ch-9",
+      "citation": "[Réf: expose-ch-9, §32]",
+      "score": 0.722
+    },
+    {
+      "rank": 3,
+      "chunkId": "expose-ch-9_c160_p175_p175",
+      "sermonId": "expose-ch-9",
+      "citation": "[Réf: expose-ch-9, §48]",
+      "score": 0.6211
+    },
+    {
+      "rank": 4,
+      "chunkId": "expose-ch-1_c45_p60_p60",
+      "sermonId": "expose-ch-1",
+      "citation": "[Réf: expose-ch-1, §60]",
+      "score": 0.2672
+    },
+    {
+      "rank": 5,
+      "chunkId": "expose-ch-3_c27_p31_p31",
+      "sermonId": "expose-ch-3",
+      "citation": "[Réf: expose-ch-3, §31]",
+      "score": 0.2649
+    },
+    {
+      "rank": 6,
+      "chunkId": "expose-ch-3_c97_p103_p103",
+      "sermonId": "expose-ch-3",
+      "citation": "[Réf: expose-ch-3, §103]",
+      "score": 0.2584
+    }
+  ],
+  "Le cavalier sur le cheval blanc dans les sceaux": [
+    {
+      "rank": 1,
+      "chunkId": "expose-ch-10_c45_p47_p47",
+      "sermonId": "expose-ch-10",
+      "citation": "[Réf: expose-ch-10, §47]",
+      "score": 0.8761
+    },
+    {
+      "rank": 2,
+      "chunkId": "expose-ch-2_c69_p72_p72",
+      "sermonId": "expose-ch-2",
+      "citation": "[Réf: expose-ch-2, §72]",
+      "score": 0.7266
+    },
+    {
+      "rank": 3,
+      "chunkId": "expose-ch-1_c8_p15_p17",
+      "sermonId": "expose-ch-1",
+      "citation": "[Réf: expose-ch-1, §15]",
+      "score": 0.6317
+    },
+    {
+      "rank": 4,
+      "chunkId": "expose-ch-2_c44_p47_p48",
+      "sermonId": "expose-ch-2",
+      "citation": "[Réf: expose-ch-2, §47]",
+      "score": 0.6302
+    },
+    {
+      "rank": 5,
+      "chunkId": "expose-ch-4_c113_p124_p126",
+      "sermonId": "expose-ch-4",
+      "citation": "[Réf: expose-ch-4, §124]",
+      "score": 0.5986
+    },
+    {
+      "rank": 6,
+      "chunkId": "expose-ch-6_c61_p70_p71",
+      "sermonId": "expose-ch-6",
+      "citation": "[Réf: expose-ch-6, §70]",
+      "score": 0.2719
+    },
+    {
+      "rank": 7,
+      "chunkId": "expose-ch-2_c46_p49_p49",
+      "sermonId": "expose-ch-2",
+      "citation": "[Réf: expose-ch-2, §49]",
+      "score": 0.2207
+    },
+    {
+      "rank": 8,
+      "chunkId": "expose-ch-7_c88_p104_p104",
+      "sermonId": "expose-ch-7",
+      "citation": "[Réf: expose-ch-7, §104]",
+      "score": 0.2143
+    },
+    {
+      "rank": 9,
+      "chunkId": "expose-ch-3_c138_p144_p144",
+      "sermonId": "expose-ch-3",
+      "citation": "[Réf: expose-ch-3, §144]",
+      "score": 0.2079
+    }
+  ],
+  "L âge de Laodicée et l apostasie": [
+    {
+      "rank": 1,
+      "chunkId": "expose-ch-9_c14_p18_p18",
+      "sermonId": "expose-ch-9",
+      "citation": "[Réf: expose-ch-9, §17]",
+      "score": 0.7536
+    },
+    {
+      "rank": 2,
+      "chunkId": "expose-ch-1_c29_p41_p42",
+      "sermonId": "expose-ch-1",
+      "citation": "[Réf: expose-ch-1, §41]",
+      "score": 0.7022
+    },
+    {
+      "rank": 3,
+      "chunkId": "expose-ch-6_c43_p50_p51",
+      "sermonId": "expose-ch-6",
+      "citation": "[Réf: expose-ch-6, §50]",
+      "score": 0.6828
+    },
+    {
+      "rank": 4,
+      "chunkId": "expose-ch-9_c141_p154_p154",
+      "sermonId": "expose-ch-9",
+      "citation": "[Réf: expose-ch-9, §10]",
+      "score": 0.37
+    }
+  ],
+  "L ordre de la résurrection et l enlèvement": [
+    {
+      "rank": 1,
+      "chunkId": "expose-ch-7_c149_p166_p166",
+      "sermonId": "expose-ch-7",
+      "citation": "[Réf: expose-ch-7, §166]",
+      "score": 0.7463
+    },
+    {
+      "rank": 2,
+      "chunkId": "expose-ch-7_c152_p169_p170",
+      "sermonId": "expose-ch-7",
+      "citation": "[Réf: expose-ch-7, §169]",
+      "score": 0.7446
+    },
+    {
+      "rank": 3,
+      "chunkId": "expose-ch-1_c116_p150_p150",
+      "sermonId": "expose-ch-1",
+      "citation": "[Réf: expose-ch-1, §150]",
+      "score": 0.6407
+    },
+    {
+      "rank": 4,
+      "chunkId": "expose-ch-2_c76_p79_p79",
+      "sermonId": "expose-ch-2",
+      "citation": "[Réf: expose-ch-2, §19]",
+      "score": 0.6343
+    },
+    {
+      "rank": 5,
+      "chunkId": "expose-ch-1_c71_p87_p87",
+      "sermonId": "expose-ch-1",
+      "citation": "[Réf: expose-ch-1, §87]",
+      "score": 0.3081
+    },
+    {
+      "rank": 6,
+      "chunkId": "expose-ch-7_c129_p145_p145",
+      "sermonId": "expose-ch-7",
+      "citation": "[Réf: expose-ch-7, §145]",
+      "score": 0.3055
+    },
+    {
+      "rank": 7,
+      "chunkId": "expose-ch-10_c48_p50_p50",
+      "sermonId": "expose-ch-10",
+      "citation": "[Réf: expose-ch-10, §50]",
+      "score": 0.2982
+    },
+    {
+      "rank": 8,
+      "chunkId": "expose-ch-7_c119_p135_p135",
+      "sermonId": "expose-ch-7",
+      "citation": "[Réf: expose-ch-7, §135]",
+      "score": 0.2338
+    },
+    {
+      "rank": 9,
+      "chunkId": "expose-ch-7_c122_p138_p138",
+      "sermonId": "expose-ch-7",
+      "citation": "[Réf: expose-ch-7, §138]",
+      "score": 0.2316
+    }
+  ],
+  "L étoile du matin et les vainqueurs": [
+    {
+      "rank": 1,
+      "chunkId": "expose-ch-6_c110_p123_p123",
+      "sermonId": "expose-ch-6",
+      "citation": "[Réf: expose-ch-6, §123]",
+      "score": 0.7908
+    },
+    {
+      "rank": 2,
+      "chunkId": "expose-ch-6_c113_p126_p127",
+      "sermonId": "expose-ch-6",
+      "citation": "[Réf: expose-ch-6, §11]",
+      "score": 0.7483
+    },
+    {
+      "rank": 3,
+      "chunkId": "expose-ch-2_c87_p91_p91",
+      "sermonId": "expose-ch-2",
+      "citation": "[Réf: expose-ch-2, §91]",
+      "score": 0.6635
+    },
+    {
+      "rank": 4,
+      "chunkId": "expose-ch-4_c110_p118_p120",
+      "sermonId": "expose-ch-4",
+      "citation": "[Réf: expose-ch-4, §118]",
+      "score": 0.655
+    },
+    {
+      "rank": 5,
+      "chunkId": "expose-ch-6_c112_p125_p126",
+      "sermonId": "expose-ch-6",
+      "citation": "[Réf: expose-ch-6, §125]",
+      "score": 0.3115
+    },
+    {
+      "rank": 6,
+      "chunkId": "expose-ch-1_c41_p56_p56",
+      "sermonId": "expose-ch-1",
+      "citation": "[Réf: expose-ch-1, §56]",
+      "score": 0.3006
+    },
+    {
+      "rank": 7,
+      "chunkId": "expose-ch-2_c80_p83_p83",
+      "sermonId": "expose-ch-2",
+      "citation": "[Réf: expose-ch-2, §83]",
+      "score": 0.2982
+    }
+  ],
+  "La fausse vigne et la vraie vigne": [
+    {
+      "rank": 1,
+      "chunkId": "expose-ch-10_c32_p34_p35",
+      "sermonId": "expose-ch-10",
+      "citation": "[Réf: expose-ch-10, §34]",
+      "score": 0.9153
+    },
+    {
+      "rank": 2,
+      "chunkId": "expose-ch-3_c13_p13_p13",
+      "sermonId": "expose-ch-3",
+      "citation": "[Réf: expose-ch-3, §13]",
+      "score": 0.9048
+    },
+    {
+      "rank": 3,
+      "chunkId": "expose-ch-3_c96_p102_p102",
+      "sermonId": "expose-ch-3",
+      "citation": "[Réf: expose-ch-3, §102]",
+      "score": 0.9016
+    },
+    {
+      "rank": 4,
+      "chunkId": "expose-ch-10_c3_p3_p5",
+      "sermonId": "expose-ch-10",
+      "citation": "[Réf: expose-ch-10, §3]",
+      "score": 0.8859
+    },
+    {
+      "rank": 5,
+      "chunkId": "expose-ch-9_c164_p179_p179",
+      "sermonId": "expose-ch-9",
+      "citation": "[Réf: expose-ch-9, §174]",
+      "score": 0.8724
+    },
+    {
+      "rank": 6,
+      "chunkId": "expose-ch-10_c11_p12_p14",
+      "sermonId": "expose-ch-10",
+      "citation": "[Réf: expose-ch-10, §12]",
+      "score": 0.8046
+    },
+    {
+      "rank": 7,
+      "chunkId": "expose-ch-4_c12_p14_p14",
+      "sermonId": "expose-ch-4",
+      "citation": "[Réf: expose-ch-4, §14]",
+      "score": 0.4082
+    },
+    {
+      "rank": 8,
+      "chunkId": "expose-ch-9_c148_p163_p163",
+      "sermonId": "expose-ch-9",
+      "citation": "[Réf: expose-ch-9, §163]",
+      "score": 0.406
+    }
+  ]
+}

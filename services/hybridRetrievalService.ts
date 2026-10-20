@@ -11,16 +11,18 @@
  * seuls leurs rangs ordonnés sont fusionnés par RRF.
  */
 
-import { SermonChunk, VectorSearchResult, VectorSearchOptions, LexicalChunkHit, HybridSearchResult, HybridSearchOptions } from '../types';
-import { searchByVector, searchByText } from './vectorSearchService';
+import { SermonChunk, VectorSearchResult, VectorSearchOptions, LexicalChunkHit, HybridSearchResult, HybridSearchOptions, MetadataFilter } from '../types';
+import { searchByVector, searchByText, matchesMetadataFilter } from './vectorSearchService';
 
 export const DEFAULT_HYBRID_OPTIONS: Required<HybridSearchOptions> = {
-  k: 40,
+  k: 60,
   topK: 10,
   minRrfScore: 0,
   sermonIdFilter: [],
-  vectorWeight: 0.20,
-  lexicalWeight: 0.80
+  metadataFilter: {},
+  guaranteeTopK: true,
+  vectorWeight: 1.0,
+  lexicalWeight: 1.0
 };
 
 /**
@@ -30,9 +32,9 @@ export const DEFAULT_HYBRID_OPTIONS: Required<HybridSearchOptions> = {
 export function computeRrfScore(
   lexicalRank: number | null | undefined,
   vectorRank: number | null | undefined,
-  k: number = 40,
-  lexicalWeight: number = 0.80,
-  vectorWeight: number = 0.20
+  k: number = 60,
+  lexicalWeight: number = 1.0,
+  vectorWeight: number = 1.0
 ): number {
   if (k <= 0) k = 60;
   let rrf = 0;
@@ -138,31 +140,45 @@ export function fuseRankings(params: {
     ...(options || {})
   };
 
+  const effectiveFilter: MetadataFilter | undefined = opts.metadataFilter && Object.keys(opts.metadataFilter).length > 0
+    ? {
+        ...opts.metadataFilter,
+        sermonIds: opts.sermonIdFilter && opts.sermonIdFilter.length > 0
+          ? Array.from(new Set([...(opts.metadataFilter.sermonIds || []), ...opts.sermonIdFilter]))
+          : opts.metadataFilter.sermonIds
+      }
+    : (opts.sermonIdFilter && opts.sermonIdFilter.length > 0 ? { sermonIds: opts.sermonIdFilter } : undefined);
+
+  // PRE-FILTERING STRICT : on indexe uniquement les chunks du périmètre
   const chunksMap = new Map<string, SermonChunk>();
   for (const c of allChunks) {
     if (c && c.chunkId) {
-      chunksMap.set(c.chunkId, c);
+      if (!effectiveFilter || matchesMetadataFilter(c, effectiveFilter)) {
+        chunksMap.set(c.chunkId, c);
+      }
     }
   }
-
-  const sermonFilterSet = opts.sermonIdFilter.length > 0 ? new Set(opts.sermonIdFilter) : null;
 
   // Dictionnaires de recherche des hits par chunkId
   const lexicalMap = new Map<string, LexicalChunkHit>();
   for (const lh of lexicalHits) {
     if (lh && lh.chunkId && !lexicalMap.has(lh.chunkId)) {
-      lexicalMap.set(lh.chunkId, lh);
+      if (chunksMap.has(lh.chunkId)) {
+        lexicalMap.set(lh.chunkId, lh);
+      }
     }
   }
 
   const vectorMap = new Map<string, VectorSearchResult>();
   for (const vh of vectorHits) {
     if (vh && vh.chunk?.chunkId && !vectorMap.has(vh.chunk.chunkId)) {
-      vectorMap.set(vh.chunk.chunkId, vh);
+      if (chunksMap.has(vh.chunk.chunkId)) {
+        vectorMap.set(vh.chunk.chunkId, vh);
+      }
     }
   }
 
-  // Ensemble de tous les chunkIds uniques candidats
+  // Ensemble de tous les chunkIds uniques candidats dans le périmètre
   const allCandidateIds = new Set<string>([
     ...Array.from(lexicalMap.keys()),
     ...Array.from(vectorMap.keys())
@@ -177,10 +193,6 @@ export function fuseRankings(params: {
   for (const chunkId of allCandidateIds) {
     const chunk = chunksMap.get(chunkId);
     if (!chunk) continue;
-
-    if (sermonFilterSet && !sermonFilterSet.has(chunk.sermonId)) {
-      continue;
-    }
 
     const lexHit = lexicalMap.get(chunkId);
     const vecHit = vectorMap.get(chunkId);
@@ -291,7 +303,8 @@ export async function searchHybrid(params: {
   if (vectorHits.length === 0 && (queryVector || (apiKey && query))) {
     const vecOpts: VectorSearchOptions = {
       topK: (options?.topK || 10) * 2, // Récupère plus de candidats pour une fusion plus riche
-      sermonIdFilter: options?.sermonIdFilter
+      sermonIdFilter: options?.sermonIdFilter,
+      metadataFilter: options?.metadataFilter
     };
 
     if (queryVector) {

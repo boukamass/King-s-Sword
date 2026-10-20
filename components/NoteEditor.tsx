@@ -901,7 +901,7 @@ const NoteEditor: React.FC = () => {
             offscreen.style.position = "fixed";
             offscreen.style.left = "-9999px";
             offscreen.style.top = "0";
-            offscreen.style.width = "794px"; // 794px = A4 à 96 DPI
+            offscreen.style.width = "800px"; // Largeur A4 fixe à 96 DPI
             offscreen.style.backgroundColor = "#ffffff";
             offscreen.style.zIndex = "-1000";
             offscreen.style.color = "#0f172a";
@@ -920,20 +920,20 @@ const NoteEditor: React.FC = () => {
 
             try {
                 const canvas = await html2canvas(clone, {
-                    scale: 2, // Résolution 192 DPI pour une capture HTML nette
+                    scale: 2, // Résolution 192 DPI pour une netteté parfaite
                     useCORS: true,
                     logging: false,
                     backgroundColor: "#ffffff",
                     onclone: (clonedDoc) => {
-                        // Supprimer les feuilles de style externes contenant des variables OKLCH incompatibles
-                        const styles = Array.from(clonedDoc.querySelectorAll("style, link[rel='stylesheet']"));
+                        // Remplacer ou convertir les variables oklch incompatibles sans détruire Tailwind
+                        const styles = Array.from(clonedDoc.querySelectorAll("style"));
                         styles.forEach(s => {
-                            if (s.textContent?.includes("oklch") || s.outerHTML.includes("tailwindcss")) {
-                                s.remove();
+                            if (s.textContent?.includes("oklch")) {
+                                s.textContent = s.textContent.replace(/oklch\([^)]+\)/g, '#0f766e');
                             }
                         });
 
-                        // Injecter une feuille de style CSS propre et autonome avec des couleurs HEX/RGB standard
+                        // Injecter un ensemble de styles CSS autonome et exhaustif
                         const cleanStyle = clonedDoc.createElement("style");
                         cleanStyle.textContent = `
                             #printable-note-container {
@@ -943,6 +943,7 @@ const NoteEditor: React.FC = () => {
                                 padding: 32px !important;
                                 display: block !important;
                                 box-sizing: border-box !important;
+                                width: 800px !important;
                             }
                             #printable-note-container * {
                                 box-sizing: border-box !important;
@@ -968,9 +969,9 @@ const NoteEditor: React.FC = () => {
                             .gap-3 { gap: 12px !important; }
                             .gap-4 { gap: 16px !important; }
                             .text-right { text-align: right !important; }
-                            .text-[11px] { font-size: 11px !important; }
-                            .text-[10px] { font-size: 10px !important; }
-                            .text-[13px] { font-size: 13px !important; line-height: 1.6 !important; }
+                            .text-\\[11px\\] { font-size: 11px !important; }
+                            .text-\\[10px\\] { font-size: 10px !important; }
+                            .text-\\[13px\\] { font-size: 13px !important; line-height: 1.6 !important; }
                             .text-2xl { font-size: 24px !important; }
                             .text-xs { font-size: 12px !important; }
                             .font-black { font-weight: 900 !important; }
@@ -1004,11 +1005,16 @@ const NoteEditor: React.FC = () => {
                             .italic { font-style: italic !important; }
                             .shrink-0 { flex-shrink: 0 !important; }
                             .inline-block { display: inline-block !important; }
-                            .w-2 { width: 8px !important; }
+                            .w-2 { width: 8px !important; height: 8px !important; }
                             .h-2 { height: 8px !important; }
-                            .w-4 { width: 16px !important; }
+                            .w-4 { width: 16px !important; height: 16px !important; }
                             .h-4 { height: 16px !important; }
                             .m-0 { margin: 0 !important; }
+                            .subtitle-separator h4 { font-size: 14px !important; font-weight: 700 !important; color: #0f766e !important; margin: 8px 0 !important; }
+                            .comment-box { background-color: #f1f5f9 !important; border-left: 3px solid #64748b !important; padding: 10px 14px !important; border-radius: 4px !important; }
+                            .comment-title { font-size: 11px !important; font-weight: 700 !important; color: #475569 !important; text-transform: uppercase !important; margin-bottom: 4px !important; }
+                            .comment-text { font-size: 13px !important; color: #334155 !important; }
+                            svg { display: inline-block !important; vertical-align: middle !important; }
                         `;
                         clonedDoc.head.appendChild(cleanStyle);
 
@@ -1026,9 +1032,14 @@ const NoteEditor: React.FC = () => {
                     format: "a4"
                 });
 
-                const pdfWidth = 210;
-                const pdfHeight = 297;
-                const pageCanvasHeight = Math.floor(canvas.width * (pdfHeight / pdfWidth));
+                const pageWidthMm = 210;
+                const pageHeightMm = 297;
+                const marginMm = 10;
+                const printableWidthMm = pageWidthMm - (marginMm * 2); // 190mm
+                const printableHeightMm = pageHeightMm - (marginMm * 2); // 277mm
+
+                // Hauteur en pixels sur le canvas correspondant à une page imprimable
+                const pageCanvasHeight = Math.floor(canvas.width * (printableHeightMm / printableWidthMm));
 
                 let currentY = 0;
                 let pageIndex = 0;
@@ -1052,8 +1063,12 @@ const NoteEditor: React.FC = () => {
                     if (pageIndex > 0) {
                         pdf.addPage("a4", "portrait");
                     }
+
+                    const sliceHeightMm = (sliceHeight / canvas.width) * printableWidthMm;
                     const imgData = pageCanvas.toDataURL("image/jpeg", 0.98);
-                    pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight);
+                    
+                    // Rendu centré avec marges de 10mm et hauteur proportionnelle exacte (pas d'étirement vertical)
+                    pdf.addImage(imgData, "JPEG", marginMm, marginMm, printableWidthMm, sliceHeightMm);
 
                     currentY += sliceHeight;
                     pageIndex++;
@@ -1334,7 +1349,7 @@ const NoteEditor: React.FC = () => {
                           <ActionButton icon={Search} tooltip="Rechercher dans cette note (Ctrl + F)" onClick={() => setIsInNoteSearchOpen(true)} />
                         )}
 
-                        <ActionButton icon={Folder} tooltip="Organiser / Changer de thème" onClick={(e) => { e.stopPropagation(); setShowThemePicker(!showThemePicker); }} />
+                        <ActionButton icon={Folder} tooltip="Organiser / Changer de thème" onClick={() => setShowThemePicker(!showThemePicker)} />
                         <ActionButton icon={Printer} tooltip={t.print} onClick={handlePrint} />
                         <ActionButton icon={FileText} tooltip={t.export_pdf} onClick={handleExportPdf} />
                         <ActionButton icon={FileDown} tooltip="Exporter au format Word (.docx)" onClick={handleExportDocx} />

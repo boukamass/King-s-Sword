@@ -226,6 +226,8 @@ export interface SermonChunk {
   characterCount: number;
   wordCount: number;
   contentHash?: string;
+  paragraphSha1?: string;
+  paragraphSha1s?: string[];
   embedding?: number[] | Float32Array | Int8Array | null;
   embeddingModel?: string;
   createdAt?: string;
@@ -249,6 +251,25 @@ export interface ChunkingOptions {
   maxParagraphsPerChunk?: number;
 }
 
+export interface MetadataFilter {
+  /** Sources documentaires autorisées ('sermon', 'expose', 'bible', 'song') */
+  sources?: Array<DocumentSourceType>;
+  /** Identifiants spécifiques autorisés (sermonId, documentId, chapitre) */
+  sermonIds?: string[];
+  /** Année minimale (ex: 1963) */
+  yearMin?: number;
+  /** Année maximale (ex: 1965) */
+  yearMax?: number;
+  /** Liste d'années spécifiques autorisées (ex: [1963]) */
+  years?: number[];
+  /** Séries thématiques (ex: "Sceaux", "Âges", etc.) */
+  series?: string[];
+  /** Version de document ou biblique (ex: "EXPOSE", "LSG") */
+  version?: string;
+  /** Prédicat direct pour filtrage personnalisé */
+  predicate?: (chunk: SermonChunk) => boolean;
+}
+
 export interface VectorSearchResult {
   chunk: SermonChunk;
   score: number;
@@ -259,6 +280,8 @@ export interface VectorSearchOptions {
   topK?: number;
   minScoreThreshold?: number;
   sermonIdFilter?: string[];
+  metadataFilter?: MetadataFilter;
+  guaranteeTopK?: boolean; // Garantit le retour de k résultats si le périmètre en contient >= k
 }
 
 export interface LexicalChunkHit {
@@ -293,6 +316,8 @@ export interface HybridSearchOptions {
   topK?: number; // default 10
   minRrfScore?: number;
   sermonIdFilter?: string[];
+  metadataFilter?: MetadataFilter;
+  guaranteeTopK?: boolean;
   vectorWeight?: number;
   lexicalWeight?: number;
 }
@@ -378,6 +403,22 @@ export interface EvidenceParagraphCitation {
   isAuthentic: boolean;
 }
 
+export interface AdjacentParagraph {
+  paragraphIndex: number;
+  text: string;
+  role: 'precedent' | 'cible' | 'suivant';
+  formattedCitation: string;
+}
+
+export interface AdjacentContext {
+  targetParagraphIndex: number;
+  hasPrevious: boolean;
+  hasNext: boolean;
+  adjacentParagraphs: AdjacentParagraph[];
+  formattedContextText: string;
+  totalCharacters: number;
+}
+
 export interface RetrievalEvidence {
   chunkId: string;
   sermonId: string;
@@ -393,6 +434,7 @@ export interface RetrievalEvidence {
   rank: number;
   sourceType: 'lexical' | 'vector' | 'hybrid' | 'reranked' | 'full_text';
   citationParagraphs: EvidenceParagraphCitation[];
+  adjacentContext?: AdjacentContext; // ÉTAPE 7 : Contexte Parent-Child étiqueté
 }
 
 export interface RetrievalEvidencePackage {
@@ -416,9 +458,18 @@ export interface ValidatedCitationDetail {
   sermonId: string | null;
   paragraphIndex: number | null;
   isValid: boolean;
+  status?: 'VALIDE' | 'CORRIGEE' | 'REJETEE' | 'A_VERIFIER';
+  similarity?: number;
   reason: string;
   quotedText?: string;
   isQuoteAuthentic?: boolean;
+  isParagraphCorrected?: boolean;
+  actualParagraphIndex?: number;
+  isSourceIdCorrected?: boolean;
+  actualSourceId?: string;
+  isQuoteCorrected?: boolean;
+  correctedQuote?: string;
+  isTooShort?: boolean;
   matchedEvidence?: {
     sermonId: string;
     sermonTitle: string;

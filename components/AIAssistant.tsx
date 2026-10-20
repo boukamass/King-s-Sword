@@ -28,7 +28,7 @@ import {
   isIndexingPausedOnStartup,
   setIndexingPausedOnStartup
 } from '../services/corpusIndexInitializationService';
-import { Sermon, ChatMessage } from '../types';
+import { Sermon, ChatMessage, CitationValidationResult } from '../types';
 import { splitSermonIntoParagraphs, extractLeadingParagraphNumber } from '../utils/textUtils';
 import { 
   Lightbulb, 
@@ -88,7 +88,63 @@ interface ChatMessageWithSources extends ChatMessage {
   refusal?: boolean;
   originalQuery?: string;
   closestPassages?: any[];
+  citationsValidation?: CitationValidationResult;
 }
+
+const CitationValidationBlock: React.FC<{
+  validation: CitationValidationResult;
+}> = ({ validation }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  if (!validation || !validation.citations || validation.citations.length === 0) return null;
+
+  const correctedCitations = validation.citations.filter(
+    c => c.status === 'CORRIGEE' || c.isQuoteCorrected || c.isSourceIdCorrected || c.isParagraphCorrected
+  );
+  if (correctedCitations.length === 0) return null;
+
+  return (
+    <div className="mt-2 pt-2 border-t border-amber-500/20 text-xs">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-lg font-bold transition-all text-[11px] cursor-pointer"
+      >
+        <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+        <span>🟡 {correctedCitations.length} citation(s) corrigée(s) par le validateur déterministe</span>
+        <ChevronDown className={`w-3 h-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <div className="mt-2 p-3 bg-amber-50/80 dark:bg-amber-950/40 border border-amber-300/40 dark:border-amber-700/40 rounded-xl space-y-2.5 text-[11px] text-amber-950 dark:text-amber-100">
+          <p className="font-bold text-[10px] uppercase tracking-wider text-amber-800 dark:text-amber-300">
+            Détails des corrections apportées au texte généré :
+          </p>
+          {correctedCitations.map((c, idx) => (
+            <div key={idx} className="p-2 bg-white/80 dark:bg-zinc-900/80 rounded-lg border border-amber-200 dark:border-amber-800/60 space-y-1">
+              <div className="flex items-center justify-between font-bold text-[10px] text-zinc-600 dark:text-zinc-300">
+                <span>Réf : [{c.sermonId}, §{c.paragraphIndex}]</span>
+                <span className="text-amber-600 dark:text-amber-400 font-mono">
+                  Similarité : {(c.similarity !== undefined ? (c.similarity * 100).toFixed(1) : '100.0')}%
+                </span>
+              </div>
+              <div className="space-y-1">
+                <div>
+                  <span className="font-bold text-[10px] text-emerald-700 dark:text-emerald-400">Texte corrigé (Source) : </span>
+                  <span className="italic text-zinc-800 dark:text-zinc-200">« {c.correctedQuote || c.quotedText} »</span>
+                </div>
+                <div>
+                  <span className="font-bold text-[10px] text-amber-700 dark:text-amber-400">Texte original (Gemini) : </span>
+                  <span className="italic text-zinc-500 dark:text-zinc-400">« {c.quotedText} »</span>
+                </div>
+                <p className="text-[10px] text-zinc-500 font-medium">Raison : {c.reason}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const RefusalPassagesBlock: React.FC<{
   originalQuery: string;
@@ -1711,6 +1767,9 @@ const AIAssistant: React.FC = () => {
                 {msg.role === 'assistant' ? (
                   <div className="flex flex-col gap-2">
                     <div className="prose-styles text-[13px] leading-[1.75] serif-text [&_p]:my-2.5 [&_p]:leading-[1.75] [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2.5 [&_ul]:space-y-1.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2.5 [&_ol]:space-y-1.5 [&_li]:my-1 [&_li]:leading-relaxed [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:font-black [&_h2]:mt-3.5 [&_h2]:mb-2 [&_h2]:font-bold [&_h3]:mt-3 [&_h3]:mb-1.5 [&_h3]:font-bold [&_strong]:font-black text-zinc-900 dark:text-zinc-100" dangerouslySetInnerHTML={{ __html: formatAIResponse(msg.content) as string }} />
+                    {msg.citationsValidation && (
+                      <CitationValidationBlock validation={msg.citationsValidation} />
+                    )}
                     {msg.refusal && msg.closestPassages && msg.closestPassages.length > 0 && (
                       <RefusalPassagesBlock 
                         originalQuery={msg.originalQuery || ''}

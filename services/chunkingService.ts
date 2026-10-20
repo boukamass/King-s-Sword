@@ -13,6 +13,7 @@ export interface ParsedParagraph {
   text: string;
   charCount: number;
   wordCount: number;
+  sha1?: string;
 }
 
 export interface ChunkStatistics {
@@ -33,6 +34,106 @@ export const DEFAULT_CHUNKING_OPTIONS: Required<ChunkingOptions> = {
   overlapParagraphs: 1,
   maxParagraphsPerChunk: 3
 };
+
+/**
+ * Calcule le hash SHA-1 via le module standard node:crypto ou Web Crypto API.
+ */
+export function computeSha1(text: string): string {
+  if (!text) return 'da39a3ee5e6b4b0d3255bfef95601890afd80709';
+
+  // 1. Environnement Node.js / Electron (synchrone via node:crypto)
+  try {
+    const nodeCrypto = typeof require !== 'undefined' ? require('crypto') : null;
+    if (nodeCrypto && typeof nodeCrypto.createHash === 'function') {
+      return nodeCrypto.createHash('sha1').update(text, 'utf8').digest('hex').toLowerCase();
+    }
+  } catch {}
+
+  // 2. Si nodeCrypto est disponible sur globalThis
+  try {
+    const gCrypto = typeof globalThis !== 'undefined' ? (globalThis as any).crypto : null;
+    if (gCrypto && typeof gCrypto.createHash === 'function') {
+      return gCrypto.createHash('sha1').update(text, 'utf8').digest('hex').toLowerCase();
+    }
+  } catch {}
+
+// 3. Implémentation standard RFC 3174 SHA-1 conforme à 100% avec Node crypto & crypto.subtle
+  const enc = typeof TextEncoder !== 'undefined' ? new TextEncoder().encode(text) : Buffer.from(text, 'utf8');
+  const len = enc.length;
+  const bitLen = len * 8;
+  const padLen = (len % 64 < 56) ? (56 - (len % 64)) : (120 - (len % 64));
+  const totalLen = len + padLen + 8;
+  const bytes = new Uint8Array(totalLen);
+  bytes.set(enc);
+  bytes[len] = 0x80;
+  const view = new DataView(bytes.buffer);
+  view.setUint32(totalLen - 4, bitLen >>> 0);
+  view.setUint32(totalLen - 8, Math.floor(bitLen / 0x100000000));
+
+  let h0 = 0x67452301, h1 = 0xefcdab89, h2 = 0x98badcfe, h3 = 0x10325476, h4 = 0xc3d2e1f0;
+  const w = new Uint32Array(80);
+
+  for (let i = 0; i < totalLen; i += 64) {
+    for (let t = 0; t < 16; t++) {
+      w[t] = view.getUint32(i + t * 4);
+    }
+    for (let t = 16; t < 80; t++) {
+      const v = w[t - 3] ^ w[t - 8] ^ w[t - 14] ^ w[t - 16];
+      w[t] = (v << 1) | (v >>> 31);
+    }
+    let a = h0, b = h1, c = h2, d = h3, e = h4;
+    for (let t = 0; t < 80; t++) {
+      let f: number, k: number;
+      if (t < 20) {
+        f = (b & c) | ((~b) & d);
+        k = 0x5a827999;
+      } else if (t < 40) {
+        f = b ^ c ^ d;
+        k = 0x6ed9eba1;
+      } else if (t < 60) {
+        f = (b & c) | (b & d) | (c & d);
+        k = 0x8f1bbcdc;
+      } else {
+        f = b ^ c ^ d;
+        k = 0xca62c1d6;
+      }
+      const temp = (((a << 5) | (a >>> 27)) + f + e + k + w[t]) >>> 0;
+      e = d;
+      d = c;
+      c = ((b << 30) | (b >>> 2)) >>> 0;
+      b = a;
+      a = temp;
+    }
+    h0 = (h0 + a) >>> 0;
+    h1 = (h1 + b) >>> 0;
+    h2 = (h2 + c) >>> 0;
+    h3 = (h3 + d) >>> 0;
+    h4 = (h4 + e) >>> 0;
+  }
+  const hex = (n: number) => n.toString(16).padStart(8, '0');
+  return (hex(h0) + hex(h1) + hex(h2) + hex(h3) + hex(h4)).toLowerCase();
+}
+
+/**
+ * Version asynchrone utilisant crypto.subtle dans les navigateurs modernes (Web Crypto API standard).
+ */
+export async function computeSha1Subtle(text: string): Promise<string> {
+  if (typeof globalThis !== 'undefined' && globalThis.crypto?.subtle) {
+    const enc = new TextEncoder();
+    const data = enc.encode(text);
+    const hashBuf = await globalThis.crypto.subtle.digest('SHA-1', data);
+    const hashArr = Array.from(new Uint8Array(hashBuf));
+    return hashArr.map(b => b.toString(16).padStart(2, '0')).join('').toLowerCase();
+  }
+  return computeSha1(text);
+}
+
+/**
+ * Calcule le hash SHA-1 du texte de chaque paragraphe (Étape 5).
+ */
+export function computeParagraphSha1(text: string): string {
+  return computeSha1(text ? text.trim() : '');
+}
 
 /**
  * Calcule un hash déterministe (64-bit FNV-1a combiné) pour un chunk.
@@ -56,6 +157,7 @@ export function computeChunkHash(sermonId: string, paragraphIds: number[], text:
 
 /**
  * Découpe un texte de sermon en liste de paragraphes ordonnés avec leur indexation originale.
+ * Calcule pour chaque paragraphe son hash SHA-1 conforme à l'Étape 5.
  */
 export function parseSermonParagraphs(text: string): ParsedParagraph[] {
   if (!text || typeof text !== 'string') return [];
@@ -66,10 +168,12 @@ export function parseSermonParagraphs(text: string): ParsedParagraph[] {
     const trimmed = raw.trim();
     const leadingNumMatch = trimmed.match(/^(\d+)[\.\s]/);
     const num = leadingNumMatch ? parseInt(leadingNumMatch[1], 10) : idx + 1;
+    const sha1 = computeParagraphSha1(trimmed);
     
     return {
       num,
       text: trimmed,
+      sha1,
       charCount: trimmed.length,
       wordCount: trimmed.split(/\s+/).filter(Boolean).length
     };
@@ -124,6 +228,8 @@ export function createSermonChunks(sermon: Sermon, options?: ChunkingOptions): S
     const endParagraph = paragraphIds[paragraphIds.length - 1];
     const chunkText = currentGroup.map(p => p.text).join('\n\n');
     const contentHash = computeChunkHash(sermon.id, paragraphIds, chunkText);
+    const paragraphSha1s = currentGroup.map(p => p.sha1 || computeParagraphSha1(p.text));
+    const paragraphSha1 = computeParagraphSha1(chunkText);
     const nowIso = new Date().toISOString();
 
     chunks.push({
@@ -140,6 +246,8 @@ export function createSermonChunks(sermon: Sermon, options?: ChunkingOptions): S
       characterCount: chunkText.length,
       wordCount: chunkText.split(/\s+/).filter(Boolean).length,
       contentHash,
+      paragraphSha1,
+      paragraphSha1s,
       createdAt: nowIso,
       updatedAt: nowIso
     });

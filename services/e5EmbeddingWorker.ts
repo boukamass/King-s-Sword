@@ -117,24 +117,53 @@ self.onmessage = async (e: MessageEvent) => {
 
     const results: Array<{ id: string; vector: Int8Array | null }> = [];
 
-    for (const item of items) {
-      try {
-        const formattedText = `${prefix}${item.text.trim()}`;
-        const output = await extractorInstance(formattedText, { pooling: 'mean', normalize: true });
+    // Tenter l'inférence directe par lot (batching haute performance Étape 3)
+    let batchSucceeded = false;
+    try {
+      const formattedTexts = items.map(item => `${prefix}${item.text.trim()}`);
+      const output = await extractorInstance(formattedTexts, { pooling: 'mean', normalize: true });
 
-        if (output && output.data) {
-          const floatData = output.data;
-          const int8 = new Int8Array(floatData.length);
-          for (let i = 0; i < floatData.length; i++) {
-            const scaled = Math.round(floatData[i] * 127);
+      if (output && output.data && output.dims && output.dims.length >= 2) {
+        const dim = output.dims[output.dims.length - 1];
+        const floatData = output.data;
+
+        for (let idx = 0; idx < items.length; idx++) {
+          const start = idx * dim;
+          const int8 = new Int8Array(dim);
+          for (let i = 0; i < dim; i++) {
+            const scaled = Math.round(floatData[start + i] * 127);
             int8[i] = Math.max(-127, Math.min(127, scaled));
           }
-          results.push({ id: item.id, vector: int8 });
-        } else {
+          results.push({ id: items[idx].id, vector: int8 });
+        }
+        batchSucceeded = true;
+      }
+    } catch (_batchErr) {
+      batchSucceeded = false;
+    }
+
+    // Repli de secours séquentiel si le batch direct a échoué
+    if (!batchSucceeded) {
+      results.length = 0;
+      for (const item of items) {
+        try {
+          const formattedText = `${prefix}${item.text.trim()}`;
+          const output = await extractorInstance(formattedText, { pooling: 'mean', normalize: true });
+
+          if (output && output.data) {
+            const floatData = output.data;
+            const int8 = new Int8Array(floatData.length);
+            for (let i = 0; i < floatData.length; i++) {
+              const scaled = Math.round(floatData[i] * 127);
+              int8[i] = Math.max(-127, Math.min(127, scaled));
+            }
+            results.push({ id: item.id, vector: int8 });
+          } else {
+            results.push({ id: item.id, vector: null });
+          }
+        } catch (err: any) {
           results.push({ id: item.id, vector: null });
         }
-      } catch (err: any) {
-        results.push({ id: item.id, vector: null });
       }
     }
 

@@ -23,7 +23,8 @@ import {
   AnswerabilityAssessment,
   RetrievalEvidencePackage,
   RetrievalEvidence,
-  EvidenceParagraphCitation
+  EvidenceParagraphCitation,
+  MetadataFilter
 } from '../types';
 import { BibleVersion } from '../types/bible';
 import { BIBLE_BOOKS_META } from './bibleMetadata';
@@ -35,13 +36,14 @@ import { getSermonById } from './db';
 import { mapParagraphsToChunkHits, fuseRankings } from './hybridRetrievalService';
 import { rerankHybridResults, assessAnswerability, extractSignificantQueryTerms, extractSubstantiveQueryTerms, isOverviewOrSummaryQuery } from './rerankingService';
 import { expandTheologicalQuery } from './theologicalQueryService';
-import { searchByVector, embedQueryText } from './vectorSearchService';
+import { searchByVector, embedQueryText, matchesMetadataFilter } from './vectorSearchService';
 import { getChunksBySermonId } from './chunkStorageService';
 import { EMBEDDING_CONFIG, computeE5Embedding } from './embeddingService';
 import { getGeminiApiKey } from '../utils/apiKeyHelper';
 import { detectQueryIntent, logQueryIntent } from './queryIntentService';
 import { normalizeText, splitSermonIntoParagraphs, extractLeadingParagraphNumber } from '../utils/textUtils';
 import { isContentlessOrNoiseParagraph } from './corpusVocabularyService';
+import { applyParentChildToEvidencePackage, ParentChildOptions } from './parentChildService';
 
 // Mots vides généraux pour l'analyse lexicale
 const UNIFIED_STOP_WORDS = new Set([
@@ -82,6 +84,9 @@ export interface UnifiedRagOptions {
   loadedSermonsMap?: Map<string, Sermon | Omit<Sermon, 'text'>> | Map<string, any>;
   apiKey?: string;
   queryVector?: number[] | Float32Array;
+  metadataFilter?: MetadataFilter;
+  enableParentChild?: boolean;
+  parentChildOptions?: ParentChildOptions;
 }
 
 /**
@@ -670,9 +675,15 @@ export async function executeUnifiedRagPipeline(
     bigrams.push(queryWords[i] + ' ' + queryWords[i + 1]);
   }
 
-  // 2. Recherche lexicale (BM25 / term match) STRICTEMENT sur les chunks autorisés
+  // ÉTAPE 6 : PRE-FILTERING STRICT DES MÉTADONNÉES
+  // Restreint le bassin de recherche avant tout calcul lexical ou vectoriel
+  const searchPool = options.metadataFilter && Object.keys(options.metadataFilter).length > 0
+    ? allowedChunks.filter(c => matchesMetadataFilter(c, options.metadataFilter))
+    : allowedChunks;
+
+  // 2. Recherche lexicale (BM25 / term match) STRICTEMENT sur les chunks du périmètre pré-filtré
   const scoredChunks: Array<{ chunk: SermonChunk; score: number }> = [];
-  for (const chunk of allowedChunks) {
+  for (const chunk of searchPool) {
     const normText = normalizeText(chunk.text);
     let matchCount = 0;
     let score = 0;
@@ -729,7 +740,7 @@ export async function executeUnifiedRagPipeline(
   let queryVectorDim = 0;
 
   if (Array.isArray(options.mockVectorHits) && options.mockVectorHits.length > 0) {
-    const allowedIds = new Set(allowedChunks.map(c => c.chunkId));
+    const allowedIds = new Set(searchPool.map(c => c.chunkId));
     vectorHits = options.mockVectorHits.filter(h => allowedIds.has(h.chunk?.chunkId));
     vectorMethod = 'e5_384d_int8';
     queryVectorUsed = true;
@@ -748,7 +759,7 @@ export async function executeUnifiedRagPipeline(
         queryVectorDim = 384;
 
         // E5 accepte uniquement les chunks avec un vecteur E5 (384 octets Int8)
-        const validE5Chunks = allowedChunks.filter(c => {
+        const validE5Chunks = searchPool.filter(c => {
           if (!c.embedding) return false;
           if (c.embedding instanceof Int8Array && c.embedding.length === 384) return true;
           if (Array.isArray(c.embedding) && c.embedding.length === 384) return true;
@@ -972,6 +983,30 @@ export async function executeUnifiedRagPipeline(
     }
   }
 
+  // ÉTAPE 7 : ENRICHISSEMENT PARENT-CHILD (CONTEXTE ADJACENT §n-1 et §n+1)
+  let finalEvidence = evidence;
+  if (options.enableParentChild && evidence.length > 0) {
+    const rawDocsMap = new Map<string, string>();
+    for (const c of allowedChunks) {
+      if (!rawDocsMap.has(c.sermonId)) {
+        const sId = c.sermonId;
+        if (options.loadedSermonsMap && options.loadedSermonsMap.has(sId)) {
+          const sObj = options.loadedSermonsMap.get(sId);
+          if (sObj && sObj.text) rawDocsMap.set(sId, sObj.text);
+        }
+      }
+    }
+    for (const ev of evidence) {
+      if (!rawDocsMap.has(ev.sermonId)) {
+        const docChunks = allowedChunks
+          .filter(c => c.sermonId === ev.sermonId)
+          .sort((a, b) => a.startParagraph - b.startParagraph);
+        rawDocsMap.set(ev.sermonId, docChunks.map(dc => dc.text).join('\n\n'));
+      }
+    }
+    finalEvidence = applyParentChildToEvidencePackage(evidence, rawDocsMap, options.parentChildOptions);
+  }
+
   if (process.env.NODE_ENV !== 'production' || typeof console !== 'undefined') {
     console.log('[RAG_DEV_DIAGNOSTIC]', JSON.stringify({
       query: cleanQuery,
@@ -986,7 +1021,7 @@ export async function executeUnifiedRagPipeline(
       confidenceScore: assessment.confidenceScore,
       answerable: assessment.answerable,
       reason: assessment.reason,
-      evidenceCount: evidence.length
+      evidenceCount: finalEvidence.length
     }, null, 2));
   }
 
@@ -994,10 +1029,10 @@ export async function executeUnifiedRagPipeline(
     answerable: assessment.answerable,
     confidenceScore: assessment.confidenceScore,
     reason: assessment.reason,
-    evidence,
+    evidence: finalEvidence,
     query: cleanQuery,
     totalCandidates: rerankedResults.length,
-    rejectedCount: Math.max(0, rerankedResults.length - evidence.length),
+    rejectedCount: Math.max(0, rerankedResults.length - finalEvidence.length),
     vectorMethod,
     closestPassages: assessment.closestPassages,
     refusalCategory: assessment.refusalCategory,
