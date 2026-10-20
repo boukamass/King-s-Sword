@@ -192,6 +192,8 @@ export function mergeContiguousEvidence(evidenceList: RetrievalEvidence[]): Retr
   return merged;
 }
 
+import { applyParentChildToEvidencePackage, ParentChildOptions } from './parentChildService';
+
 /**
  * Construit le package complet d'Evidence documentaire.
  * Applique strictement l'abstention si answerable = false.
@@ -202,13 +204,17 @@ export function buildRetrievalEvidencePackage(params: {
   assessment: AnswerabilityAssessment;
   originalSermons: Sermon[];
   maxEvidenceCount?: number;
+  enableParentChild?: boolean;
+  parentChildOptions?: ParentChildOptions;
 }): RetrievalEvidencePackage {
   const {
     query,
     candidates = [],
     assessment,
     originalSermons = [],
-    maxEvidenceCount = 5
+    maxEvidenceCount = 5,
+    enableParentChild = false,
+    parentChildOptions
   } = params;
 
   const cleanQuery = (query || '').trim();
@@ -261,7 +267,16 @@ export function buildRetrievalEvidencePackage(params: {
   }
 
   // Fusion des fragments contigus pour préserver l'intégralité des phrases et paragraphes
-  const validEvidenceList = mergeContiguousEvidence(rawEvidenceList).slice(0, maxEvidenceCount);
+  let validEvidenceList = mergeContiguousEvidence(rawEvidenceList).slice(0, maxEvidenceCount);
+
+  // ÉTAPE 7 : PARENT-CHILD (CONTEXTE ADJACENT §n-1 et §n+1 ÉTIQUETÉ)
+  if (enableParentChild && validEvidenceList.length > 0) {
+    const rawDocsMap = new Map<string, string>();
+    for (const s of originalSermons) {
+      if (s && s.id && s.text) rawDocsMap.set(s.id, s.text);
+    }
+    validEvidenceList = applyParentChildToEvidencePackage(validEvidenceList, rawDocsMap, parentChildOptions);
+  }
 
   // Si après validation toutes les preuves étaient corrompues/invalides
   if (validEvidenceList.length === 0) {

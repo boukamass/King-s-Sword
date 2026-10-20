@@ -300,7 +300,7 @@ const App: React.FC = () => {
           <MainContent activeNoteId={activeNoteId} />
 
           {/* Floating Side Buttons for Notes & AI */}
-          {!isFullscreen && !activeNoteId && (!notesOpen || !aiOpen) && (
+          {!isFullscreen && (!notesOpen || !aiOpen) && (
             <div 
               data-floating-buttons="true"
               className={`floating-side-buttons absolute right-3 z-30 flex flex-col gap-2 pointer-events-auto no-print transition-all duration-300 ${

@@ -7,14 +7,108 @@
  * RÈGLE D'OR : Ce module est totalement indépendant du pipeline Legacy et de l'UI.
  */
 
-import { SermonChunk, VectorSearchResult, VectorSearchOptions } from '../types';
+import { SermonChunk, VectorSearchResult, VectorSearchOptions, MetadataFilter } from '../types';
 import { EMBEDDING_CONFIG, normalizeL2, computeCosineInt8, quantizeToInt8, dequantizeFromInt8, computeE5Embedding } from './embeddingService';
 
 export const DEFAULT_VECTOR_SEARCH_OPTIONS: Required<VectorSearchOptions> = {
   topK: 10,
   minScoreThreshold: -1.0, // Accepte toutes les similarités valides par défaut
-  sermonIdFilter: []
+  sermonIdFilter: [],
+  metadataFilter: {},
+  guaranteeTopK: true
 };
+
+/**
+ * Extrait l'année d'un chunk de manière déterministe depuis sa date ou son identifiant.
+ */
+export function extractChunkYear(chunk: SermonChunk): number | null {
+  if (chunk.date) {
+    const m = chunk.date.match(/\b(19\d\d|20\d\d)\b/);
+    if (m) return parseInt(m[1], 10);
+  }
+  if (chunk.sermonId) {
+    // Format Branham standard: YY-MMDD ou YY-MMDDA (ex: 63-0324M -> 1963)
+    const mYy = chunk.sermonId.match(/^(\d{2})-\d{4}/);
+    if (mYy) {
+      const yy = parseInt(mYy[1], 10);
+      return yy >= 30 ? 1900 + yy : 2000 + yy;
+    }
+    // Exposé publié en 1965
+    if (chunk.sermonId.startsWith('expose-')) {
+      return 1965;
+    }
+  }
+  return null;
+}
+
+/**
+ * Détermine le type de source documentaire d'un chunk.
+ */
+export function extractChunkSourceType(chunk: SermonChunk): 'sermon' | 'expose' | 'bible' | 'song' {
+  if (chunk.documentType) return chunk.documentType;
+  if (chunk.sermonId.startsWith('expose-')) return 'expose';
+  if (chunk.sermonId.startsWith('bible-')) return 'bible';
+  if (chunk.sermonId.startsWith('song-')) return 'song';
+  return 'sermon';
+}
+
+/**
+ * Vérifie si un chunk respecte un filtre de métadonnées donné (Pre-filtering).
+ */
+export function matchesMetadataFilter(chunk: SermonChunk, filter?: MetadataFilter): boolean {
+  if (!filter) return true;
+
+  // 1. Filtrage par source documentaire ('sermon', 'expose', 'bible', 'song')
+  if (filter.sources && filter.sources.length > 0) {
+    const srcType = extractChunkSourceType(chunk);
+    if (!filter.sources.includes(srcType)) {
+      return false;
+    }
+  }
+
+  // 2. Filtrage par identifiants exacts (sermonId ou documentId)
+  if (filter.sermonIds && filter.sermonIds.length > 0) {
+    if (!filter.sermonIds.includes(chunk.sermonId)) {
+      return false;
+    }
+  }
+
+  // 3. Filtrage par année (min, max, ou liste exacte)
+  if (filter.years || filter.yearMin !== undefined || filter.yearMax !== undefined) {
+    const year = extractChunkYear(chunk);
+    if (year === null) return false;
+
+    if (filter.years && filter.years.length > 0 && !filter.years.includes(year)) {
+      return false;
+    }
+    if (filter.yearMin !== undefined && year < filter.yearMin) {
+      return false;
+    }
+    if (filter.yearMax !== undefined && year > filter.yearMax) {
+      return false;
+    }
+  }
+
+  // 4. Filtrage par séries thématiques (recherche dans le titre du sermon ou section)
+  if (filter.series && filter.series.length > 0) {
+    const title = (chunk.sermonTitle || chunk.sectionTitle || '').toLowerCase();
+    const matchesSeries = filter.series.some(s => title.includes(s.toLowerCase()));
+    if (!matchesSeries) return false;
+  }
+
+  // 5. Filtrage par version
+  if (filter.version) {
+    const v = (chunk.version || '').toUpperCase();
+    if (v !== filter.version.toUpperCase()) return false;
+  }
+
+  // 6. Prédicat personnalisé
+  if (filter.predicate && !filter.predicate(chunk)) {
+    return false;
+  }
+
+  return true;
+}
 
 /**
  * Calcule la similarité cosinus de façon hautement optimisée et sécurisée.
@@ -71,7 +165,7 @@ export function computeCosineSimilarity(
 
 /**
  * Exécute la recherche vectorielle en mémoire sur un ensemble de chunks candidats à partir d'un vecteur requête.
- * Opération 100% locale, instantanée et déterministe.
+ * Opération 100% locale, instantanée et déterministe avec PRE-FILTERING STRICT.
  */
 export function searchByVector(
   queryVector: number[] | Float32Array | Int8Array,
@@ -87,20 +181,34 @@ export function searchByVector(
     ...(options || {})
   };
 
-  const sermonFilterSet = opts.sermonIdFilter.length > 0 ? new Set(opts.sermonIdFilter) : null;
-  const scoredResults: { chunk: SermonChunk; score: number }[] = [];
+  // Construction du filtre effectif combinant sermonIdFilter et metadataFilter
+  const effectiveFilter: MetadataFilter | undefined = opts.metadataFilter
+    ? {
+        ...opts.metadataFilter,
+        sermonIds: opts.sermonIdFilter && opts.sermonIdFilter.length > 0
+          ? Array.from(new Set([...(opts.metadataFilter.sermonIds || []), ...opts.sermonIdFilter]))
+          : opts.metadataFilter.sermonIds
+      }
+    : (opts.sermonIdFilter && opts.sermonIdFilter.length > 0 ? { sermonIds: opts.sermonIdFilter } : undefined);
 
-  for (const chunk of candidateChunks) {
+  // ÉTAPE 6 : PRE-FILTERING VECTORIEL STRICT
+  // On restreint immédiatement les candidats par métadonnées AVANT tout calcul de similarité.
+  // La similarité cosinus n'est calculée QUE sur les vecteurs appartenant au périmètre.
+  const filteredChunks = effectiveFilter
+    ? candidateChunks.filter(c => matchesMetadataFilter(c, effectiveFilter))
+    : candidateChunks;
+
+  const scoredResults: { chunk: SermonChunk; score: number }[] = [];
+  const allScoredInPerimeter: { chunk: SermonChunk; score: number }[] = [];
+
+  for (const chunk of filteredChunks) {
     if (!chunk || !chunk.embedding || chunk.embedding.length === 0) {
       continue;
     }
 
-    if (sermonFilterSet && !sermonFilterSet.has(chunk.sermonId)) {
-      continue;
-    }
-
     const sim = computeCosineSimilarity(queryVector, chunk.embedding);
-    
+    allScoredInPerimeter.push({ chunk, score: sim });
+
     if (sim >= opts.minScoreThreshold) {
       scoredResults.push({
         chunk,
@@ -109,11 +217,18 @@ export function searchByVector(
     }
   }
 
+  // ÉTAPE 6.1 : Si minScoreThreshold élimine trop de résultats et que guaranteeTopK est actif,
+  // on conserve les topK meilleurs scores du périmètre pour garantir la présence de k résultats.
+  const guarantee = opts.guaranteeTopK !== undefined ? opts.guaranteeTopK : (effectiveFilter !== undefined);
+  const candidatesToRank = (guarantee && scoredResults.length < opts.topK && allScoredInPerimeter.length > scoredResults.length)
+    ? allScoredInPerimeter
+    : scoredResults;
+
   // Tri décroissant par score de similarité cosinus
-  scoredResults.sort((a, b) => b.score - a.score);
+  candidatesToRank.sort((a, b) => b.score - a.score);
 
   const topK = Math.max(1, opts.topK);
-  const sliced = scoredResults.slice(0, topK);
+  const sliced = candidatesToRank.slice(0, topK);
 
   return sliced.map((item, idx) => ({
     chunk: item.chunk,

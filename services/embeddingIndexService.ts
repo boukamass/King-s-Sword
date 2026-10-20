@@ -16,8 +16,17 @@
  */
 
 import { SermonChunk } from '../types';
-import { computeChunkHash } from './chunkingService';
-import { saveChunks, getChunkById, getAllChunks, flushChunkStorage } from './chunkStorageService';
+import { computeChunkHash, computeParagraphSha1 } from './chunkingService';
+import {
+  saveChunks,
+  getChunkById,
+  getAllChunks,
+  flushChunkStorage,
+  loadIndexingCheckpoint,
+  saveIndexingCheckpoint,
+  clearIndexingCheckpoint,
+  IndexingCheckpoint
+} from './chunkStorageService';
 import { LOCAL_E5_CONFIG, validateEmbeddingVector } from './embeddingService';
 import { computeE5BatchInWorker } from './e5WorkerManager';
 import { useAppStore } from '../store';
@@ -102,7 +111,7 @@ export function getIndexingControlsState(): {
 }
 
 export interface EmbeddingIndexOptions {
-  batchSize?: number;            // Taille des lots (défaut : 6)
+  batchSize?: number;            // Taille des lots (défaut : 6 ou 8)
   maxRetries?: number;           // Tentatives max (défaut : 3)
   initialBackoffMs?: number;     // Délai initial (défaut : 1000)
   maxBackoffMs?: number;         // Délai max (défaut : 30000)
@@ -110,6 +119,8 @@ export interface EmbeddingIndexOptions {
   dryRun?: boolean;              // Mode simulation
   apiKey?: string;
   onProgress?: (progress: EmbeddingIndexResult) => void;
+  checkpointIntervalSeconds?: number; // Intervalle de sauvegarde checkpoint (défaut : 5s)
+  enableCheckpoints?: boolean;   // Active la reprise sur checkpoint (Étape 5)
 }
 
 export interface EmbeddingIndexResult {
@@ -190,14 +201,16 @@ export async function runIncrementalEmbeddingIndexing(
   const startTime = performance.now();
 
   const opts: Required<EmbeddingIndexOptions> = {
-    batchSize: options?.batchSize ?? 6,
+    batchSize: options?.batchSize ?? 8,
     maxRetries: options?.maxRetries ?? 3,
     initialBackoffMs: options?.initialBackoffMs ?? 1000,
     maxBackoffMs: options?.maxBackoffMs ?? 30000,
     delayBetweenBatchesMs: options?.delayBetweenBatchesMs ?? 10,
     dryRun: options?.dryRun ?? false,
     apiKey: options?.apiKey || '',
-    onProgress: options?.onProgress || (() => {})
+    onProgress: options?.onProgress || (() => {}),
+    checkpointIntervalSeconds: options?.checkpointIntervalSeconds ?? 5,
+    enableCheckpoints: options?.enableCheckpoints ?? true
   };
 
   if (!Array.isArray(incomingChunks) || incomingChunks.length === 0) {
@@ -244,11 +257,26 @@ export async function runIncrementalEmbeddingIndexing(
     return res;
   }
 
+  // REPRISE SUR CHECKPOINT (Étape 5)
+  const checkpointIntervalMs = opts.checkpointIntervalSeconds * 1000;
+  let lastCheckpointTime = performance.now();
+  let resumedCheckpoint: IndexingCheckpoint | null = null;
+  if (opts.enableCheckpoints) {
+    try {
+      const cp = await loadIndexingCheckpoint();
+      if (cp && cp.totalChunks === incomingChunks.length && Array.isArray(cp.completedChunkIds) && cp.completedChunkIds.length > 0) {
+        resumedCheckpoint = cp;
+      }
+    } catch (e) {
+      console.warn('[EmbeddingIndex] Reprise checkpoint ignorée:', e);
+    }
+  }
+
   // 1. Récupération des chunks existants
   const existingChunksList = await getAllChunks();
   const existingMap = new Map<string, SermonChunk>(existingChunksList.map(c => [c.chunkId, c]));
 
-  // 2. Classification incrémentale (Cas A, B, C, D)
+  // 2. Classification incrémentale (Cas A, B, C, D) avec hash SHA-1 de paragraphe (Étape 5)
   let caseA = 0;
   let caseB = 0;
   let caseC = 0;
@@ -256,17 +284,41 @@ export async function runIncrementalEmbeddingIndexing(
 
   const chunksToEmbed: SermonChunk[] = [];
   const processedChunksMap = new Map<string, SermonChunk>();
+  const completedFromCheckpoint = resumedCheckpoint ? new Set(resumedCheckpoint.completedChunkIds) : null;
 
   for (const rawChunk of incomingChunks) {
     const computedHash = computeChunkHash(rawChunk.sermonId, rawChunk.paragraphIds, rawChunk.text);
-    const chunk: SermonChunk = { ...rawChunk, contentHash: computedHash };
+    const computedSha1 = rawChunk.paragraphSha1 || computeParagraphSha1(rawChunk.text);
+    const chunk: SermonChunk = {
+      ...rawChunk,
+      contentHash: rawChunk.contentHash || computedHash,
+      paragraphSha1: computedSha1
+    };
     const existing = existingMap.get(chunk.chunkId);
+
+    // Si repris d'un checkpoint et que le chunk a déjà un embedding valide persisté
+    if (completedFromCheckpoint && completedFromCheckpoint.has(chunk.chunkId) && existing) {
+      const hasValidEmbedding = existing.embedding && (
+        validateEmbeddingVector(existing.embedding, LOCAL_E5_CONFIG.dimension).valid ||
+        validateEmbeddingVector(existing.embedding, 768).valid
+      );
+      if (hasValidEmbedding) {
+        caseB++;
+        processedChunksMap.set(chunk.chunkId, { ...chunk, embedding: existing.embedding });
+        continue;
+      }
+    }
 
     if (!existing) {
       caseA++;
       chunksToEmbed.push(chunk);
     } else {
-      const isSameHash = existing.contentHash === computedHash;
+      const isSameHash = Boolean(
+        (existing.paragraphSha1 && chunk.paragraphSha1 && existing.paragraphSha1 === chunk.paragraphSha1) ||
+        (existing.contentHash === computedHash) ||
+        (existing.contentHash === chunk.paragraphSha1) ||
+        (existing.paragraphSha1 && chunk.contentHash === existing.paragraphSha1)
+      );
       const hasValidEmbedding = existing.embedding && (
         validateEmbeddingVector(existing.embedding, LOCAL_E5_CONFIG.dimension).valid ||
         validateEmbeddingVector(existing.embedding, 768).valid
@@ -442,6 +494,26 @@ export async function runIncrementalEmbeddingIndexing(
       if (chunksToSave.length > 0) {
         await saveChunks(chunksToSave);
       }
+
+      // SAUVEGARDE DE LA PROGRESSION TOUTES LES N SECONDES (CHECKPOINT ÉTAPE 5)
+      if (opts.enableCheckpoints && (performance.now() - lastCheckpointTime >= checkpointIntervalMs)) {
+        try {
+          await flushChunkStorage();
+          await saveIndexingCheckpoint({
+            checkpointId: `cp-${Date.now()}`,
+            savedAt: new Date().toISOString(),
+            totalChunks: incomingChunks.length,
+            completedChunkIds: Array.from(processedChunksMap.keys()),
+            embeddingsCompleted,
+            embeddingsFailed,
+            alreadyIndexed,
+            details: { caseA, caseB, caseC, caseD }
+          });
+          lastCheckpointTime = performance.now();
+        } catch (e) {
+          console.warn('[EmbeddingIndex] Sauvegarde checkpoint périodique:', e);
+        }
+      }
     } catch (err: any) {
       embeddingsFailed += batch.length;
       errors.push({ chunkId: batch[0]?.chunkId || 'batch', error: err?.message || String(err) });
@@ -492,6 +564,13 @@ export async function runIncrementalEmbeddingIndexing(
     await flushChunkStorage();
   } catch (e) {
     console.warn('[EmbeddingIndex] Erreur flush stockage:', e);
+  }
+
+  // Nettoyage du checkpoint une fois l'indexation terminée avec succès (Étape 5)
+  if (opts.enableCheckpoints) {
+    try {
+      await clearIndexingCheckpoint();
+    } catch (e) {}
   }
 
   const finalElapsedMs = Math.round((performance.now() - startTime) * 100) / 100;

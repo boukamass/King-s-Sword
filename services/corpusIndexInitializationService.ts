@@ -498,18 +498,78 @@ export async function initializeCorpusIndex(options: {
       corpusVersion
     });
 
-    // CHUNKING (et indexation FTS5 texte immédiate)
+    // Vérification prioritaire de l'index pré-calculé complet (Étape 1)
+    if (!options.forceReindex) {
+      try {
+        const { loadPrecalculatedIndex } = await import('./precalculatedIndexService');
+        const precalc = await loadPrecalculatedIndex();
+        if (precalc.valid && precalc.hydratedChunks && precalc.hydratedChunks.length > 0) {
+          console.log(`[CorpusIndexInit] ✓ Index pré-calculé valide chargé instantanément (${precalc.hydratedChunks.length} chunks, 0ms recalcul).`);
+          notifyProgressUpdate({
+            status: 'READY',
+            embeddingsCreated: 0,
+            embeddingsReused: precalc.hydratedChunks.length,
+            chunksProcessed: precalc.hydratedChunks.length,
+            totalChunks: precalc.hydratedChunks.length,
+            sermonsProcessed: totalSermonsCount,
+            totalSermons: totalSermonsCount,
+            etaFormatted: 'Terminé',
+            lastIndexedAt: new Date().toISOString(),
+            errorMessage: null
+          });
+          isIndexingInProgress = false;
+          stopWatchdog();
+
+          // ÉTAPE 4 : Persistance asynchrone non-bloquante dans le stockage local (Background Worker & Storage Hydration)
+          const scheduleBackgroundSave = typeof window !== 'undefined' && 'requestIdleCallback' in window
+            ? (fn: () => void) => (window as any).requestIdleCallback(fn, { timeout: 10000 })
+            : (fn: () => void) => setTimeout(fn, 1000);
+
+          scheduleBackgroundSave(() => {
+            saveChunks(precalc.hydratedChunks).catch(err => {
+              console.warn('[CorpusIndexInit] Sauvegarde asynchrone arrière-plan (Étape 4):', err);
+            });
+          });
+
+          return getCurrentIndexProgress();
+        } else {
+          console.log(`[CorpusIndexInit] ⚠️ Index pré-calculé non valide ou obsolète (${precalc.reason || 'inconnu'}). Reconstruction automatique déclenchée...`);
+        }
+      } catch (err) {
+        console.warn('[CorpusIndexInit] Erreur vérification index précalculé:', err);
+      }
+    }
+
+    // 1. CHUNKING
     notifyProgressUpdate({ status: 'CHUNKING' });
+    const tChunkStart = performance.now();
+    console.time('[Diagnostic Indexation] 1. Temps de chunking');
     const sermonChunks = createLibraryChunks(librarySermonsOnly);
     const exposeChunks = await createExposeDocumentChunks();
     const officialChunks = [...sermonChunks, ...exposeChunks];
+    console.timeEnd('[Diagnostic Indexation] 1. Temps de chunking');
+    const tChunkElapsed = Math.round((performance.now() - tChunkStart) * 100) / 100;
+    console.log(`[Diagnostic Indexation] ✓ Chunking terminé : ${officialChunks.length} chunks en ${tChunkElapsed} ms`);
     
     notifyProgressUpdate({
       totalChunks: officialChunks.length,
       sermonsProcessed: 0
     });
 
-    // Hydratation immédiate avec les embeddings précalculés (0ms de calcul)
+    // 2. INDEXATION BM25 / VOCABULAIRE
+    const tBm25Start = performance.now();
+    console.time('[Diagnostic Indexation] 2. Temps indexation BM25');
+    try {
+      const { buildCorpusVocabulary } = await import('./corpusVocabularyService');
+      const vocab = buildCorpusVocabulary(officialChunks);
+      console.timeEnd('[Diagnostic Indexation] 2. Temps indexation BM25');
+      const tBm25Elapsed = Math.round((performance.now() - tBm25Start) * 100) / 100;
+      console.log(`[Diagnostic Indexation] ✓ Indexation BM25 terminée : ${vocab.terms.size} termes uniques en ${tBm25Elapsed} ms`);
+    } catch (e) {
+      console.warn('[Diagnostic Indexation] Indexation BM25 ignorée:', e);
+    }
+
+    // Hydratation immédiate avec les embeddings précalculés (0ms de calcul si présents)
     try {
       await hydrateExposePrecalculatedEmbeddings(officialChunks);
     } catch (e) {
@@ -554,8 +614,13 @@ export async function initializeCorpusIndex(options: {
       return getCurrentIndexProgress();
     }
 
-    // Sauvegarde dans FTS5 / Storage pour recherche lexicale textuelle instantanée
+    // 3. ÉCRITURE SUR DISQUE / STOCKAGE DES CHUNKS
+    const tWriteStart = performance.now();
+    console.time('[Diagnostic Indexation] 3. Temps écriture disque (chunks)');
     await saveChunks(officialChunks);
+    console.timeEnd('[Diagnostic Indexation] 3. Temps écriture disque (chunks)');
+    const tWriteElapsed = Math.round((performance.now() - tWriteStart) * 100) / 100;
+    console.log(`[Diagnostic Indexation] ✓ Écriture disque (chunks) terminée en ${tWriteElapsed} ms`);
 
     // Inspection des embeddings existants
     const existingStored = await getAllChunks();
@@ -564,8 +629,14 @@ export async function initializeCorpusIndex(options: {
     let alreadyValidCount = 0;
     for (const chunk of officialChunks) {
       const stored = existingMap.get(chunk.chunkId);
-      if (stored && stored.contentHash === computeChunkHash(chunk.sermonId, chunk.paragraphIds, chunk.text)) {
-        if (stored.embedding && (validateEmbeddingVector(stored.embedding, 384).valid || validateEmbeddingVector(stored.embedding, 768).valid)) {
+      if (stored) {
+        const isMatch = Boolean(
+          (stored.paragraphSha1 && chunk.paragraphSha1 && stored.paragraphSha1 === chunk.paragraphSha1) ||
+          (stored.contentHash && stored.contentHash === computeChunkHash(chunk.sermonId, chunk.paragraphIds, chunk.text)) ||
+          (stored.contentHash && chunk.paragraphSha1 && stored.contentHash === chunk.paragraphSha1) ||
+          (stored.paragraphSha1 && stored.paragraphSha1 === chunk.contentHash)
+        );
+        if (isMatch && stored.embedding && (validateEmbeddingVector(stored.embedding, 384).valid || validateEmbeddingVector(stored.embedding, 768).valid)) {
           alreadyValidCount++;
         }
       }
@@ -599,11 +670,13 @@ export async function initializeCorpusIndex(options: {
       return getCurrentIndexProgress();
     }
 
-    // EMBEDDING VECTORIEL EN ARRIÈRE-PLAN DÉPORTÉ WORKER
+    // 4. CALCUL DES EMBEDDINGS VECTORIELS
     notifyProgressUpdate({ status: 'EMBEDDING' });
+    const tEmbedStart = performance.now();
+    console.time('[Diagnostic Indexation] 4. Temps calcul embeddings E5');
 
     const indexResult = await runIncrementalEmbeddingIndexing(officialChunks, {
-      batchSize: options.batchSize || 6,
+      batchSize: options.batchSize || 8,
       delayBetweenBatchesMs: 10,
       maxRetries: 3,
       onProgress: (res: EmbeddingIndexResult) => {
@@ -626,6 +699,9 @@ export async function initializeCorpusIndex(options: {
         });
       }
     });
+    console.timeEnd('[Diagnostic Indexation] 4. Temps calcul embeddings E5');
+    const tEmbedElapsed = Math.round((performance.now() - tEmbedStart) * 100) / 100;
+    console.log(`[Diagnostic Indexation] ✓ Calcul embeddings E5 terminé : ${indexResult.embeddingsCompleted} créés (${tEmbedElapsed} ms)`);
 
     const finalStored = await getAllChunks();
     let finalValidCount = 0;

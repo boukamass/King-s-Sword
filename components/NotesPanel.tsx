@@ -74,6 +74,23 @@ const NoteCard = memo(({
   const [showPicker, setShowPicker] = useState(false);
   const [customThemeInput, setCustomThemeInput] = useState('');
   const [isAddingCustomTheme, setIsAddingCustomTheme] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showPicker) return;
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setShowPicker(false);
+        setIsAddingCustomTheme(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [showPicker]);
 
   const color = PALETTE_COLORS.find(c => c.key === n.color) || PALETTE_COLORS[0];
   const themeName = n.theme || 'Général';
@@ -207,6 +224,7 @@ const NoteCard = memo(({
       {/* Popover Theme & Color Selector */}
       {showPicker && (
         <div 
+          ref={pickerRef}
           onClick={e => e.stopPropagation()}
           className="absolute left-2 right-2 top-full mt-1 z-50 p-2.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl text-xs space-y-2 animate-in fade-in zoom-in-95"
         >
@@ -667,33 +685,24 @@ const NotesPanel: React.FC = () => {
         className="hidden" 
       />
 
-      {/* Header bar */}
-      <div className="px-3.5 h-13 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between shrink-0 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md z-40">
-        <button 
+      {/* Header bar identique en tout point à l'assistant IA */}
+      <div className="px-5 h-14 border-b border-zinc-100 dark:border-zinc-800/50 flex items-center justify-between shrink-0 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-3xl z-30">
+        <div 
           onClick={toggleNotes}
-          className="flex items-center gap-2.5 group"
-          data-tooltip={t.tooltip_close}
+          className="flex items-center gap-3 cursor-pointer group/notes-title hover:opacity-80 transition-all active:scale-95"
+          data-tooltip="Masquer / Fermer le journal de notes"
         >
-          <div className="w-7 h-7 flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-lg border border-teal-600/20 shadow-xs group-hover:bg-teal-600 group-hover:text-white transition-all">
-            <NotebookPen className="w-3.5 h-3.5" />
+          <div className="w-7 h-7 flex items-center justify-center bg-teal-600/10 text-teal-600 rounded-lg border border-teal-600/20 shadow-lg group-hover/notes-title:border-teal-600/40 transition-all">
+            <NotebookPen className="w-4 h-4" />
           </div>
-          <h2 className="text-[11px] font-black uppercase tracking-wider text-zinc-900 dark:text-zinc-100 group-hover:text-teal-600 transition-colors">
-            {t.reader_notes}
-          </h2>
-        </button>
+          <div className="flex items-center gap-2">
+            <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-900 dark:text-zinc-50 leading-none group-hover/notes-title:text-teal-600 transition-colors">
+              {t.reader_notes || "JOURNAL DE NOTES"}
+            </h2>
+          </div>
+        </div>
 
-        <div className="flex items-center gap-1">
-          <button 
-            data-tooltip="Gérer les Thèmes" 
-            onClick={() => setShowThemeManager(!showThemeManager)} 
-            className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all active:scale-90 ${
-              showThemeManager 
-                ? 'bg-teal-600 text-white shadow-xs' 
-                : 'text-zinc-500 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/30'
-            }`}
-          >
-            <FolderKanban className="w-3.5 h-3.5" />
-          </button>
+        <div className="flex items-center gap-1.5">
           <button 
             data-tooltip="Sauvegarder / Exporter les notes" 
             onClick={handleExportBackup} 
@@ -716,11 +725,11 @@ const NotesPanel: React.FC = () => {
             <Plus className="w-3.5 h-3.5" />
           </button>
           <button 
-            data-tooltip={t.tooltip_close} 
             onClick={toggleNotes} 
-            className="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-red-500 rounded-lg transition-colors hover:bg-red-50 dark:hover:bg-red-900/20 active:scale-95"
+            data-tooltip="Fermer le journal de notes" 
+            className="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-red-500 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 active:scale-90"
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
       </div>

@@ -1,0 +1,92 @@
+[
+  {
+    "id": 1,
+    "query": "Car Dieu a tant aime le monde quil a donne son Fils unique",
+    "type": "bible",
+    "top1_F32": "bible-JHN-3_c6_v16_v19",
+    "top1_I8": "bible-JHN-3_c6_v16_v19",
+    "top1Match": true,
+    "overlapAt10": "10/10 (100%)"
+  },
+  {
+    "id": 2,
+    "query": "Au commencement Dieu crea les cieux et la terre",
+    "type": "bible",
+    "top1_F32": "[Réf: Genèse 1:1-4 (Darby)]",
+    "top1_I8": "[Réf: Genèse 1:1-4 (Darby)]",
+    "top1Match": true,
+    "overlapAt10": "9/10 (90%)"
+  },
+  {
+    "id": 3,
+    "query": "L Eternel est mon berger je ne manquerai de rien",
+    "type": "bible",
+    "top1_F32": "bible-PSA-23_c1_v1_v4",
+    "top1_I8": "bible-PSA-23_c1_v1_v4",
+    "top1Match": true,
+    "overlapAt10": "9/10 (90%)"
+  },
+  {
+    "id": 4,
+    "query": "Aux jours de la voix du septieme ange le mystere de Dieu saccomplira",
+    "type": "bible",
+    "top1_F32": "[Réf: Apocalypse 10:7-9 (Darby)]",
+    "top1_I8": "[Réf: Apocalypse 10:7-9 (Darby)]",
+    "top1Match": true,
+    "overlapAt10": "10/10 (100%)"
+  },
+  {
+    "id": 5,
+    "query": "Crois seulement tout est possible crois seulement",
+    "type": "chant",
+    "top1_F32": "song-276_c2_p2",
+    "top1_I8": "song-276_c2_p2",
+    "top1Match": true,
+    "overlapAt10": "10/10 (100%)"
+  },
+  {
+    "id": 6,
+    "query": "Quel ami fidele et tendre nous avons en Jesus-Christ",
+    "type": "chant",
+    "top1_F32": "song-403_c2_p2",
+    "top1_I8": "song-403_c2_p2",
+    "top1Match": true,
+    "overlapAt10": "9/10 (90%)"
+  },
+  {
+    "id": 7,
+    "query": "Grace infinie qui sauva un pauvre miserable comme moi",
+    "type": "chant",
+    "top1_F32": "[Réf: Juges 6:15-18 (Darby)]",
+    "top1_I8": "[Réf: Juges 6:15-18 (Darby)]",
+    "top1Match": true,
+    "overlapAt10": "10/10 (100%)"
+  },
+  {
+    "id": 8,
+    "query": "La semence du serpent et la perversion de la Parole divine",
+    "type": "sermon",
+    "top1_F32": "expose-ch-3_c131_p137_p137",
+    "top1_I8": "expose-ch-3_c131_p137_p137",
+    "top1Match": true,
+    "overlapAt10": "10/10 (100%)"
+  },
+  {
+    "id": 9,
+    "query": "Le cavalier sur le cheval blanc et la tromperie religieuse",
+    "type": "sermon",
+    "top1_F32": "[63-0324M]",
+    "top1_I8": "[63-0324M]",
+    "top1Match": true,
+    "overlapAt10": "9/10 (90%)"
+  },
+  {
+    "id": 10,
+    "query": "La nourriture spirituelle au temps convenable et la manne cachee",
+    "type": "sermon",
+    "top1_F32": "expose-ch-5_c212_p233_p233",
+    "top1_I8": "expose-ch-5_c212_p233_p233",
+    "top1Match": true,
+    "overlapAt10": "9/10 (90%)"
+  }
+]

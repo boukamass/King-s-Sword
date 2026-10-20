@@ -11,6 +11,136 @@ import { SermonChunk } from '../types';
 import { get, set, del } from 'idb-keyval';
 
 const WEB_CHUNKS_KEY = 'ks_sermon_chunks_store_v1';
+export const INDEXING_CHECKPOINT_KEY = 'ks_indexing_checkpoint_v1';
+
+export interface IndexingCheckpoint {
+  checkpointId: string;
+  savedAt: string;
+  totalChunks: number;
+  /**
+   * Structure compacte remplaçant le tableau lourd de milliers de string chunk_id :
+   * - compactBitset: chaîne Base64 représentant un bitmap compact (1 bit par chunk).
+   *   Pour 37 450 chunks, cela ne pèse que 4.6 Ko au lieu de 1.5 Mo de strings !
+   * - completedRanges: liste compacte d'intervalles [start, end] consécutifs déjà complétés.
+   * - completedChunkIds: conservé en optionnel pour stricte rétrocompatibilité.
+   */
+  compactBitset?: string;
+  completedRanges?: Array<[number, number]>;
+  completedChunkIds?: string[];
+  lastProcessedIndex?: number;
+  embeddingsCompleted: number;
+  embeddingsFailed: number;
+  alreadyIndexed: number;
+  details?: { caseA: number; caseB: number; caseC: number; caseD: number };
+}
+
+/**
+ * Fonctions utilitaires pour le bitmap compact de checkpoint.
+ */
+export function createCompactBitset(totalChunks: number): Uint8Array {
+  const byteLen = Math.ceil(totalChunks / 8);
+  return new Uint8Array(byteLen);
+}
+
+export function setChunkInBitset(bitset: Uint8Array, index: number): void {
+  const byteIdx = index >> 3;
+  const bitIdx = index & 7;
+  if (byteIdx < bitset.length) {
+    bitset[byteIdx] |= (1 << bitIdx);
+  }
+}
+
+export function isChunkInBitset(bitset: Uint8Array, index: number): boolean {
+  const byteIdx = index >> 3;
+  const bitIdx = index & 7;
+  if (byteIdx >= bitset.length) return false;
+  return (bitset[byteIdx] & (1 << bitIdx)) !== 0;
+}
+
+export function bitsetToBase64(bitset: Uint8Array): string {
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(bitset.buffer, bitset.byteOffset, bitset.byteLength).toString('base64');
+  }
+  let binary = '';
+  for (let i = 0; i < bitset.byteLength; i++) {
+    binary += String.fromCharCode(bitset[i]);
+  }
+  return btoa(binary);
+}
+
+export function base64ToBitset(b64: string): Uint8Array {
+  if (typeof Buffer !== 'undefined') {
+    const buf = Buffer.from(b64, 'base64');
+    return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+  }
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+export function bitsetToRanges(bitset: Uint8Array, totalChunks: number): Array<[number, number]> {
+  const ranges: Array<[number, number]> = [];
+  let inRange = false;
+  let start = 0;
+
+  for (let i = 0; i < totalChunks; i++) {
+    const isSet = isChunkInBitset(bitset, i);
+    if (isSet && !inRange) {
+      inRange = true;
+      start = i;
+    } else if (!isSet && inRange) {
+      inRange = false;
+      ranges.push([start, i - 1]);
+    }
+  }
+  if (inRange) {
+    ranges.push([start, totalChunks - 1]);
+  }
+  return ranges;
+}
+
+let inMemoryCheckpoint: IndexingCheckpoint | null = null;
+
+export async function saveIndexingCheckpoint(checkpoint: IndexingCheckpoint): Promise<void> {
+  inMemoryCheckpoint = checkpoint;
+  if (typeof indexedDB !== 'undefined') {
+    try {
+      await set(INDEXING_CHECKPOINT_KEY, checkpoint);
+    } catch (e) {
+      // ignore
+    }
+  }
+}
+
+export async function loadIndexingCheckpoint(): Promise<IndexingCheckpoint | null> {
+  if (inMemoryCheckpoint) return inMemoryCheckpoint;
+  if (typeof indexedDB !== 'undefined') {
+    try {
+      const stored = await get<IndexingCheckpoint>(INDEXING_CHECKPOINT_KEY);
+      if (stored) {
+        inMemoryCheckpoint = stored;
+        return stored;
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+  return null;
+}
+
+export async function clearIndexingCheckpoint(): Promise<void> {
+  inMemoryCheckpoint = null;
+  if (typeof indexedDB !== 'undefined') {
+    try {
+      await del(INDEXING_CHECKPOINT_KEY);
+    } catch (e) {
+      // ignore
+    }
+  }
+}
 
 // Cache mémoire pour accès synchrone rapide en mode Web
 let webMemoryCache: Map<string, SermonChunk> | null = null;
@@ -106,7 +236,14 @@ export async function saveChunks(
     // Si le chunk entrant définit explicitement embedding comme null/undefined, forcer la mise à jour pour le Cas D
     const isExplicitClearEmbedding = ('embedding' in chunk) && (chunk.embedding === null || chunk.embedding === undefined) && hasExistingEmbedding;
 
-    if (!isExplicitClearEmbedding && existing && existing.contentHash && existing.contentHash === chunk.contentHash && (!incomingHasEmbedding || hasExistingEmbedding)) {
+    const isSameHash = Boolean(existing && (
+      (existing.paragraphSha1 && chunk.paragraphSha1 && existing.paragraphSha1 === chunk.paragraphSha1) ||
+      (existing.contentHash && chunk.contentHash && existing.contentHash === chunk.contentHash) ||
+      (existing.contentHash && chunk.paragraphSha1 && existing.contentHash === chunk.paragraphSha1) ||
+      (existing.paragraphSha1 && chunk.contentHash && existing.paragraphSha1 === chunk.contentHash)
+    ));
+
+    if (!isExplicitClearEmbedding && existing && isSameHash && (!incomingHasEmbedding || hasExistingEmbedding)) {
       unchanged++;
     } else {
       cache.set(chunk.chunkId, {
@@ -248,10 +385,18 @@ export function detectChangedChunks(
     const existing = existingMap.get(inc.chunkId);
     if (!existing) {
       newChunks.push(inc);
-    } else if (existing.contentHash && inc.contentHash && existing.contentHash === inc.contentHash) {
-      unchangedChunks.push(inc);
     } else {
-      changedChunks.push(inc);
+      const isUnchanged = Boolean(
+        (existing.paragraphSha1 && inc.paragraphSha1 && existing.paragraphSha1 === inc.paragraphSha1) ||
+        (existing.contentHash && inc.contentHash && existing.contentHash === inc.contentHash) ||
+        (existing.contentHash && inc.paragraphSha1 && existing.contentHash === inc.paragraphSha1) ||
+        (existing.paragraphSha1 && inc.contentHash && existing.paragraphSha1 === inc.contentHash)
+      );
+      if (isUnchanged) {
+        unchangedChunks.push(inc);
+      } else {
+        changedChunks.push(inc);
+      }
     }
   }
 
