@@ -1,0 +1,297 @@
+{
+  "metadata": {
+    "indexVersion": "1.0.0",
+    "modelId": "Xenova/multilingual-e5-small",
+    "modelVersion": "1.0.0",
+    "quantization": "int8",
+    "chunkingVersion": "1.0.0",
+    "corpusHash": "90a945fa220bbe07498b1a1f81f51f4771af1857e30a71eac0e50dc129bf8b42",
+    "sourceJsonSha256": "6e1a47185467be0f1dbf1834fabb1cd98a6d0b779fe5752f78c4ef7d62e2c944",
+    "totalSermons": 4,
+    "totalChunks": 16,
+    "dimension": 384,
+    "generatedAt": "2026-10-22T04:39:27.486Z"
+  },
+  "chunks": [
+    {
+      "chunkId": "63-0324M_c1_p1_p2",
+      "sermonId": "63-0324M",
+      "paragraphIds": [
+        1,
+        2
+      ],
+      "startParagraph": 1,
+      "endParagraph": 2,
+      "sermonTitle": "Questions Et Réponses Sur Les Sceaux",
+      "date": "1963-03-24",
+      "city": "Jeffersonville",
+      "version": "VGR",
+      "characterCount": 747,
+      "wordCount": 124,
+      "contentHash": "h_599bf43337f65bfd",
+      "paragraphSha1": "3fe49dffc93632e41cc183e7736c719541d0883c"
+    },
+    {
+      "chunkId": "63-0324M_c2_p2_p2",
+      "sermonId": "63-0324M",
+      "paragraphIds": [
+        2
+      ],
+      "startParagraph": 2,
+      "endParagraph": 2,
+      "sermonTitle": "Questions Et Réponses Sur Les Sceaux",
+      "date": "1963-03-24",
+      "city": "Jeffersonville",
+      "version": "VGR",
+      "characterCount": 487,
+      "wordCount": 83,
+      "contentHash": "h_9eb8617f2a61630c",
+      "paragraphSha1": "79f2511fa9457e96d6312b24e67c487ffba07fec"
+    },
+    {
+      "chunkId": "63-0324M_c3_p3_p3",
+      "sermonId": "63-0324M",
+      "paragraphIds": [
+        3
+      ],
+      "startParagraph": 3,
+      "endParagraph": 3,
+      "sermonTitle": "Questions Et Réponses Sur Les Sceaux",
+      "date": "1963-03-24",
+      "city": "Jeffersonville",
+      "version": "VGR",
+      "characterCount": 687,
+      "wordCount": 112,
+      "contentHash": "h_2581859dc3fb0028",
+      "paragraphSha1": "f826bc074bbc18b7ba8152a09bc2ca93e31f8d4d"
+    },
+    {
+      "chunkId": "63-0324M_c4_p4_p5",
+      "sermonId": "63-0324M",
+      "paragraphIds": [
+        4,
+        5
+      ],
+      "startParagraph": 4,
+      "endParagraph": 5,
+      "sermonTitle": "Questions Et Réponses Sur Les Sceaux",
+      "date": "1963-03-24",
+      "city": "Jeffersonville",
+      "version": "VGR",
+      "characterCount": 513,
+      "wordCount": 84,
+      "contentHash": "h_83ede4422a463c2d",
+      "paragraphSha1": "4a5cce7aa999abe4cd86f31a74a85b40b70a78ab"
+    },
+    {
+      "chunkId": "63-0324M_c5_p5_p5",
+      "sermonId": "63-0324M",
+      "paragraphIds": [
+        5
+      ],
+      "startParagraph": 5,
+      "endParagraph": 5,
+      "sermonTitle": "Questions Et Réponses Sur Les Sceaux",
+      "date": "1963-03-24",
+      "city": "Jeffersonville",
+      "version": "VGR",
+      "characterCount": 102,
+      "wordCount": 19,
+      "contentHash": "h_eede4b148239edf6",
+      "paragraphSha1": "aa11f019c6e6edee0548ef3c7d2a811671eebfba"
+    },
+    {
+      "chunkId": "65-1212_c1_p1_p2",
+      "sermonId": "65-1212",
+      "paragraphIds": [
+        1,
+        2
+      ],
+      "startParagraph": 1,
+      "endParagraph": 2,
+      "sermonTitle": "La Communion",
+      "date": "1965-12-12",
+      "city": "Tucson",
+      "version": "Shp",
+      "characterCount": 848,
+      "wordCount": 147,
+      "contentHash": "h_5cf53aa9fec845bf",
+      "paragraphSha1": "9795953ad6b59808847dc627e6423ee5715abbbe"
+    },
+    {
+      "chunkId": "65-1212_c2_p2_p3",
+      "sermonId": "65-1212",
+      "paragraphIds": [
+        2,
+        3
+      ],
+      "startParagraph": 2,
+      "endParagraph": 3,
+      "sermonTitle": "La Communion",
+      "date": "1965-12-12",
+      "city": "Tucson",
+      "version": "Shp",
+      "characterCount": 872,
+      "wordCount": 150,
+      "contentHash": "h_446cc348f11d461c",
+      "paragraphSha1": "c44f6bb7d6cb9c5e607401707801d29849baa861"
+    },
+    {
+      "chunkId": "65-1212_c3_p3_p3",
+      "sermonId": "65-1212",
+      "paragraphIds": [
+        3
+      ],
+      "startParagraph": 3,
+      "endParagraph": 3,
+      "sermonTitle": "La Communion",
+      "date": "1965-12-12",
+      "city": "Tucson",
+      "version": "Shp",
+      "characterCount": 323,
+      "wordCount": 54,
+      "contentHash": "h_d16b5df193fc49c9",
+      "paragraphSha1": "a8ec08ba1e4314c42060ffa4a88afe45af5e86ca"
+    },
+    {
+      "chunkId": "64-0719M_c1_p1_p2",
+      "sermonId": "64-0719M",
+      "paragraphIds": [
+        1,
+        2
+      ],
+      "startParagraph": 1,
+      "endParagraph": 2,
+      "sermonTitle": "La Fête Des Trompettes",
+      "date": "1964-07-19",
+      "city": "Jeffersonville",
+      "version": "VGR",
+      "characterCount": 668,
+      "wordCount": 108,
+      "contentHash": "h_8ef7009eab891b58",
+      "paragraphSha1": "847805af1e3d7a1a49582e4478090f505733ee6a"
+    },
+    {
+      "chunkId": "64-0719M_c2_p2_p2",
+      "sermonId": "64-0719M",
+      "paragraphIds": [
+        2
+      ],
+      "startParagraph": 2,
+      "endParagraph": 2,
+      "sermonTitle": "La Fête Des Trompettes",
+      "date": "1964-07-19",
+      "city": "Jeffersonville",
+      "version": "VGR",
+      "characterCount": 565,
+      "wordCount": 89,
+      "contentHash": "h_ec9971a0949a6d9e",
+      "paragraphSha1": "7bcea6b7dd3542c5a9787b0ce8f8d7a380b36179"
+    },
+    {
+      "chunkId": "64-0719M_c3_p3_p4",
+      "sermonId": "64-0719M",
+      "paragraphIds": [
+        3,
+        4
+      ],
+      "startParagraph": 3,
+      "endParagraph": 4,
+      "sermonTitle": "La Fête Des Trompettes",
+      "date": "1964-07-19",
+      "city": "Jeffersonville",
+      "version": "VGR",
+      "characterCount": 670,
+      "wordCount": 110,
+      "contentHash": "h_71f5a89c11c9b49b",
+      "paragraphSha1": "a910f9538a40d6647052793df27b2d762f654919"
+    },
+    {
+      "chunkId": "64-0719M_c4_p4_p4",
+      "sermonId": "64-0719M",
+      "paragraphIds": [
+        4
+      ],
+      "startParagraph": 4,
+      "endParagraph": 4,
+      "sermonTitle": "La Fête Des Trompettes",
+      "date": "1964-07-19",
+      "city": "Jeffersonville",
+      "version": "VGR",
+      "characterCount": 98,
+      "wordCount": 16,
+      "contentHash": "h_d9bc02cb52bd98cd",
+      "paragraphSha1": "afdd8f8e1aaa0e47db40a5ab3ca1d4680712715c"
+    },
+    {
+      "chunkId": "65-0725M_c1_p1_p2",
+      "sermonId": "65-0725M",
+      "paragraphIds": [
+        1,
+        2
+      ],
+      "startParagraph": 1,
+      "endParagraph": 2,
+      "sermonTitle": "Les Oints Du Temps De La Fin",
+      "date": "1965-07-25",
+      "city": "Jeffersonville",
+      "version": "VGR",
+      "characterCount": 736,
+      "wordCount": 126,
+      "contentHash": "h_06761e99f49e9235",
+      "paragraphSha1": "317b88e05adce5374acd7e3d40953751a48ac11e"
+    },
+    {
+      "chunkId": "65-0725M_c2_p2_p2",
+      "sermonId": "65-0725M",
+      "paragraphIds": [
+        2
+      ],
+      "startParagraph": 2,
+      "endParagraph": 2,
+      "sermonTitle": "Les Oints Du Temps De La Fin",
+      "date": "1965-07-25",
+      "city": "Jeffersonville",
+      "version": "VGR",
+      "characterCount": 594,
+      "wordCount": 101,
+      "contentHash": "h_c662352f12c31d6d",
+      "paragraphSha1": "a80cc6ee65d10188af35ed9e35501d47c89accac"
+    },
+    {
+      "chunkId": "65-0725M_c3_p3_p4",
+      "sermonId": "65-0725M",
+      "paragraphIds": [
+        3,
+        4
+      ],
+      "startParagraph": 3,
+      "endParagraph": 4,
+      "sermonTitle": "Les Oints Du Temps De La Fin",
+      "date": "1965-07-25",
+      "city": "Jeffersonville",
+      "version": "VGR",
+      "characterCount": 647,
+      "wordCount": 111,
+      "contentHash": "h_887865af0573845f",
+      "paragraphSha1": "5ed77a48f4b8afe2e1216d462e12ddb469c8937e"
+    },
+    {
+      "chunkId": "65-0725M_c4_p4_p4",
+      "sermonId": "65-0725M",
+      "paragraphIds": [
+        4
+      ],
+      "startParagraph": 4,
+      "endParagraph": 4,
+      "sermonTitle": "Les Oints Du Temps De La Fin",
+      "date": "1965-07-25",
+      "city": "Jeffersonville",
+      "version": "VGR",
+      "characterCount": 155,
+      "wordCount": 29,
+      "contentHash": "h_f434f22dfa64fc26",
+      "paragraphSha1": "d2e7b2eec5405a84ae6da39d446d722b83903b05"
+    }
+  ]
+}
