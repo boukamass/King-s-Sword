@@ -162,6 +162,9 @@ export async function loadBinaryVectorStorage(options: {
         const path = await import('path');
 
         const idxCandidates = [
+          path.resolve('sermons_vectors.idx'),
+          path.resolve('public', 'sermons_vectors.idx'),
+          path.resolve('dist', 'sermons_vectors.idx'),
           path.resolve('public', binaryIdxName),
           path.resolve('dist', binaryIdxName),
           path.resolve('public', 'corpus_vectors.idx')
@@ -174,6 +177,9 @@ export async function loadBinaryVectorStorage(options: {
         }
 
         const binCandidates = [
+          path.resolve('sermons_vectors.bin'),
+          path.resolve('public', 'sermons_vectors.bin'),
+          path.resolve('dist', 'sermons_vectors.bin'),
           path.resolve('public', binaryFileName),
           path.resolve('public', 'corpus_embeddings_384d.bin'),
           path.resolve('dist', binaryFileName),
@@ -187,6 +193,9 @@ export async function loadBinaryVectorStorage(options: {
 
         if (!parsedBinIndex) {
           const indexCandidates = [
+            path.resolve('sermons_meta.json'),
+            path.resolve('public', 'sermons_meta.json'),
+            path.resolve('dist', 'sermons_meta.json'),
             path.resolve('public', indexFileName),
             path.resolve('public', 'corpus_embeddings_384d_meta.json'),
             path.resolve('dist', indexFileName),

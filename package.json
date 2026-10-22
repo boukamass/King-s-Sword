@@ -119,6 +119,18 @@
       {
         "from": "models",
         "to": "models"
+      },
+      {
+        "from": "public/sermons_vectors.bin",
+        "to": "sermons_vectors.bin"
+      },
+      {
+        "from": "public/sermons_vectors.idx",
+        "to": "sermons_vectors.idx"
+      },
+      {
+        "from": "public/sermons_meta.json",
+        "to": "sermons_meta.json"
       }
     ],
     "directories": {

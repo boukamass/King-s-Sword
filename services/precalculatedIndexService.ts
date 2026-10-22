@@ -121,6 +121,9 @@ export async function loadPrecalculatedIndex(
       const fs = await import('fs');
       const path = await import('path');
       const candidates = [
+        path.resolve('sermons_meta.json'),
+        path.resolve('public', 'sermons_meta.json'),
+        path.resolve('dist', 'sermons_meta.json'),
         path.resolve('public', 'precalculated_sermons_index.json'),
         path.resolve('dist', 'precalculated_sermons_index.json'),
         path.resolve('precalculated_sermons_index.json'),
@@ -143,20 +146,25 @@ export async function loadPrecalculatedIndex(
   // 2. Environnement Navigateur / SPA
   if (!rawData && typeof window !== 'undefined' && typeof fetch !== 'undefined') {
     try {
-      // Priorité 1 : Index pré-calculé complet des sermons SQLite si généré
-      const resSermons = await fetch(getStaticResourceUrl('precalculated_sermons_index.json'));
-      if (resSermons.ok) {
-        rawData = await resSermons.json();
+      // Priorité 1 : Index métadonnées sermons si présent
+      const resMeta = await fetch(getStaticResourceUrl('sermons_meta.json'));
+      if (resMeta.ok) {
+        rawData = await resMeta.json();
       } else {
-        // Priorité 2 : Index pré-calculé du grand corpus
-        const resFull = await fetch(getStaticResourceUrl('precalculated_full_corpus_index.json'));
-        if (resFull.ok) {
-          rawData = await resFull.json();
+        const resSermons = await fetch(getStaticResourceUrl('precalculated_sermons_index.json'));
+        if (resSermons.ok) {
+          rawData = await resSermons.json();
         } else {
-          // Priorité 3 : Index pré-calculé Exposé seul
-          const resExp = await fetch(getStaticResourceUrl('precalculated_index.json'));
-          if (resExp.ok) {
-            rawData = await resExp.json();
+          // Priorité 2 : Index pré-calculé du grand corpus
+          const resFull = await fetch(getStaticResourceUrl('precalculated_full_corpus_index.json'));
+          if (resFull.ok) {
+            rawData = await resFull.json();
+          } else {
+            // Priorité 3 : Index pré-calculé Exposé seul
+            const resExp = await fetch(getStaticResourceUrl('precalculated_index.json'));
+            if (resExp.ok) {
+              rawData = await resExp.json();
+            }
           }
         }
       }
@@ -169,7 +177,8 @@ export async function loadPrecalculatedIndex(
     return { valid: false, reason: 'Fichier index pré-calculé introuvable' };
   }
 
-  const validation = validateIndexMetadata(rawData.metadata, currentCorpusHash);
+  const metaToValidate = rawData.metadata || (rawData as any);
+  const validation = validateIndexMetadata(metaToValidate, currentCorpusHash);
   if (!validation.valid) {
     return { valid: false, reason: validation.reason };
   }

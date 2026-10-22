@@ -1025,6 +1025,13 @@ function createWindow() {
     try {
       const resourcesPath = app.isPackaged ? process.resourcesPath : __dirname;
       const candidatesMeta = [
+        path.join(resourcesPath, 'sermons_meta.json'),
+        path.join(resourcesPath, 'public', 'sermons_meta.json'),
+        path.join(resourcesPath, 'dist', 'sermons_meta.json'),
+        path.join(resourcesPath, 'app.asar', 'dist', 'sermons_meta.json'),
+        path.join(__dirname, 'sermons_meta.json'),
+        path.join(__dirname, 'public', 'sermons_meta.json'),
+        path.join(__dirname, 'dist', 'sermons_meta.json'),
         path.join(resourcesPath, 'public', 'corpus_embeddings_384d_meta.json'),
         path.join(resourcesPath, 'dist', 'corpus_embeddings_384d_meta.json'),
         path.join(resourcesPath, 'app.asar', 'dist', 'corpus_embeddings_384d_meta.json'),
@@ -1032,6 +1039,13 @@ function createWindow() {
         path.join(__dirname, 'dist', 'corpus_embeddings_384d_meta.json')
       ];
       const candidatesBin = [
+        path.join(resourcesPath, 'sermons_vectors.bin'),
+        path.join(resourcesPath, 'public', 'sermons_vectors.bin'),
+        path.join(resourcesPath, 'dist', 'sermons_vectors.bin'),
+        path.join(resourcesPath, 'app.asar', 'dist', 'sermons_vectors.bin'),
+        path.join(__dirname, 'sermons_vectors.bin'),
+        path.join(__dirname, 'public', 'sermons_vectors.bin'),
+        path.join(__dirname, 'dist', 'sermons_vectors.bin'),
         path.join(resourcesPath, 'public', 'corpus_embeddings_384d.bin'),
         path.join(resourcesPath, 'dist', 'corpus_embeddings_384d.bin'),
         path.join(resourcesPath, 'app.asar', 'dist', 'corpus_embeddings_384d.bin'),
