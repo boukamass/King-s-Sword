@@ -232,9 +232,41 @@ export async function loadPersistedProgressState(): Promise<CorpusIndexProgress>
 }
 
 /**
- * Configure l'état initial en pause au démarrage sans lancer aucun calcul lourd
+ * Calcule le SHA-256 canonique des chunks de sermons (chunkId + text)
+ * identique à scripts/build_sermons_index.ts.
  */
-export async function setIndexingPausedInitialState(): Promise<CorpusIndexProgress> {
+async function computeSermonChunksSha256(chunks: SermonChunk[]): Promise<string | undefined> {
+  try {
+    if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+      const crypto = await import('crypto');
+      const hasher = crypto.createHash('sha256');
+      for (const c of chunks) {
+        hasher.update(c.chunkId + (c.text || ''));
+      }
+      return hasher.digest('hex');
+    }
+    if (typeof globalThis !== 'undefined' && globalThis.crypto?.subtle) {
+      const encoder = new TextEncoder();
+      const parts = chunks.map(c => c.chunkId + (c.text || '')).join('');
+      const digest = await globalThis.crypto.subtle.digest('SHA-256', encoder.encode(parts));
+      return Array.from(new Uint8Array(digest))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+    }
+  } catch {
+    // Ignorer
+  }
+  return undefined;
+}
+
+/**
+ * Configure l'état initial au démarrage :
+ * Tente d'abord de charger l'index précalculé des sermons et de l'Exposé (0 calcul ONNX, sans dépendre du bouton Démarrer).
+ * Si aucun index précalculé valide n'est disponible, met l'indexation ONNX en pause au démarrage.
+ */
+export async function setIndexingPausedInitialState(
+  loadedSermonsMap?: Map<string, Sermon | Omit<Sermon, 'text'>> | Map<string, any>
+): Promise<CorpusIndexProgress> {
   pauseIndexing();
   const loaded = await loadPersistedProgressState();
   if (loaded.status !== 'READY') {
@@ -243,6 +275,11 @@ export async function setIndexingPausedInitialState(): Promise<CorpusIndexProgre
       pauseReason: 'Indexation en pause au démarrage (Démarrer à volonté)'
     });
   }
+  // Point 5 : Charger l'index précalculé des sermons au démarrage sans dépendre du bouton « Démarrer »
+  initializeCorpusIndex({
+    loadedSermonsMap: loadedSermonsMap || registeredSermonsMap,
+    precalculatedOnly: true
+  }).catch(() => {});
   return getCurrentIndexProgress();
 }
 
@@ -405,7 +442,9 @@ export async function detectAvailableCorpus(
       if (typeof window !== 'undefined') {
         const res = await fetch(getStaticResourceUrl('library.json'));
         if (res.ok) {
-          sermons = await res.json();
+          const rawSermons = await res.json();
+          const { normalizeSermonsForSqlite } = await import('./chunkingService');
+          sermons = normalizeSermonsForSqlite(rawSermons);
           if (sermons.length > 0) source = 'Fichier statique library.json';
         }
       } else {
@@ -413,7 +452,9 @@ export async function detectAvailableCorpus(
         const path = await import('path');
         const cand = path.resolve('public/library.json');
         if (fs.existsSync(cand)) {
-          sermons = JSON.parse(fs.readFileSync(cand, 'utf8'));
+          const rawSermons = JSON.parse(fs.readFileSync(cand, 'utf8'));
+          const { normalizeSermonsForSqlite } = await import('./chunkingService');
+          sermons = normalizeSermonsForSqlite(rawSermons);
           if (sermons.length > 0) source = 'Fichier local library.json';
         }
       }
@@ -454,6 +495,7 @@ export async function detectAvailableCorpus(
 export async function initializeCorpusIndex(options: {
   loadedSermonsMap?: Map<string, Sermon | Omit<Sermon, 'text'>> | Map<string, any>;
   forceReindex?: boolean;
+  precalculatedOnly?: boolean;
   apiKey?: string;
   batchSize?: number;
 } = {}): Promise<CorpusIndexProgress> {
@@ -463,26 +505,32 @@ export async function initializeCorpusIndex(options: {
   }
 
   isIndexingInProgress = true;
-  startWatchdog();
+  if (!options.precalculatedOnly) {
+    startWatchdog();
+  }
 
   try {
     await loadPersistedProgressState();
 
-    notifyProgressUpdate({
-      status: 'SCANNING',
-      errorMessage: null
-    });
+    if (!options.precalculatedOnly) {
+      notifyProgressUpdate({
+        status: 'SCANNING',
+        errorMessage: null
+      });
+    }
 
     const { sermons, corpusVersion, source } = await detectAvailableCorpus(options.loadedSermonsMap);
     
     if (sermons.length === 0) {
-      notifyProgressUpdate({
-        status: 'ERROR',
-        sermonsProcessed: 0,
-        totalSermons: 0,
-        sermonSource: source,
-        errorMessage: 'Aucun sermon détecté : vérifier la source des sermons.'
-      });
+      if (!options.precalculatedOnly) {
+        notifyProgressUpdate({
+          status: 'ERROR',
+          sermonsProcessed: 0,
+          totalSermons: 0,
+          sermonSource: source,
+          errorMessage: 'Aucun sermon détecté : vérifier la source des sermons.'
+        });
+      }
       isIndexingInProgress = false;
       stopWatchdog();
       return getCurrentIndexProgress();
@@ -498,56 +546,14 @@ export async function initializeCorpusIndex(options: {
       corpusVersion
     });
 
-    // Vérification prioritaire de l'index pré-calculé complet (Étape 1)
-    if (!options.forceReindex) {
-      try {
-        const { loadPrecalculatedIndex } = await import('./precalculatedIndexService');
-        const precalc = await loadPrecalculatedIndex();
-        if (precalc.valid && precalc.hydratedChunks && precalc.hydratedChunks.length > 0) {
-          console.log(`[CorpusIndexInit] ✓ Index pré-calculé valide chargé instantanément (${precalc.hydratedChunks.length} chunks, 0ms recalcul).`);
-          notifyProgressUpdate({
-            status: 'READY',
-            embeddingsCreated: 0,
-            embeddingsReused: precalc.hydratedChunks.length,
-            chunksProcessed: precalc.hydratedChunks.length,
-            totalChunks: precalc.hydratedChunks.length,
-            sermonsProcessed: totalSermonsCount,
-            totalSermons: totalSermonsCount,
-            etaFormatted: 'Terminé',
-            lastIndexedAt: new Date().toISOString(),
-            errorMessage: null
-          });
-          isIndexingInProgress = false;
-          stopWatchdog();
-
-          // ÉTAPE 4 : Persistance asynchrone non-bloquante dans le stockage local (Background Worker & Storage Hydration)
-          const scheduleBackgroundSave = typeof window !== 'undefined' && 'requestIdleCallback' in window
-            ? (fn: () => void) => (window as any).requestIdleCallback(fn, { timeout: 10000 })
-            : (fn: () => void) => setTimeout(fn, 1000);
-
-          scheduleBackgroundSave(() => {
-            saveChunks(precalc.hydratedChunks).catch(err => {
-              console.warn('[CorpusIndexInit] Sauvegarde asynchrone arrière-plan (Étape 4):', err);
-            });
-          });
-
-          return getCurrentIndexProgress();
-        } else {
-          console.log(`[CorpusIndexInit] ⚠️ Index pré-calculé non valide ou obsolète (${precalc.reason || 'inconnu'}). Reconstruction automatique déclenchée...`);
-        }
-      } catch (err) {
-        console.warn('[CorpusIndexInit] Erreur vérification index précalculé:', err);
-      }
+    // 1. CHUNKING CANONIQUE AVEC TEXTE COMPLET DEPUIS SQLITE / JSON (Point 3)
+    if (!options.precalculatedOnly) {
+      notifyProgressUpdate({ status: 'CHUNKING' });
     }
-
-    // 1. CHUNKING
-    notifyProgressUpdate({ status: 'CHUNKING' });
     const tChunkStart = performance.now();
-    console.time('[Diagnostic Indexation] 1. Temps de chunking');
     const sermonChunks = createLibraryChunks(librarySermonsOnly);
     const exposeChunks = await createExposeDocumentChunks();
     const officialChunks = [...sermonChunks, ...exposeChunks];
-    console.timeEnd('[Diagnostic Indexation] 1. Temps de chunking');
     const tChunkElapsed = Math.round((performance.now() - tChunkStart) * 100) / 100;
     console.log(`[Diagnostic Indexation] ✓ Chunking terminé : ${officialChunks.length} chunks en ${tChunkElapsed} ms`);
     
@@ -558,35 +564,64 @@ export async function initializeCorpusIndex(options: {
 
     // 2. INDEXATION BM25 / VOCABULAIRE
     const tBm25Start = performance.now();
-    console.time('[Diagnostic Indexation] 2. Temps indexation BM25');
     try {
       const { buildCorpusVocabulary } = await import('./corpusVocabularyService');
       const vocab = buildCorpusVocabulary(officialChunks);
-      console.timeEnd('[Diagnostic Indexation] 2. Temps indexation BM25');
       const tBm25Elapsed = Math.round((performance.now() - tBm25Start) * 100) / 100;
       console.log(`[Diagnostic Indexation] ✓ Indexation BM25 terminée : ${vocab.terms.size} termes uniques en ${tBm25Elapsed} ms`);
     } catch (e) {
       console.warn('[Diagnostic Indexation] Indexation BM25 ignorée:', e);
     }
 
-    // Hydratation immédiate avec les embeddings précalculés (0ms de calcul si présents)
-    try {
-      await hydrateExposePrecalculatedEmbeddings(officialChunks);
-    } catch (e) {
-      console.warn('[CorpusIndexInit] Hydratation précalculée ignorée:', e);
+    // 3. VÉRIFICATION ET HYDRATATION PRIORITAIRE DE L'INDEX PRÉ-CALCULÉ DES SERMONS (Points 2, 3, 5, 6)
+    if (!options.forceReindex) {
+      try {
+        const { loadSermonsPrecalculatedIndex } = await import('./precalculatedIndexService');
+        const { hydrateChunksWithBinaryVectors } = await import('./binaryVectorStorageService');
+
+        const currentSermonsCorpusHash = await computeSermonChunksSha256(sermonChunks);
+        const sermonsPrecalc = await loadSermonsPrecalculatedIndex({
+          currentCorpusHash: currentSermonsCorpusHash,
+          expectedTotalSermons: librarySermonsOnly.length
+        });
+
+        if (sermonsPrecalc.valid) {
+          // Hydrate les vecteurs sur sermonChunks dont le texte complet vient de SQLite/JSON (Point 3)
+          await hydrateChunksWithBinaryVectors(sermonChunks, {
+            target: 'sermons',
+            binaryFileName: 'sermons_vectors.bin',
+            indexFileName: 'sermons_vectors.idx'
+          });
+        } else {
+          console.log(`[CorpusIndexInit] ⚠️ Index précalculé des sermons non retenu (${sermonsPrecalc.reason || 'absent'}).`);
+        }
+
+        // Hydratation de l'Exposé
+        await hydrateExposePrecalculatedEmbeddings(exposeChunks);
+      } catch (err) {
+        console.warn('[CorpusIndexInit] Erreur vérification index précalculé sermons:', err);
+      }
     }
 
-    // Vérification directe en mémoire : si tous les chunks sont hydratés, passage immédiat en READY
+    // Vérification directe en mémoire : si tous les chunks (sermons + Exposé) ont leur vecteur 384D valide ET leur texte non vide, passage immédiat en READY
     let inMemoryValidCount = 0;
     for (const chunk of officialChunks) {
-      if (chunk.embedding && validateEmbeddingVector(chunk.embedding, 384).valid) {
+      if (
+        chunk.text &&
+        chunk.text.trim().length > 0 &&
+        chunk.embedding &&
+        validateEmbeddingVector(chunk.embedding, 384).valid
+      ) {
         inMemoryValidCount++;
       }
     }
 
     if (inMemoryValidCount === officialChunks.length && !options.forceReindex) {
+      console.log(`[CorpusIndexInit] ✓ Corpus 100% hydraté (${officialChunks.length} chunks avec texte et vecteur Int8 384D, 0ms recalcul ONNX).`);
       notifyProgressUpdate({
         status: 'READY',
+        isPaused: false,
+        pauseReason: null,
         embeddingsCreated: 0,
         embeddingsReused: officialChunks.length,
         chunksProcessed: officialChunks.length,
@@ -600,10 +635,10 @@ export async function initializeCorpusIndex(options: {
       isIndexingInProgress = false;
       stopWatchdog();
 
-      // Sauvegarde asynchrone non-bloquante en arrière-plan sans geler l'UI
+      // Sauvegarde asynchrone non-bloquante en arrière-plan (avec texte complet garanti)
       const scheduleBackgroundSave = typeof window !== 'undefined' && 'requestIdleCallback' in window
         ? (fn: () => void) => (window as any).requestIdleCallback(fn, { timeout: 10000 })
-        : (fn: () => void) => setTimeout(fn, 1500);
+        : (fn: () => void) => setTimeout(fn, 1000);
 
       scheduleBackgroundSave(() => {
         saveChunks(officialChunks).catch(err => {
@@ -614,11 +649,22 @@ export async function initializeCorpusIndex(options: {
       return getCurrentIndexProgress();
     }
 
-    // 3. ÉCRITURE SUR DISQUE / STOCKAGE DES CHUNKS
+    // Si on était uniquement en vérification d'index précalculé au démarrage (bouton Démarrer en pause)
+    if (options.precalculatedOnly) {
+      isIndexingInProgress = false;
+      stopWatchdog();
+      if (isIndexingPausedOnStartup()) {
+        notifyProgressUpdate({
+          isPaused: true,
+          pauseReason: 'Indexation en pause au démarrage (Démarrer à volonté)'
+        });
+      }
+      return getCurrentIndexProgress();
+    }
+
+    // 4. ÉCRITURE SUR DISQUE / STOCKAGE DES CHUNKS (repli recalcul ONNX)
     const tWriteStart = performance.now();
-    console.time('[Diagnostic Indexation] 3. Temps écriture disque (chunks)');
     await saveChunks(officialChunks);
-    console.timeEnd('[Diagnostic Indexation] 3. Temps écriture disque (chunks)');
     const tWriteElapsed = Math.round((performance.now() - tWriteStart) * 100) / 100;
     console.log(`[Diagnostic Indexation] ✓ Écriture disque (chunks) terminée en ${tWriteElapsed} ms`);
 

@@ -50,6 +50,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   system: {
     getModelInfo: () => ipcRenderer.invoke('system:getModelInfo'),
-    getPrecalculatedEmbeddings: () => ipcRenderer.invoke('system:getPrecalculatedEmbeddings')
+    getPrecalculatedEmbeddings: () => ipcRenderer.invoke('system:getPrecalculatedEmbeddings'),
+    getSermonsPrecalculatedIndex: () => ipcRenderer.invoke('system:getSermonsPrecalculatedIndex')
   }
 });

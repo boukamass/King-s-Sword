@@ -268,6 +268,62 @@ export function createSermonChunks(sermon: Sermon, options?: ChunkingOptions): S
 }
 
 /**
+ * Normalise un sermon brut (depuis library.json ou autre source) exactement comme
+ * main.js (db:importSermons L376-397 + db:getAllSermonsWithParagraphs L235-240) :
+ * - Identifiant : `${baseId}-${s.version}` si `s.version` est présent (idempotent si déjà suffixé)
+ * - Texte : découpage par `/\n\s*\n/`, `.trim()` de chaque paragraphe non vide, jointure par `'\n\n'`
+ */
+export function normalizeSermonForSqlite(s: Sermon): Sermon {
+  const baseId = s.id || `gen-${Math.random().toString(36).substr(2, 9)}`;
+  const isSpecialDoc = baseId.startsWith('expose-ch-') || baseId.startsWith('bible-') || baseId.startsWith('song-');
+  const sId = (!isSpecialDoc && s.version && !baseId.endsWith(`-${s.version}`))
+    ? `${baseId}-${s.version}`
+    : baseId;
+  const sText = s.text || '...';
+  const segments = sText.split(/\n\s*\n/);
+  const cleanParagraphs: string[] = [];
+  segments.forEach((p) => {
+    const content = p.trim();
+    if (content) {
+      cleanParagraphs.push(content);
+    }
+  });
+
+  return {
+    ...s,
+    id: sId,
+    title: s.title || 'Sermon sans titre',
+    date: s.date || '0000-00-00',
+    city: s.city || '',
+    version: s.version || 'VGR',
+    time: s.time || 'Inconnu',
+    audio_url: s.audio_url || '',
+    text: cleanParagraphs.join('\n\n')
+  };
+}
+
+/**
+ * Normalise et ordonne une liste de sermons exactement comme le cycle SQLite
+ * `db:importSermons` (INSERT OR REPLACE INTO sermons) + `db:getAllSermonsWithParagraphs` (SELECT * FROM sermons ORDER BY date DESC).
+ */
+export function normalizeSermonsForSqlite(sermons: Sermon[]): Sermon[] {
+  if (!Array.isArray(sermons)) return [];
+  const byId = new Map<string, Sermon>();
+  for (const s of sermons) {
+    if (!s) continue;
+    const norm = normalizeSermonForSqlite(s);
+    byId.set(norm.id, norm);
+  }
+  return Array.from(byId.values()).sort((a, b) => {
+    const dA = a.date || '0000-00-00';
+    const dB = b.date || '0000-00-00';
+    if (dB > dA) return 1;
+    if (dB < dA) return -1;
+    return 0;
+  });
+}
+
+/**
  * Construit les chunks pour l'intégralité d'un corpus documentaire.
  */
 export function createLibraryChunks(sermons: Sermon[], options?: ChunkingOptions): SermonChunk[] {
