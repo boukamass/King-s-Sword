@@ -317,6 +317,12 @@ export async function resolveAIContextChunks(
       if (sermon && sermon.text) {
         const sermonChunks = createSermonChunks(sermon);
         try {
+          const { hydrateChunksWithBinaryVectors } = await import('./binaryVectorStorageService');
+          await hydrateChunksWithBinaryVectors(sermonChunks, {
+            target: 'sermons',
+            binaryFileName: 'sermons_vectors.bin',
+            indexFileName: 'sermons_vectors.idx'
+          });
           await hydrateExposePrecalculatedEmbeddings(sermonChunks);
           const stored = await getChunksBySermonId(cleanSourceId);
           if (stored && stored.length > 0) {

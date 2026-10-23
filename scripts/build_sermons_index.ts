@@ -13,7 +13,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { performance } from 'perf_hooks';
-import { createLibraryChunks } from '../services/chunkingService';
+import { createLibraryChunks, normalizeSermonsForSqlite } from '../services/chunkingService';
 import { createBinaryIndexBuffer } from '../services/binaryVectorStorageService';
 import { computeE5Embedding, validateEmbeddingVector } from '../services/embeddingService';
 import { Sermon, SermonChunk } from '../types';
@@ -71,17 +71,21 @@ async function main() {
 
   console.log(`📂 Fichier JSON source : ${jsonPath}`);
   console.log(`📂 Dossier de sortie   : ${outDir}`);
+  fs.mkdirSync(outDir, { recursive: true });
 
   const jsonBuffer = fs.readFileSync(jsonPath);
   const sourceJsonSha256 = crypto.createHash('sha256').update(jsonBuffer).digest('hex');
   console.log(`🔑 SHA-256 du JSON source : ${sourceJsonSha256}`);
 
-  let sermons: Sermon[] = JSON.parse(jsonBuffer.toString('utf8'));
+  const rawSermons: Sermon[] = JSON.parse(jsonBuffer.toString('utf8'));
+  // Normalisation canonique partagée identique à main.js (db:importSermons + db:getAllSermonsWithParagraphs)
+  let sermons: Sermon[] = normalizeSermonsForSqlite(rawSermons);
   const totalSermonsInFile = sermons.length;
   console.log(`✓ Nombre total de sermons dans le fichier : ${totalSermonsInFile}`);
 
-  if (limit && limit > 0 && limit < sermons.length) {
-    console.log(`⚡ Option --limit activée : limitation à ${limit} sermons`);
+  const isPartial = Boolean(limit && limit > 0 && limit < sermons.length);
+  if (isPartial && limit) {
+    console.log(`⚡ Option --limit activée : limitation à ${limit} sermons (isPartial = true)`);
     sermons = sermons.slice(0, limit);
   }
 
@@ -131,12 +135,10 @@ async function main() {
   const tEmbedStart = performance.now();
   
   let unwrittenCount = 0;
+  let pendingCheckpointLines = '';
   let lastCheckpointTime = performance.now();
   const BATCH_SIZE = 4;
   let failuresCount = 0;
-
-  // Ouverture du flux append-only pour le checkpoint
-  const checkpointStream = fs.createWriteStream(checkpointJsonlPath, { flags: 'a', encoding: 'utf8' });
 
   for (let i = 0; i < sortedIndices.length; i += BATCH_SIZE) {
     const batch = sortedIndices.slice(i, i + BATCH_SIZE);
@@ -159,9 +161,10 @@ async function main() {
         completedMap.set(chunk.chunkId, vec);
         unwrittenCount++;
 
-        // Écriture incrémentale dans le log JSONL du checkpoint
+        // Écriture incrémentale synchrone par appendFileSync dans le log JSONL du checkpoint
         const jsonlLine = JSON.stringify({ chunkId: chunk.chunkId, vector: Array.from(vec) }) + '\n';
-        checkpointStream.write(jsonlLine);
+        pendingCheckpointLines += jsonlLine;
+        fs.appendFileSync(checkpointJsonlPath, jsonlLine, 'utf8');
       }
     }
 
@@ -170,8 +173,8 @@ async function main() {
 
     // Conditions de checkpoint : toutes les 10 secondes OU tous les 500 nouveaux chunks
     if (unwrittenCount >= 500 || elapsedSinceCk >= 10) {
-      checkpointStream.uncork();
       unwrittenCount = 0;
+      pendingCheckpointLines = '';
       lastCheckpointTime = now;
     }
 
@@ -183,7 +186,6 @@ async function main() {
   }
 
   process.stdout.write('\n');
-  checkpointStream.end();
 
   // 4. Contrôle d'intégrité strict à la fin du traitement
   if (completedMap.size !== canonicalChunks.length) {
@@ -236,6 +238,7 @@ async function main() {
       totalSermons: sermons.length,
       totalChunks: canonicalChunks.length,
       dimension: 384,
+      isPartial,
       generatedAt: new Date().toISOString()
     },
     chunks: canonicalChunks.map(c => ({

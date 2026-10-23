@@ -38,10 +38,17 @@ export interface BinaryVectorStorageState {
   loadTimeMs: number;
 }
 
+interface CachedChunkVectorLocation extends VectorIndexEntry {
+  nodeBuffer?: any;
+  binaryBuffer?: ArrayBuffer | null;
+  bufferByteLength: number;
+}
+
 let cachedBinaryBuffer: ArrayBuffer | null = null;
 let cachedNodeBuffer: any = null;
-let cachedIndexMap: Map<string, VectorIndexEntry> | null = null;
+let cachedIndexMap: Map<string, CachedChunkVectorLocation> | null = null;
 let cachedMeta: BinaryVectorFileMetadata | null = null;
+const loadedStorageByFile = new Map<string, BinaryVectorStorageState>();
 let isStorageLoading = false;
 
 /**
@@ -125,25 +132,25 @@ export function createBinaryIndexBuffer(
 
 /**
  * Charge le fichier binaire de vecteurs et son fichier d'index (zéro JSON.parse si .idx disponible).
+ * Respecte strictement binaryFileName / indexFileName / target ('expose' | 'sermons').
  */
 export async function loadBinaryVectorStorage(options: {
   binaryFileName?: string;
   indexFileName?: string;
+  target?: 'expose' | 'sermons';
   forceReload?: boolean;
 } = {}): Promise<BinaryVectorStorageState> {
-  const binaryFileName = options.binaryFileName || 'corpus_vectors.bin';
-  const indexFileName = options.indexFileName || 'corpus_vectors_index.json';
-  const binaryIdxName = indexFileName.replace(/\.json$/, '.idx');
+  const isSermonsTarget = options.target === 'sermons' || options.binaryFileName === 'sermons_vectors.bin';
+  const binaryFileName = options.binaryFileName || (isSermonsTarget ? 'sermons_vectors.bin' : 'corpus_vectors.bin');
+  const indexFileName = options.indexFileName || (isSermonsTarget ? 'sermons_vectors.idx' : 'corpus_vectors_index.json');
+  const binaryIdxName = indexFileName.endsWith('.idx')
+    ? indexFileName
+    : indexFileName.replace(/\.json$/, '.idx');
 
-  if (!options.forceReload && cachedIndexMap && (cachedBinaryBuffer || cachedNodeBuffer) && cachedMeta) {
-    return {
-      loaded: true,
-      totalVectors: cachedIndexMap.size,
-      dimension: cachedMeta.dimension,
-      format: cachedMeta.quantization,
-      binarySize: cachedBinaryBuffer ? cachedBinaryBuffer.byteLength : cachedNodeBuffer.length,
-      loadTimeMs: 0
-    };
+  const cacheKey = `${binaryFileName}::${binaryIdxName}`;
+  if (!options.forceReload && loadedStorageByFile.has(cacheKey) && cachedIndexMap) {
+    const existing = loadedStorageByFile.get(cacheKey)!;
+    return { ...existing, loadTimeMs: 0 };
   }
 
   const tStart = typeof performance !== 'undefined' ? performance.now() : Date.now();
@@ -161,14 +168,21 @@ export async function loadBinaryVectorStorage(options: {
         const fs = await import('fs');
         const path = await import('path');
 
-        const idxCandidates = [
-          path.resolve('sermons_vectors.idx'),
-          path.resolve('public', 'sermons_vectors.idx'),
-          path.resolve('dist', 'sermons_vectors.idx'),
-          path.resolve('public', binaryIdxName),
-          path.resolve('dist', binaryIdxName),
-          path.resolve('public', 'corpus_vectors.idx')
-        ];
+        const idxCandidates = isSermonsTarget
+          ? [
+              path.resolve(binaryIdxName),
+              path.resolve('public', binaryIdxName),
+              path.resolve('dist', binaryIdxName),
+              path.resolve('public', 'sermons_vectors.idx'),
+              path.resolve('dist', 'sermons_vectors.idx')
+            ]
+          : [
+              path.resolve(binaryIdxName),
+              path.resolve('public', binaryIdxName),
+              path.resolve('dist', binaryIdxName),
+              path.resolve('public', 'corpus_vectors.idx'),
+              path.resolve('dist', 'corpus_vectors.idx')
+            ];
 
         const targetIdx = idxCandidates.find(p => fs.existsSync(p));
         if (targetIdx) {
@@ -176,15 +190,21 @@ export async function loadBinaryVectorStorage(options: {
           parsedBinIndex = parseBinaryIndex(idxBuf);
         }
 
-        const binCandidates = [
-          path.resolve('sermons_vectors.bin'),
-          path.resolve('public', 'sermons_vectors.bin'),
-          path.resolve('dist', 'sermons_vectors.bin'),
-          path.resolve('public', binaryFileName),
-          path.resolve('public', 'corpus_embeddings_384d.bin'),
-          path.resolve('dist', binaryFileName),
-          path.resolve('dist', 'corpus_embeddings_384d.bin')
-        ];
+        const binCandidates = isSermonsTarget
+          ? [
+              path.resolve(binaryFileName),
+              path.resolve('public', binaryFileName),
+              path.resolve('dist', binaryFileName),
+              path.resolve('public', 'sermons_vectors.bin'),
+              path.resolve('dist', 'sermons_vectors.bin')
+            ]
+          : [
+              path.resolve(binaryFileName),
+              path.resolve('public', binaryFileName),
+              path.resolve('dist', binaryFileName),
+              path.resolve('public', 'corpus_embeddings_384d.bin'),
+              path.resolve('dist', 'corpus_embeddings_384d.bin')
+            ];
 
         const targetBin = binCandidates.find(p => fs.existsSync(p));
         if (targetBin) {
@@ -192,16 +212,20 @@ export async function loadBinaryVectorStorage(options: {
         }
 
         if (!parsedBinIndex) {
-          const indexCandidates = [
-            path.resolve('sermons_meta.json'),
-            path.resolve('public', 'sermons_meta.json'),
-            path.resolve('dist', 'sermons_meta.json'),
-            path.resolve('public', indexFileName),
-            path.resolve('public', 'corpus_embeddings_384d_meta.json'),
-            path.resolve('dist', indexFileName),
-            path.resolve('dist', 'corpus_embeddings_384d_meta.json')
-          ];
-          const targetIndex = indexCandidates.find(p => fs.existsSync(p));
+          const indexCandidates = isSermonsTarget
+            ? [
+                path.resolve(indexFileName),
+                path.resolve('public', 'sermons_meta.json'),
+                path.resolve('dist', 'sermons_meta.json')
+              ]
+            : [
+                path.resolve(indexFileName),
+                path.resolve('public', indexFileName),
+                path.resolve('dist', indexFileName),
+                path.resolve('public', 'corpus_embeddings_384d_meta.json'),
+                path.resolve('dist', 'corpus_embeddings_384d_meta.json')
+              ];
+          const targetIndex = indexCandidates.find(p => fs.existsSync(p) && p.endsWith('.json'));
           if (targetIndex) {
             rawIndexJson = JSON.parse(fs.readFileSync(targetIndex, 'utf8'));
           }
@@ -211,7 +235,38 @@ export async function loadBinaryVectorStorage(options: {
       }
     }
 
-    // 2. Environnement Navigateur Web / SPA
+    // 2. Environnement Electron IPC (si disponible pour les ressources extraResources / dist)
+    if (
+      !parsedBinIndex &&
+      !loadedBinaryBuffer &&
+      !loadedNodeBuf &&
+      isSermonsTarget &&
+      typeof window !== 'undefined' &&
+      (window as any).electronAPI?.system?.getSermonsPrecalculatedIndex
+    ) {
+      try {
+        const ipcRes = await (window as any).electronAPI.system.getSermonsPrecalculatedIndex();
+        const rawBin = ipcRes?.binaryBuffer || ipcRes?.binBuffer;
+        const rawIdx = ipcRes?.indexBuffer || ipcRes?.idxBuffer;
+        if (ipcRes && ipcRes.success && rawBin && rawIdx) {
+          const toUint8 = (b: any): Uint8Array => {
+            if (b instanceof Uint8Array) return b;
+            if (b instanceof ArrayBuffer) return new Uint8Array(b);
+            if (ArrayBuffer.isView(b)) return new Uint8Array(b.buffer, b.byteOffset, b.byteLength);
+            if (b && typeof b === 'object' && Array.isArray(b.data)) return new Uint8Array(b.data);
+            return new Uint8Array(b);
+          };
+          const idxBytes = toUint8(rawIdx);
+          const binBytes = toUint8(rawBin);
+          parsedBinIndex = parseBinaryIndex(idxBytes);
+          loadedBinaryBuffer = binBytes.slice().buffer as ArrayBuffer;
+        }
+      } catch (err) {
+        console.warn('[BinaryVectorStorage] Erreur chargement IPC Electron sermons:', err);
+      }
+    }
+
+    // 3. Environnement Navigateur Web / Electron Renderer (fetch)
     if (!parsedBinIndex && !rawIndexJson && typeof window !== 'undefined' && typeof fetch !== 'undefined') {
       try {
         const safeFetch = async (url: string): Promise<Response | null> => {
@@ -230,7 +285,7 @@ export async function loadBinaryVectorStorage(options: {
         }
 
         let binRes = await safeFetch(getStaticResourceUrl(binaryFileName));
-        if (!binRes) {
+        if (!binRes && !isSermonsTarget) {
           binRes = await safeFetch(getStaticResourceUrl('corpus_embeddings_384d.bin'));
         }
         if (binRes) {
@@ -238,8 +293,9 @@ export async function loadBinaryVectorStorage(options: {
         }
 
         if (!parsedBinIndex) {
-          let indexRes = await safeFetch(getStaticResourceUrl(indexFileName));
-          if (!indexRes) {
+          const fallbackJsonName = isSermonsTarget ? 'sermons_meta.json' : indexFileName;
+          let indexRes = await safeFetch(getStaticResourceUrl(fallbackJsonName));
+          if (!indexRes && !isSermonsTarget) {
             indexRes = await safeFetch(getStaticResourceUrl('corpus_embeddings_384d_meta.json'));
           }
           if (indexRes) {
@@ -256,11 +312,24 @@ export async function loadBinaryVectorStorage(options: {
       throw new Error(`Fichiers de stockage binaire introuvables (${binaryFileName} / ${indexFileName})`);
     }
 
-    // Indexation Map O(1) des positions de chunks
-    const indexMap = new Map<string, VectorIndexEntry>();
+    const binarySize = loadedBinaryBuffer ? loadedBinaryBuffer.byteLength : loadedNodeBuf.length;
+
+    if (!cachedIndexMap || options.forceReload) {
+      cachedIndexMap = new Map<string, CachedChunkVectorLocation>();
+    }
+
+    let fileVectorsCount = 0;
     for (const entry of chunksToUse) {
       if (entry.chunkId && typeof entry.offset === 'number') {
-        indexMap.set(entry.chunkId, entry);
+        cachedIndexMap.set(entry.chunkId, {
+          chunkId: entry.chunkId,
+          offset: entry.offset,
+          length: entry.length || 384,
+          nodeBuffer: loadedNodeBuf || undefined,
+          binaryBuffer: loadedBinaryBuffer || null,
+          bufferByteLength: binarySize
+        });
+        fileVectorsCount++;
       }
     }
 
@@ -273,47 +342,59 @@ export async function loadBinaryVectorStorage(options: {
       totalVectors: chunksToUse.length,
       binaryFileName,
       generatedAt: new Date().toISOString(),
-      chunks: Array.from(indexMap.values())
+      chunks: chunksToUse
     };
     cachedBinaryBuffer = loadedBinaryBuffer;
     cachedNodeBuffer = loadedNodeBuf;
-    cachedIndexMap = indexMap;
 
     const tEnd = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const loadTimeMs = Math.round((tEnd - tStart) * 100) / 100;
-    const binarySize = loadedBinaryBuffer ? loadedBinaryBuffer.byteLength : loadedNodeBuf.length;
 
-    return {
+    const state: BinaryVectorStorageState = {
       loaded: true,
-      totalVectors: indexMap.size,
+      totalVectors: fileVectorsCount,
       dimension: cachedMeta.dimension || 384,
       format: cachedMeta.quantization || 'int8',
       binarySize,
       loadTimeMs
     };
+    loadedStorageByFile.set(cacheKey, state);
+    return state;
   } finally {
     isStorageLoading = false;
   }
 }
 
 /**
- * Récupère un vecteur sous forme de vue Int8Array zero-copy à partir du buffer binaire.
+ * Récupère un vecteur sous forme de vue Int8Array zero-copy à partir du buffer binaire,
+ * avec vérification stricte des bornes du buffer.
  */
 export function getBinaryVectorForChunk(chunkId: string): Int8Array | null {
-  if (!cachedIndexMap || (!cachedBinaryBuffer && !cachedNodeBuffer)) return null;
+  if (!cachedIndexMap) return null;
 
   const entry = cachedIndexMap.get(chunkId);
   if (!entry) return null;
 
   const len = entry.length || 384;
+  if (entry.offset < 0 || len <= 0) return null;
 
-  if (cachedNodeBuffer) {
-    const baseOffset = cachedNodeBuffer.byteOffset || 0;
-    return new Int8Array(cachedNodeBuffer.buffer, baseOffset + entry.offset, len);
+  const nodeBuf = entry.nodeBuffer ?? cachedNodeBuffer;
+  if (nodeBuf) {
+    const bufLen = typeof entry.bufferByteLength === 'number' ? entry.bufferByteLength : nodeBuf.length;
+    if (entry.offset + len > bufLen) {
+      return null;
+    }
+    const baseOffset = nodeBuf.byteOffset || 0;
+    return new Int8Array(nodeBuf.buffer, baseOffset + entry.offset, len);
   }
 
-  if (cachedBinaryBuffer) {
-    return new Int8Array(cachedBinaryBuffer, entry.offset, len);
+  const binBuf = entry.binaryBuffer ?? cachedBinaryBuffer;
+  if (binBuf) {
+    const bufLen = typeof entry.bufferByteLength === 'number' ? entry.bufferByteLength : binBuf.byteLength;
+    if (entry.offset + len > bufLen) {
+      return null;
+    }
+    return new Int8Array(binBuf, entry.offset, len);
   }
 
   return null;
@@ -323,14 +404,24 @@ export function getBinaryVectorForChunk(chunkId: string): Int8Array | null {
  * Hydrate une collection de chunks avec leurs vecteurs binaires directement depuis le buffer mémoire.
  * Exécution instantanée (< 2 ms) car basée sur des vues typées sans copie de mémoire ni JSON.
  */
-export async function hydrateChunksWithBinaryVectors(chunks: SermonChunk[]): Promise<number> {
+export async function hydrateChunksWithBinaryVectors(
+  chunks: SermonChunk[],
+  options?: {
+    binaryFileName?: string;
+    indexFileName?: string;
+    target?: 'expose' | 'sermons';
+    forceReload?: boolean;
+  }
+): Promise<number> {
   if (!Array.isArray(chunks) || chunks.length === 0) return 0;
 
-  if (!cachedIndexMap || (!cachedBinaryBuffer && !cachedNodeBuffer)) {
-    await loadBinaryVectorStorage();
+  try {
+    await loadBinaryVectorStorage(options || {});
+  } catch {
+    // Si le fichier demandé est absent, on tente avec les entrées déjà en mémoire
   }
 
-  if (!cachedIndexMap || (!cachedBinaryBuffer && !cachedNodeBuffer)) return 0;
+  if (!cachedIndexMap) return 0;
 
   let hydratedCount = 0;
   for (const c of chunks) {

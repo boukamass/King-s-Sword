@@ -1025,13 +1025,6 @@ function createWindow() {
     try {
       const resourcesPath = app.isPackaged ? process.resourcesPath : __dirname;
       const candidatesMeta = [
-        path.join(resourcesPath, 'sermons_meta.json'),
-        path.join(resourcesPath, 'public', 'sermons_meta.json'),
-        path.join(resourcesPath, 'dist', 'sermons_meta.json'),
-        path.join(resourcesPath, 'app.asar', 'dist', 'sermons_meta.json'),
-        path.join(__dirname, 'sermons_meta.json'),
-        path.join(__dirname, 'public', 'sermons_meta.json'),
-        path.join(__dirname, 'dist', 'sermons_meta.json'),
         path.join(resourcesPath, 'public', 'corpus_embeddings_384d_meta.json'),
         path.join(resourcesPath, 'dist', 'corpus_embeddings_384d_meta.json'),
         path.join(resourcesPath, 'app.asar', 'dist', 'corpus_embeddings_384d_meta.json'),
@@ -1039,13 +1032,6 @@ function createWindow() {
         path.join(__dirname, 'dist', 'corpus_embeddings_384d_meta.json')
       ];
       const candidatesBin = [
-        path.join(resourcesPath, 'sermons_vectors.bin'),
-        path.join(resourcesPath, 'public', 'sermons_vectors.bin'),
-        path.join(resourcesPath, 'dist', 'sermons_vectors.bin'),
-        path.join(resourcesPath, 'app.asar', 'dist', 'sermons_vectors.bin'),
-        path.join(__dirname, 'sermons_vectors.bin'),
-        path.join(__dirname, 'public', 'sermons_vectors.bin'),
-        path.join(__dirname, 'dist', 'sermons_vectors.bin'),
         path.join(resourcesPath, 'public', 'corpus_embeddings_384d.bin'),
         path.join(resourcesPath, 'dist', 'corpus_embeddings_384d.bin'),
         path.join(resourcesPath, 'app.asar', 'dist', 'corpus_embeddings_384d.bin'),
@@ -1065,7 +1051,75 @@ function createWindow() {
           binaryBuffer: binBuffer
         };
       }
-      return { success: false, error: 'Fichiers precalcules introuvables sur disque' };
+      return { success: false, error: 'Fichiers precalcules Expose introuvables sur disque' };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  });
+
+  ipcMain.handle('system:getSermonsPrecalculatedIndex', async () => {
+    try {
+      const resourcesPath = app.isPackaged ? process.resourcesPath : __dirname;
+      const candidatesMeta = [
+        path.join(resourcesPath, 'sermons_meta.json'),
+        path.join(resourcesPath, 'public', 'sermons_meta.json'),
+        path.join(resourcesPath, 'dist', 'sermons_meta.json'),
+        path.join(resourcesPath, 'app.asar', 'dist', 'sermons_meta.json'),
+        path.join(__dirname, 'sermons_meta.json'),
+        path.join(__dirname, 'public', 'sermons_meta.json'),
+        path.join(__dirname, 'dist', 'sermons_meta.json')
+      ];
+      const candidatesBin = [
+        path.join(resourcesPath, 'sermons_vectors.bin'),
+        path.join(resourcesPath, 'public', 'sermons_vectors.bin'),
+        path.join(resourcesPath, 'dist', 'sermons_vectors.bin'),
+        path.join(resourcesPath, 'app.asar', 'dist', 'sermons_vectors.bin'),
+        path.join(__dirname, 'sermons_vectors.bin'),
+        path.join(__dirname, 'public', 'sermons_vectors.bin'),
+        path.join(__dirname, 'dist', 'sermons_vectors.bin')
+      ];
+      const candidatesIdx = [
+        path.join(resourcesPath, 'sermons_vectors.idx'),
+        path.join(resourcesPath, 'public', 'sermons_vectors.idx'),
+        path.join(resourcesPath, 'dist', 'sermons_vectors.idx'),
+        path.join(resourcesPath, 'app.asar', 'dist', 'sermons_vectors.idx'),
+        path.join(__dirname, 'sermons_vectors.idx'),
+        path.join(__dirname, 'public', 'sermons_vectors.idx'),
+        path.join(__dirname, 'dist', 'sermons_vectors.idx')
+      ];
+      const candidatesLibrary = [
+        path.join(resourcesPath, 'library.json'),
+        path.join(resourcesPath, 'public', 'library.json'),
+        path.join(resourcesPath, 'dist', 'library.json'),
+        path.join(resourcesPath, 'app.asar', 'dist', 'library.json'),
+        path.join(__dirname, 'public', 'library.json'),
+        path.join(__dirname, 'dist', 'library.json')
+      ];
+
+      const foundMeta = candidatesMeta.find(p => fs.existsSync(p));
+      const foundBin = candidatesBin.find(p => fs.existsSync(p));
+      const foundIdx = candidatesIdx.find(p => fs.existsSync(p));
+      const foundLib = candidatesLibrary.find(p => fs.existsSync(p));
+
+      if (foundMeta && foundBin && foundIdx) {
+        const metaJson = JSON.parse(fs.readFileSync(foundMeta, 'utf8'));
+        const binaryBuffer = fs.readFileSync(foundBin);
+        const indexBuffer = fs.readFileSync(foundIdx);
+        let embeddedLibrarySha256 = null;
+        if (foundLib) {
+          try {
+            embeddedLibrarySha256 = crypto.createHash('sha256').update(fs.readFileSync(foundLib)).digest('hex');
+          } catch {}
+        }
+        return {
+          success: true,
+          metaJson,
+          binaryBuffer,
+          indexBuffer,
+          embeddedLibrarySha256
+        };
+      }
+      return { success: false, error: 'Fichiers precalcules des sermons introuvables sur disque' };
     } catch (e) {
       return { success: false, error: e.message };
     }

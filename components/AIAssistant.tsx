@@ -289,14 +289,16 @@ const AIAssistant: React.FC = () => {
       setIndexProgress(initial);
       if (!hasTriggeredInitRef.current && (!initial || initial.status !== 'READY')) {
         hasTriggeredInitRef.current = true;
-        // Démarrage automatique uniquement si l'utilisateur n'a pas activé la pause au démarrage
-        if (!isIndexingPausedOnStartup()) {
-          setTimeout(() => {
-            initializeCorpusIndex({ loadedSermonsMap: sermonsMap }).catch(err => {
-              console.warn('[AIAssistant] Erreur auto-indexation:', err);
-            });
-          }, 8000);
-        }
+        // Point 5 : Toujours tenter de charger l'index précalculé au démarrage sans dépendre du bouton Démarrer
+        const pausedOnStartup = isIndexingPausedOnStartup();
+        setTimeout(() => {
+          initializeCorpusIndex({
+            loadedSermonsMap: sermonsMap,
+            precalculatedOnly: pausedOnStartup
+          }).catch(err => {
+            console.warn('[AIAssistant] Erreur auto-indexation:', err);
+          });
+        }, pausedOnStartup ? 500 : 8000);
       }
     });
     const unsubscribe = subscribeIndexProgress(updated => {

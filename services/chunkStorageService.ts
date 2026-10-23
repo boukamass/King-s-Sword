@@ -208,12 +208,18 @@ export async function saveChunks(
     return { count: 0, saved: 0, unchanged: 0 };
   }
 
+  // Protection stricte (Point 3) : ne jamais persister un chunk dont le texte est vide ou absent
+  const validChunks = chunks.filter(c => c && typeof c.text === 'string' && c.text.trim().length > 0);
+  if (validChunks.length === 0) {
+    return { count: 0, saved: 0, unchanged: 0 };
+  }
+
   // 1. Environnement Electron avec SQLite
   if (typeof window !== 'undefined' && window.electronAPI?.db?.saveChunks) {
     try {
-      const res = await window.electronAPI.db.saveChunks(chunks);
+      const res = await window.electronAPI.db.saveChunks(validChunks);
       return {
-        count: res.count || chunks.length,
+        count: res.count || validChunks.length,
         saved: res.saved || 0,
         unchanged: res.unchanged || 0
       };
@@ -228,7 +234,7 @@ export async function saveChunks(
   let unchanged = 0;
   const now = new Date().toISOString();
 
-  for (const chunk of chunks) {
+  for (const chunk of validChunks) {
     const existing = cache.get(chunk.chunkId);
     const hasExistingEmbedding = existing && (Array.isArray(existing.embedding) || ArrayBuffer.isView(existing.embedding)) && (existing.embedding as any).length > 0;
     const incomingHasEmbedding = chunk.embedding && (Array.isArray(chunk.embedding) || ArrayBuffer.isView(chunk.embedding)) && (chunk.embedding as any).length > 0;
@@ -263,7 +269,7 @@ export async function saveChunks(
     }
   }
 
-  return { count: chunks.length, saved, unchanged };
+  return { count: validChunks.length, saved, unchanged };
 }
 
 /**

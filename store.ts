@@ -455,8 +455,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         registerSermonsMapForIndexing(map);
 
         if (isIndexingPausedOnStartup()) {
-          // Si configuré en pause au lancement : aucun calcul lourd n'est lancé, interface ultra-fluide à 100%
-          setIndexingPausedInitialState();
+          // Point 5 : charge l'index précalculé des sermons au démarrage sans dépendre du bouton Démarrer (0 calcul ONNX)
+          setIndexingPausedInitialState(map);
         } else {
           // Démarrage différé de l'indexation (8s) uniquement si l'utilisateur a activé l'indexation au démarrage
           setTimeout(() => {
@@ -495,8 +495,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         registerSermonsMapForIndexing(map);
 
         if (isIndexingPausedOnStartup()) {
-          // Si configuré en pause au lancement : aucun calcul lourd n'est lancé, interface ultra-fluide à 100%
-          setIndexingPausedInitialState();
+          // Point 5 : charge l'index précalculé des sermons au démarrage sans dépendre du bouton Démarrer (0 calcul ONNX)
+          setIndexingPausedInitialState(map);
         } else {
           // Démarrage différé de l'indexation (8s) uniquement si l'utilisateur a activé l'indexation au démarrage
           setTimeout(() => {
