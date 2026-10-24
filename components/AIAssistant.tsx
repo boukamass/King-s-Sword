@@ -28,7 +28,7 @@ import {
   isIndexingPausedOnStartup,
   setIndexingPausedOnStartup
 } from '../services/corpusIndexInitializationService';
-import { Sermon, ChatMessage, CitationValidationResult } from '../types';
+import { Sermon, ChatMessage, CitationValidationResult, RetrievalEvidencePackage } from '../types';
 import { splitSermonIntoParagraphs, extractLeadingParagraphNumber } from '../utils/textUtils';
 import { 
   Lightbulb, 
@@ -89,6 +89,82 @@ interface ChatMessageWithSources extends ChatMessage {
   originalQuery?: string;
   closestPassages?: any[];
   citationsValidation?: CitationValidationResult;
+}
+
+function buildLocalFallbackFromEvidence(
+  evidencePackage?: RetrievalEvidencePackage,
+  errorMessage?: string | null
+): { content: string; sources: GeminiSource[] } | null {
+  const evidence = evidencePackage?.evidence || [];
+  if (evidence.length === 0) return null;
+
+  const rawErr = errorMessage || '';
+  let reasonNotice = 'Le service de synthèse Gemini est actuellement indisponible ou sans crédit.';
+  if (rawErr.includes('402') || rawErr.toLowerCase().includes('prepayment credits') || rawErr.includes('RESOURCE_EXHAUSTED') || rawErr.includes('429') || rawErr.toLowerCase().includes('quota')) {
+    reasonNotice = 'Crédits ou quota Gemini épuisés — bascule automatique sur les résultats du modèle local.';
+  } else if (rawErr.toLowerCase().includes('clé') || rawErr.toLowerCase().includes('api key') || rawErr.includes('MISSING_API_KEY')) {
+    reasonNotice = 'Clé Gemini absente ou inactive — bascule automatique sur les résultats du modèle local.';
+  }
+
+  const lines: string[] = [
+    `> **Mode Local Actif (\`multilingual-e5-small\`)** : ${reasonNotice}`,
+    `> Voici les **${evidence.length} passage(s) et citation(s)** trouvés directement dans votre bibliothèque locale :`,
+    ''
+  ];
+
+  const sources: GeminiSource[] = [];
+  const seenSources = new Set<string>();
+
+  evidence.forEach((ev, idx) => {
+    const title = ev.sermonTitle || ev.sermonId;
+    const dateSuffix = ev.date ? ` (${ev.date})` : '';
+    const startPara = ev.paragraphRange?.[0] || 1;
+    const endPara = ev.paragraphRange?.[1] || startPara;
+    const paraLabel = startPara === endPara ? `Para. ${startPara}` : `Para. ${startPara}-${endPara}`;
+
+    lines.push(`### ${idx + 1}. ${title}${dateSuffix} — ${paraLabel} [Réf: ${ev.sermonId}, Para. ${startPara}]`);
+
+    if (Array.isArray(ev.citationParagraphs) && ev.citationParagraphs.length > 0) {
+      ev.citationParagraphs.forEach(cp => {
+        const cleanQuote = (cp.text || '').replace(/\s+/g, ' ').trim();
+        if (cleanQuote) {
+          lines.push(`> « ${cleanQuote} » [Réf: ${ev.sermonId}, Para. ${cp.paragraphIndex}]`);
+          lines.push('');
+        }
+        const sourceKey = `${ev.sermonId}_${cp.paragraphIndex}`;
+        if (!seenSources.has(sourceKey)) {
+          seenSources.add(sourceKey);
+          sources.push({
+            title: `${title}${dateSuffix} (§${cp.paragraphIndex})`,
+            uri: `sermon://${ev.sermonId}/${cp.paragraphIndex}`,
+            sermonId: ev.sermonId,
+            paragraphIndex: cp.paragraphIndex
+          });
+        }
+      });
+    } else {
+      const cleanText = (ev.text || '').replace(/\s+/g, ' ').trim();
+      if (cleanText) {
+        lines.push(`> « ${cleanText} » [Réf: ${ev.sermonId}, Para. ${startPara}]`);
+        lines.push('');
+      }
+      const sourceKey = `${ev.sermonId}_${startPara}`;
+      if (!seenSources.has(sourceKey)) {
+        seenSources.add(sourceKey);
+        sources.push({
+          title: `${title}${dateSuffix} (§${startPara})`,
+          uri: `sermon://${ev.sermonId}/${startPara}`,
+          sermonId: ev.sermonId,
+          paragraphIndex: startPara
+        });
+      }
+    }
+  });
+
+  return {
+    content: lines.join('\n').trim(),
+    sources
+  };
 }
 
 const CitationValidationBlock: React.FC<{
@@ -458,7 +534,15 @@ const AIAssistant: React.FC = () => {
     });
 
     try {
-      const unifiedResult = await executeUnifiedRagAssistantFlow(queryStr, contextSermonIds, {
+      const targetContextIds = assistantMode === 'auto-rag'
+        ? Array.from(new Set([
+            ...Array.from({ length: 11 }, (_, i) => `expose-ch-${i}`),
+            ...Array.from(sermonsMap.keys()),
+            ...sermons.map(s => s.id)
+          ]))
+        : contextSermonIds;
+
+      const unifiedResult = await executeUnifiedRagAssistantFlow(queryStr, targetContextIds, {
         loadedSermonsMap: sermonsMap,
         bibleVersion,
         forceGenerate: true,
@@ -476,11 +560,21 @@ const AIAssistant: React.FC = () => {
           sources: unifiedResult.sources && unifiedResult.sources.length > 0 ? unifiedResult.sources : undefined
         });
       } else {
-        addChatMessage(chatKey, {
-          role: 'assistant',
-          content: `**Échec de génération forcée** : ${unifiedResult.errorMessage || 'Impossible d\'obtenir une réponse du modèle.'}`,
-          timestamp: new Date().toISOString()
-        });
+        const localFallback = buildLocalFallbackFromEvidence(unifiedResult.evidencePackage, unifiedResult.errorMessage);
+        if (localFallback) {
+          addChatMessage(chatKey, {
+            role: 'assistant',
+            content: localFallback.content,
+            timestamp: new Date().toISOString(),
+            sources: localFallback.sources.length > 0 ? localFallback.sources : undefined
+          });
+        } else {
+          addChatMessage(chatKey, {
+            role: 'assistant',
+            content: `**Échec de génération forcée** : ${unifiedResult.errorMessage || 'Impossible d\'obtenir une réponse du modèle.'}`,
+            timestamp: new Date().toISOString()
+          });
+        }
       }
     } catch (err: any) {
       if (abortController.signal.aborted) return;
@@ -1076,12 +1170,22 @@ const AIAssistant: React.FC = () => {
               };
               addChatMessage(chatKey, newMessage);
             } else {
-              const errorMsg: ChatMessageWithSources = {
-                role: 'assistant',
-                content: `**Erreur de génération Gemini** : ${unifiedResult.errorMessage || 'Impossible de joindre le modèle de génération.'}`,
-                timestamp: new Date().toISOString(),
-              };
-              addChatMessage(chatKey, errorMsg);
+              const localFallback = buildLocalFallbackFromEvidence(unifiedResult.evidencePackage, unifiedResult.errorMessage);
+              if (localFallback) {
+                addChatMessage(chatKey, {
+                  role: 'assistant',
+                  content: localFallback.content,
+                  timestamp: new Date().toISOString(),
+                  sources: localFallback.sources.length > 0 ? localFallback.sources : undefined
+                });
+              } else {
+                const errorMsg: ChatMessageWithSources = {
+                  role: 'assistant',
+                  content: `**Erreur de génération Gemini** : ${unifiedResult.errorMessage || 'Impossible de joindre le modèle de génération.'}`,
+                  timestamp: new Date().toISOString(),
+                };
+                addChatMessage(chatKey, errorMsg);
+              }
             }
           }
 
@@ -1212,12 +1316,22 @@ const AIAssistant: React.FC = () => {
               };
               addChatMessage(chatKey, newMessage);
             } else {
-              const errorMsg: ChatMessageWithSources = {
-                role: 'assistant',
-                content: `**Erreur de génération Gemini** : ${unifiedResult.errorMessage || 'Impossible de joindre le modèle de génération.'}`,
-                timestamp: new Date().toISOString(),
-              };
-              addChatMessage(chatKey, errorMsg);
+              const localFallback = buildLocalFallbackFromEvidence(unifiedResult.evidencePackage, unifiedResult.errorMessage);
+              if (localFallback) {
+                addChatMessage(chatKey, {
+                  role: 'assistant',
+                  content: localFallback.content,
+                  timestamp: new Date().toISOString(),
+                  sources: localFallback.sources.length > 0 ? localFallback.sources : undefined
+                });
+              } else {
+                const errorMsg: ChatMessageWithSources = {
+                  role: 'assistant',
+                  content: `**Erreur de génération Gemini** : ${unifiedResult.errorMessage || 'Impossible de joindre le modèle de génération.'}`,
+                  timestamp: new Date().toISOString(),
+                };
+                addChatMessage(chatKey, errorMsg);
+              }
             }
           }
 
@@ -1856,6 +1970,15 @@ const AIAssistant: React.FC = () => {
                           <button
                             key={sIdx}
                             onClick={() => {
+                              if (targetSermonId.startsWith('expose-')) {
+                                setLibraryMode('expose');
+                              } else if (targetSermonId.startsWith('bible-')) {
+                                setLibraryMode('bible');
+                              } else if (targetSermonId.startsWith('song-')) {
+                                setLibraryMode('songs');
+                              } else {
+                                setLibraryMode('sermons');
+                              }
                               setSelectedSermonId(targetSermonId);
                               if (targetParaIndex) setJumpToParagraph(targetParaIndex);
                             }}
