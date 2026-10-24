@@ -243,20 +243,52 @@ export function splitQuoteIntoHighlightedSegments(
     return [{ text: quote, isHighlighted: false }];
   }
 
-  // Filtrer les surlignages valides et dans les bornes
-  const valid = highlights
-    .filter(h => h.start >= 0 && h.end <= quote.length && h.start < h.end)
-    .sort((a, b) => a.start - b.start);
+  // Filtrer et recalibrer les surlignages si start/end ont été décalés
+  const valid: Array<{ start: number; end: number; color: string; text?: string }> = [];
+  for (const h of highlights) {
+    let s = h.start;
+    let e = h.end;
+
+    // Si le segment contient le texte exact recherché et que la position initiale a bougé
+    if (h.text && (s < 0 || e > quote.length || quote.substring(s, e) !== h.text)) {
+      const foundIdx = quote.indexOf(h.text);
+      if (foundIdx !== -1) {
+        s = foundIdx;
+        e = foundIdx + h.text.length;
+      }
+    }
+
+    if (s >= 0 && e <= quote.length && s < e) {
+      valid.push({
+        start: s,
+        end: e,
+        color: h.color || 'amber',
+        text: h.text || quote.substring(s, e)
+      });
+    }
+  }
 
   if (valid.length === 0) {
     return [{ text: quote, isHighlighted: false }];
   }
 
+  valid.sort((a, b) => a.start - b.start);
+
   const segments: Array<{ text: string; isHighlighted: boolean; color?: string }> = [];
   let cursor = 0;
 
   for (const h of valid) {
-    if (h.start < cursor) continue; // éviter les chevauchements
+    if (h.start < cursor) {
+      if (h.end <= cursor) continue; // complètement inclus
+      segments.push({
+        text: quote.substring(cursor, h.end),
+        isHighlighted: true,
+        color: h.color
+      });
+      cursor = h.end;
+      continue;
+    }
+
     if (h.start > cursor) {
       segments.push({
         text: quote.substring(cursor, h.start),
@@ -267,7 +299,7 @@ export function splitQuoteIntoHighlightedSegments(
     segments.push({
       text: quote.substring(h.start, h.end),
       isHighlighted: true,
-      color: h.color || 'amber'
+      color: h.color
     });
     cursor = h.end;
   }
