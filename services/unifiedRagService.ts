@@ -318,19 +318,21 @@ export async function resolveAIContextChunks(
         const sermonChunks = createSermonChunks(sermon);
         try {
           const { hydrateChunksWithBinaryVectors } = await import('./binaryVectorStorageService');
-          await hydrateChunksWithBinaryVectors(sermonChunks, {
+          const hydratedCount = await hydrateChunksWithBinaryVectors(sermonChunks, {
             target: 'sermons',
             binaryFileName: 'sermons_vectors.bin',
             indexFileName: 'sermons_vectors.idx'
           });
-          await hydrateExposePrecalculatedEmbeddings(sermonChunks);
-          const stored = await getChunksBySermonId(cleanSourceId);
-          if (stored && stored.length > 0) {
-            const embMap = new Map(stored.filter(s => s.embedding && (Array.isArray(s.embedding) || ArrayBuffer.isView(s.embedding)) && (s.embedding as any).length > 0).map(s => [s.chunkId, s.embedding]));
-            for (const c of sermonChunks) {
-              if (!c.embedding) {
-                const foundEmb = embMap.get(c.chunkId);
-                if (foundEmb) c.embedding = foundEmb;
+          if (hydratedCount < sermonChunks.length) {
+            await hydrateExposePrecalculatedEmbeddings(sermonChunks);
+            const stored = await getChunksBySermonId(cleanSourceId);
+            if (stored && stored.length > 0) {
+              const embMap = new Map(stored.filter(s => s.embedding && (Array.isArray(s.embedding) || ArrayBuffer.isView(s.embedding)) && (s.embedding as any).length > 0).map(s => [s.chunkId, s.embedding]));
+              for (const c of sermonChunks) {
+                if (!c.embedding) {
+                  const foundEmb = embMap.get(c.chunkId);
+                  if (foundEmb) c.embedding = foundEmb;
+                }
               }
             }
           }
