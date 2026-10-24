@@ -321,14 +321,23 @@ export async function loadBinaryVectorStorage(options: {
     let fileVectorsCount = 0;
     for (const entry of chunksToUse) {
       if (entry.chunkId && typeof entry.offset === 'number') {
-        cachedIndexMap.set(entry.chunkId, {
+        const loc: CachedChunkVectorLocation = {
           chunkId: entry.chunkId,
           offset: entry.offset,
           length: entry.length || 384,
           nodeBuffer: loadedNodeBuf || undefined,
           binaryBuffer: loadedBinaryBuffer || null,
           bufferByteLength: binarySize
-        });
+        };
+        cachedIndexMap.set(entry.chunkId, loc);
+        // Alias sans suffixe de version (ex: 63-0324M-VGR_c1_p1_p2 -> 63-0324M_c1_p1_p2)
+        const baseMatch = entry.chunkId.match(/^(.+?)-(?:VGR|Shp|SHP|vgr|shp)(_c\d+_p\d+_p\d+)$/);
+        if (baseMatch) {
+          const baseChunkId = `${baseMatch[1]}${baseMatch[2]}`;
+          if (!cachedIndexMap.has(baseChunkId)) {
+            cachedIndexMap.set(baseChunkId, loc);
+          }
+        }
         fileVectorsCount++;
       }
     }
@@ -370,9 +379,21 @@ export async function loadBinaryVectorStorage(options: {
  * avec vérification stricte des bornes du buffer.
  */
 export function getBinaryVectorForChunk(chunkId: string): Int8Array | null {
-  if (!cachedIndexMap) return null;
+  if (!cachedIndexMap || !chunkId) return null;
 
-  const entry = cachedIndexMap.get(chunkId);
+  let entry = cachedIndexMap.get(chunkId);
+  if (!entry) {
+    const baseMatch = chunkId.match(/^(.+?)-(?:VGR|Shp|SHP|vgr|shp)(_c\d+_p\d+_p\d+)$/);
+    if (baseMatch) {
+      entry = cachedIndexMap.get(`${baseMatch[1]}${baseMatch[2]}`);
+    } else {
+      const suffixMatch = chunkId.match(/^(.+?)(_c\d+_p\d+_p\d+)$/);
+      if (suffixMatch) {
+        entry = cachedIndexMap.get(`${suffixMatch[1]}-VGR${suffixMatch[2]}`) ||
+                cachedIndexMap.get(`${suffixMatch[1]}-Shp${suffixMatch[2]}`);
+      }
+    }
+  }
   if (!entry) return null;
 
   const len = entry.length || 384;

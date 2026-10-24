@@ -166,7 +166,7 @@ export async function loadPrecalculatedIndex(
   }
 
   let rawData: PrecalculatedIndexData | null = null;
-  let detectedSourceJsonSha256: string | undefined = opts.expectedSourceJsonSha256;
+  const detectedSourceJsonSha256: string | undefined = opts.expectedSourceJsonSha256;
 
   // 1. Environnement Node.js (scripts / CLI / tests)
   if (typeof process !== 'undefined' && process.versions && process.versions.node) {
@@ -189,18 +189,23 @@ export async function loadPrecalculatedIndex(
           ];
       const foundPath = candidates.find(c => fs.existsSync(c));
       if (foundPath) {
-        rawData = JSON.parse(fs.readFileSync(foundPath, 'utf8'));
-      }
-      if (target === 'sermons' && !detectedSourceJsonSha256) {
-        const libCandidates = [
-          path.resolve('public', 'library.json'),
-          path.resolve('dist', 'library.json'),
-          path.resolve('library.json')
-        ];
-        const foundLib = libCandidates.find(c => fs.existsSync(c));
-        if (foundLib) {
-          const crypto = await import('crypto');
-          detectedSourceJsonSha256 = crypto.createHash('sha256').update(fs.readFileSync(foundLib)).digest('hex');
+        const stat = fs.statSync(foundPath);
+        if (target === 'sermons' && stat.size > 2 * 1024 * 1024) {
+          const fd = fs.openSync(foundPath, 'r');
+          try {
+            const headBuf = Buffer.alloc(Math.min(8192, stat.size));
+            fs.readSync(fd, headBuf, 0, headBuf.length, 0);
+            const headStr = headBuf.toString('utf8');
+            const mMatch = headStr.match(/"metadata"\s*:\s*(\{[\s\S]*?\})/);
+            if (mMatch) {
+              rawData = { metadata: JSON.parse(mMatch[1]), chunks: [] };
+            }
+          } finally {
+            fs.closeSync(fd);
+          }
+        }
+        if (!rawData) {
+          rawData = JSON.parse(fs.readFileSync(foundPath, 'utf8'));
         }
       }
     } catch {
@@ -219,9 +224,6 @@ export async function loadPrecalculatedIndex(
       const ipcRes = await (window as any).electronAPI.system.getSermonsPrecalculatedIndex();
       if (ipcRes && ipcRes.success && ipcRes.metaJson) {
         rawData = typeof ipcRes.metaJson === 'string' ? JSON.parse(ipcRes.metaJson) : ipcRes.metaJson;
-        if (!detectedSourceJsonSha256 && ipcRes.embeddedLibrarySha256) {
-          detectedSourceJsonSha256 = ipcRes.embeddedLibrarySha256;
-        }
       }
     } catch {
       // Ignorer
@@ -232,13 +234,47 @@ export async function loadPrecalculatedIndex(
   if (!rawData && typeof window !== 'undefined' && typeof fetch !== 'undefined') {
     try {
       if (target === 'sermons') {
-        const resMeta = await fetch(getStaticResourceUrl('sermons_meta.json'));
-        if (resMeta.ok) {
-          rawData = await resMeta.json();
-        } else {
-          const resSermons = await fetch(getStaticResourceUrl('precalculated_sermons_index.json'));
-          if (resSermons.ok) {
-            rawData = await resSermons.json();
+        // Essayer d'abord une lecture légère de l'en-tête metadata pour éviter de parser 90 Mo si le fichier est massif
+        try {
+          const rangeRes = await fetch(getStaticResourceUrl('sermons_meta.json'), {
+            headers: { Range: 'bytes=0-8191' }
+          });
+          if (rangeRes.status === 206) {
+            const headStr = await rangeRes.text();
+            const mMatch = headStr.match(/"metadata"\s*:\s*(\{[\s\S]*?\})/);
+            if (mMatch) {
+              rawData = { metadata: JSON.parse(mMatch[1]), chunks: [] };
+            }
+          } else if (rangeRes.ok) {
+            const contentLength = Number(rangeRes.headers.get('content-length') || 0);
+            if (contentLength > 0 && contentLength <= 5 * 1024 * 1024) {
+              rawData = await rangeRes.json();
+            } else if (rangeRes.body) {
+              const reader = rangeRes.body.getReader();
+              const { value } = await reader.read();
+              await reader.cancel().catch(() => {});
+              if (value) {
+                const headStr = new TextDecoder('utf-8').decode(value.slice(0, 8192));
+                const mMatch = headStr.match(/"metadata"\s*:\s*(\{[\s\S]*?\})/);
+                if (mMatch) {
+                  rawData = { metadata: JSON.parse(mMatch[1]), chunks: [] };
+                }
+              }
+            }
+          }
+        } catch {
+          // Fallback standard
+        }
+
+        if (!rawData) {
+          const resMeta = await fetch(getStaticResourceUrl('sermons_meta.json'));
+          if (resMeta.ok) {
+            rawData = await resMeta.json();
+          } else {
+            const resSermons = await fetch(getStaticResourceUrl('precalculated_sermons_index.json'));
+            if (resSermons.ok) {
+              rawData = await resSermons.json();
+            }
           }
         }
       } else {

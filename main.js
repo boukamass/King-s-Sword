@@ -1102,7 +1102,25 @@ function createWindow() {
       const foundLib = candidatesLibrary.find(p => fs.existsSync(p));
 
       if (foundMeta && foundBin && foundIdx) {
-        const metaJson = JSON.parse(fs.readFileSync(foundMeta, 'utf8'));
+        let metaJson = null;
+        const metaStat = fs.statSync(foundMeta);
+        if (metaStat.size > 2 * 1024 * 1024) {
+          const fd = fs.openSync(foundMeta, 'r');
+          try {
+            const headBuf = Buffer.alloc(Math.min(8192, metaStat.size));
+            fs.readSync(fd, headBuf, 0, headBuf.length, 0);
+            const headStr = headBuf.toString('utf8');
+            const mMatch = headStr.match(/"metadata"\s*:\s*(\{[\s\S]*?\})/);
+            if (mMatch) {
+              metaJson = { metadata: JSON.parse(mMatch[1]), chunks: [] };
+            }
+          } finally {
+            fs.closeSync(fd);
+          }
+        }
+        if (!metaJson) {
+          metaJson = JSON.parse(fs.readFileSync(foundMeta, 'utf8'));
+        }
         const binaryBuffer = fs.readFileSync(foundBin);
         const indexBuffer = fs.readFileSync(foundIdx);
         let embeddedLibrarySha256 = null;
