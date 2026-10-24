@@ -61,6 +61,7 @@ import { detectImageMeta } from '../services/imageMediaService';
 import { HighlightedQuote } from './HighlightedQuote';
 import { splitQuoteIntoHighlightedSegments, HIGHLIGHT_HEX_MAP } from '../utils/highlightUtils';
 import { getAllNoteThemes, addCustomTheme } from '../utils/themeUtils';
+import { convertOklchToRgb, patchWindowGetComputedStyle, hasModernColor } from '../utils/colorConverter';
 
 const ActionButton = ({ onClick, icon: Icon, tooltip }: { onClick: () => void; icon: React.ElementType; tooltip: string }) => (
   <button 
@@ -888,143 +889,305 @@ const NoteEditor: React.FC = () => {
 
     const handleExportPdf = async () => {
         if (!note) return;
-        addNotification("Capture HTML & Génération du document PDF...", "info");
+        addNotification("Génération du document PDF en cours...", "info");
         try {
             const printEl = document.getElementById("printable-note-container");
             if (!printEl) {
-                addNotification("Erreur : Conteneur d'impression introuvable.", "error");
+                // Fallback direct vers l'impression haute résolution
+                handlePrint();
                 return;
             }
 
-            // Conteneur hors-champ pour la capture HTML
+            // 1. Attendre les polices web avec un timeout de sécurité
+            try {
+                if (document.fonts?.ready) {
+                    await Promise.race([
+                        document.fonts.ready,
+                        new Promise((res) => setTimeout(res, 600))
+                    ]);
+                }
+            } catch (e) {
+                console.warn("Fonts check skipped:", e);
+            }
+
+            // 2. Largeur calibrée pour le format A4 à 96 DPI (210mm = 794px)
+            const CAPTURE_WIDTH_PX = 794;
+
+            // 3. Conteneur hors-champ avec opacité 1 pour que html2canvas capture tous les pixels sans restriction
             const offscreen = document.createElement("div");
+            offscreen.id = "offscreen-pdf-capture";
             offscreen.style.position = "fixed";
-            offscreen.style.left = "-9999px";
+            offscreen.style.left = "-10000px";
             offscreen.style.top = "0";
-            offscreen.style.width = "800px"; // Largeur A4 fixe à 96 DPI
+            offscreen.style.width = `${CAPTURE_WIDTH_PX}px`;
+            offscreen.style.maxWidth = `${CAPTURE_WIDTH_PX}px`;
             offscreen.style.backgroundColor = "#ffffff";
-            offscreen.style.zIndex = "-1000";
-            offscreen.style.color = "#0f172a";
+            offscreen.style.color = "#18181b";
+            offscreen.style.zIndex = "-9999";
+            offscreen.style.boxSizing = "border-box";
 
             const clone = printEl.cloneNode(true) as HTMLElement;
+            clone.id = "printable-note-clone";
             clone.style.display = "block";
             clone.classList.remove("hidden");
             clone.classList.remove("print:block");
-            clone.style.padding = "32px";
+            clone.style.width = `${CAPTURE_WIDTH_PX}px`;
+            clone.style.maxWidth = `${CAPTURE_WIDTH_PX}px`;
+            clone.style.padding = "20px";
+            clone.style.margin = "0";
+            clone.style.boxSizing = "border-box";
             clone.style.backgroundColor = "#ffffff";
-            clone.style.color = "#0f172a";
-            clone.style.fontFamily = "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+            clone.style.color = "#18181b";
+            clone.style.overflowWrap = "break-word";
+            clone.style.wordBreak = "break-word";
+            clone.style.fontFamily = "'Plus Jakarta Sans', Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
 
             offscreen.appendChild(clone);
             document.body.appendChild(offscreen);
 
             try {
-                const canvas = await html2canvas(clone, {
-                    scale: 2, // Résolution 192 DPI pour une netteté parfaite
-                    useCORS: true,
-                    logging: false,
-                    backgroundColor: "#ffffff",
-                    onclone: (clonedDoc) => {
-                        // Remplacer ou convertir les variables oklch incompatibles sans détruire Tailwind
-                        const styles = Array.from(clonedDoc.querySelectorAll("style"));
-                        styles.forEach(s => {
-                            if (s.textContent?.includes("oklch")) {
-                                s.textContent = s.textContent.replace(/oklch\([^)]+\)/g, '#0f766e');
-                            }
-                        });
-
-                        // Injecter un ensemble de styles CSS autonome et exhaustif
-                        const cleanStyle = clonedDoc.createElement("style");
-                        cleanStyle.textContent = `
-                            #printable-note-container {
-                                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
-                                background-color: #ffffff !important;
-                                color: #0f172a !important;
-                                padding: 32px !important;
-                                display: block !important;
-                                box-sizing: border-box !important;
-                                width: 800px !important;
-                            }
-                            #printable-note-container * {
-                                box-sizing: border-box !important;
-                            }
-                            .border-b-2 { border-bottom: 2px solid #0f766e !important; }
-                            .border-teal-700 { border-color: #0f766e !important; }
-                            .pb-4 { padding-bottom: 16px !important; }
-                            .mb-7 { margin-bottom: 28px !important; }
-                            .mb-8 { margin-bottom: 32px !important; }
-                            .mb-3 { margin-bottom: 12px !important; }
-                            .mb-1 { margin-bottom: 4px !important; }
-                            .mt-2 { margin-top: 8px !important; }
-                            .my-3 { margin-top: 12px !important; margin-bottom: 12px !important; }
-                            .my-4 { margin-top: 16px !important; margin-bottom: 16px !important; }
-                            .pl-3 { padding-left: 12px !important; }
-                            .p-3\\.5 { padding: 14px !important; }
-                            .p-8 { padding: 32px !important; }
-                            .flex { display: flex !important; }
-                            .items-end { align-items: flex-end !important; }
-                            .items-center { align-items: center !important; }
-                            .justify-between { justify-content: space-between !important; }
-                            .gap-2 { gap: 8px !important; }
-                            .gap-3 { gap: 12px !important; }
-                            .gap-4 { gap: 16px !important; }
-                            .text-right { text-align: right !important; }
-                            .text-\\[11px\\] { font-size: 11px !important; }
-                            .text-\\[10px\\] { font-size: 10px !important; }
-                            .text-\\[13px\\] { font-size: 13px !important; line-height: 1.6 !important; }
-                            .text-2xl { font-size: 24px !important; }
-                            .text-xs { font-size: 12px !important; }
-                            .font-black { font-weight: 900 !important; }
-                            .font-bold { font-weight: 700 !important; }
-                            .font-sans { font-family: sans-serif !important; }
-                            .uppercase { text-transform: uppercase !important; }
-                            .tracking-\\[0\\.25em\\] { letter-spacing: 0.25em !important; }
-                            .tracking-wider { letter-spacing: 0.05em !important; }
-                            .tracking-tight { letter-spacing: -0.025em !important; }
-                            .text-teal-800 { color: #115e59 !important; }
-                            .text-teal-900 { color: #134e4a !important; }
-                            .text-teal-700 { color: #0f766e !important; }
-                            .text-teal-600 { color: #0d9488 !important; }
-                            .text-slate-900 { color: #0f172a !important; }
-                            .text-slate-800 { color: #1e293b !important; }
-                            .bg-teal-50 { background-color: #f0fdfa !important; }
-                            .bg-slate-50\\/70 { background-color: #f8fafc !important; }
-                            .bg-white { background-color: #ffffff !important; }
-                            .bg-teal-700 { background-color: #0f766e !important; }
-                            .border-teal-200 { border-color: #99f6e4 !important; }
-                            .border-teal-600 { border-color: #0d9488 !important; }
-                            .border-teal-600\\/30 { border-color: rgba(13, 148, 136, 0.3) !important; }
-                            .border-slate-200 { border-color: #e2e8f0 !important; }
-                            .border-l-4 { border-left-width: 4px !important; border-left-style: solid !important; }
-                            .border-l-2 { border-left-width: 2px !important; border-left-style: solid !important; }
-                            .border-b { border-bottom-width: 1px !important; border-bottom-style: solid !important; }
-                            .border { border-width: 1px !important; border-style: solid !important; }
-                            .rounded { border-radius: 4px !important; }
-                            .rounded-full { border-radius: 9999px !important; }
-                            .rounded-r-lg { border-top-right-radius: 8px !important; border-bottom-right-radius: 8px !important; }
-                            .italic { font-style: italic !important; }
-                            .shrink-0 { flex-shrink: 0 !important; }
-                            .inline-block { display: inline-block !important; }
-                            .w-2 { width: 8px !important; height: 8px !important; }
-                            .h-2 { height: 8px !important; }
-                            .w-4 { width: 16px !important; height: 16px !important; }
-                            .h-4 { height: 16px !important; }
-                            .m-0 { margin: 0 !important; }
-                            .subtitle-separator h4 { font-size: 14px !important; font-weight: 700 !important; color: #0f766e !important; margin: 8px 0 !important; }
-                            .comment-box { background-color: #f1f5f9 !important; border-left: 3px solid #64748b !important; padding: 10px 14px !important; border-radius: 4px !important; }
-                            .comment-title { font-size: 11px !important; font-weight: 700 !important; color: #475569 !important; text-transform: uppercase !important; margin-bottom: 4px !important; }
-                            .comment-text { font-size: 13px !important; color: #334155 !important; }
-                            svg { display: inline-block !important; vertical-align: middle !important; }
-                        `;
-                        clonedDoc.head.appendChild(cleanStyle);
-
-                        const target = clonedDoc.getElementById("printable-note-container");
-                        if (target) {
-                            target.style.display = "block";
-                            target.style.visibility = "visible";
-                        }
+                // Dérouler les textes tronqués
+                const allCloneEls = Array.from(clone.querySelectorAll("*")) as HTMLElement[];
+                for (const el of allCloneEls) {
+                    if (el.classList?.contains("truncate")) {
+                        el.classList.remove("truncate");
+                        el.style.whiteSpace = "normal";
+                        el.style.overflow = "visible";
+                        el.style.textOverflow = "clip";
                     }
+                    if (el.style) {
+                        el.style.boxSizing = "border-box";
+                        el.style.maxWidth = "100%";
+                        el.style.overflowWrap = "break-word";
+                        el.style.wordBreak = "break-word";
+                    }
+                }
+
+                // Normaliser les icônes SVG de manière synchrone et sécurisée
+                const svgElements = Array.from(clone.querySelectorAll("svg"));
+                svgElements.forEach((svg) => {
+                    try {
+                        const cs = window.getComputedStyle(svg);
+                        const attrW = parseFloat(svg.getAttribute("width") || "");
+                        const attrH = parseFloat(svg.getAttribute("height") || "");
+                        const cls = svg.getAttribute("class") || "";
+
+                        let w = attrW || parseFloat(cs.width);
+                        let h = attrH || parseFloat(cs.height);
+
+                        if (!w || w < 10) {
+                            if (cls.includes("w-10")) w = 40;
+                            else if (cls.includes("w-8")) w = 32;
+                            else if (cls.includes("w-6")) w = 24;
+                            else if (cls.includes("w-5")) w = 20;
+                            else if (cls.includes("w-4")) w = 16;
+                            else if (cls.includes("w-3.5")) w = 14;
+                            else if (cls.includes("w-3")) w = 12;
+                            else w = 16;
+                        }
+                        if (!h || h < 10) {
+                            if (cls.includes("h-10")) h = 40;
+                            else if (cls.includes("h-8")) h = 32;
+                            else if (cls.includes("h-6")) h = 24;
+                            else if (cls.includes("h-5")) h = 20;
+                            else if (cls.includes("h-4")) h = 16;
+                            else if (cls.includes("h-3.5")) h = 14;
+                            else if (cls.includes("h-3")) h = 12;
+                            else h = 16;
+                        }
+
+                        w = Math.round(w);
+                        h = Math.round(h);
+
+                        let strokeColor = cs.color && cs.color !== "rgba(0, 0, 0, 0)" && cs.color !== "transparent" ? cs.color : "";
+                        if (strokeColor && hasModernColor(strokeColor)) {
+                            strokeColor = convertOklchToRgb(strokeColor);
+                        }
+                        if (!strokeColor) {
+                            if (cls.includes("text-white")) strokeColor = "#ffffff";
+                            else if (cls.includes("text-amber-600") || cls.includes("text-amber-700")) strokeColor = "#d97706";
+                            else if (cls.includes("text-teal-600") || cls.includes("text-teal-700")) strokeColor = "#0d9488";
+                            else strokeColor = "#0d9488";
+                        }
+
+                        svg.setAttribute("width", String(w));
+                        svg.setAttribute("height", String(h));
+                        if (!svg.getAttribute("viewBox")) {
+                            svg.setAttribute("viewBox", "0 0 24 24");
+                        }
+                        svg.setAttribute("stroke", strokeColor);
+                        svg.setAttribute("fill", "none");
+                        svg.style.stroke = strokeColor;
+                        svg.style.color = strokeColor;
+                        svg.style.width = `${w}px`;
+                        svg.style.height = `${h}px`;
+                        svg.style.minWidth = `${w}px`;
+                        svg.style.minHeight = `${h}px`;
+                        svg.style.display = "inline-block";
+                        svg.style.verticalAlign = "middle";
+                        // Supprimer les classes Tailwind de couleur pour éviter tout recalcul en oklch
+                        svg.classList.remove(
+                            "text-teal-600", "text-teal-700", "text-teal-400", "text-teal-300",
+                            "text-amber-600", "text-amber-700", "text-amber-400", "text-amber-300",
+                            "text-zinc-400", "text-zinc-500", "text-zinc-600", "text-zinc-700", "text-zinc-900", "text-white"
+                        );
+                    } catch {}
                 });
+
+                // Précharger et convertir les images pour éviter de teinter le canvas
+                const imgElements = Array.from(clone.querySelectorAll("img"));
+                await Promise.all(
+                    imgElements.map(async (img) => {
+                        try {
+                            img.crossOrigin = "anonymous";
+                            if (img.src && !img.src.startsWith("data:") && !img.src.startsWith("blob:")) {
+                                const response = await fetch(img.src, { mode: "cors" });
+                                if (response.ok) {
+                                    const blob = await response.blob();
+                                    const dataUrl = await new Promise<string>((resolve) => {
+                                        const reader = new FileReader();
+                                        reader.onloadend = () => resolve(reader.result as string);
+                                        reader.readAsDataURL(blob);
+                                    });
+                                    img.src = dataUrl;
+                                }
+                            }
+                        } catch {}
+                    })
+                );
+
+                const SCALE = 2;
+
+                // Pré-calculer les coordonnées des cartes pour le découpage intelligent
+                const breakPositions: number[] = [];
+                const cards = Array.from(clone.querySelectorAll(".journal-print-card, .page-break-inside-avoid, .journal-section-header, .journal-subtitle-bar"));
+                for (const card of cards) {
+                    const htmlEl = card as HTMLElement;
+                    let top = 0;
+                    let curr: HTMLElement | null = htmlEl;
+                    while (curr && curr !== clone) {
+                        top += curr.offsetTop || 0;
+                        curr = curr.offsetParent as HTMLElement | null;
+                    }
+                    const bottom = top + (htmlEl.offsetHeight || 0);
+                    if (top > 0) breakPositions.push(Math.round(top * SCALE - 6 * SCALE));
+                    if (bottom > 0) breakPositions.push(Math.round(bottom * SCALE + 6 * SCALE));
+                }
+                breakPositions.sort((a, b) => a - b);
+
+                // Appliquer le patch de getComputedStyle sur la fenêtre principale
+                const cleanupWindowGCS = patchWindowGetComputedStyle(window);
+                let canvas: HTMLCanvasElement;
+
+                try {
+                    canvas = await html2canvas(clone, {
+                        scale: SCALE,
+                        width: CAPTURE_WIDTH_PX,
+                        windowWidth: CAPTURE_WIDTH_PX,
+                        useCORS: true,
+                        allowTaint: true,
+                        logging: false,
+                        backgroundColor: "#ffffff",
+                        onclone: (clonedDoc) => {
+                            // 1. Patcher la fenêtre de l'iframe de html2canvas si elle existe
+                            try {
+                                if (clonedDoc.defaultView) {
+                                    patchWindowGetComputedStyle(clonedDoc.defaultView);
+                                }
+                            } catch {}
+
+                            // 2. Remplacer tous les oklch, oklab et couleurs modernes dans toutes les balises <style>
+                            try {
+                                const styles = Array.from(clonedDoc.querySelectorAll("style"));
+                                styles.forEach((s) => {
+                                    if (s.textContent && hasModernColor(s.textContent)) {
+                                        s.textContent = convertOklchToRgb(s.textContent);
+                                    }
+                                });
+                            } catch {}
+
+                            // 3. Remplacer toutes les couleurs modernes dans les attributs style inline
+                            try {
+                                const styledEls = Array.from(clonedDoc.querySelectorAll("[style]")) as HTMLElement[];
+                                styledEls.forEach((el) => {
+                                    const st = el.getAttribute("style");
+                                    if (st && hasModernColor(st)) {
+                                        el.setAttribute("style", convertOklchToRgb(st));
+                                    }
+                                });
+                            } catch {}
+
+                            // 4. Assainir tous les éléments SVG clonés
+                            try {
+                                const allSvgs = Array.from(clonedDoc.querySelectorAll("svg"));
+                                allSvgs.forEach((svg) => {
+                                    ["stroke", "fill", "color"].forEach((attr) => {
+                                        const val = svg.getAttribute(attr);
+                                        if (val && hasModernColor(val)) {
+                                            svg.setAttribute(attr, convertOklchToRgb(val));
+                                        }
+                                    });
+                                    if (svg.style) {
+                                        if (svg.style.stroke && hasModernColor(svg.style.stroke)) {
+                                            svg.style.stroke = convertOklchToRgb(svg.style.stroke);
+                                        }
+                                        if (svg.style.fill && hasModernColor(svg.style.fill)) {
+                                            svg.style.fill = convertOklchToRgb(svg.style.fill);
+                                        }
+                                        if (svg.style.color && hasModernColor(svg.style.color)) {
+                                            svg.style.color = convertOklchToRgb(svg.style.color);
+                                        }
+                                    }
+                                    svg.classList.remove(
+                                        "text-teal-600", "text-teal-700", "text-teal-400", "text-teal-300",
+                                        "text-amber-600", "text-amber-700", "text-amber-400", "text-amber-300",
+                                        "text-zinc-400", "text-zinc-500", "text-zinc-600", "text-zinc-700", "text-zinc-900", "text-white"
+                                    );
+                                });
+                            } catch {}
+
+                            // 5. Garantir que toutes les bordures des cartes de citations, versets et conteneurs sont gris clair (#e4e4e7) ou transparentes, jamais noires
+                            try {
+                                const targetContainer = clonedDoc.getElementById("printable-note-clone") || clonedDoc.getElementById("printable-note-container");
+                                if (targetContainer) {
+                                    const borderedEls = Array.from(targetContainer.querySelectorAll(".journal-print-card, .journal-subtitle-bar, .journal-subtitle-bar > div, blockquote, [class*='border']")) as HTMLElement[];
+                                    borderedEls.forEach((el) => {
+                                        const cs = clonedDoc.defaultView ? clonedDoc.defaultView.getComputedStyle(el) : window.getComputedStyle(el);
+                                        const bc = (cs.borderColor || "").toLowerCase().trim();
+                                        if (bc === "rgb(0, 0, 0)" || bc === "rgba(0, 0, 0, 1)" || bc === "#000" || bc === "#000000" || bc === "black") {
+                                            el.style.borderColor = "#e4e4e7";
+                                        }
+                                    });
+
+                                    // Neutraliser toute bordure résiduelle par défaut sur les blockquotes
+                                    const bqs = Array.from(targetContainer.querySelectorAll("blockquote")) as HTMLElement[];
+                                    bqs.forEach((bq) => {
+                                        bq.style.borderTop = "none";
+                                        bq.style.borderRight = "none";
+                                        bq.style.borderBottom = "none";
+                                        bq.style.borderLeft = "none";
+                                    });
+                                }
+                            } catch {}
+
+                            const target = clonedDoc.getElementById("printable-note-clone") || clonedDoc.getElementById("printable-note-container");
+                            if (target) {
+                                target.style.display = "block";
+                                target.style.visibility = "visible";
+                                target.style.width = `${CAPTURE_WIDTH_PX}px`;
+                                target.style.maxWidth = `${CAPTURE_WIDTH_PX}px`;
+                                target.style.boxSizing = "border-box";
+                                target.style.backgroundColor = "#ffffff";
+                            }
+                        }
+                    });
+                } finally {
+                    cleanupWindowGCS();
+                }
+
+                if (!canvas || canvas.height <= 0 || canvas.width <= 0) {
+                    throw new Error("Capture canvas vide");
+                }
 
                 const pdf = new jsPDF({
                     orientation: "portrait",
@@ -1034,28 +1197,80 @@ const NoteEditor: React.FC = () => {
 
                 const pageWidthMm = 210;
                 const pageHeightMm = 297;
-                const marginMm = 10;
-                const printableWidthMm = pageWidthMm - (marginMm * 2); // 190mm
-                const printableHeightMm = pageHeightMm - (marginMm * 2); // 277mm
+                const marginXMm = 12;
+                const marginTopMm = 12;
+                const marginBottomMm = 14;
+                const printableWidthMm = pageWidthMm - marginXMm * 2; // 186mm
+                const printableHeightMm = pageHeightMm - marginTopMm - marginBottomMm; // 271mm
 
-                // Hauteur en pixels sur le canvas correspondant à une page imprimable
-                const pageCanvasHeight = Math.floor(canvas.width * (printableHeightMm / printableWidthMm));
+                const maxPageCanvasHeight = Math.floor(canvas.width * (printableHeightMm / printableWidthMm));
+                const fullCtx = canvas.getContext("2d");
 
-                let currentY = 0;
-                let pageIndex = 0;
+                const findSafeCutY = (startY: number, maxSliceH: number): number => {
+                    const idealEnd = startY + maxSliceH;
+                    if (idealEnd >= canvas.height) return canvas.height;
 
-                while (currentY < canvas.height) {
-                    const sliceHeight = Math.min(pageCanvasHeight, canvas.height - currentY);
+                    // 1. Frontières naturelles des cartes du journal
+                    const minCardCut = startY + Math.floor(maxSliceH * 0.65);
+                    const eligibleCardBreaks = breakPositions.filter(p => p >= minCardCut && p <= idealEnd);
+                    if (eligibleCardBreaks.length > 0) {
+                        return eligibleCardBreaks[eligibleCardBreaks.length - 1];
+                    }
+
+                    // 2. Scanner de pixels avec protection try/catch
+                    try {
+                        if (!fullCtx) return idealEnd;
+                        const w = canvas.width;
+                        const minAcceptableY = startY + Math.floor(maxSliceH * 0.55);
+                        const searchHeight = idealEnd - minAcceptableY;
+                        if (searchHeight <= 10 || w <= 0) return idealEnd;
+
+                        const imgData = fullCtx.getImageData(0, minAcceptableY, w, searchHeight).data;
+                        const marginPx = Math.floor(20 * SCALE);
+
+                        for (let rowOffset = searchHeight - 1; rowOffset >= 0; rowOffset--) {
+                            const rowBase = rowOffset * w * 4;
+                            let isWhiteRow = true;
+                            for (let x = marginPx; x < w - marginPx; x += 8) {
+                                const idx = rowBase + x * 4;
+                                if (imgData[idx] < 250 || imgData[idx + 1] < 250 || imgData[idx + 2] < 250) {
+                                    isWhiteRow = false;
+                                    break;
+                                }
+                            }
+                            if (isWhiteRow) {
+                                return minAcceptableY + rowOffset;
+                            }
+                        }
+                    } catch {}
+
+                    return idealEnd;
+                };
+
+                // Découpe des pages avec progression stricte garantie
+                const slices: { startY: number; height: number }[] = [];
+                let cursorY = 0;
+                while (cursorY < canvas.height) {
+                    const cutY = findSafeCutY(cursorY, maxPageCanvasHeight);
+                    const nextCursor = Math.max(cursorY + Math.floor(maxPageCanvasHeight * 0.35), Math.min(cutY, canvas.height));
+                    const sliceH = Math.max(1, nextCursor - cursorY);
+                    slices.push({ startY: cursorY, height: sliceH });
+                    cursorY = nextCursor;
+                }
+
+                for (let pageIndex = 0; pageIndex < slices.length; pageIndex++) {
+                    const { startY, height: sliceHeight } = slices[pageIndex];
+
                     const pageCanvas = document.createElement("canvas");
                     pageCanvas.width = canvas.width;
-                    pageCanvas.height = pageCanvasHeight;
+                    pageCanvas.height = sliceHeight;
                     const pctx = pageCanvas.getContext("2d");
                     if (pctx) {
                         pctx.fillStyle = "#ffffff";
                         pctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
                         pctx.drawImage(
                             canvas,
-                            0, currentY, canvas.width, sliceHeight,
+                            0, startY, canvas.width, sliceHeight,
                             0, 0, canvas.width, sliceHeight
                         );
                     }
@@ -1066,12 +1281,44 @@ const NoteEditor: React.FC = () => {
 
                     const sliceHeightMm = (sliceHeight / canvas.width) * printableWidthMm;
                     const imgData = pageCanvas.toDataURL("image/jpeg", 0.98);
-                    
-                    // Rendu centré avec marges de 10mm et hauteur proportionnelle exacte (pas d'étirement vertical)
-                    pdf.addImage(imgData, "JPEG", marginMm, marginMm, printableWidthMm, sliceHeightMm);
 
-                    currentY += sliceHeight;
-                    pageIndex++;
+                    pdf.addImage(imgData, "JPEG", marginXMm, marginTopMm, printableWidthMm, sliceHeightMm);
+
+                    // En-tête discret pour les pages après la première
+                    if (pageIndex > 0) {
+                        pdf.setFont("helvetica", "normal");
+                        pdf.setFontSize(7.5);
+                        pdf.setTextColor(148, 163, 184);
+                        pdf.text(
+                            `King's Sword — ${stripMarkdown(processedNote.title || "Journal d'Étude").slice(0, 70)}`,
+                            marginXMm,
+                            7
+                        );
+                        if (note.date) {
+                            pdf.text(
+                                new Date(note.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
+                                pageWidthMm - marginXMm,
+                                7,
+                                { align: "right" }
+                            );
+                        }
+                    }
+
+                    // Pied de page
+                    pdf.setFont("helvetica", "normal");
+                    pdf.setFontSize(8);
+                    pdf.setTextColor(148, 163, 184);
+                    pdf.text(
+                        `King's Sword — ${stripMarkdown(processedNote.title || "Journal d'Étude").slice(0, 65)}`,
+                        marginXMm,
+                        pageHeightMm - 5
+                    );
+                    pdf.text(
+                        `Page ${pageIndex + 1} / ${slices.length}`,
+                        pageWidthMm - marginXMm,
+                        pageHeightMm - 5,
+                        { align: "right" }
+                    );
                 }
 
                 const safeFileName = (note.title || "Note").replace(/[/\\?%*:|"<>]/g, "_").trim();
@@ -1082,22 +1329,26 @@ const NoteEditor: React.FC = () => {
                     document.body.removeChild(offscreen);
                 }
             }
-        } catch (error) {
-            console.error("PDF export error (html2canvas):", error);
-            addNotification("Erreur lors de l'exportation PDF par html2canvas.", "error");
+        } catch (error: any) {
+            console.error("PDF export error:", error);
+            addNotification("Génération directe indisponible, ouverture du panneau d'impression pour enregistrement PDF...", "info");
+            setTimeout(() => {
+                handlePrint();
+            }, 300);
         }
     };
 
     const handleExportDocx = async () => {
         if (!note) return;
         addNotification("Génération du document Word (.docx)...", "info");
-        const success = await exportNoteToDocx(note);
+        const success = await exportNoteToDocx(note, sermons);
         if (success) {
             addNotification("Note exportée au format Word (.docx) avec succès !", "success");
         } else {
             addNotification("Erreur lors de l'exportation Word.", "error");
         }
     };
+
 
     const handlePrint = () => {
         try {
@@ -3616,73 +3867,143 @@ const NoteEditor: React.FC = () => {
                 </div>
             </div>
 
-            {/* Zone dédiée à l'impression (Imprimante / window.print) */}
-            <div id="printable-note-container" className="hidden print:block p-8 bg-white text-slate-900 font-sans leading-relaxed">
-                {/* En-tête officiel du document */}
-                <div className="border-b-2 border-teal-700 pb-4 mb-7 flex items-end justify-between">
-                    <div>
-                        <div className="text-[11px] font-black uppercase tracking-[0.25em] text-teal-800 mb-1">
-                            KING'S SWORD &bull; ÉTUDE BIBLIQUE &amp; SERMONS
+            {/* Zone dédiée à l'impression et à l'export PDF (reproduit exactement le Journal d'Étude) */}
+            <div id="printable-note-container" className="hidden print:block p-6 bg-white text-zinc-900 font-sans leading-relaxed box-border max-w-full overflow-hidden">
+                {/* 1. CARTE PRINCIPALE : Titre, Badge Thème, Contenu Principal & Images Jointes */}
+                <div className="bg-white border border-zinc-200 rounded-3xl p-7 mb-7 shadow-2xs journal-print-card page-break-inside-avoid">
+                    <div className="flex items-start justify-between gap-4 mb-6 pb-4 border-b border-zinc-100">
+                        <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                            <div className="w-10 h-10 flex items-center justify-center bg-teal-600 text-white rounded-2xl shrink-0">
+                                <NotebookPen className="w-5 h-5 text-white" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-teal-700 mb-0.5">
+                                    KING'S SWORD &bull; JOURNAL D'ÉTUDE
+                                </div>
+                                <h1 className="text-xl font-black uppercase tracking-tight text-zinc-900 leading-snug m-0 break-words">
+                                    {stripMarkdown(processedNote.title)}
+                                </h1>
+                            </div>
                         </div>
-                        <h1 className="text-2xl font-bold uppercase tracking-tight text-slate-900 leading-tight">
-                            {stripMarkdown(processedNote.title)}
-                        </h1>
+                        <div className="flex flex-col items-end gap-1.5 shrink-0">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-teal-50 text-teal-700 border border-teal-200 rounded-full text-[11px] font-bold">
+                                <Tag className="w-3 h-3 text-teal-600 shrink-0" />
+                                <span>{note.theme || 'Général'}</span>
+                            </span>
+                            <span className="text-[10px] font-semibold text-zinc-500">
+                                {note.date ? new Date(note.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('fr-FR')}
+                            </span>
+                        </div>
                     </div>
-                    <div className="text-right shrink-0">
-                        <span className="inline-block text-[10px] font-bold uppercase tracking-wider text-teal-900 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded">
-                            {note.date ? new Date(note.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('fr-FR')}
-                        </span>
-                    </div>
-                </div>
 
-                {/* Contenu Principal */}
-                {processedNote.contentParagraphs.length > 0 && (
-                    <div className="mb-8 space-y-3 page-break-inside-avoid">
-                        <div className="flex items-center gap-2 border-b border-teal-600/30 pb-1.5 mb-3">
-                            <span className="w-2 h-2 rounded-full bg-teal-700"></span>
-                            <h2 className="text-xs font-black uppercase tracking-wider text-teal-900 m-0">Contenu Principal</h2>
-                        </div>
-                        <div className="space-y-3 pl-3 border-l-2 border-slate-200">
+                    {/* Contenu Principal riche avec barre latérale gauche comme dans le Journal */}
+                    {processedNote.contentParagraphs.length > 0 && (
+                        <div className="serif-text text-[14.5px] leading-[1.75] text-zinc-800 pl-5 border-l-2 border-zinc-200 space-y-3 break-words">
                             {processedNote.contentParagraphs.map((p, i) => (
-                                <p key={i} className="text-[13px] text-slate-800 leading-relaxed font-normal m-0 text-justify">
-                                    {stripMarkdown(p)}
-                                </p>
+                                <div
+                                    key={i}
+                                    className="font-medium leading-[1.75] print-rich-content break-words [&_p]:my-2.5 [&_strong]:font-black [&_strong]:text-zinc-900 [&_em]:italic [&_em]:text-zinc-700 [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:text-lg [&_h1]:font-black [&_h1]:text-zinc-900 [&_h2]:mt-3.5 [&_h2]:mb-1.5 [&_h2]:text-base [&_h2]:font-extrabold [&_h2]:text-teal-700 [&_h3]:mt-3 [&_h3]:mb-1 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:text-teal-600 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2 [&_li]:my-1"
+                                    dangerouslySetInnerHTML={{ __html: renderRichContent(p) }}
+                                />
                             ))}
                         </div>
+                    )}
+
+                    {/* Images & Illustrations jointes (intégrées à la carte principale comme dans le Journal) */}
+                    {note.images && note.images.length > 0 && (
+                        <div className="mt-6 pt-5 border-t border-zinc-100 page-break-inside-avoid">
+                            <div className="flex items-center gap-2 mb-3">
+                                <ImageIcon className="w-4 h-4 text-teal-600 shrink-0" />
+                                <span className="text-xs font-black uppercase tracking-wider text-zinc-700">
+                                    Images &amp; Illustrations jointes ({note.images.length})
+                                </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                {note.images.map((img, i) => (
+                                    <div key={img.id || i} className="bg-zinc-50 rounded-2xl border border-zinc-200 overflow-hidden flex flex-col page-break-inside-avoid">
+                                        <div className="p-2.5 bg-zinc-100/70 flex items-center justify-center">
+                                            <img src={img.url} alt={img.caption || img.name || ''} className="max-h-44 max-w-full object-contain rounded-lg" />
+                                        </div>
+                                        {(img.caption || img.name) && (
+                                            <div className="p-2.5 bg-white border-t border-zinc-100 text-xs font-bold text-zinc-800 break-words">
+                                                {img.caption || img.name}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Bandeau de séparation Encyclopédie & Références */}
+                {((processedNote.scriptureItems && processedNote.scriptureItems.length > 0) ||
+                  (processedNote.churchAgeItems && processedNote.churchAgeItems.length > 0) ||
+                  (processedNote.teachingItems && processedNote.teachingItems.length > 0) ||
+                  (processedNote.aiItems && processedNote.aiItems.length > 0) ||
+                  (processedNote.strongItems && processedNote.strongItems.length > 0) ||
+                  (processedNote.definitionItems && processedNote.definitionItems.length > 0) ||
+                  processedNote.sources.length > 0) && (
+                    <div className="flex items-center gap-4 px-2 my-6 journal-section-header page-break-after-avoid">
+                        <span className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-400 shrink-0">
+                            Encyclopédie &amp; Références
+                        </span>
+                        <div className="flex-1 h-0.5 bg-zinc-200 rounded-full" />
                     </div>
                 )}
 
                 {/* 1. Citations Bibliques */}
                 {processedNote.scriptureItems && processedNote.scriptureItems.length > 0 && (
-                    <div className="mb-8 space-y-4">
-                        <div className="flex items-center gap-2 border-b border-teal-600/30 pb-1.5 mb-3">
-                            <BookOpen className="w-4 h-4 text-teal-700 shrink-0" />
-                            <h2 className="text-xs font-black uppercase tracking-wider text-teal-900 m-0">Citations Bibliques</h2>
+                    <div className="mb-7 space-y-3">
+                        <div className="flex items-center gap-2 px-1 mb-2 journal-section-header page-break-after-avoid">
+                            <BookOpen className="w-4 h-4 text-teal-600 shrink-0" />
+                            <h2 className="text-xs font-black uppercase tracking-wider text-teal-600 m-0">Citations Bibliques</h2>
                         </div>
                         {processedNote.scriptureItems.map((item, i) => {
                             if (item.kind === 'separator') {
                                 if (item.separatorType === 'subtitle') {
                                     return (
-                                        <div key={item.id || i} className="subtitle-separator page-break-inside-avoid my-4">
-                                            <h4>{stripMarkdown(item.text)}</h4>
+                                        <div key={item.id || i} className="flex items-center gap-3 py-1.5 my-2 journal-subtitle-bar page-break-inside-avoid">
+                                            <div className="flex-1 h-px bg-zinc-200" />
+                                            <div className="inline-flex items-center gap-2 bg-teal-50 border border-zinc-200 px-4 py-1.5 rounded-full">
+                                                <Type className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                                                <span className="text-xs font-black uppercase tracking-wider text-teal-900">
+                                                    {stripMarkdown(item.text)}
+                                                </span>
+                                            </div>
+                                            <div className="flex-1 h-px bg-zinc-200" />
                                         </div>
                                     );
                                 }
                                 return (
-                                    <div key={item.id || i} className="comment-box page-break-inside-avoid my-3">
-                                        <div className="comment-title">Remarque / Commentaire :</div>
-                                        <div className="comment-text">{stripMarkdown(item.text)}</div>
+                                    <div key={item.id || i} className="bg-teal-50/50 border border-zinc-200 rounded-2xl p-4 my-2 journal-print-card page-break-inside-avoid flex items-start gap-2.5">
+                                        <div className="w-6 h-6 rounded-lg bg-teal-600/10 text-teal-600 flex items-center justify-center shrink-0 mt-0.5">
+                                            <MessageSquare className="w-3.5 h-3.5 text-teal-600" />
+                                        </div>
+                                        <p className="text-xs text-zinc-700 italic leading-relaxed m-0 break-words flex-1">
+                                             {cleanTextArtifacts(item.text)}
+                                        </p>
                                     </div>
                                 );
                             }
                             return (
-                                <div key={item.id || i} className="citation-box page-break-inside-avoid bg-slate-50/70 p-3.5 rounded-r-lg border-l-4 border-teal-600 my-3">
-                                    <p className="text-[13px] text-slate-800 leading-relaxed italic m-0">
-                                        <HighlightedQuote quote={stripMarkdown(item.quote)} highlights={item.highlights} isPrint withGuillemets />
-                                    </p>
-                                    <div className="citation-ref text-right mt-2 text-[11px] font-bold text-teal-800">
-                                        {stripMarkdown(item.reference || 'Bible')} {item.sourceIndex ? `[${item.sourceIndex}]` : ''}
+                                <div key={item.id || i} className="bg-white border border-zinc-200 rounded-2xl p-5 my-3 journal-print-card page-break-inside-avoid shadow-2xs">
+                                    <div className="flex items-center justify-between gap-2 mb-3 pb-2.5 border-b border-zinc-100">
+                                        <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                                            <Quote className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                                            <span className="text-xs font-bold text-teal-700 break-words">
+                                                {stripMarkdown(item.reference || 'Bible')}
+                                            </span>
+                                            {item.sourceIndex && (
+                                                <span className="text-[10px] font-black bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full border border-zinc-200 shrink-0">
+                                                    [{item.sourceIndex}]
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
+                                    <blockquote className="text-zinc-800 italic serif-text text-[14px] leading-[1.75] m-0 break-words border-none">
+                                        <HighlightedQuote quote={cleanTextArtifacts(item.quote)} highlights={item.highlights} isPrint withGuillemets />
+                                    </blockquote>
                                 </div>
                             );
                         })}
@@ -3691,72 +4012,124 @@ const NoteEditor: React.FC = () => {
 
                 {/* 2. Citations de l'Exposé des Sept Âges */}
                 {processedNote.churchAgeItems && processedNote.churchAgeItems.length > 0 && (
-                    <div className="mb-8 space-y-4">
-                        <div className="flex items-center gap-2 border-b border-amber-600/30 pb-1.5 mb-3">
+                    <div className="mb-7 space-y-3">
+                        <div className="flex items-center gap-2 px-1 mb-2 journal-section-header page-break-after-avoid">
                             <ScrollText className="w-4 h-4 text-amber-600 shrink-0" />
-                            <h2 className="text-xs font-black uppercase tracking-wider text-amber-900 m-0">Citations de l'Exposé des Sept Âges</h2>
+                            <h2 className="text-xs font-black uppercase tracking-wider text-amber-600 m-0">Citations de l'Exposé des Sept Âges</h2>
                         </div>
                         {processedNote.churchAgeItems.map((item, i) => {
                             if (item.kind === 'separator') {
                                 if (item.separatorType === 'subtitle') {
                                     return (
-                                        <div key={item.id || i} className="subtitle-separator amber page-break-inside-avoid my-4">
-                                            <h4>{stripMarkdown(item.text)}</h4>
+                                        <div key={item.id || i} className="flex items-center gap-3 py-1.5 my-2 journal-subtitle-bar page-break-inside-avoid">
+                                            <div className="flex-1 h-px bg-zinc-200" />
+                                            <div className="inline-flex items-center gap-2 bg-amber-50 border border-zinc-200 px-4 py-1.5 rounded-full">
+                                                <Type className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                                <span className="text-xs font-black uppercase tracking-wider text-amber-900">
+                                                    {stripMarkdown(item.text)}
+                                                </span>
+                                            </div>
+                                            <div className="flex-1 h-px bg-zinc-200" />
                                         </div>
                                     );
                                 }
                                 return (
-                                    <div key={item.id || i} className="comment-box amber page-break-inside-avoid my-3">
-                                        <div className="comment-title">Remarque / Commentaire :</div>
-                                        <div className="comment-text">{stripMarkdown(item.text)}</div>
+                                    <div key={item.id || i} className="bg-amber-50/50 border border-zinc-200 rounded-2xl p-4 my-2 journal-print-card page-break-inside-avoid flex items-start gap-2.5">
+                                        <div className="w-6 h-6 rounded-lg bg-amber-600/10 text-amber-600 flex items-center justify-center shrink-0 mt-0.5">
+                                            <MessageSquare className="w-3.5 h-3.5 text-amber-600" />
+                                        </div>
+                                        <p className="text-xs text-zinc-700 italic leading-relaxed m-0 break-words flex-1">
+                                            {cleanTextArtifacts(item.text)}
+                                        </p>
                                     </div>
                                 );
                             }
                             return (
-                                <div key={item.id || i} className="citation-box page-break-inside-avoid bg-amber-50/50 p-3.5 rounded-r-lg border-l-4 border-amber-600 my-3">
-                                    <p className="text-[13px] text-slate-800 leading-relaxed italic m-0">
-                                        <HighlightedQuote quote={stripMarkdown(item.quote)} highlights={item.highlights} isPrint withGuillemets />
-                                    </p>
-                                    <div className="citation-ref text-right mt-2 text-[11px] font-bold text-amber-900">
-                                        {stripMarkdown(item.sourceTitle || "Exposé des Sept Âges")} {item.sourceMeta ? `— ${stripMarkdown(item.sourceMeta)}` : ''} {item.sourceIndex ? `[${item.sourceIndex}]` : ''}
+                                <div key={item.id || i} className="bg-white border border-zinc-200 rounded-2xl p-5 my-3 journal-print-card page-break-inside-avoid shadow-2xs">
+                                    <div className="flex items-center justify-between gap-2 mb-3 pb-2.5 border-b border-zinc-100">
+                                        <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                                            <ScrollText className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                            <span className="text-xs font-bold text-amber-700 break-words">
+                                                {stripMarkdown(item.sourceTitle || "Exposé des Sept Âges")}
+                                            </span>
+                                            {item.sourceMeta && (
+                                                <span className="text-xs text-zinc-500 break-words">
+                                                    — {stripMarkdown(item.sourceMeta)}
+                                                </span>
+                                            )}
+                                            {item.sourceIndex && (
+                                                <span className="text-[10px] font-black bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full border border-zinc-200 shrink-0">
+                                                    [{item.sourceIndex}]
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
+                                    <blockquote className="text-zinc-800 italic serif-text text-[14px] leading-[1.75] m-0 break-words border-none">
+                                        <HighlightedQuote quote={cleanTextArtifacts(item.quote)} highlights={item.highlights} isPrint withGuillemets />
+                                    </blockquote>
                                 </div>
                             );
                         })}
                     </div>
                 )}
 
-                {/* 3. Citations & Enseignements */}
+                {/* 3. Citations d'Enseignements */}
                 {processedNote.teachingItems && processedNote.teachingItems.length > 0 && (
-                    <div className="mb-8 space-y-4">
-                        <div className="flex items-center gap-2 border-b border-slate-400/40 pb-1.5 mb-3">
-                            <Quote className="w-4 h-4 text-slate-700 shrink-0" />
-                            <h2 className="text-xs font-black uppercase tracking-wider text-slate-800 m-0">Citations & Enseignements</h2>
+                    <div className="mb-7 space-y-3">
+                        <div className="flex items-center gap-2 px-1 mb-2 journal-section-header page-break-after-avoid">
+                            <Quote className="w-4 h-4 text-teal-600 shrink-0" />
+                            <h2 className="text-xs font-black uppercase tracking-wider text-teal-600 m-0">Citations d'Enseignements</h2>
                         </div>
                         {processedNote.teachingItems.map((item, i) => {
                             if (item.kind === 'separator') {
                                 if (item.separatorType === 'subtitle') {
                                     return (
-                                        <div key={item.id || i} className="subtitle-separator slate page-break-inside-avoid my-4">
-                                            <h4>{stripMarkdown(item.text)}</h4>
+                                        <div key={item.id || i} className="flex items-center gap-3 py-1.5 my-2 journal-subtitle-bar page-break-inside-avoid">
+                                            <div className="flex-1 h-px bg-zinc-200" />
+                                            <div className="inline-flex items-center gap-2 bg-teal-50 border border-zinc-200 px-4 py-1.5 rounded-full">
+                                                <Type className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                                                <span className="text-xs font-black uppercase tracking-wider text-teal-900">
+                                                    {stripMarkdown(item.text)}
+                                                </span>
+                                            </div>
+                                            <div className="flex-1 h-px bg-zinc-200" />
                                         </div>
                                     );
                                 }
                                 return (
-                                    <div key={item.id || i} className="comment-box slate page-break-inside-avoid my-3">
-                                        <div className="comment-title">Remarque / Commentaire :</div>
-                                        <div className="comment-text">{stripMarkdown(item.text)}</div>
+                                    <div key={item.id || i} className="bg-teal-50/50 border border-zinc-200 rounded-2xl p-4 my-2 journal-print-card page-break-inside-avoid flex items-start gap-2.5">
+                                        <div className="w-6 h-6 rounded-lg bg-teal-600/10 text-teal-600 flex items-center justify-center shrink-0 mt-0.5">
+                                            <MessageSquare className="w-3.5 h-3.5 text-teal-600" />
+                                        </div>
+                                        <p className="text-xs text-zinc-700 italic leading-relaxed m-0 break-words flex-1">
+                                            {cleanTextArtifacts(item.text)}
+                                        </p>
                                     </div>
                                 );
                             }
                             return (
-                                <div key={item.id || i} className="citation-box page-break-inside-avoid bg-slate-50/70 p-3.5 rounded-r-lg border-l-4 border-slate-600 my-3">
-                                    <p className="text-[13px] text-slate-800 leading-relaxed italic m-0">
-                                        <HighlightedQuote quote={stripMarkdown(item.quote)} highlights={item.highlights} isPrint withGuillemets />
-                                    </p>
-                                    <div className="citation-ref text-right mt-2 text-[11px] font-bold text-slate-700">
-                                        {stripMarkdown(item.sourceTitle || 'Enseignement')} {item.sourceMeta ? `— ${stripMarkdown(item.sourceMeta)}` : ''} {item.sourceIndex ? `[${item.sourceIndex}]` : ''}
+                                <div key={item.id || i} className="bg-white border border-zinc-200 rounded-2xl p-5 my-3 journal-print-card page-break-inside-avoid shadow-2xs">
+                                    <div className="flex items-center justify-between gap-2 mb-3 pb-2.5 border-b border-zinc-100">
+                                        <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                                            <Quote className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                                            <span className="text-xs font-bold text-teal-700 break-words">
+                                                {stripMarkdown(item.sourceTitle || 'Prédication')}
+                                            </span>
+                                            {item.sourceMeta && (
+                                                <span className="text-xs text-zinc-500 break-words">
+                                                    — {stripMarkdown(item.sourceMeta)}
+                                                </span>
+                                            )}
+                                            {item.sourceIndex && (
+                                                <span className="text-[10px] font-black bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full border border-zinc-200 shrink-0">
+                                                    [{item.sourceIndex}]
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
+                                    <blockquote className="text-zinc-800 italic serif-text text-[14px] leading-[1.75] m-0 break-words border-none">
+                                        <HighlightedQuote quote={cleanTextArtifacts(item.quote)} highlights={item.highlights} isPrint withGuillemets />
+                                    </blockquote>
                                 </div>
                             );
                         })}
@@ -3765,37 +4138,34 @@ const NoteEditor: React.FC = () => {
 
                 {/* 3.5. Études & Réponses du Dock IA */}
                 {processedNote.aiItems && processedNote.aiItems.length > 0 && (
-                    <div className="mb-8 space-y-4">
-                        <div className="flex items-center gap-2 border-b border-teal-600/30 pb-1.5 mb-3">
-                            <Lightbulb className="w-4 h-4 text-teal-700 shrink-0" />
-                            <h2 className="text-xs font-black uppercase tracking-wider text-teal-900 m-0">
-                                Études & Réponses du Dock IA ({processedNote.aiItems.length})
+                    <div className="mb-7 space-y-3">
+                        <div className="flex items-center gap-2 px-1 mb-2 journal-section-header page-break-after-avoid">
+                            <Lightbulb className="w-4 h-4 text-teal-600 shrink-0" />
+                            <h2 className="text-xs font-black uppercase tracking-wider text-teal-600 m-0">
+                                Études &amp; Réponses du Dock IA ({processedNote.aiItems.length})
                             </h2>
                         </div>
                         {processedNote.aiItems.map((item, i) => (
-                            <div key={item.citationId || i} className="ai-item-box page-break-inside-avoid bg-teal-50/50 p-5 rounded-2xl border border-teal-200/80 my-4 text-slate-800 shadow-xs">
-                                <div className="flex items-center gap-2.5 mb-3 pb-2 border-b border-teal-600/20">
-                                    <div className="w-7 h-7 rounded-lg bg-teal-600 text-white flex items-center justify-center shrink-0">
-                                        <Lightbulb className="w-3.5 h-3.5 text-white" />
+                            <div key={item.citationId || i} className="bg-white border border-zinc-200 rounded-2xl p-5 my-3.5 text-zinc-800 journal-print-card page-break-inside-avoid shadow-2xs">
+                                <div className="flex items-start gap-3 mb-3 pb-3 border-b border-zinc-100">
+                                    <div className="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0 mt-0.5">
+                                        <Lightbulb className="w-4 h-4 text-white" />
                                     </div>
-                                    <div className="min-w-0">
-                                        <div className="text-[10px] font-black uppercase tracking-wider text-teal-700 flex items-center gap-1.5 flex-wrap">
+                                    <div className="min-w-0 flex-1">
+                                        <div className="text-[10px] font-black uppercase tracking-wider text-teal-600 flex items-center gap-1.5 flex-wrap mb-0.5">
                                             <span>Assistant IA</span>
-                                            {item.date && <span className="font-mono text-slate-400 font-normal">({item.date})</span>}
-                                            {item.sourceIndex && <span className="text-teal-800 font-bold">[{item.sourceIndex}]</span>}
+                                            {item.date && <span className="font-mono text-zinc-400 font-normal">({item.date})</span>}
+                                            {item.sourceIndex && <span className="text-zinc-500 font-bold">[{item.sourceIndex}]</span>}
                                         </div>
-                                        <div className="font-extrabold text-slate-900 text-sm truncate">
+                                        <h5 className="font-extrabold text-zinc-900 text-sm leading-snug m-0 break-words">
                                             {stripMarkdown(item.title)}
-                                        </div>
+                                        </h5>
                                     </div>
                                 </div>
-                                <div 
-                                    className="text-[12.5px] leading-relaxed text-slate-800 print-rich-content space-y-2.5"
+                                <div
+                                    className="text-[13px] leading-[1.75] text-zinc-800 print-rich-content space-y-2.5 break-words"
                                     dangerouslySetInnerHTML={{ __html: renderRichContent(item.content) }}
                                 />
-                                <div className="citation-ref text-right mt-3 pt-1 border-t border-teal-600/10 text-[10.5px] font-bold text-teal-800">
-                                    Assistant IA King's Sword {item.sourceIndex ? `[${item.sourceIndex}]` : ''}
-                                </div>
                             </div>
                         ))}
                     </div>
@@ -3803,38 +4173,126 @@ const NoteEditor: React.FC = () => {
 
                 {/* 4. Concordance & Exégèse Strong */}
                 {processedNote.strongItems && processedNote.strongItems.length > 0 && (
-                    <div className="mb-8 space-y-4">
-                        <div className="flex items-center gap-2 border-b border-teal-600/30 pb-1.5 mb-3">
-                            <Languages className="w-4 h-4 text-teal-700 shrink-0" />
-                            <h2 className="text-xs font-black uppercase tracking-wider text-teal-900 m-0">Concordance & Exégèse Strong ({processedNote.strongItems.length})</h2>
+                    <div className="mb-7 space-y-3">
+                        <div className="flex items-center gap-2 px-1 mb-2 journal-section-header page-break-after-avoid">
+                            <Languages className="w-4 h-4 text-teal-600 shrink-0" />
+                            <h2 className="text-xs font-black uppercase tracking-wider text-teal-600 m-0">
+                                Concordance &amp; Exégèse Strong ({processedNote.strongItems.length})
+                            </h2>
                         </div>
                         {processedNote.strongItems.map((item, i) => (
-                            <div key={item.citationId || i} className="citation-box page-break-inside-avoid bg-slate-50/70 p-3.5 rounded-r-lg border-l-4 border-teal-700 my-3">
-                                <p className="font-bold text-slate-900 not-italic text-[13px] m-0">
-                                    Strong {item.strongNumber} : {stripMarkdown(item.word)} {item.original ? `(${stripMarkdown(item.original)})` : ''} — [{stripMarkdown(item.pronunciation)}] ({item.type === 'hebrew' ? 'Hébreu' : 'Grec'})
-                                </p>
-                                <div className="mt-1.5 text-slate-800 text-[12px] leading-relaxed whitespace-pre-line">
-                                    <strong className="text-teal-900">Définition :</strong> {stripMarkdown(item.definition)}
+                            <div key={item.citationId || i} className="bg-white border border-zinc-200 rounded-2xl p-5 my-3.5 journal-print-card page-break-inside-avoid shadow-2xs">
+                                {/* Header of Strong Card */}
+                                <div className="flex items-start gap-3 mb-3 pb-3 border-b border-zinc-100">
+                                    <div className="w-10 h-10 rounded-2xl bg-teal-700 text-white flex items-center justify-center shrink-0 font-mono text-xs font-black">
+                                        {item.strongNumber}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="text-[10px] font-black uppercase tracking-wider text-teal-600 flex items-center gap-1.5 mb-0.5 flex-wrap">
+                                            <span>Exégèse Strong</span>
+                                            <span className="text-zinc-400">&bull;</span>
+                                            <span className="font-mono text-zinc-500">{item.type === 'hebrew' ? 'Hébreu' : 'Grec'}</span>
+                                            {item.sourceIndex && (
+                                                <span className="text-zinc-500 font-bold ml-1">[{item.sourceIndex}]</span>
+                                            )}
+                                        </div>
+                                        <h5 className="text-base font-black text-zinc-900 tracking-tight m-0 break-words flex items-center gap-2 flex-wrap">
+                                            <span>{cleanTextArtifacts(item.word)}</span>
+                                            {item.original && (
+                                                <span className="font-mono text-sm text-teal-700 font-medium">({cleanTextArtifacts(item.original)})</span>
+                                            )}
+                                        </h5>
+                                        {item.pronunciation && (
+                                            <div className="text-[11px] font-semibold text-zinc-500 font-mono">
+                                                [{cleanTextArtifacts(item.pronunciation)}]
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
+
+                                {/* Metadata Details Section */}
+                                {(item.partOfSpeech || item.etymology || item.translationsLSG || item.occurrencesCountStr) && (
+                                    <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 border border-slate-200 rounded-xl p-3 mb-3">
+                                        {item.partOfSpeech && (
+                                            <div>
+                                                <span className="text-[10px] font-black uppercase tracking-wider text-teal-600 block">Nature</span>
+                                                <span className="text-zinc-800 font-medium break-words">{cleanTextArtifacts(item.partOfSpeech)}</span>
+                                            </div>
+                                        )}
+                                        {item.etymology && (
+                                            <div>
+                                                <span className="text-[10px] font-black uppercase tracking-wider text-teal-600 block">Racine / Origine</span>
+                                                <span className="text-zinc-800 font-medium break-words">{cleanTextArtifacts(item.etymology)}</span>
+                                            </div>
+                                        )}
+                                        {item.translationsLSG && (
+                                            <div className="col-span-2 border-t border-slate-200/70 pt-1.5 mt-0.5">
+                                                <span className="text-[10px] font-black uppercase tracking-wider text-teal-600 block">Traductions (LSG)</span>
+                                                <span className="text-zinc-800 font-medium break-words">{cleanTextArtifacts(item.translationsLSG)}</span>
+                                            </div>
+                                        )}
+                                        {item.occurrencesCountStr && (
+                                            <div className="col-span-2 border-t border-slate-200/70 pt-1.5 mt-0.5">
+                                                <span className="text-[10px] font-black uppercase tracking-wider text-teal-600 block">Fréquence</span>
+                                                <span className="text-zinc-800 font-medium break-words">{cleanTextArtifacts(item.occurrencesCountStr)}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Definition Section */}
+                                <div className="space-y-1.5 mb-3">
+                                    <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-zinc-500">
+                                        <Info className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                                        <span>Définition Littérale</span>
+                                    </div>
+                                    <div className="p-3.5 bg-slate-50 border border-slate-200 border-l-4 border-l-teal-600 rounded-xl">
+                                        <p className="text-zinc-800 serif-text text-[13.5px] leading-[1.7] m-0 whitespace-pre-line break-words">
+                                            {cleanTextArtifacts(item.definition)}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Message Context Section */}
                                 {item.messageContext && (
-                                    <div className="mt-1.5 text-slate-800 italic text-[12px] leading-relaxed whitespace-pre-line">
-                                        <strong className="text-teal-800 not-italic">Éclairage dans le Message :</strong> {stripMarkdown(item.messageContext)}
+                                    <div className="space-y-1.5 mb-3">
+                                        <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-teal-600">
+                                            <Flame className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                                            <span>Éclairage dans le Message du Temps de la Fin</span>
+                                        </div>
+                                        <div className="p-3.5 bg-teal-50/50 border border-teal-500/25 rounded-xl">
+                                            <p className="text-zinc-800 serif-text text-[13.5px] leading-[1.7] italic m-0 whitespace-pre-line break-words">
+                                                {cleanTextArtifacts(item.messageContext)}
+                                            </p>
+                                        </div>
                                     </div>
                                 )}
+
+                                {/* Verset d'Origine */}
                                 {item.originVerseRef && item.originVerseText && (
-                                    <div className="mt-2 pl-3 border-l-2 border-teal-600 py-1 bg-white rounded text-[11.5px]">
-                                        <p className="font-semibold text-slate-700 m-0">Verset d'origine ({item.originVerseRef}) :</p>
-                                        <p className="italic text-slate-800 mt-0.5 m-0">« {stripMarkdown(item.originVerseText)} »</p>
+                                    <div className="space-y-1.5 mb-2">
+                                        <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-zinc-500">
+                                            <BookOpen className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                                            <span>Verset d'Origine — <strong className="text-teal-700">{cleanTextArtifacts(item.originVerseRef)}</strong></span>
+                                        </div>
+                                        <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
+                                            <p className="text-zinc-800 serif-text text-[13.5px] leading-[1.7] italic m-0 break-words">
+                                                « {cleanTextArtifacts(item.originVerseText)} »
+                                            </p>
+                                        </div>
                                     </div>
                                 )}
+
                                 {item.allOccurrences && item.allOccurrences.length > 1 && (
-                                    <p className="text-[11px] text-slate-500 italic mt-1.5 m-0">
-                                        (+ {item.allOccurrences.length - 1} autre{item.allOccurrences.length - 1 > 1 ? 's' : ''} occurrence{item.allOccurrences.length - 1 > 1 ? 's' : ''} répertoriée{item.allOccurrences.length - 1 > 1 ? 's' : ''} dans les Écritures)
-                                    </p>
+                                    <div className="pt-2 mt-2 border-t border-zinc-100 flex items-center justify-between text-[11px] text-zinc-500 italic">
+                                        <span>
+                                            + {item.allOccurrences.length - 1} autre{item.allOccurrences.length - 1 > 1 ? 's' : ''} verset{item.allOccurrences.length - 1 > 1 ? 's' : ''} dans les Écritures
+                                        </span>
+                                        <span className="font-mono not-italic text-[10px] text-zinc-400">
+                                            {item.allOccurrences.length} versets totaux
+                                        </span>
+                                    </div>
                                 )}
-                                <div className="citation-ref text-right mt-2 text-[10.5px] font-bold text-teal-800">
-                                    Concordance Strong {item.sourceIndex ? `[${item.sourceIndex}]` : ''}
-                                </div>
                             </div>
                         ))}
                     </div>
@@ -3842,67 +4300,86 @@ const NoteEditor: React.FC = () => {
 
                 {/* 5. Dictionnaire & Lexique Biblique */}
                 {processedNote.definitionItems && processedNote.definitionItems.length > 0 && (
-                    <div className="mb-8 space-y-4">
-                        <div className="flex items-center gap-2 border-b border-teal-600/30 pb-1.5 mb-3">
-                            <BookMarked className="w-4 h-4 text-teal-700 shrink-0" />
-                            <h2 className="text-xs font-black uppercase tracking-wider text-teal-900 m-0">Dictionnaire & Lexique Biblique ({processedNote.definitionItems.length})</h2>
+                    <div className="mb-7 space-y-3">
+                        <div className="flex items-center gap-2 px-1 mb-2 journal-section-header page-break-after-avoid">
+                            <BookOpenCheck className="w-4 h-4 text-teal-600 shrink-0" />
+                            <h2 className="text-xs font-black uppercase tracking-wider text-teal-600 m-0">
+                                Dictionnaire &amp; Lexique Biblique ({processedNote.definitionItems.length})
+                            </h2>
                         </div>
                         {processedNote.definitionItems.map((item, i) => (
-                            <div key={item.citationId || i} className="citation-box page-break-inside-avoid bg-slate-50/70 p-3.5 rounded-r-lg border-l-4 border-teal-700 my-3">
-                                <p className="font-bold text-slate-900 not-italic text-[13px] m-0">{stripMarkdown(item.word)}</p>
-                                <p className="mt-1 text-slate-800 text-[12px] leading-relaxed m-0 whitespace-pre-line">{stripMarkdown(item.definition)}</p>
-                                {item.etymology && (
-                                    <p className="text-[11.5px] italic text-slate-600 mt-1 m-0">Étymologie : {stripMarkdown(item.etymology)}</p>
-                                )}
-                                {item.synonyms && item.synonyms.length > 0 && (
-                                    <p className="text-[11.5px] text-teal-800 mt-1 font-semibold m-0">Synonymes : {item.synonyms.join(', ')}</p>
-                                )}
-                                <div className="citation-ref text-right mt-2 text-[10.5px] font-bold text-teal-800">
-                                    Dictionnaire Biblique {item.sourceIndex ? `[${item.sourceIndex}]` : ''}
+                            <div key={item.citationId || i} className="bg-white border border-zinc-200 rounded-2xl p-5 my-3.5 journal-print-card page-break-inside-avoid shadow-2xs">
+                                <div className="flex items-center gap-3 mb-3 pb-3 border-b border-zinc-100">
+                                    <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center border border-teal-200 shrink-0">
+                                        <BookOpenCheck className="w-4 h-4 text-teal-600" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <span className="text-[9px] font-black uppercase tracking-wider text-teal-600 block mb-0.5">
+                                            Dictionnaire Biblique &amp; Théologique {item.sourceIndex ? `[${item.sourceIndex}]` : ''}
+                                        </span>
+                                        <h5 className="text-base font-black text-zinc-900 uppercase tracking-tight m-0 break-words">
+                                            {cleanTextArtifacts(item.word)}
+                                        </h5>
+                                    </div>
                                 </div>
+
+                                <div className="serif-text text-[14px] leading-[1.75] text-zinc-800 whitespace-pre-line break-words">
+                                    {cleanTextArtifacts(item.definition)}
+                                </div>
+
+                                {item.etymology && (
+                                    <div className="flex items-start gap-2.5 text-xs text-zinc-600 bg-zinc-50 p-3 rounded-xl border border-zinc-200 mt-3">
+                                        <History className="w-3.5 h-3.5 text-teal-600 shrink-0 mt-0.5" />
+                                        <div className="leading-relaxed break-words">
+                                            <span className="font-bold text-zinc-700">Étymologie :</span> {cleanTextArtifacts(item.etymology)}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {item.synonyms && item.synonyms.length > 0 && (
+                                    <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-2.5 border-t border-zinc-100">
+                                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mr-1">Synonymes :</span>
+                                        {item.synonyms.map((syn, synIdx) => (
+                                            <span
+                                                key={synIdx}
+                                                className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-teal-50 text-teal-700 border border-teal-200"
+                                            >
+                                                {cleanTextArtifacts(syn)}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
                 )}
 
-                {/* Images & Illustrations */}
-                {note.images && note.images.length > 0 && (
-                    <div className="mb-8 space-y-4 page-break-inside-avoid">
-                        <div className="flex items-center gap-2 border-b border-teal-600/30 pb-1.5 mb-3">
-                            <ImageIcon className="w-4 h-4 text-teal-700 shrink-0" />
-                            <h2 className="text-xs font-black uppercase tracking-wider text-teal-900 m-0">Images & Illustrations</h2>
+                {/* 6. Sources & Références */}
+                {processedNote.sources.length > 0 && (
+                    <div className="mt-8 pt-6 border-t border-zinc-200 journal-print-card page-break-inside-avoid bg-transparent">
+                        <div className="flex items-center justify-between mb-3 px-1 journal-section-header page-break-after-avoid">
+                            <div className="flex items-center gap-2">
+                                <Link2 className="w-4 h-4 text-teal-600 shrink-0" />
+                                <h2 className="text-xs font-black uppercase tracking-widest text-zinc-800 m-0">
+                                    Sources &amp; Références ({processedNote.sources.length})
+                                </h2>
+                            </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            {note.images.map((img, i) => (
-                                <div key={i} className="flex flex-col items-center border border-slate-200 p-2.5 rounded-lg bg-slate-50/50">
-                                    <img src={img.url} alt={img.caption || img.name || ''} className="max-h-48 object-contain rounded" />
-                                    {(img.caption || img.name) && (
-                                        <p className="text-[11px] italic text-slate-600 mt-1.5 text-center m-0">{img.caption || img.name}</p>
-                                    )}
+                        <div className="space-y-1.5 bg-transparent p-0 border-0">
+                            {processedNote.sources.map((src) => (
+                                <div
+                                    key={src.id || src.index}
+                                    className="flex items-start gap-3 py-2 px-1 border-b border-zinc-100 last:border-b-0 bg-transparent"
+                                >
+                                    <span className="font-bold text-xs text-teal-700 bg-transparent px-1.5 py-0.5 rounded border border-zinc-200 shrink-0 w-9 text-center inline-flex items-center justify-center font-mono tabular-nums">
+                                        [{src.index}]
+                                    </span>
+                                    <span className="text-xs text-zinc-800 leading-relaxed break-words flex-1">
+                                        {cleanTextArtifacts(src.formattedLine)}
+                                    </span>
                                 </div>
                             ))}
                         </div>
-                    </div>
-                )}
-
-                {/* Sources & Références */}
-                {processedNote.sources.length > 0 && (
-                    <div className="mt-8 pt-4 border-t-2 border-slate-300 page-break-inside-avoid">
-                        <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                                <BookOpenCheck className="w-4 h-4 text-teal-800 shrink-0" />
-                                <h2 className="text-xs font-black uppercase tracking-wider text-slate-900 m-0">Sources & Références ({processedNote.sources.length})</h2>
-                            </div>
-                            <span className="text-[10px] text-slate-500 font-mono">King's Sword Index</span>
-                        </div>
-                        <ul className="space-y-1.5 text-[11px] text-slate-700 list-none p-0 m-0">
-                            {processedNote.sources.map((src) => (
-                                <li key={src.index} className="flex items-baseline gap-2">
-                                    <span className="font-bold text-teal-800 font-mono shrink-0">[{src.index}]</span>
-                                    <span>{stripMarkdown(src.formattedLine)}</span>
-                                </li>
-                            ))}
-                        </ul>
                     </div>
                 )}
             </div>

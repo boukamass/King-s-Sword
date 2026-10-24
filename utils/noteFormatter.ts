@@ -254,20 +254,20 @@ export function parseStrongText(rawQuote: string, title?: string, dateOrType?: s
 
       return {
         strongNumber: data.strongNumber || (title?.match(/[HG]\d+/i)?.[0]?.toUpperCase() || 'H0000'),
-        word: data.word || 'Terme',
-        original: data.original || '',
-        pronunciation: data.pronunciation || '',
+        word: stripMarkdown(cleanTextArtifacts(data.word || 'Terme')),
+        original: stripMarkdown(cleanTextArtifacts(data.original || '')),
+        pronunciation: stripMarkdown(cleanTextArtifacts(data.pronunciation || '')),
         type: data.type === 'greek' ? 'greek' : 'hebrew',
-        partOfSpeech: data.partOfSpeech || undefined,
-        etymology: data.etymology || undefined,
-        translationsLSG: data.translationsLSG || undefined,
-        occurrencesCountStr: data.occurrencesCountStr || undefined,
-        definition: data.definition || '',
-        messageContext: data.messageContext || undefined,
-        originVerseRef: origRef,
-        originVerseText: origText,
+        partOfSpeech: data.partOfSpeech ? stripMarkdown(cleanTextArtifacts(data.partOfSpeech)) : undefined,
+        etymology: data.etymology ? stripMarkdown(cleanTextArtifacts(data.etymology)) : undefined,
+        translationsLSG: data.translationsLSG ? stripMarkdown(cleanTextArtifacts(data.translationsLSG)) : undefined,
+        occurrencesCountStr: data.occurrencesCountStr ? stripMarkdown(cleanTextArtifacts(data.occurrencesCountStr)) : undefined,
+        definition: stripMarkdown(cleanTextArtifacts(data.definition || '')),
+        messageContext: data.messageContext ? stripMarkdown(cleanTextArtifacts(data.messageContext)) : undefined,
+        originVerseRef: origRef ? stripMarkdown(cleanTextArtifacts(origRef)) : undefined,
+        originVerseText: origText ? stripMarkdown(cleanTextArtifacts(origText)) : undefined,
         otherOccurrencesCount: otherCount,
-        allOccurrences: occs
+        allOccurrences: occs.map(o => ({ ...o, text: stripMarkdown(cleanTextArtifacts(o.text)) }))
       };
     }
   } catch {
@@ -358,32 +358,50 @@ export function cleanTextArtifacts(rawText: string): string {
 
   let text = rawText;
 
-  // 1. Remplacement des marqueurs d'assistant
+  // 1. Décodage exhaustif des entités HTML
+  text = text
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&rsquo;/g, "'")
+    .replace(/&lsquo;/g, "'")
+    .replace(/&ldquo;/g, '«')
+    .replace(/&rdquo;/g, '»')
+    .replace(/&laquo;/g, '«')
+    .replace(/&raquo;/g, '»')
+    .replace(/&amp;/g, '&')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&mdash;/g, '—')
+    .replace(/&ndash;/g, '–')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '');
+
+  // 2. Remplacement des marqueurs d'assistant
   text = text.replace(/\[\[\[NOTE_EXTERNE\]\]\]/g, "Note de l'Assistant : ");
 
-  // 2. Nettoyage des balises [Réf: ...] et [Source: ...] incorporées sauvagement
+  // 3. Nettoyage des balises [Réf: ...] et [Source: ...] incorporées sauvagement
   text = text.replace(/\[Réf:\s*([^\]]+)\]/gi, '');
   text = text.replace(/\[Source:\s*([^\]]+)\]/gi, '');
 
-  // 3. Suppression des mentions ou tags parasites avec @ (ex: @sermon, @ref, @1963 ou @ isolés)
+  // 4. Suppression des mentions ou tags parasites avec @ (ex: @sermon, @ref, @1963 ou @ isolés)
   text = text.replace(/@([a-zA-Z0-9_\-\.]+)/g, '$1');
   text = text.replace(/@/g, '');
 
-  // 4. Suppression des "Para." ou "Para" résiduels orphelins (sans numéro)
+  // 5. Suppression des "Para." ou "Para" résiduels orphelins (sans numéro)
   text = text.replace(/\bPara\.\s*(?=[^\d]|$)/gi, '');
   text = text.replace(/\bPara\b(?=[^\d]|$)/gi, '');
 
-  // 5. Correction des fautes de caractères corrompus / symboles parasites
+  // 6. Correction des fautes de caractères corrompus / symboles parasites
   text = text.replace(/Hiddékel\s*\/\s*;/gi, 'Hiddékel');
   text = text.replace(/[\t]/g, ' ');
 
-  // 6. Normalisation des espaces avant la ponctuation
+  // 7. Normalisation des espaces avant la ponctuation
   text = text.replace(/\s+([.,;:!%?])/g, '$1');
 
-  // 7. Remplacement des multiples espaces consécutifs (sans écraser les retours à la ligne)
+  // 8. Remplacement des multiples espaces consécutifs (sans écraser les retours à la ligne)
   text = text.replace(/[ \t]{2,}/g, ' ');
 
-  // 8. Nettoyage des guillemets vides ou collés
+  // 9. Nettoyage des guillemets vides ou collés
   text = text.replace(/«\s+/g, '« ');
   text = text.replace(/\s+»/g, ' »');
 
@@ -396,7 +414,9 @@ export function cleanTextArtifacts(rawText: string): string {
  */
 export function stripMarkdown(text: string): string {
   if (!text) return '';
-  return text
+  const cleaned = cleanTextArtifacts(text);
+
+  return cleaned
     // Supprimer les en-têtes markdown de type # Titre, ## Sous-titre, ### Section
     .replace(/^#{1,6}\s*/gm, '')
     // Supprimer tous les autres # résiduels isolés ou collés à des mots
