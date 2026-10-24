@@ -99,15 +99,24 @@ function buildLocalFallbackFromEvidence(
   if (evidence.length === 0) return null;
 
   const rawErr = errorMessage || '';
+  const isOffline = (typeof navigator !== 'undefined' && navigator.onLine === false) ||
+    rawErr.toLowerCase().includes('failed to fetch') ||
+    rawErr.toLowerCase().includes('networkerror') ||
+    rawErr.toLowerCase().includes('network error') ||
+    rawErr.toLowerCase().includes('offline') ||
+    rawErr.toLowerCase().includes('err_internet_disconnected');
+
   let reasonNotice = 'Le service de synthèse Gemini est actuellement indisponible ou sans crédit.';
-  if (rawErr.includes('402') || rawErr.toLowerCase().includes('prepayment credits') || rawErr.includes('RESOURCE_EXHAUSTED') || rawErr.includes('429') || rawErr.toLowerCase().includes('quota')) {
+  if (isOffline) {
+    reasonNotice = 'Mode Hors-Ligne (aucune connexion Internet) — résultats extraits directement par le moteur local.';
+  } else if (rawErr.includes('402') || rawErr.toLowerCase().includes('prepayment credits') || rawErr.includes('RESOURCE_EXHAUSTED') || rawErr.includes('429') || rawErr.toLowerCase().includes('quota')) {
     reasonNotice = 'Crédits ou quota Gemini épuisés — bascule automatique sur les résultats du modèle local.';
   } else if (rawErr.toLowerCase().includes('clé') || rawErr.toLowerCase().includes('api key') || rawErr.includes('MISSING_API_KEY')) {
     reasonNotice = 'Clé Gemini absente ou inactive — bascule automatique sur les résultats du modèle local.';
   }
 
   const lines: string[] = [
-    `> **Mode Local Actif (\`multilingual-e5-small\`)** : ${reasonNotice}`,
+    `> **Mode Local Actif** : ${reasonNotice}`,
     `> Voici les **${evidence.length} passage(s) et citation(s)** trouvés directement dans votre bibliothèque locale :`,
     ''
   ];
