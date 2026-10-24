@@ -1,6 +1,6 @@
 {
   "name": "kings-sword",
-  "version": "2.8.99",
+  "version": "2.9.0",
   "description": "Logiciel d'étude des sermons de W.M. Branham",
   "main": "main.js",
   "author": "Bienvenu Massamba & Gastin Ngakosso",
@@ -109,6 +109,7 @@
     ],
     "files": [
       "dist/**/*",
+      "!dist/sermons_*",
       "main.js",
       "preload.js",
       "package.json",
