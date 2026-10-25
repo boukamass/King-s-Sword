@@ -185,3 +185,5 @@ export const StrongOccurrencesModal: React.FC<StrongOccurrencesModalProps> = ({
     document.body
   );
 };
+
+export default StrongOccurrencesModal;

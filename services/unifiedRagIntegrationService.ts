@@ -107,29 +107,31 @@ export async function executeUnifiedRagAssistantFlow(
     ? aiContext.map(s => typeof s === 'string' ? s : s.sourceId)
     : (aiContext.sources || []).map(s => s.sourceId);
 
-  // 0. Vérification du Cache Sémantique Local (0 ms)
-  const cached = await getCachedRagResponse(cleanQuery, contextIds);
-  if (cached && cached.answerText) {
-    return {
-      status: 'success',
-      answerText: cached.answerText,
-      evidencePackage: {
-        answerable: true,
-        confidenceScore: 1.0,
-        reason: 'Réponse issue du cache sémantique local instantané (0 ms).',
-        evidence: [],
-        query: cleanQuery,
-        totalCandidates: cached.evidenceCount || 1,
-        rejectedCount: 0,
+  // 0. Vérification du Cache Sémantique Local (0 ms) — uniquement hors client de test et hors suivi multi-tours
+  if (!options.geminiClient && (!options.history || options.history.length <= 1)) {
+    const cached = await getCachedRagResponse(cleanQuery, contextIds);
+    if (cached && cached.answerText) {
+      return {
+        status: 'success',
+        answerText: cached.answerText,
+        evidencePackage: {
+          answerable: true,
+          confidenceScore: 1.0,
+          reason: 'Réponse issue du cache sémantique local instantané (0 ms).',
+          evidence: [],
+          query: cleanQuery,
+          totalCandidates: cached.evidenceCount || 1,
+          rejectedCount: 0,
+          vectorMethod: 'semantic_cache_hit'
+        },
+        citationsValidation: null,
+        chunkIdExposure: false,
+        technicalIdentifiersDetected: [],
+        sources: cached.sources,
+        latencyMs: 0,
         vectorMethod: 'semantic_cache_hit'
-      },
-      citationsValidation: null,
-      chunkIdExposure: false,
-      technicalIdentifiersDetected: [],
-      sources: cached.sources,
-      latencyMs: 0,
-      vectorMethod: 'semantic_cache_hit'
-    };
+      };
+    }
   }
 
   // 1. Exécution du Retrieval Unified RAG sous contrainte stricte de l'AI Context
@@ -155,10 +157,12 @@ export async function executeUnifiedRagAssistantFlow(
     }
   }
 
-  const isStudy = await detectExhaustiveStudyIntent(cleanQuery, {
-    apiKey: options.apiKey,
-    geminiClient: options.geminiClient
-  });
+  const isStudy = aiConfig.featureFlags.useQueryRewrite
+    ? await detectExhaustiveStudyIntent(cleanQuery, {
+        apiKey: options.apiKey,
+        geminiClient: options.geminiClient
+      })
+    : isDeepDiveStudyRequest(cleanQuery);
   const isAllPassages = isAllPassagesRequest(cleanQuery);
   const effectiveTopK = isAllPassages ? Math.max(options.topK || 25, 50) : (isStudy ? Math.max(options.topK || 20, 35) : Math.max(options.topK || 20, 25));
   const effectiveMaxEvidence = isAllPassages ? Math.max(options.maxEvidenceCount || 16, 25) : (isStudy ? Math.max(options.maxEvidenceCount || 16, 20) : Math.max(options.maxEvidenceCount || 12, 16));
@@ -250,15 +254,6 @@ export async function executeUnifiedRagAssistantFlow(
     };
   }
 
-  // Enregistrement en cache sémantique local
-  setCachedRagResponse(
-    cleanQuery,
-    contextIds,
-    genResult.answerText,
-    genResult.sources,
-    evidencePackage.evidence.length
-  ).catch(() => {});
-
   // 5. Validation des citations et contrôle d'exposition d'identifiants techniques
   const isRefusal = genResult.sourcesSuffisantes === false;
   const exposureCheck = isRefusal 
@@ -267,14 +262,43 @@ export async function executeUnifiedRagAssistantFlow(
     
   const citationsValidation = isRefusal 
     ? null 
-    : validateResponseCitations({
+    : (genResult.citationsValidation || validateResponseCitations({
         responseText: genResult.answerText,
         evidencePackage
-      });
+      }));
 
   let finalAnswerText = isRefusal 
     ? genResult.answerText 
     : cleanPistesDapprofondissement(genResult.answerText);
+
+  // Application automatique des corrections de citations et de numéros de paragraphes détectées par citationValidationService
+  if (!isRefusal && citationsValidation && Array.isArray(citationsValidation.citations)) {
+    for (const c of citationsValidation.citations) {
+      if (c.quoteStatus === 'corrected' && c.claimedQuote && c.correctedQuote && c.claimedQuote !== c.correctedQuote) {
+        finalAnswerText = finalAnswerText.replace(c.claimedQuote, c.correctedQuote);
+      }
+      if (c.actualSourceId && c.actualParagraphIndex !== null && (c.claimedSourceId !== c.actualSourceId || c.claimedParagraphIndex !== c.actualParagraphIndex)) {
+        const claimedRefPattern = new RegExp(`\\[R[ée]f:\\s*${c.claimedSourceId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^\\]]*?(?:§|Para\\.?\\s*)${c.claimedParagraphIndex}\\s*\\]`, 'g');
+        finalAnswerText = finalAnswerText.replace(claimedRefPattern, `[Réf: ${c.actualSourceId}, Para. ${c.actualParagraphIndex}]`);
+      }
+    }
+  }
+
+  // Enregistrement en cache sémantique local uniquement si la réponse est saine (citations valides, zéro fuite technique)
+  if (
+    !options.geminiClient &&
+    !isRefusal &&
+    !exposureCheck.exposed &&
+    (!citationsValidation || citationsValidation.allCitationsValid)
+  ) {
+    setCachedRagResponse(
+      cleanQuery,
+      contextIds,
+      finalAnswerText,
+      genResult.sources,
+      evidencePackage.evidence.length
+    ).catch(() => {});
+  }
 
   if (!isRefusal && (isStudy || isAllPassages) && evidencePackage.evidence.length > 0) {
     const docIds = Array.from(new Set(evidencePackage.evidence.map(e => e.sermonId)));

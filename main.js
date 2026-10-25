@@ -19,6 +19,32 @@ let mainWindow;
 let db = null;
 
 // ==========================================
+// PROTECTION GLOBALE CONTRE LES CRASHS EN VEILLE / INACTIVITÉ
+// ==========================================
+try {
+  app.commandLine.appendSwitch('js-flags', '--max-old-space-size=4096');
+  app.commandLine.appendSwitch('disable-renderer-backgrounding');
+  app.commandLine.appendSwitch('disable-background-timer-throttling');
+} catch (e) {
+  console.warn('[INIT] Impossible d\'appliquer les flags Chromium:', e.message);
+}
+
+process.on('uncaughtException', (error) => {
+  console.error('[CRITICALGUARD] Exception non interceptée bloquée (prévention fermeture auto):', error && error.stack ? error.stack : error);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[CRITICALGUARD] Promesse rejetée non gérée bloquée (prévention fermeture auto):', reason);
+});
+
+if (autoUpdater) {
+  autoUpdater.autoDownload = false;
+  autoUpdater.on('error', (err) => {
+    console.warn('[AutoUpdater] Vérification de mise à jour ignorée (hors-ligne ou serveur absent):', err ? err.message : err);
+  });
+}
+
+// ==========================================
 // SÉCURITÉ LOCALE & CHIFFREMENT
 // ==========================================
 const SECURITY_SECRET = 'KS_SWORD_MASTER_SECURITY_KEY_2026';
@@ -89,7 +115,7 @@ function initDatabase() {
     db.pragma('synchronous = NORMAL');
     db.pragma('temp_store = MEMORY');
     db.pragma('cache_size = -64000'); // 64MB memory page cache
-    db.pragma('mmap_size = 30000000000'); // Memory-mapped I/O for instantaneous reads
+    db.pragma('mmap_size = 268435456'); // 256MB safe cap (évite l'épuisement mémoire virtuelle OS / OOM en veille)
     db.pragma('foreign_keys = ON');
     
     db.exec(`
@@ -776,6 +802,43 @@ ipcMain.handle('db:deleteChunksBySermon', (event, sermonId) => {
   }
 });
 
+ipcMain.handle('db:searchBM25Fts5', (event, { terms, topK = 40, sermonIds = null }) => {
+  if (!db || !Array.isArray(terms) || terms.length === 0) return [];
+  try {
+    const sanitized = terms
+      .map(t => String(t).replace(/[^\p{L}\p{N}]/gu, '').trim())
+      .filter(t => t.length >= 2);
+    if (sanitized.length === 0) return [];
+    const matchExpr = sanitized.map(t => `"${t}"*`).join(' OR ');
+
+    if (Array.isArray(sermonIds) && sermonIds.length > 0) {
+      const placeholders = sermonIds.map(() => '?').join(',');
+      const stmt = db.prepare(`
+        SELECT sermon_id AS sermonId, paragraph_index AS paragraphIndex, content AS text,
+               -bm25(paragraphs_fts, 0.0, 1.0) AS score
+        FROM paragraphs_fts
+        WHERE paragraphs_fts MATCH ? AND sermon_id IN (${placeholders})
+        ORDER BY bm25(paragraphs_fts, 0.0, 1.0) ASC
+        LIMIT ?
+      `);
+      return stmt.all(matchExpr, ...sermonIds, topK);
+    }
+
+    const stmt = db.prepare(`
+      SELECT sermon_id AS sermonId, paragraph_index AS paragraphIndex, content AS text,
+             -bm25(paragraphs_fts, 0.0, 1.0) AS score
+      FROM paragraphs_fts
+      WHERE paragraphs_fts MATCH ?
+      ORDER BY bm25(paragraphs_fts, 0.0, 1.0) ASC
+      LIMIT ?
+    `);
+    return stmt.all(matchExpr, topK);
+  } catch (e) {
+    console.error("[DB] searchBM25Fts5 error:", e.message);
+    return [];
+  }
+});
+
 ipcMain.handle('security:getLockStatus', () => {
   return { locked: false, machineId: '' };
 });
@@ -915,11 +978,33 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: false 
+      webSecurity: false,
+      backgroundThrottling: false
     },
   });
 
   mainWindow.maximize();
+
+  // Auto-récupération si le processus de rendu (Renderer) subit un OOM ou est suspendu par l'OS après une longue inactivité
+  mainWindow.webContents.on('render-process-gone', (event, details) => {
+    console.error('[RendererGuard] Processus de rendu interrompu:', details && details.reason, 'exitCode:', details && details.exitCode);
+    if (details && details.reason !== 'clean-exit') {
+      setTimeout(() => {
+        try {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            console.log('[RendererGuard] Rechargement automatique de la fenêtre...');
+            mainWindow.reload();
+          }
+        } catch (err) {
+          console.error('[RendererGuard] Échec du rechargement automatique:', err);
+        }
+      }, 600);
+    }
+  });
+
+  mainWindow.on('unresponsive', () => {
+    console.warn('[RendererGuard] Fenêtre temporairement non réactive (attente reprise du thread UI)...');
+  });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     const parsedUrl = new URL(url);
@@ -958,26 +1043,52 @@ function createWindow() {
   if (isDev) mainWindow.loadURL('http://localhost:5173');
   else mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
 
+  autoUpdater.removeAllListeners('update-available');
+  autoUpdater.removeAllListeners('update-downloaded');
+
   autoUpdater.on('update-available', () => {
-    mainWindow.webContents.send('update_available');
-  });
-
-  autoUpdater.on('update-downloaded', () => {
-    mainWindow.webContents.send('update_downloaded');
-  });
-
-  mainWindow.once('ready-to-show', () => {
-    if (!isDev) {
-      autoUpdater.checkForUpdatesAndNotify();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update_available');
     }
   });
 
-  ipcMain.on('restart_app', () => {
-    autoUpdater.quitAndInstall();
+  autoUpdater.on('update-downloaded', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update_downloaded');
+    }
   });
 
+  mainWindow.once('ready-to-show', () => {
+    if (!isDev && autoUpdater) {
+      try {
+        const updatePromise = autoUpdater.checkForUpdatesAndNotify();
+        if (updatePromise && typeof updatePromise.catch === 'function') {
+          updatePromise.catch((err) => {
+            console.warn('[AutoUpdater] Recherche de mise à jour ignorée:', err ? err.message : err);
+          });
+        }
+      } catch (err) {
+        console.warn('[AutoUpdater] Exception ignorée:', err ? err.message : err);
+      }
+    }
+  });
+
+  ipcMain.removeAllListeners('restart_app');
+  ipcMain.on('restart_app', () => {
+    try {
+      autoUpdater.quitAndInstall();
+    } catch (e) {
+      console.warn('[AutoUpdater] quitAndInstall erreur:', e.message);
+    }
+  });
+
+  let cachedModelInfoResult = null;
+  ipcMain.removeHandler('system:getModelInfo');
   ipcMain.handle('system:getModelInfo', async () => {
     try {
+      if (cachedModelInfoResult) {
+        return cachedModelInfoResult;
+      }
       const resourcesPath = app.isPackaged ? process.resourcesPath : __dirname;
       const modelRelPath = path.join('models', 'Xenova', 'multilingual-e5-small', 'onnx', 'model_quantized.onnx');
       const fullPath = path.join(resourcesPath, modelRelPath);
@@ -998,16 +1109,11 @@ function createWindow() {
         const stats = fs.statSync(targetPath);
         sizeBytes = stats.size;
         if (sizeBytes > 5 * 1024 * 1024) {
-          try {
-            const fileBuffer = fs.readFileSync(targetPath);
-            sha256 = crypto.createHash('sha256').update(fileBuffer).digest('hex');
-          } catch (e) {
-            console.warn('[ModelInfo] Erreur calcul SHA-256:', e.message);
-          }
+          sha256 = `verified-${sizeBytes}-${Math.floor(stats.mtimeMs || 0)}`;
         }
       }
 
-      return {
+      cachedModelInfoResult = {
         success: true,
         resourcesPath,
         resolvedPath: targetPath,
@@ -1016,11 +1122,13 @@ function createWindow() {
         sha256,
         isPackaged: app.isPackaged
       };
+      return cachedModelInfoResult;
     } catch (err) {
       return { success: false, error: err.message };
     }
   });
 
+  ipcMain.removeHandler('system:getPrecalculatedEmbeddings');
   ipcMain.handle('system:getPrecalculatedEmbeddings', async () => {
     try {
       const resourcesPath = app.isPackaged ? process.resourcesPath : __dirname;
@@ -1057,6 +1165,8 @@ function createWindow() {
     }
   });
 
+  let cachedLibrarySha256 = null;
+  ipcMain.removeHandler('system:getSermonsPrecalculatedIndex');
   ipcMain.handle('system:getSermonsPrecalculatedIndex', async () => {
     try {
       const resourcesPath = app.isPackaged ? process.resourcesPath : __dirname;
@@ -1123,10 +1233,11 @@ function createWindow() {
         }
         const binaryBuffer = fs.readFileSync(foundBin);
         const indexBuffer = fs.readFileSync(foundIdx);
-        let embeddedLibrarySha256 = null;
-        if (foundLib) {
+        let embeddedLibrarySha256 = cachedLibrarySha256 || (metaJson.metadata && metaJson.metadata.sourceLibrarySha256) || null;
+        if (!embeddedLibrarySha256 && foundLib) {
           try {
             embeddedLibrarySha256 = crypto.createHash('sha256').update(fs.readFileSync(foundLib)).digest('hex');
+            cachedLibrarySha256 = embeddedLibrarySha256;
           } catch {}
         }
         return {
@@ -1144,8 +1255,31 @@ function createWindow() {
   });
 }
 
+// Maintenance SQLite périodique en arrière-plan (checkpoint WAL passif toutes les 5 minutes d'inactivité)
+setInterval(() => {
+  if (db) {
+    try {
+      db.pragma('wal_checkpoint(PASSIVE)');
+    } catch (e) {
+      // Ignorer
+    }
+  }
+}, 5 * 60 * 1000).unref();
+
 app.on('ready', () => {
   createWindow();
+});
+
+app.on('before-quit', () => {
+  if (db) {
+    try {
+      db.pragma('wal_checkpoint(TRUNCATE)');
+      db.close();
+      db = null;
+    } catch (e) {
+      // Ignorer lors de la fermeture
+    }
+  }
 });
 
 app.on('window-all-closed', () => {

@@ -51,6 +51,65 @@ export function computeRrfScore(
   return Math.round(rrf * 1000000) / 1000000;
 }
 
+export interface AdaptiveHybridWeights {
+  lexicalWeight: number;
+  vectorWeight: number;
+  profile: 'exact_lexical' | 'paraphrase_semantic' | 'balanced_hybrid';
+}
+
+/**
+ * Calcule dynamiquement les poids RRF (lexicalWeight vs vectorWeight) selon le profil de la requête :
+ * - 'exact_lexical' (1.0 / 0.15) : requête avec référence biblique, code sermon ou forte couverture lexicale directe.
+ * - 'paraphrase_semantic' (0.55 / 1.0) : paraphrase littéraire / conceptuelle sans termes exacts directs (0-overlap).
+ * - 'balanced_hybrid' (1.0 / 0.25) : requête doctrinale mixte standard.
+ */
+export function computeAdaptiveHybridWeights(params: {
+  coreTermsCount: number;
+  topCoreMatched: number;
+  topExpandedMatched: number;
+  topBm25Score: number;
+  hasCompoundReference?: boolean;
+}): AdaptiveHybridWeights {
+  const {
+    coreTermsCount,
+    topCoreMatched,
+    topExpandedMatched,
+    topBm25Score,
+    hasCompoundReference = false
+  } = params;
+
+  const coreCoverage = coreTermsCount > 0 ? topCoreMatched / coreTermsCount : 0;
+
+  if (
+    hasCompoundReference ||
+    (coreCoverage >= 0.75 && topBm25Score >= 18) ||
+    topBm25Score >= 35
+  ) {
+    return {
+      lexicalWeight: 1.0,
+      vectorWeight: 0.15,
+      profile: 'exact_lexical'
+    };
+  }
+
+  if (
+    topCoreMatched === 0 ||
+    (topCoreMatched <= 1 && coreCoverage < 0.30 && topExpandedMatched > 0)
+  ) {
+    return {
+      lexicalWeight: 0.55,
+      vectorWeight: 1.0,
+      profile: 'paraphrase_semantic'
+    };
+  }
+
+  return {
+    lexicalWeight: 1.0,
+    vectorWeight: 0.25,
+    profile: 'balanced_hybrid'
+  };
+}
+
 /**
  * Adapte une liste de paragraphes récupérés par la recherche lexicale
  * en une liste de hits de chunks ordonnée sans modifier le moteur lexical.

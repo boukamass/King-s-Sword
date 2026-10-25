@@ -144,8 +144,31 @@ export function blobToInt8Vector(blob: Uint8Array | ArrayBuffer | Buffer | null 
 
 let e5ExtractorInstance: any = null;
 let e5ExtractorLoadingPromise: Promise<any> | null = null;
+let e5IdleReleaseTimer: ReturnType<typeof setTimeout> | null = null;
+const E5_IDLE_RELEASE_MS = 5 * 60 * 1000; // Libère la session WASM ONNX après 5 min d'inactivité
+
+function scheduleE5ExtractorIdleRelease(): void {
+  if (e5IdleReleaseTimer) {
+    clearTimeout(e5IdleReleaseTimer);
+    e5IdleReleaseTimer = null;
+  }
+  if (typeof window === 'undefined') return;
+  e5IdleReleaseTimer = setTimeout(() => {
+    e5IdleReleaseTimer = null;
+    if (e5ExtractorInstance) {
+      try {
+        if (typeof e5ExtractorInstance.dispose === 'function') {
+          e5ExtractorInstance.dispose().catch(() => {});
+        }
+      } catch {}
+      e5ExtractorInstance = null;
+      e5ExtractorLoadingPromise = null;
+    }
+  }, E5_IDLE_RELEASE_MS);
+}
 
 export async function getE5Extractor(): Promise<any> {
+  scheduleE5ExtractorIdleRelease();
   if (e5ExtractorInstance) return e5ExtractorInstance;
   if (!e5ExtractorLoadingPromise) {
     e5ExtractorLoadingPromise = (async () => {
@@ -175,13 +198,17 @@ export async function getE5Extractor(): Promise<any> {
           env.localModelPath = path.join((process as any).resourcesPath, 'models');
         } else if (typeof process !== 'undefined' && process.cwd) {
           const path = await import('path');
-          env.localModelPath = path.join(process.cwd(), 'models');
+          const fs = await import('fs');
+          const directModels = path.join(process.cwd(), 'models');
+          const publicModels = path.join(process.cwd(), 'public', 'models');
+          env.localModelPath = fs.existsSync(directModels) ? directModels : publicModels;
         } else {
           env.localModelPath = './models/';
         }
 
         const ext = await pipeline('feature-extraction', LOCAL_E5_CONFIG.modelId, { quantized: true });
         e5ExtractorInstance = ext;
+        scheduleE5ExtractorIdleRelease();
         return ext;
       } catch (err) {
         console.warn('[E5_LOCAL] Artefact E5 / ONNX introuvable ou indisponible:', err);
@@ -193,8 +220,18 @@ export async function getE5Extractor(): Promise<any> {
   return await e5ExtractorLoadingPromise;
 }
 
+const MAX_E5_LRU_CACHE_SIZE = 256;
+const e5EmbeddingLruCache = new Map<string, Int8Array>();
+
 /**
- * Calcule l'embedding local E5 (384D) avec préfixe ("query: " ou "passage: ") et normalisation L2.
+ * Vide le cache LRU des embeddings E5 (utile pour les tests de latence à froid).
+ */
+export function clearE5EmbeddingCache(): void {
+  e5EmbeddingLruCache.clear();
+}
+
+/**
+ * Calcule l'embedding local E5 (384D) avec préfixe ("query: " ou "passage: "), normalisation L2 et cache LRU.
  * En cas d'erreur ou d'indisponibilité, retourne null. AUCUN faux vecteur n'est produit.
  */
 export async function computeE5Embedding(
@@ -202,12 +239,32 @@ export async function computeE5Embedding(
   prefix: 'query: ' | 'passage: ' = 'query: '
 ): Promise<Int8Array | null> {
   if (!text || !text.trim()) return null;
+  const trimmed = text.trim();
+  const cacheKey = `${prefix}${trimmed.toLowerCase()}`;
+
+  const cached = e5EmbeddingLruCache.get(cacheKey);
+  if (cached) {
+    // Rafraîchit la position LRU (MRU en fin de Map)
+    e5EmbeddingLruCache.delete(cacheKey);
+    e5EmbeddingLruCache.set(cacheKey, cached);
+    return cached;
+  }
+
   try {
     const extractor = await getE5Extractor();
-    const formattedText = `${prefix}${text.trim()}`;
+    const formattedText = `${prefix}${trimmed}`;
     const output = await extractor(formattedText, { pooling: 'mean', normalize: true });
     if (!output || !output.data) return null;
-    return quantizeToInt8(output.data);
+    const quantized = quantizeToInt8(output.data);
+
+    if (e5EmbeddingLruCache.size >= MAX_E5_LRU_CACHE_SIZE) {
+      const oldestKey = e5EmbeddingLruCache.keys().next().value;
+      if (oldestKey !== undefined) {
+        e5EmbeddingLruCache.delete(oldestKey);
+      }
+    }
+    e5EmbeddingLruCache.set(cacheKey, quantized);
+    return quantized;
   } catch (err) {
     console.warn('[E5_LOCAL] Impossible de calculer l\'embedding E5:', err);
     return null;

@@ -32,6 +32,8 @@ let workerInstance: Worker | null = null;
 let isWorkerReady = false;
 let initPromise: Promise<boolean> | null = null;
 let requestIdCounter = 0;
+let workerIdleTimer: ReturnType<typeof setTimeout> | null = null;
+const WORKER_IDLE_TIMEOUT_MS = 5 * 60 * 1000; // Libération automatique RAM WASM après 5 min d'inactivité
 
 let diagnosticState: WorkerDiagnosticState = {
   workerStatus: 'NON_INITIALISÉ',
@@ -41,6 +43,29 @@ let diagnosticState: WorkerDiagnosticState = {
   modelInfo: null,
   lastActivityAt: null
 };
+
+function resetWorkerIdleTimer(): void {
+  if (workerIdleTimer) {
+    clearTimeout(workerIdleTimer);
+    workerIdleTimer = null;
+  }
+  if (typeof window === 'undefined') return;
+  workerIdleTimer = setTimeout(() => {
+    workerIdleTimer = null;
+    if (workerInstance && pendingRequests.size === 0) {
+      try {
+        workerInstance.terminate();
+      } catch {
+        // Ignorer
+      }
+      workerInstance = null;
+      isWorkerReady = false;
+      initPromise = null;
+      diagnosticState.workerStatus = 'NON_INITIALISÉ';
+      diagnosticState.modelStatus = 'NON_CHARGÉ';
+    }
+  }, WORKER_IDLE_TIMEOUT_MS);
+}
 
 export function getWorkerDiagnosticState(): WorkerDiagnosticState {
   return diagnosticState;
@@ -86,6 +111,7 @@ export async function initE5Worker(): Promise<boolean> {
           const pending = pendingRequests.get(id);
 
           diagnosticState.lastActivityAt = new Date().toISOString();
+          resetWorkerIdleTimer();
 
           if (type === 'INIT_SUCCESS') {
             isWorkerReady = true;
@@ -101,6 +127,7 @@ export async function initE5Worker(): Promise<boolean> {
             }
           } else if (type === 'INIT_ERROR') {
             isWorkerReady = false;
+            initPromise = null;
             diagnosticState.workerStatus = 'EN_ERREUR';
             diagnosticState.modelStatus = 'ERREUR';
             diagnosticState.modelErrorMessage = error || 'Erreur initialisation modèle E5';
@@ -125,8 +152,16 @@ export async function initE5Worker(): Promise<boolean> {
         workerInstance.onerror = (err) => {
           console.warn('[E5WorkerManager] Erreur globale du Worker E5:', err);
           isWorkerReady = false;
+          initPromise = null;
           diagnosticState.workerStatus = 'EN_ERREUR';
           diagnosticState.workerErrorMessage = err?.message || String(err);
+          // Rejeter proprement toutes les requêtes en attente pour éviter tout blocage infini
+          pendingRequests.forEach((req, key) => {
+            pendingRequests.delete(key);
+            try {
+              req.reject(new Error(err?.message || 'Worker E5 interrompu'));
+            } catch {}
+          });
         };
       }
 
@@ -218,9 +253,18 @@ export async function computeE5BatchInWorker(
   const ready = await initE5Worker();
 
   if (ready && workerInstance) {
+    resetWorkerIdleTimer();
     const reqId = `batch-${++requestIdCounter}`;
     const promise = new Promise<WorkerBatchResultItem[]>((resolve, reject) => {
-      pendingRequests.set(reqId, { resolve, reject });
+      const timeout = setTimeout(() => {
+        pendingRequests.delete(reqId);
+        reject(new Error('Délai dépassé (60s) sur le lot Worker E5'));
+      }, 60000);
+
+      pendingRequests.set(reqId, {
+        resolve: (v) => { clearTimeout(timeout); resolve(v); },
+        reject: (r) => { clearTimeout(timeout); reject(r); }
+      });
     });
 
     workerInstance.postMessage({

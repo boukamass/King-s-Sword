@@ -1443,4 +1443,3 @@ export const ProjectionView: React.FC = memo(() => {
 export const MaskView: React.FC = memo(() => {
   return <div className="fixed inset-0 bg-black z-[999999] cursor-none" />;
 });
-

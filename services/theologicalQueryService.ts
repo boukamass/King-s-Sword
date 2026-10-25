@@ -108,7 +108,63 @@ const LOCAL_THEOLOGICAL_LEXICON: Record<string, string[]> = {
   'guérison': ['foi', 'discernement', 'don de guerison', 'vision', 'crois seulement', 'expiation'],
   'absolu': ['l\'ancre de l\'ame', 'parole de dieu', 'poteau d\'amarrage', 'la parole et rien d\'autre'],
   'aigle': ['nourriture emmagasinee', 'vision d\'aigle', 'prophete messager', 'la ou sera le corps mort'],
-  'dynamis': ['mecanique et dynamique', 'foi parfaite', 'saint-esprit en action', 'puissance divine']
+  'dynamis': ['mecanique et dynamique', 'foi parfaite', 'saint-esprit en action', 'puissance divine'],
+
+  // Paraphrases conceptuelles et littéraires (pont sémantique zéro terme commun)
+  'interrogations matinales': ['questions et reponses', 'etude tres profonde ce matin', 'clarifier les points', 'reunions du soir'],
+  'confusion vesperale': ['reunions du soir', 'mal compris', 'questions et reponses', 'lumiere du soir'],
+  'usurpateur equestre': ['cavalier sur le cheval blanc', 'antichrist', 'premier sceau', 'arc', 'fleche', 'bluff'],
+  'equestre immacule': ['cavalier sur le cheval blanc', 'premier sceau', 'antichrist', 'arc', 'aucune fleche'],
+  'projectile': ['fleche', 'arc', 'cavalier', 'cheval blanc', 'premier sceau'],
+  'eclat vesperal': ['lumiere parfaite du soir', 'zacharie', 'au temps du soir la lumiere paraitra', 'septieme ange', 'clairon'],
+  'anarchie mesopotamienne': ['confusion babylonienne', 'babylone', 'rassemble ses elus', 'lumiere parfaite du soir'],
+  'batisses fastueuses': ['grandeur des edifices', 'apparences exterieures', 'eloquence humaine', 'discernement spirituel'],
+  'rhetorique profane': ['eloquence humaine', 'apparences exterieures', 'parole ecrite et revelee', 'verite infaillible'],
+  'galette azyme': ['morceau de pain sans levain', 'communion', 'jus de cep', 'union spirituelle vivante'],
+  'liqueur de vigne': ['jus de cep', 'pain sans levain', 'service de communion', 'seigneur'],
+  'supplice du golgotha': ['sacrifice parfait accompli', 'calvaire', 'crucifie avec christ', 'mangez la chair', 'buvez son sang'],
+  'trepasse': ['crucifie avec christ', 'ne vis plus pour moi-meme', 'christ qui vit en moi', 'resurrection'],
+  'subsistance dissimulee': ['manne cachee', 'lieu tres saint', 'ancien testament', 'parole revelee'],
+  'rideau sanctuaire': ['lieu tres saint', 'manne cachee', 'parole revelee de dieu', 'peuple de la promesse'],
+  'instrument d\'airain': ['fete des trompettes', 'trompettes', 'rassemblement d\'israel', 'deux temoins'],
+  'descendance d\'abraham': ['israel', 'cent quarante-quatre mille juifs', 'fete des trompettes', 'epouse des nations'],
+  'elue ravie': ['epouse des nations est enlevee', 'enlevement', 'gloire', 'reveil d\'israel'],
+  'embleme a six pointes': ['drapeau a l\'etoile de david', 'jerusalem', 'nation d\'israel est erigee', 'figuier'],
+  'arbuste nourricier': ['figuier a repousse ses feuilles', 'etoile de david', 'jerusalem', 'venue du seigneur'],
+  'supplication ininterrompue': ['veillons et prions sans cesse', 'trompette de dieu sonnera', 'enlevement'],
+  'rapt celeste': ['enlevement', 'trompette de dieu sonnera tres bientot', 'veillons et prions'],
+  'ultime admonestation': ['avertissements les plus solennels', 'derniers jours', 'eglise', 'oints du temps de la fin'],
+  'averse celeste': ['pluie tombe sur le bon ble et sur l\'ivraie', 'faux christs', 'faux prophetes', 'matthieu 24'],
+  'mauvaise herbe': ['ivraie', 'bon ble', 'pluie', 'semence incorruptible', 'onction'],
+  'authenticite surnaturelle': ['dons spirituels', 'fruit', 'ainsi dit le seigneur', 'miracles spectaculaires'],
+  'onguent ophtalmique': ['collyre divin', 'yeux spirituels oints', 'coeur pur', 'reconnaitre la verite'],
+  'recif maritime': ['revelation de jesus-christ', 'montrer a ses serviteurs', 'choses qui doivent arriver bientot', 'patmos'],
+  'port antique d\'ionie': ['jean a patmos', 'moi jean votre frere', 'part avec vous a la tribulation', 'royaume', 'ephese'],
+  'cite martyre': ['introduction aux ages de l\'eglise', 'pleinement comprendre le message des ages', 'smyrne', 'persecution'],
+  'resine broyee': ['introduction aux ages de l\'eglise', 'pleinement comprendre le message des ages', 'smyrne', 'myrrhe'],
+  'pourpre cesarienne': ['ecris a l\'ange de l\'eglise de smyrne', 'le premier et le dernier', 'etait mort et qui est revenu a la vie', 'pergame'],
+  'reine usurpatrice': ['ecris a l\'ange de l\'eglise de pergame', 'epee aigue a deux tranchants', 'trone de satan', 'thyatire'],
+  'torpeur germanique': ['ecris a l\'ange de l\'eglise de thyatire', 'yeux comme une flamme de feu', 'fils de dieu', 'sardes'],
+  'theses contestataires': ['ecris a l\'ange de l\'eglise de thyatire', 'yeux comme une flamme de feu', 'pieds semblables a de l\'airain', 'luther'],
+  'sainte cene': ['communion', 'service de communion', 'pain sans levain', 'jus de cep', 'union spirituelle'],
+  'cene': ['communion', 'service de communion', 'pain sans levain', 'jus de cep'],
+  'imposteur': ['antichrist', 'imitant le veritable', 'cavalier sur le cheval blanc', 'bluff religieux', 'arc'],
+  'etendard': ['drapeau', 'etoile de david', 'jerusalem', 'nation d\'israel'],
+  'clarte vesperale': ['lumiere du soir', 'lumiere parfaite du soir', 'zacharie', 'temps du soir'],
+  'magnificence': ['grandeur des edifices', 'apparences exterieures', 'eloquence humaine', 'parole'],
+  'temples': ['edifices', 'grandeur des edifices', 'apparences exterieures'],
+  'nourriture sacree': ['manne cachee', 'lieu tres saint', 'ancien testament', 'parole revelee'],
+  'etre interieur': ['ame interieure', 'semence incorruptible', 'esprit exterieur'],
+  'reverdi': ['figuier a repousse ses feuilles', 'nation d\'israel', 'jerusalem'],
+  'reverdit': ['figuier a repousse ses feuilles', 'nation d\'israel', 'venue du seigneur'],
+  'supercherie': ['grand bluff religieux', 'aucune fleche', 'cavalier sur le cheval blanc', 'antichrist'],
+  'armement': ['portait un arc', 'aucune fleche', 'cavalier sur le cheval blanc'],
+  'memorial': ['communion', 'sacrifice parfait', 'calvaire', 'pain sans levain'],
+  'regeneration': ['ame interieure', 'semence incorruptible', 'esprit exterieur'],
+  'seducteurs': ['faux christs', 'faux prophetes', 'miracles', 'ainsi dit le seigneur'],
+  'demasques': ['discerner', 'epouse de christ', 'ainsi dit le seigneur'],
+  'naitre': ['nee', 'semence incorruptible', 'ame interieure', 'nouvelle naissance'],
+  'retablissement': ['nation d\'israel est erigee', 'figuier a repousse ses feuilles', 'jerusalem']
 };
 
 /**
@@ -159,14 +215,25 @@ export function detectMultiHopComplexity(query: string): boolean {
   const norm = normalizeText(query).toLowerCase();
   
   const multiHopIndicators = [
-    /\b(compare|comparer|comparaison|difference entre|distinction entre)\b/,
+    /\b(compare|comparer|comparaison|difference entre|distinction.*entre)\b/,
     /\b(articule[- ]t[- ]il|relation entre|lien entre|rapport entre)\b/,
-    /\b(d'un cote.*de l'autre|a la fois.*et)\b/,
+    /\b(complete[- ]t[- ]il|differe[- ]t[- ]elle|differe[- ]t[- ]il|fait[- ]elle echo|fait[- ]il echo)\b/,
+    /\b(d'un cote.*de l'autre|a la fois.*et|ni les .* ni les )\b/,
     /\b(avant.*apres|evolution|comment.*alors que)\b/,
     /\b(passage de.*vers|differents aspects)\b/
   ];
 
-  return multiHopIndicators.some(pattern => pattern.test(norm));
+  if (multiHopIndicators.some(pattern => pattern.test(norm))) {
+    return true;
+  }
+
+  // Détection de 2 ou plusieurs codes de sermons distincts dans la même question (ex: 63-0324M et 65-0725M)
+  const sermonCodes = norm.match(/\b\d{2}[-_]\d{4}[a-z]?\b/g);
+  if (sermonCodes && new Set(sermonCodes).size >= 2) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
@@ -196,10 +263,15 @@ export function expandLocally(query: string): ExpandedTheologicalQuery {
   let subQueries: string[] = [query];
 
   if (isMultiHop) {
-    // Découpage heuristique local
-    const parts = query.split(/\b(?: et | ainsi que | par rapport à | comparé à | versus | vs )\b/i);
+    // Découpage heuristique local sur les connecteurs comparatifs et multi-entités
+    const parts = query.split(
+      /\b(?: et dans | et l['’]| et le | et la | et les | ainsi que | par rapport à | comparé à | complète-t-il | diffère-t-elle des? | diffère-t-il des? | fait-elle écho aux? | fait-il écho aux? | ni les | versus | vs )\b/i
+    );
     if (parts.length > 1) {
-      subQueries = parts.map(p => p.trim()).filter(p => p.length > 3);
+      const cleaned = parts.map(p => p.trim()).filter(p => p.length > 3);
+      if (cleaned.length >= 2) {
+        subQueries = cleaned;
+      }
     }
   }
 

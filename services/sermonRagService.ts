@@ -147,8 +147,10 @@ const calculateParagraphRelevance = (
     const kwNorm = normalizeText(kw);
     if (!kwNorm) return;
     
-    // Fréquence du mot-clé dans le paragraphe
-    const regex = new RegExp(`\\b${kwNorm}`, 'gi');
+    // Fréquence du mot-clé dans le paragraphe (frontière stricte pour les mots courts afin d'éviter foi->fois, don->donc)
+    const regex = kwNorm.length <= 4
+      ? new RegExp(`\\b${kwNorm}s?\\b`, 'gi')
+      : new RegExp(`\\b${kwNorm}`, 'gi');
     const matches = normalizedContent.match(regex);
     if (matches && matches.length > 0) {
       matchedKeywordsCount++;
@@ -157,7 +159,10 @@ const calculateParagraphRelevance = (
     }
 
     // Bonus si le mot-clé est aussi présent dans le titre du sermon
-    if (normalizedTitle.includes(kwNorm)) {
+    const titleRegex = kwNorm.length <= 4
+      ? new RegExp(`\\b${kwNorm}s?\\b`, 'i')
+      : new RegExp(`\\b${kwNorm}`, 'i');
+    if (titleRegex.test(normalizedTitle)) {
       score += 15;
     }
   });

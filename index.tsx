@@ -6,6 +6,22 @@ import App from './App';
 import { ProjectionView, MaskView } from './components/ProjectionView';
 import ErrorBoundary from './components/ErrorBoundary';
 
+// Protection globale du thread de rendu contre les rejets de promesses asynchrones non gérés en veille
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (event) => {
+    console.warn('[RendererGuard] Promesse rejetée interceptée (prévention crash):', event.reason);
+    event.preventDefault();
+  });
+
+  window.addEventListener('error', (event) => {
+    if (event.message && event.message.includes('ResizeObserver')) {
+      event.preventDefault();
+      return;
+    }
+    console.warn('[RendererGuard] Erreur globale interceptée:', event.error || event.message);
+  });
+}
+
 const rootElement = document.getElementById('root');
 if (!rootElement) {
   throw new Error("Could not find root element to mount to");
@@ -53,5 +69,3 @@ if (isMask) {
     </React.StrictMode>
   );
 }
-
-
