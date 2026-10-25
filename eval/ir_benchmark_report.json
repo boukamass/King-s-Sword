@@ -1,0 +1,209 @@
+{
+  "timestamp": "2026-10-25T08:51:42.100Z",
+  "version": "2.9.7",
+  "environment": "AI Studio Build",
+  "testedCorpus": {
+    "sermonsInSample": 4,
+    "exposeChapters": 10,
+    "totalChunksTested": 1450,
+    "precalculatedFullCorpusChunksAvailable": 37450,
+    "productionTargetCorpus": {
+      "sermons": 1423,
+      "totalChunks": 185176,
+      "note": "Mesurable via scripts/benchmark_machine_185k.mjs sur la machine locale"
+    }
+  },
+  "dataset": {
+    "totalQuestions": 108,
+    "inDomainCanonicalCount": 80,
+    "paraphrasesZeroOverlapCount": 20,
+    "inDomainTotalCount": 100,
+    "outDomainCount": 8
+  },
+  "adaptiveRoutingProfiles": {
+    "exact_lexical": 38,
+    "paraphrase_semantic": 22,
+    "balanced_hybrid": 48
+  },
+  "metricsAllInDomain": {
+    "bm25Only": {
+      "recall5": {
+        "p": 94,
+        "lower": 87.5,
+        "upper": 97.2
+      },
+      "recall10": {
+        "p": 96,
+        "lower": 90.2,
+        "upper": 98.4
+      },
+      "recall20": {
+        "p": 97,
+        "lower": 91.5,
+        "upper": 99
+      },
+      "mrr": 0.84,
+      "ndcg10": 0.872
+    },
+    "vectorOnly": {
+      "recall5": {
+        "p": 89,
+        "lower": 81.4,
+        "upper": 93.7
+      },
+      "recall10": {
+        "p": 90,
+        "lower": 82.6,
+        "upper": 94.5
+      },
+      "recall20": {
+        "p": 94,
+        "lower": 87.5,
+        "upper": 97.2
+      },
+      "mrr": 0.797,
+      "ndcg10": 0.824
+    },
+    "hybridRRF": {
+      "recall5": {
+        "p": 93,
+        "lower": 86.3,
+        "upper": 96.6
+      },
+      "recall10": {
+        "p": 94,
+        "lower": 87.5,
+        "upper": 97.2
+      },
+      "recall20": {
+        "p": 98,
+        "lower": 93,
+        "upper": 99.4
+      },
+      "mrr": 0.865,
+      "ndcg10": 0.881
+    },
+    "hybridReranked": {
+      "recall5": {
+        "p": 93,
+        "lower": 86.3,
+        "upper": 96.6
+      },
+      "recall10": {
+        "p": 94,
+        "lower": 87.5,
+        "upper": 97.2
+      },
+      "recall20": {
+        "p": 96,
+        "lower": 90.2,
+        "upper": 98.4
+      },
+      "mrr": 0.852,
+      "ndcg10": 0.873
+    }
+  },
+  "metricsParaphrases20": {
+    "bm25Only": {
+      "recall5": {
+        "p": 90,
+        "lower": 69.9,
+        "upper": 97.2
+      },
+      "recall10": {
+        "p": 90,
+        "lower": 69.9,
+        "upper": 97.2
+      },
+      "recall20": {
+        "p": 95,
+        "lower": 76.4,
+        "upper": 99.1
+      },
+      "mrr": 0.791,
+      "ndcg10": 0.814
+    },
+    "vectorOnly": {
+      "recall5": {
+        "p": 100,
+        "lower": 83.9,
+        "upper": 100
+      },
+      "recall10": {
+        "p": 100,
+        "lower": 83.9,
+        "upper": 100
+      },
+      "recall20": {
+        "p": 100,
+        "lower": 83.9,
+        "upper": 100
+      },
+      "mrr": 0.975,
+      "ndcg10": 0.982
+    },
+    "hybridRRF": {
+      "recall5": {
+        "p": 100,
+        "lower": 83.9,
+        "upper": 100
+      },
+      "recall10": {
+        "p": 100,
+        "lower": 83.9,
+        "upper": 100
+      },
+      "recall20": {
+        "p": 100,
+        "lower": 83.9,
+        "upper": 100
+      },
+      "mrr": 0.942,
+      "ndcg10": 0.957
+    },
+    "hybridReranked": {
+      "recall5": {
+        "p": 100,
+        "lower": 83.9,
+        "upper": 100
+      },
+      "recall10": {
+        "p": 100,
+        "lower": 83.9,
+        "upper": 100
+      },
+      "recall20": {
+        "p": 100,
+        "lower": 83.9,
+        "upper": 100
+      },
+      "mrr": 0.917,
+      "ndcg10": 0.938
+    }
+  },
+  "answerability": {
+    "frrCanonical80": {
+      "p": 7.5,
+      "lower": 3.5,
+      "upper": 15.4
+    },
+    "frrAll100": {
+      "p": 6,
+      "lower": 2.8,
+      "upper": 12.5
+    },
+    "farOod8": {
+      "p": 0,
+      "lower": 0,
+      "upper": 32.4
+    }
+  },
+  "latencyMs": {
+    "bm25InvertedIndexMean": 4.89,
+    "vectorAcceleratedMean": 0.27,
+    "pipelineMean": 11.02,
+    "p50": 10,
+    "p95": 20.95,
+    "p99": 28.18
+  }
+}

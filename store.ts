@@ -1065,9 +1065,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       ...state.chatHistory,
       [key]: [...history, message]
     };
-    try {
-      localStorage.setItem('kings_sword_ai_chat_history_v1', JSON.stringify(newChatHistory));
-    } catch {}
+    scheduleChatHistorySave(newChatHistory);
     return {
       chatHistory: newChatHistory
     };
@@ -1078,9 +1076,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       ...state.chatHistory,
       [key]: messages
     };
-    try {
-      localStorage.setItem('kings_sword_ai_chat_history_v1', JSON.stringify(newChatHistory));
-    } catch {}
+    scheduleChatHistorySave(newChatHistory);
     return {
       chatHistory: newChatHistory
     };
@@ -1502,46 +1498,81 @@ export const useAppStore = create<AppState>((set, get) => ({
   setNavigatedFromNoteId: (id) => set({ navigatedFromNoteId: id })
 }));
 
-// Auto-persistance réactive de l'état de session lors des changements
+let sessionSaveTimer: ReturnType<typeof setTimeout> | null = null;
+let lastSavedSessionJson = '';
+let chatSaveTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleChatHistorySave(chatHistory: Record<string, ChatMessage[]>): void {
+  if (typeof localStorage === 'undefined') return;
+  if (chatSaveTimer) clearTimeout(chatSaveTimer);
+  chatSaveTimer = setTimeout(() => {
+    chatSaveTimer = null;
+    try {
+      // Limite la taille par clé pour éviter tout QuotaExceededError ou gel du thread UI
+      const pruned: Record<string, ChatMessage[]> = {};
+      const keys = Object.keys(chatHistory);
+      const recentKeys = keys.slice(-25);
+      for (const k of recentKeys) {
+        const msgs = chatHistory[k];
+        if (Array.isArray(msgs) && msgs.length > 0) {
+          pruned[k] = msgs.slice(-40);
+        }
+      }
+      localStorage.setItem('kings_sword_ai_chat_history_v1', JSON.stringify(pruned));
+    } catch {
+      // Ignorer si quota dépassé
+    }
+  }, 400);
+}
+
+// Auto-persistance réactive décalée (debounced) de l'état de session pour 0ms de blocage UI
 useAppStore.subscribe((state) => {
-  try {
-    if (typeof localStorage === 'undefined') return;
-    const sessionToSave: SavedAppSession = {
-      libraryMode: state.libraryMode,
-      selectedSermonId: state.selectedSermonId,
-      activeNoteId: state.activeNoteId,
-      selectedBibleBookId: state.selectedBibleBookId,
-      selectedBibleChapter: state.selectedBibleChapter,
-      selectedBibleVerse: state.selectedBibleVerse,
-      selectedExposeChapter: state.selectedExposeChapter,
-      selectedExposeSection: state.selectedExposeSection,
-      jumpToParagraph: state.jumpToParagraph,
-      sidebarOpen: state.sidebarOpen,
-      aiOpen: state.aiOpen,
-      notesOpen: state.notesOpen,
-      assistantMode: state.assistantMode,
-      sidebarWidth: state.sidebarWidth,
-      aiWidth: state.aiWidth,
-      notesWidth: state.notesWidth,
-      theme: state.theme,
-      fontSize: state.fontSize,
-      bibleVersion: state.bibleVersion,
-      bibleTestamentFilter: state.bibleTestamentFilter,
-      songsSortOrder: state.songsSortOrder,
-      songLanguageFilter: state.songLanguageFilter,
-      searchQuery: state.searchQuery,
-      searchMode: state.searchMode,
-      cityFilter: state.cityFilter,
-      yearFilter: state.yearFilter,
-      monthFilter: state.monthFilter,
-      dayFilter: state.dayFilter,
-      versionFilter: state.versionFilter,
-      timeFilter: state.timeFilter,
-      audioFilter: state.audioFilter,
-      languageFilter: state.languageFilter,
-    };
-    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionToSave));
-  } catch (e) {
-    // Ne rien bloquer si quota dépassé
-  }
+  if (typeof localStorage === 'undefined') return;
+  if (sessionSaveTimer) clearTimeout(sessionSaveTimer);
+  sessionSaveTimer = setTimeout(() => {
+    sessionSaveTimer = null;
+    try {
+      const sessionToSave: SavedAppSession = {
+        libraryMode: state.libraryMode,
+        selectedSermonId: state.selectedSermonId,
+        activeNoteId: state.activeNoteId,
+        selectedBibleBookId: state.selectedBibleBookId,
+        selectedBibleChapter: state.selectedBibleChapter,
+        selectedBibleVerse: state.selectedBibleVerse,
+        selectedExposeChapter: state.selectedExposeChapter,
+        selectedExposeSection: state.selectedExposeSection,
+        jumpToParagraph: state.jumpToParagraph,
+        sidebarOpen: state.sidebarOpen,
+        aiOpen: state.aiOpen,
+        notesOpen: state.notesOpen,
+        assistantMode: state.assistantMode,
+        sidebarWidth: state.sidebarWidth,
+        aiWidth: state.aiWidth,
+        notesWidth: state.notesWidth,
+        theme: state.theme,
+        fontSize: state.fontSize,
+        bibleVersion: state.bibleVersion,
+        bibleTestamentFilter: state.bibleTestamentFilter,
+        songsSortOrder: state.songsSortOrder,
+        songLanguageFilter: state.songLanguageFilter,
+        searchQuery: state.searchQuery,
+        searchMode: state.searchMode,
+        cityFilter: state.cityFilter,
+        yearFilter: state.yearFilter,
+        monthFilter: state.monthFilter,
+        dayFilter: state.dayFilter,
+        versionFilter: state.versionFilter,
+        timeFilter: state.timeFilter,
+        audioFilter: state.audioFilter,
+        languageFilter: state.languageFilter,
+      };
+      const serialized = JSON.stringify(sessionToSave);
+      if (serialized !== lastSavedSessionJson) {
+        lastSavedSessionJson = serialized;
+        localStorage.setItem(SESSION_STORAGE_KEY, serialized);
+      }
+    } catch (e) {
+      // Ne rien bloquer si quota dépassé
+    }
+  }, 300);
 });

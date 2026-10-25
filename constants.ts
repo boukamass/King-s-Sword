@@ -1,4 +1,3 @@
-
 import { Sermon } from './types';
 
 export const CITIES = ['Jeffersonville', 'Tucson', 'Chicago', 'Phoenix', 'Los Angeles'];

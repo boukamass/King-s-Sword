@@ -124,49 +124,63 @@ function buildLocalFallbackFromEvidence(
   const sources: GeminiSource[] = [];
   const seenSources = new Set<string>();
 
+  const rawQueryTerms = (evidencePackage.query || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 2);
+
   evidence.forEach((ev, idx) => {
     const title = ev.sermonTitle || ev.sermonId;
     const dateSuffix = ev.date ? ` (${ev.date})` : '';
-    const startPara = ev.paragraphRange?.[0] || 1;
-    const endPara = ev.paragraphRange?.[1] || startPara;
-    const paraLabel = startPara === endPara ? `Para. ${startPara}` : `Para. ${startPara}-${endPara}`;
+    const startPara =
+      ev.startParagraph ||
+      ev.paragraphIds?.[0] ||
+      ev.citationParagraphs?.[0]?.paragraphIndex ||
+      (ev as any).paragraphRange?.[0] ||
+      1;
+    const endPara =
+      ev.endParagraph ||
+      (ev.paragraphIds && ev.paragraphIds.length > 0 ? ev.paragraphIds[ev.paragraphIds.length - 1] : undefined) ||
+      (ev.citationParagraphs && ev.citationParagraphs.length > 0 ? ev.citationParagraphs[ev.citationParagraphs.length - 1].paragraphIndex : undefined) ||
+      (ev as any).paragraphRange?.[1] ||
+      startPara;
 
-    lines.push(`### ${idx + 1}. ${title}${dateSuffix} — ${paraLabel} [Réf: ${ev.sermonId}, Para. ${startPara}]`);
+    // Identifier le paragraphe précis à l'intérieur du chunk qui contient le plus de termes de la question
+    let bestPara = startPara;
+    if (Array.isArray(ev.citationParagraphs) && ev.citationParagraphs.length > 1 && rawQueryTerms.length > 0) {
+      let bestScore = -1;
+      for (const cp of ev.citationParagraphs) {
+        const pText = (cp.fullParagraphText || cp.textSnippet || '')
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '');
+        let score = 0;
+        for (const t of rawQueryTerms) {
+          if (pText.includes(t)) score++;
+        }
+        if (score > bestScore) {
+          bestScore = score;
+          bestPara = cp.paragraphIndex || startPara;
+        }
+      }
+    }
 
-    if (Array.isArray(ev.citationParagraphs) && ev.citationParagraphs.length > 0) {
-      ev.citationParagraphs.forEach(cp => {
-        const cleanQuote = (cp.text || '').replace(/\s+/g, ' ').trim();
-        if (cleanQuote) {
-          lines.push(`> « ${cleanQuote} » [Réf: ${ev.sermonId}, Para. ${cp.paragraphIndex}]`);
-          lines.push('');
-        }
-        const sourceKey = `${ev.sermonId}_${cp.paragraphIndex}`;
-        if (!seenSources.has(sourceKey)) {
-          seenSources.add(sourceKey);
-          sources.push({
-            title: `${title}${dateSuffix} (§${cp.paragraphIndex})`,
-            uri: `sermon://${ev.sermonId}/${cp.paragraphIndex}`,
-            sermonId: ev.sermonId,
-            paragraphIndex: cp.paragraphIndex
-          });
-        }
+    const paraLabel = startPara === endPara ? `Para. ${bestPara}` : `Para. ${bestPara} (bloc §${startPara}-${endPara})`;
+
+    lines.push(`### ${idx + 1}. ${title}${dateSuffix} — ${paraLabel} [Réf: ${ev.sermonId}, Para. ${bestPara}]`);
+
+    const sourceKey = `${ev.sermonId}_${bestPara}`;
+    if (!seenSources.has(sourceKey)) {
+      seenSources.add(sourceKey);
+      sources.push({
+        title: `${title}${dateSuffix} (§${bestPara})`,
+        uri: `sermon://${ev.sermonId}/${bestPara}`,
+        sermonId: ev.sermonId,
+        paragraphIndex: bestPara
       });
-    } else {
-      const cleanText = (ev.text || '').replace(/\s+/g, ' ').trim();
-      if (cleanText) {
-        lines.push(`> « ${cleanText} » [Réf: ${ev.sermonId}, Para. ${startPara}]`);
-        lines.push('');
-      }
-      const sourceKey = `${ev.sermonId}_${startPara}`;
-      if (!seenSources.has(sourceKey)) {
-        seenSources.add(sourceKey);
-        sources.push({
-          title: `${title}${dateSuffix} (§${startPara})`,
-          uri: `sermon://${ev.sermonId}/${startPara}`,
-          sermonId: ev.sermonId,
-          paragraphIndex: startPara
-        });
-      }
     }
   });
 
@@ -1173,6 +1187,7 @@ const AIAssistant: React.FC = () => {
                 content: unifiedResult.answerText, 
                 timestamp: new Date().toISOString(),
                 sources: !isRefusal && unifiedResult.sources && unifiedResult.sources.length > 0 ? unifiedResult.sources : undefined,
+                citationsValidation: !isRefusal && unifiedResult.citationsValidation ? unifiedResult.citationsValidation : undefined,
                 refusal: isRefusal,
                 originalQuery: isRefusal ? msg : undefined,
                 closestPassages: isRefusal ? closestPassages : undefined
@@ -1319,6 +1334,7 @@ const AIAssistant: React.FC = () => {
                 content: unifiedResult.answerText, 
                 timestamp: new Date().toISOString(),
                 sources: !isRefusal && unifiedResult.sources && unifiedResult.sources.length > 0 ? unifiedResult.sources : undefined,
+                citationsValidation: !isRefusal && unifiedResult.citationsValidation ? unifiedResult.citationsValidation : undefined,
                 refusal: isRefusal,
                 originalQuery: isRefusal ? msg : undefined,
                 closestPassages: isRefusal ? closestPassages : undefined

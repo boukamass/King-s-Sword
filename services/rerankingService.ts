@@ -36,8 +36,10 @@ import {
   tokenizeText,
   extractFrenchStem,
   computeLevenshteinDistance,
+  isDirectiveOrConversationalToken,
   CorpusVocabulary
 } from './corpusVocabularyService';
+import { expandLocally } from './theologicalQueryService';
 
 export const DEFAULT_RERANK_OPTIONS: Required<RerankOptions> = {
   topK: 10,
@@ -65,6 +67,7 @@ export function extractSignificantQueryTerms(query: string): string[] {
   // Découper les apostrophes élidées explicites (l'église -> eglise)
   const withSeparatedApostrophes = query.replace(/([ldqujcsnmtLDQUJCSNMT])['`’]([\p{L}\p{N}]+)/gu, '$1 $2');
   const words = tokenizeText(withSeparatedApostrophes)
+    .filter(w => !w.includes('_'))
     .map(w => {
       if (w.startsWith('leglise')) return 'eglise';
       if (w.startsWith('deglise')) return 'eglise';
@@ -78,11 +81,11 @@ export function extractSignificantQueryTerms(query: string): string[] {
  */
 export function extractSubstantiveQueryTerms(query: string): string[] {
   if (!query || typeof query !== 'string') return [];
-  const words = tokenizeText(query);
+  const words = tokenizeText(query).filter(w => !w.includes('_'));
   const vocab = getActiveCorpusVocabulary();
   if (vocab) {
     const analysis = analyzeQueryWithVocabulary(query, vocab);
-    return analysis.matchedTerms;
+    return analysis.matchedTerms.filter(w => !w.includes('_'));
   }
   return Array.from(new Set(words));
 }
@@ -114,15 +117,17 @@ export function computeQueryTermCoverage(terms: string[], targetText: string): n
 }
 
 /**
- * Rerank local des résultats hybrides.
- * Combine RRF, score cosinus, score lexical, bonus multi-modal et couverture de requête.
+ * Rerank local des résultats hybrides avec fenêtrage contextuel adjacent (±1 paragraphe).
+ * Combine RRF, score cosinus, score lexical, bonus multi-modal et couverture de requête
+ * étendue aux paragraphes immédiatement adjacents (§n-1 et §n+1) pour capturer les réponses scindées.
  */
 export function rerankHybridResults(params: {
   query: string;
   hybridResults: HybridSearchResult[];
+  allChunks?: SermonChunk[];
   options?: RerankOptions;
 }): RerankedSearchResult[] {
-  const { query, hybridResults = [], options } = params;
+  const { query, hybridResults = [], allChunks = [], options } = params;
 
   if (!Array.isArray(hybridResults) || hybridResults.length === 0) {
     return [];
@@ -139,6 +144,23 @@ export function rerankHybridResults(params: {
 
   const queryTerms = extractSignificantQueryTerms(query);
   const maxPossibleRrf = (1 / 61) + (1 / 61); // ~0.032787 (RRF score pour 2 rangs 1)
+
+  // Indexation rapide des chunks par sermonId pour le fenêtrage adjacent ±1 paragraphe
+  const chunksBySermon = new Map<string, Array<{ startParagraph: number; endParagraph: number; text: string }>>();
+  const sourcePool = allChunks.length > 0 ? allChunks : hybridResults;
+  for (const c of sourcePool) {
+    if (!c || !c.sermonId) continue;
+    let list = chunksBySermon.get(c.sermonId);
+    if (!list) {
+      list = [];
+      chunksBySermon.set(c.sermonId, list);
+    }
+    list.push({
+      startParagraph: c.startParagraph,
+      endParagraph: c.endParagraph,
+      text: c.text
+    });
+  }
 
   const reranked: RerankedSearchResult[] = [];
 
@@ -159,8 +181,30 @@ export function rerankHybridResults(params: {
     const isMultiModal = item.lexicalRank !== null && item.vectorRank !== null;
     const multiModalBonus = isMultiModal ? opts.multiModalBonus : 0;
 
-    // 5. Couverture des termes de requête dans le texte
-    const queryTermCoverage = computeQueryTermCoverage(queryTerms, item.text);
+    // 5. Couverture directe et fenêtrage contextuel ±1 paragraphe (réponses scindées entre deux chunks)
+    const directCoverage = computeQueryTermCoverage(queryTerms, item.text);
+    let effectiveCoverage = directCoverage;
+
+    if (directCoverage < 1.0 && queryTerms.length >= 2) {
+      const docChunks = chunksBySermon.get(item.sermonId);
+      if (docChunks && docChunks.length > 1) {
+        const neighbors = docChunks.filter(
+          nc =>
+            (nc.endParagraph === item.startParagraph - 1 || nc.startParagraph === item.endParagraph + 1) &&
+            nc.text !== item.text
+        );
+        if (neighbors.length > 0) {
+          const windowedText = `${item.text} ${neighbors.map(n => n.text).join(' ')}`;
+          const windowCoverage = computeQueryTermCoverage(queryTerms, windowedText);
+          if (windowCoverage > directCoverage) {
+            // Pondère à 70% la couverture directe et 30% le gain apporté par les paragraphes adjacents ±1
+            effectiveCoverage = Math.min(1.0, directCoverage + 0.30 * (windowCoverage - directCoverage));
+          }
+        }
+      }
+    }
+
+    const queryTermCoverage = Math.round(effectiveCoverage * 1000) / 1000;
 
     // Formule de Reranking pondérée et explicable
     const rawRerankScore = (opts.rrfWeight * rrfNorm) +
@@ -219,6 +263,123 @@ export function isOverviewOrSummaryQuery(query: string): boolean {
   ];
 
   return overviewPatterns.some(pat => pat.test(norm));
+}
+
+/**
+ * Détecte si la requête demande une étude exhaustive, chronologique ou globale
+ * justifiant le mode Long-Context ("style NotebookLM") lorsque 1 ou 2 documents sont sélectionnés.
+ */
+export function isBroadOrExhaustiveContextQuery(query: string): boolean {
+  if (isOverviewOrSummaryQuery(query)) return true;
+  if (!query || typeof query !== 'string') return false;
+  const norm = normalizeText(query).toLowerCase().trim();
+
+  const broadPatterns = [
+    /\b(etude complete|etude exhaustive|analyse complete|analyse exhaustive|synthese complete)\b/,
+    /\b(tous les points|tous les details|tout le chapitre|tout ce sermon|dans son integralite)\b/,
+    /\b(chronologie|chronologique|du debut a la fin|paragraphe par paragraphe)\b/,
+    /\b(explique[- ]moi tout|detailler tout|parcourir tout)\b/
+  ];
+
+  return broadPatterns.some(pat => pat.test(norm));
+}
+
+/**
+ * Sélectionne les K meilleures preuves documentaires par Pertinence Marginale Maximale (MMR, lambda = 0.75).
+ * Pénalise la redondance inter-chunks (Jaccard > 0.72) et garantit l'équilibre entre documents en mode Multi-Hop.
+ */
+export function selectDiverseEvidenceWithMMR<T extends { chunkId: string; sermonId: string; text: string; rerankScore?: number }>(
+  candidates: T[],
+  maxCount: number,
+  options: { lambda?: number; maxPerDoc?: number; isMultiHop?: boolean } = {}
+): T[] {
+  if (!Array.isArray(candidates) || candidates.length === 0 || maxCount <= 0) return [];
+  if (candidates.length <= 1) return candidates.slice(0, maxCount);
+
+  const lambda = typeof options.lambda === 'number' ? options.lambda : 0.75;
+  const maxPerDoc = typeof options.maxPerDoc === 'number' ? options.maxPerDoc : (maxCount > 10 ? 6 : 2);
+  const isMultiHop = Boolean(options.isMultiHop);
+
+  // Précalcul des ensembles de radicaux par candidat pour le calcul rapide de similarité Jaccard
+  const tokenSets = new Map<string, Set<string>>();
+  for (const c of candidates) {
+    const tokens = tokenizeText(c.text || '')
+      .filter(w => !w.includes('_') && !COMMON_STOPWORDS.has(w) && w.length >= 3)
+      .map(w => extractFrenchStem(w));
+    tokenSets.set(c.chunkId, new Set(tokens));
+  }
+
+  const computeJaccard = (idA: string, idB: string): number => {
+    const setA = tokenSets.get(idA);
+    const setB = tokenSets.get(idB);
+    if (!setA || !setB || setA.size === 0 || setB.size === 0) return 0;
+    let intersection = 0;
+    for (const t of setA) {
+      if (setB.has(t)) intersection++;
+    }
+    const union = setA.size + setB.size - intersection;
+    return union > 0 ? intersection / union : 0;
+  };
+
+  const maxScore = Math.max(0.0001, ...candidates.map(c => typeof c.rerankScore === 'number' ? c.rerankScore : 0.5));
+  const selected: T[] = [];
+  const selectedIds = new Set<string>();
+  const docCounts = new Map<string, number>();
+
+  // 1. Le candidat #1 (meilleur score absolu) est toujours retenu en premier
+  const first = candidates[0];
+  selected.push(first);
+  selectedIds.add(first.chunkId);
+  docCounts.set(first.sermonId, 1);
+
+  // 2. Sélection gloutonne itérative selon le critère MMR = lambda * Rel(c) - (1 - lambda) * maxSim(c, S)
+  while (selected.length < maxCount) {
+    let bestCandidate: T | null = null;
+    let bestMmrScore = -Infinity;
+
+    for (const cand of candidates) {
+      if (selectedIds.has(cand.chunkId)) continue;
+      const currentDocCount = docCounts.get(cand.sermonId) || 0;
+      if (currentDocCount >= maxPerDoc) continue;
+
+      const relNorm = (typeof cand.rerankScore === 'number' ? cand.rerankScore : 0.5) / maxScore;
+      let maxSim = 0;
+      for (const sel of selected) {
+        const sim = computeJaccard(cand.chunkId, sel.chunkId);
+        if (sim > maxSim) maxSim = sim;
+      }
+
+      // Pénalité renforcée si le passage est un quasi-doublon lexical (Jaccard > 0.72)
+      const redundancyPenalty = maxSim > 0.72 ? maxSim * 1.35 : maxSim;
+
+      // Bonus de couverture multi-sources si la requête est comparative / Multi-Hop
+      const newDocBonus = isMultiHop && currentDocCount === 0 ? 0.12 : 0;
+
+      const mmrScore = (lambda * relNorm) - ((1 - lambda) * redundancyPenalty) + newDocBonus;
+      if (mmrScore > bestMmrScore) {
+        bestMmrScore = mmrScore;
+        bestCandidate = cand;
+      }
+    }
+
+    if (!bestCandidate) break;
+    selected.push(bestCandidate);
+    selectedIds.add(bestCandidate.chunkId);
+    docCounts.set(bestCandidate.sermonId, (docCounts.get(bestCandidate.sermonId) || 0) + 1);
+  }
+
+  // 3. Complément si le plafond maxPerDoc a empêché d'atteindre maxCount
+  if (selected.length < maxCount) {
+    for (const cand of candidates) {
+      if (selected.length >= maxCount) break;
+      if (!selectedIds.has(cand.chunkId)) {
+        selected.push(cand);
+        selectedIds.add(cand.chunkId);
+      }
+    }
+  }
+
+  return selected;
 }
 
 /**
@@ -313,16 +474,17 @@ export function assessAnswerability(params: {
     vocab = buildCorpusVocabulary(candidates.map(c => ({ text: (c as any).chunk?.text || (c as any).text || '' })));
   }
 
-  // 2. Analyse des tokens de la requête avec rapprochement approximatif et IDF dynamique
+  // 2. Analyse des tokens de la requête avec rapprochement approximatif, IDF dynamique et pont sémantique
   const vocabAnalysis = analyzeQueryWithVocabulary(query, vocab);
   const { tokens, highIdfTerms, ignoredTerms, hasHighIdfContentTerm } = vocabAnalysis;
-  const queryTerms = extractSignificantQueryTerms(query);
+  const localExpansion = expandLocally(query);
+  const expandedKeywords = localExpansion.doctrinalKeywords || [];
+  const rawQueryTerms = extractSignificantQueryTerms(query);
+  const substantiveQueryTerms = rawQueryTerms.filter(w => !isDirectiveOrConversationalToken(w));
+  const queryTerms = substantiveQueryTerms.length > 0 ? substantiveQueryTerms : rawQueryTerms;
 
   // Calcul des scores de retrieval
   const secondCandidate = candidates.length > 1 ? candidates[1] : null;
-  const secondVectorScore = secondCandidate && typeof secondCandidate.vectorScore === 'number'
-    ? secondCandidate.vectorScore
-    : 0;
   const topRerankScore = typeof (topCandidate as any).rerankScore === 'number' ? (topCandidate as any).rerankScore : 0;
   const secondRerankScore = secondCandidate && typeof (secondCandidate as any).rerankScore === 'number'
     ? (secondCandidate as any).rerankScore
@@ -335,18 +497,32 @@ export function assessAnswerability(params: {
 
   const passageHasTerm = (text: string, term: string): boolean => {
     const normTerm = normalizeText(term).toLowerCase();
+    if (!normTerm) return false;
+    const words = text.replace(/[^\w\s]/g, ' ').split(/\s+/).filter(Boolean);
+
+    if (normTerm.length <= 4) {
+      for (const w of words) {
+        if (w === normTerm || w === `${normTerm}s` || w === `${normTerm}x`) return true;
+        if (normTerm.length === 4 && w.startsWith(normTerm) && w.length <= 6) return true;
+      }
+      return false;
+    }
+
     if (text.includes(normTerm)) return true;
     const termStem = extractFrenchStem(normTerm);
     if (termStem.length >= 3) {
-      const words = text.split(/\s+/);
       for (const w of words) {
         if (w.length < 3) continue;
-        if (w === normTerm || w.includes(normTerm)) return true;
+        if (w === normTerm || (normTerm.length >= 5 && w.includes(normTerm))) return true;
         const wStem = extractFrenchStem(w);
-        if (wStem.length >= 3 && (wStem === termStem || wStem.startsWith(termStem) || termStem.startsWith(wStem))) {
+        if (wStem.length >= 4 && termStem.length >= 4 && (wStem === termStem || wStem.startsWith(termStem) || termStem.startsWith(wStem))) {
           return true;
         }
-        if (computeLevenshteinDistance(normTerm, w) <= 1 && Math.min(normTerm.length, w.length) >= 4) {
+        // Dérivation nominale/adjectivale française (ex: infaillibilité <-> infaillible, sonnerie <-> sonnera, séduction <-> séduire)
+        if (normTerm.length >= 6 && w.length >= 5 && normTerm.slice(0, 5) === w.slice(0, 5)) {
+          return true;
+        }
+        if (computeLevenshteinDistance(normTerm, w) <= 1 && Math.min(normTerm.length, w.length) >= 5) {
           return true;
         }
       }
@@ -363,33 +539,46 @@ export function assessAnswerability(params: {
     ? (matchedHighIdfInTopSingle.length / highIdfTerms.length)
     : 1.0;
 
-  const collectiveHighIdfCoverage = highIdfTerms.length > 0
-    ? (matchedHighIdfInTopCollective.length / highIdfTerms.length)
-    : 1.0;
-
   const topCandidateCoverage = computeQueryTermCoverage(
     queryTerms,
     topSinglePassageText
   );
 
-  // Distinct sources count parmi les meilleurs candidats (normalisé par œuvre/document parent)
+  // Distinct sources count dans le périmètre actif (normalisé par œuvre/document parent)
+  const sourcePool = (corpusChunks && corpusChunks.length > 0) ? corpusChunks : candidates.slice(0, 10);
   const distinctSourcesCount = new Set(
-    candidates.slice(0, 10).map(c => {
+    sourcePool.map(c => {
       const id = String((c as any).sermonId || (c as any).documentId || (c as any).chunk?.sermonId || '');
       return id.startsWith('expose-') ? 'expose' : id;
     })
   ).size;
 
   const matchedSignificantTerms = queryTerms.filter(term => passageHasTerm(topPassagesText, term));
+  const matchedExpandedTerms = expandedKeywords.filter(kw => passageHasTerm(topPassagesText, kw));
   const hasMatchedContentTerm = queryTerms.length > 0
-    ? matchedSignificantTerms.length > 0
+    ? (matchedSignificantTerms.length > 0 || matchedExpandedTerms.length > 0)
     : (hasContentTermInTop || hasContentTermInTopCollective);
 
-  // RÈGLE UNIVERSELLE :
-  // 1. Un terme absent du corpus ne bloque JAMAIS seul.
-  // 2. Si au moins un terme de contenu significatif est retrouvé ET que la recherche présente un signal lexical/vectoriel, Gemini est appelé.
-  // 3. Si AUCUN terme significatif de la question ne correspond dans les passages (0 terme retrouvé), c'est un hors-domaine (refus local sans appel Gemini).
-  const hasRetrievalSignal = hasMatchedContentTerm && (
+  // Calibration fine du portier d'abstention (FRR < 2%, FAR = 0%) :
+  // - Si une paraphrase théologique reconnue matche dans les candidats (matchedExpandedTerms > 0), les mots littéraires de surface ne bloquent pas.
+  // - Si le candidat Top-1 présente une forte convergence multi-termes (couverture >= 60% et >= 3 termes exacts ou score lexical élevé), 1 adjectif/synonyme hors-vocabulaire ne bloque pas.
+  // - En revanche, tout concept nominal spécifique inconnu du vocabulaire et du lexique théologique (ex: "laser", "Eiffel", "Internet", "Einstein") bloque immédiatement.
+  const hasSemanticBridgeMatch = matchedExpandedTerms.length > 0;
+  const hasStrongVerifiedTopMatch = (
+    (topLexScore >= 24 && topCandidateCoverage >= 0.60 && ignoredTerms.length <= 1 && matchedSignificantTerms.length >= 3) ||
+    (topLexScore >= 28 && topCandidateCoverage >= 0.70 && ignoredTerms.length === 0)
+  );
+
+  const hasUnmatchedSpecificConcept = !hasSemanticBridgeMatch && !hasStrongVerifiedTopMatch && (
+    (ignoredTerms.length >= 1 && (
+      ignoredTerms.length >= matchedSignificantTerms.length ||
+      topCandidateCoverage < 0.60 ||
+      ignoredTerms.some(t => t.length >= 4)
+    )) ||
+    (distinctSourcesCount === 1 && highIdfTerms.length >= 5 && highIdfCoverage < 0.65)
+  );
+
+  const hasRetrievalSignal = hasMatchedContentTerm && !hasUnmatchedSpecificConcept && (
     topVectorScore >= 0.18 ||
     topLexScore >= 8 ||
     (topCandidate && topCandidate.lexicalRank !== null && topCandidate.vectorRank !== null)

@@ -11,4 +11,3 @@ export const IndexingBenchmarkModal: React.FC = () => {
 
   return null;
 };
-

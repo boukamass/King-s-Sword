@@ -469,6 +469,10 @@ export interface ValidatedCitationDetail {
   actualSourceId?: string;
   isQuoteCorrected?: boolean;
   correctedQuote?: string;
+  quoteStatus?: 'exact' | 'corrected' | 'unverified';
+  claimedQuote?: string;
+  claimedSourceId?: string;
+  claimedParagraphIndex?: number | null;
   isTooShort?: boolean;
   matchedEvidence?: {
     sermonId: string;

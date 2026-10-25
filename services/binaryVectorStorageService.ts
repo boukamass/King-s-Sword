@@ -390,7 +390,10 @@ export function getBinaryVectorForChunk(chunkId: string): Int8Array | null {
       const suffixMatch = chunkId.match(/^(.+?)(_c\d+_p\d+_p\d+)$/);
       if (suffixMatch) {
         entry = cachedIndexMap.get(`${suffixMatch[1]}-VGR${suffixMatch[2]}`) ||
-                cachedIndexMap.get(`${suffixMatch[1]}-Shp${suffixMatch[2]}`);
+                cachedIndexMap.get(`${suffixMatch[1]}-SHP${suffixMatch[2]}`) ||
+                cachedIndexMap.get(`${suffixMatch[1]}-Shp${suffixMatch[2]}`) ||
+                cachedIndexMap.get(`${suffixMatch[1]}-vgr${suffixMatch[2]}`) ||
+                cachedIndexMap.get(`${suffixMatch[1]}-shp${suffixMatch[2]}`);
       }
     }
   }

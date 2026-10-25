@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getChunksBySermon: (sermonId) => ipcRenderer.invoke('db:getChunksBySermon', sermonId),
     getAllChunks: () => ipcRenderer.invoke('db:getAllChunks'),
     deleteChunksBySermon: (sermonId) => ipcRenderer.invoke('db:deleteChunksBySermon', sermonId),
+    searchBM25Fts5: (params) => ipcRenderer.invoke('db:searchBM25Fts5', params),
     // Backup & Restore
     exportBackup: () => ipcRenderer.invoke('backup:exportUserData'),
     importBackup: (backupData) => ipcRenderer.invoke('backup:importUserData', backupData),

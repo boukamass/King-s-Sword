@@ -73,4 +73,3 @@ export interface BibleNavigationSelection {
   chapter: number;
   verse?: number;
 }
-

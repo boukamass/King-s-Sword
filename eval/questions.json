@@ -2283,5 +2283,445 @@
       "nation d'Israël est érigée",
       "drapeau à l'étoile de David"
     ]
+  },
+  {
+    "id": "Q089",
+    "question": "Quelle utilité attribue-t-on aux interrogations matinales pour dissiper toute confusion vespérale ?",
+    "category": "paraphrase_semantique_zero_terme",
+    "difficulty": "hard",
+    "answerable": true,
+    "expected_sermons": [
+      "63-0324M"
+    ],
+    "expected_paragraphs": [
+      1
+    ],
+    "expected_sources": [
+      {
+        "sermonId": "63-0324M",
+        "paragraphIndex": 1
+      }
+    ],
+    "relevant_snippet": "1. Maintenant, nous allons aborder une étude très profonde ce matin. Les questions et les réponses sont toujours une partie essentielle de l'enseignem",
+    "expected_answer": "Elles permettent de clarifier les points qui auraient pu être mal compris pendant les réunions du soir.",
+    "expected_answer_keywords": []
+  },
+  {
+    "id": "Q090",
+    "question": "De quel projectile l'usurpateur équestre immaculé se trouvait-il totalement dépourvu ?",
+    "category": "paraphrase_semantique_zero_terme",
+    "difficulty": "hard",
+    "answerable": true,
+    "expected_sermons": [
+      "63-0324M"
+    ],
+    "expected_paragraphs": [
+      2
+    ],
+    "expected_sources": [
+      {
+        "sermonId": "63-0324M",
+        "paragraphIndex": 2
+      }
+    ],
+    "relevant_snippet": "2. Le premier sceau a été ouvert, et nous avons clairement vu que le cavalier sur le cheval blanc n'était pas le Seigneur Jésus-Christ, mais bien l'an",
+    "expected_answer": "Il portait un arc mais n'avait aucune flèche.",
+    "expected_answer_keywords": []
+  },
+  {
+    "id": "Q091",
+    "question": "Vers quel éclat vespéral le Créateur extrait-Il Ses rachetés de l'anarchie mésopotamienne ?",
+    "category": "paraphrase_semantique_zero_terme",
+    "difficulty": "hard",
+    "answerable": true,
+    "expected_sermons": [
+      "63-0324M"
+    ],
+    "expected_paragraphs": [
+      3
+    ],
+    "expected_sources": [
+      {
+        "sermonId": "63-0324M",
+        "paragraphIndex": 3
+      }
+    ],
+    "relevant_snippet": "3. Remarquez bien la profondeur de cette révélation. Tout au long des âges de l'Église, le mystère de l'iniquité a agi sous des formes très subtiles. ",
+    "expected_answer": "Dieu rassemble Ses élus hors de la confusion babylonienne dans la lumière du soir.",
+    "expected_answer_keywords": []
+  },
+  {
+    "id": "Q092",
+    "question": "Face aux bâtisses fastueuses et à la rhétorique profane, à quel singulier texte scripturaire convient-il d'adhérer ?",
+    "category": "paraphrase_semantique_zero_terme",
+    "difficulty": "hard",
+    "answerable": true,
+    "expected_sermons": [
+      "63-0324M"
+    ],
+    "expected_paragraphs": [
+      4
+    ],
+    "expected_sources": [
+      {
+        "sermonId": "63-0324M",
+        "paragraphIndex": 4
+      }
+    ],
+    "relevant_snippet": "4. Frères et sœurs, nous vivons dans un temps solennel où le discernement spirituel est primordial pour chaque croyant. Ne vous laissez pas séduire pa",
+    "expected_answer": "À la Parole écrite et révélée par le Saint-Esprit comme seule Vérité infaillible.",
+    "expected_answer_keywords": []
+  },
+  {
+    "id": "Q093",
+    "question": "Pourquoi la Cène outrepasse-t-elle l'ingestion d'une galette azyme additionnée de liqueur de vigne ?",
+    "category": "paraphrase_semantique_zero_terme",
+    "difficulty": "hard",
+    "answerable": true,
+    "expected_sermons": [
+      "65-1212"
+    ],
+    "expected_paragraphs": [
+      1
+    ],
+    "expected_sources": [
+      {
+        "sermonId": "65-1212",
+        "paragraphIndex": 1
+      }
+    ],
+    "relevant_snippet": "1. C'est un immense privilège d'être assemblés ici ce soir pour ce précieux service de communion. La communion n'est pas simplement manger un morceau ",
+    "expected_answer": "Parce que la communion est une union spirituelle vivante entre le croyant racheté et son Seigneur.",
+    "expected_answer_keywords": []
+  },
+  {
+    "id": "Q094",
+    "question": "Quel accord absolu au supplice du Golgotha atteste qu'un disciple trépasse afin qu'un Autre surgisse en lui ?",
+    "category": "paraphrase_semantique_zero_terme",
+    "difficulty": "hard",
+    "answerable": true,
+    "expected_sermons": [
+      "65-1212"
+    ],
+    "expected_paragraphs": [
+      2
+    ],
+    "expected_sources": [
+      {
+        "sermonId": "65-1212",
+        "paragraphIndex": 2
+      }
+    ],
+    "relevant_snippet": "2. Comme l'Écriture le déclare si magnifiquement dans l'Évangile de Jean : \"Si vous ne mangez la chair du Fils de l'homme, et si vous ne buvez son san",
+    "expected_answer": "L'acte de foi témoignant être crucifié avec Christ pour que Christ vive en soi.",
+    "expected_answer_keywords": []
+  },
+  {
+    "id": "Q095",
+    "question": "Quelle subsistance dissimulée résidait jadis derrière l'épais rideau sanctuaire ?",
+    "category": "paraphrase_semantique_zero_terme",
+    "difficulty": "hard",
+    "answerable": true,
+    "expected_sermons": [
+      "65-1212"
+    ],
+    "expected_paragraphs": [
+      3
+    ],
+    "expected_sources": [
+      {
+        "sermonId": "65-1212",
+        "paragraphIndex": 3
+      }
+    ],
+    "relevant_snippet": "3. La manne cachée dans l'Ancien Testament était réservée à l'intérieur du Lieu Très Saint. Aujourd'hui, cette manne spirituelle, c'est la Parole révé",
+    "expected_answer": "La manne cachée réservée à l'intérieur du Lieu Très Saint.",
+    "expected_answer_keywords": []
+  },
+  {
+    "id": "Q096",
+    "question": "Quel instrument d'airain annonce le ralliement de la descendance d'Abraham sitôt l'élue ravie ?",
+    "category": "paraphrase_semantique_zero_terme",
+    "difficulty": "hard",
+    "answerable": true,
+    "expected_sermons": [
+      "64-0719M"
+    ],
+    "expected_paragraphs": [
+      2
+    ],
+    "expected_sources": [
+      {
+        "sermonId": "64-0719M",
+        "paragraphIndex": 2
+      }
+    ],
+    "relevant_snippet": "2. La Fête des Trompettes est l'une des révélations les plus saisissantes réservées pour l'Église du temps de la fin. Dans l'Ancien Testament, sous la",
+    "expected_answer": "La Fête des Trompettes sonnant le réveil d'Israël après l'enlèvement de l'Épouse des Nations.",
+    "expected_answer_keywords": []
+  },
+  {
+    "id": "Q097",
+    "question": "Quel emblème à six pointes ondoie sur Sion tandis que l'arbuste nourricier bourgeonne ?",
+    "category": "paraphrase_semantique_zero_terme",
+    "difficulty": "hard",
+    "answerable": true,
+    "expected_sermons": [
+      "64-0719M"
+    ],
+    "expected_paragraphs": [
+      3
+    ],
+    "expected_sources": [
+      {
+        "sermonId": "64-0719M",
+        "paragraphIndex": 3
+      }
+    ],
+    "relevant_snippet": "3. Observez attentivement le parallèle extraordinaire : pendant que Dieu traite avec les Nations pour en tirer un peuple pour Son Nom, les trompettes ",
+    "expected_answer": "Le drapeau à l'étoile de David flottant à Jérusalem tandis que le figuier a repoussé ses feuilles.",
+    "expected_answer_keywords": []
+  },
+  {
+    "id": "Q098",
+    "question": "Quelle supplication ininterrompue importe avant le rapt céleste imminent ?",
+    "category": "paraphrase_semantique_zero_terme",
+    "difficulty": "hard",
+    "answerable": true,
+    "expected_sermons": [
+      "64-0719M"
+    ],
+    "expected_paragraphs": [
+      4
+    ],
+    "expected_sources": [
+      {
+        "sermonId": "64-0719M",
+        "paragraphIndex": 4
+      }
+    ],
+    "relevant_snippet": "4. Veillons et prions sans cesse, car la trompette de Dieu sonnera très bientôt pour l'Enlèvement.",
+    "expected_answer": "Veiller et prier sans cesse avant la sonnerie de la trompette de Dieu pour l'Enlèvement.",
+    "expected_answer_keywords": []
+  },
+  {
+    "id": "Q099",
+    "question": "Quelle gravité suprême caractérise cette ultime admonestation destinée aux fidèles contemporains ?",
+    "category": "paraphrase_semantique_zero_terme",
+    "difficulty": "hard",
+    "answerable": true,
+    "expected_sermons": [
+      "65-0725M"
+    ],
+    "expected_paragraphs": [
+      1
+    ],
+    "expected_sources": [
+      {
+        "sermonId": "65-0725M",
+        "paragraphIndex": 1
+      }
+    ],
+    "relevant_snippet": "1. Ce sujet est sans aucun doute l'un des avertissements les plus solennels que le Seigneur ait donnés à Son Église pour les derniers jours.",
+    "expected_answer": "Un avertissement solennel donné à l'Église pour les derniers jours.",
+    "expected_answer_keywords": []
+  },
+  {
+    "id": "Q100",
+    "question": "Pourquoi l'averse céleste humecte-t-elle pareillement l'épi nourricier et la mauvaise herbe toxique ?",
+    "category": "paraphrase_semantique_zero_terme",
+    "difficulty": "hard",
+    "answerable": true,
+    "expected_sermons": [
+      "65-0725M"
+    ],
+    "expected_paragraphs": [
+      2
+    ],
+    "expected_sources": [
+      {
+        "sermonId": "65-0725M",
+        "paragraphIndex": 2
+      }
+    ],
+    "relevant_snippet": "2. Dans Matthieu chapitre 24, verset 24, le Seigneur Jésus avertit expressément : \"Car il s'élèvera de faux Christs et de faux prophètes; ils feront d",
+    "expected_answer": "Tout comme la pluie tombe indifféremment sur le bon blé et l'ivraie dans le même champ.",
+    "expected_answer_keywords": []
+  },
+  {
+    "id": "Q101",
+    "question": "À quelle aune jauge-t-on l'authenticité surnaturelle lorsqu'un fait extraordinaire risque d'illusionner ?",
+    "category": "paraphrase_semantique_zero_terme",
+    "difficulty": "hard",
+    "answerable": true,
+    "expected_sermons": [
+      "65-0725M"
+    ],
+    "expected_paragraphs": [
+      3
+    ],
+    "expected_sources": [
+      {
+        "sermonId": "65-0725M",
+        "paragraphIndex": 3
+      }
+    ],
+    "relevant_snippet": "3. Comment donc faire la différence dans ce temps de grande séduction spirituelle ? Ce n'est pas par la manifestation des dons spirituels seuls, car l",
+    "expected_answer": "Par la comparaison stricte avec le Fruit et le pur Ainsi dit le Seigneur.",
+    "expected_answer_keywords": []
+  },
+  {
+    "id": "Q102",
+    "question": "Quel onguent ophtalmique mystique procure une perception accrue des mystères ?",
+    "category": "paraphrase_semantique_zero_terme",
+    "difficulty": "hard",
+    "answerable": true,
+    "expected_sermons": [
+      "65-0725M"
+    ],
+    "expected_paragraphs": [
+      4
+    ],
+    "expected_sources": [
+      {
+        "sermonId": "65-0725M",
+        "paragraphIndex": 4
+      }
+    ],
+    "relevant_snippet": "4. Que le Dieu de toute grâce nous accorde un cœur pur et des yeux spirituels oints du collyre divin pour reconnaître la Vérité et marcher dans Sa lum",
+    "expected_answer": "Des yeux spirituels oints du collyre divin pour reconnaître la Vérité.",
+    "expected_answer_keywords": []
+  },
+  {
+    "id": "Q103",
+    "question": "Sur quel récif maritime aride le disciple bien-aimé contempla-t-il l'ouverture des horizons futurs ?",
+    "category": "paraphrase_semantique_zero_terme",
+    "difficulty": "hard",
+    "answerable": true,
+    "expected_sermons": [
+      "expose_ch1"
+    ],
+    "expected_paragraphs": [
+      1
+    ],
+    "expected_sources": [
+      {
+        "sermonId": "expose_ch1",
+        "paragraphIndex": 1
+      }
+    ],
+    "relevant_snippet": "DE\n\n1 “Révélation de Jésus-Christ, que Dieu lui a donnée pour montrer à Ses serviteurs les choses qui doivent arriver bientôt, et qu’Il a fait connaît",
+    "expected_answer": "L'île de Patmos où Jean reçut la révélation de Jésus-Christ.",
+    "expected_answer_keywords": []
+  },
+  {
+    "id": "Q104",
+    "question": "Quel port antique d'Ionie accueillit l'émissaire paulinien inaugurant le cycle chronologique septénaire ?",
+    "category": "paraphrase_semantique_zero_terme",
+    "difficulty": "hard",
+    "answerable": true,
+    "expected_sermons": [
+      "expose_ch2"
+    ],
+    "expected_paragraphs": [
+      1
+    ],
+    "expected_sources": [
+      {
+        "sermonId": "expose_ch2",
+        "paragraphIndex": 1
+      }
+    ],
+    "relevant_snippet": "Apocalypse 1.9-20 Jean à Patmos\n\nApocalypse 1.9 : “Moi Jean, votre frère, et qui ai part avec vous à la tribulation et au royaume et à la persévérance",
+    "expected_answer": "L'Église d'Éphèse, première dispensation apostolique établie par l'apôtre Paul.",
+    "expected_answer_keywords": []
+  },
+  {
+    "id": "Q105",
+    "question": "Quelle cité martyre subit la fureur des geôles romaines sous l'arôme amer de la résine broyée ?",
+    "category": "paraphrase_semantique_zero_terme",
+    "difficulty": "hard",
+    "answerable": true,
+    "expected_sermons": [
+      "expose_ch3"
+    ],
+    "expected_paragraphs": [
+      1
+    ],
+    "expected_sources": [
+      {
+        "sermonId": "expose_ch3",
+        "paragraphIndex": 1
+      }
+    ],
+    "relevant_snippet": "Introduction aux Âges de l’Église\n\nPour que vous puissiez pleinement comprendre le message des Âges de l’Église, j’aimerais expliquer les différents p",
+    "expected_answer": "L'Église de Smyrne symbolisant la myrrhe et la persécution sanglante sous Rome.",
+    "expected_answer_keywords": []
+  },
+  {
+    "id": "Q106",
+    "question": "Où se dressait le trône satanique lorsque la piété capitula devant la pourpre césarienne ?",
+    "category": "paraphrase_semantique_zero_terme",
+    "difficulty": "hard",
+    "answerable": true,
+    "expected_sermons": [
+      "expose_ch4"
+    ],
+    "expected_paragraphs": [
+      1
+    ],
+    "expected_sources": [
+      {
+        "sermonId": "expose_ch4",
+        "paragraphIndex": 1
+      }
+    ],
+    "relevant_snippet": "Apocalypse 2.8-11\n\n“Écris à l’ange de l’Église de Smyrne : Voici ce que dit le Premier et le Dernier, Celui qui était mort, et qui est revenu à la vie",
+    "expected_answer": "Pergame, où le compromis avec l'empire païen a introduit le trône de Satan.",
+    "expected_answer_keywords": []
+  },
+  {
+    "id": "Q107",
+    "question": "Sous quel règne clérical ténébreux la reine usurpatrice tyrannisa-t-elle les humbles justes ?",
+    "category": "paraphrase_semantique_zero_terme",
+    "difficulty": "hard",
+    "answerable": true,
+    "expected_sermons": [
+      "expose_ch5"
+    ],
+    "expected_paragraphs": [
+      1
+    ],
+    "expected_sources": [
+      {
+        "sermonId": "expose_ch5",
+        "paragraphIndex": 1
+      }
+    ],
+    "relevant_snippet": "Apocalypse 2.12-17\n\n“Écris à l’ange de l’Église de Pergame : Voici ce que dit Celui qui a l’épée aiguë, à deux tranchants :\n\nJe connais tes œuvres, et",
+    "expected_answer": "L'âge médiéval de Thyatire dominé par l'esprit de Jézabel et la papauté.",
+    "expected_answer_keywords": []
+  },
+  {
+    "id": "Q108",
+    "question": "Quel éveil doctrinologique secoua la torpeur germanique lorsque le moine afficha ses thèses contestataires ?",
+    "category": "paraphrase_semantique_zero_terme",
+    "difficulty": "hard",
+    "answerable": true,
+    "expected_sermons": [
+      "expose_ch6"
+    ],
+    "expected_paragraphs": [
+      1
+    ],
+    "expected_sources": [
+      {
+        "sermonId": "expose_ch6",
+        "paragraphIndex": 1
+      }
+    ],
+    "relevant_snippet": "Apocalypse 2.18-29\n\nÉcris à l’ange de l’Église de Thyatire : Voici ce que dit le Fils de Dieu, celui qui a les yeux comme une flamme de feu, et dont l",
+    "expected_answer": "L'âge de Sardes avec Martin Luther et la redécouverte de la justification par la foi.",
+    "expected_answer_keywords": []
   }
 ]

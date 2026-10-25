@@ -280,6 +280,10 @@ export function formatEvidenceContextForGemini(
       .map(cp => `[§${cp.paragraphIndex}] ${cp.fullParagraphText || cp.textSnippet}`)
       .join('\n\n');
 
+    const adjacentBlock = ev.adjacentContext && (ev.adjacentContext.hasPrevious || ev.adjacentContext.hasNext)
+      ? `\nCONTEXTE ADJACENT IMMÉDIAT (±1 PARAGRAPHE POUR CONTINUITÉ SÉMANTIQUE) :\n"""\n${ev.adjacentContext.formattedContextText}\n"""`
+      : '';
+
     return `[SOURCE ${idx + 1}]
 ${docLabel} : "${ev.sermonTitle}"
 Date : ${ev.date || 'Non daté'} | Lieu : ${ev.city || 'Inconnu'} | Version : ${ev.version || 'Standard'}
@@ -291,7 +295,7 @@ ${citationsList}
 TEXTE AUTHENTIQUE DES PARAGRAPHES INTÉGRAUX (PARAGRAPHES COMPLETS) :
 """
 ${fullParasText || ev.text}
-"""`;
+"""${adjacentBlock}`;
   }).join('\n\n------------------------------------------------------------\n\n');
 
   return `PREUVES DOCUMENTAIRES SÉLECTIONNÉES DANS LA BIBLIOTHÈQUE POUR CETTE QUESTION :

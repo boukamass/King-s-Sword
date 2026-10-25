@@ -33,8 +33,8 @@ import { loadAllSongs, getSongAsSermon } from './songService';
 import { loadExposeAsCanonicalDocuments, createExposeDocumentChunks, hydrateExposePrecalculatedEmbeddings } from './exposeDocumentService';
 import { createSermonChunks } from './chunkingService';
 import { getSermonById } from './db';
-import { mapParagraphsToChunkHits, fuseRankings } from './hybridRetrievalService';
-import { rerankHybridResults, assessAnswerability, extractSignificantQueryTerms, extractSubstantiveQueryTerms, isOverviewOrSummaryQuery } from './rerankingService';
+import { mapParagraphsToChunkHits, fuseRankings, computeAdaptiveHybridWeights } from './hybridRetrievalService';
+import { rerankHybridResults, assessAnswerability, extractSignificantQueryTerms, extractSubstantiveQueryTerms, isOverviewOrSummaryQuery, isBroadOrExhaustiveContextQuery, selectDiverseEvidenceWithMMR } from './rerankingService';
 import { expandTheologicalQuery } from './theologicalQueryService';
 import { searchByVector, embedQueryText, matchesMetadataFilter } from './vectorSearchService';
 import { getChunksBySermonId } from './chunkStorageService';
@@ -42,8 +42,54 @@ import { EMBEDDING_CONFIG, computeE5Embedding } from './embeddingService';
 import { getGeminiApiKey } from '../utils/apiKeyHelper';
 import { detectQueryIntent, logQueryIntent } from './queryIntentService';
 import { normalizeText, splitSermonIntoParagraphs, extractLeadingParagraphNumber } from '../utils/textUtils';
-import { isContentlessOrNoiseParagraph } from './corpusVocabularyService';
-import { applyParentChildToEvidencePackage, ParentChildOptions } from './parentChildService';
+import { isContentlessOrNoiseParagraph, computeBM25Score, getActiveCorpusVocabulary, buildCorpusVocabulary, searchBM25WithInvertedIndex, extractCompoundTheologicalTokens } from './corpusVocabularyService';
+import { applyParentChildToEvidencePackage, buildAdjacentContextForEvidence, extractDocumentParagraphs, ParentChildOptions } from './parentChildService';
+import { aiConfig } from '../config/aiConfig';
+
+// Cache mémoire pour éviter de re-découper et re-hacher (SHA-1) les sermons à chaque requête
+const sermonChunksMemoryCache = new Map<string, { textLen: number; chunks: SermonChunk[] }>();
+let staticLibraryFallbackCache: Sermon[] | null = null;
+
+/**
+ * Découpe le texte d'un chunk multi-paragraphes afin que chaque numéro de paragraphe
+ * dans citationParagraphs reçoive son propre texte exact (sans triplication).
+ */
+function buildCitationParagraphsForChunk(
+  chunk: SermonChunk,
+  seenParagraphKeys?: Set<string>
+): EvidenceParagraphCitation[] {
+  const pIds = Array.isArray(chunk.paragraphIds) && chunk.paragraphIds.length > 0
+    ? chunk.paragraphIds
+    : [chunk.startParagraph];
+  const rawParts = (chunk.text || '').split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
+  const hasExactSplit = rawParts.length === pIds.length;
+
+  const allCitations: EvidenceParagraphCitation[] = pIds.map((pNum, idx) => {
+    const paraText = hasExactSplit ? rawParts[idx] : chunk.text;
+    return {
+      paragraphIndex: pNum,
+      formattedCitation: formatUnitCitation(chunk, pNum),
+      textSnippet: paraText,
+      fullParagraphText: paraText,
+      isAuthentic: true
+    };
+  });
+
+  if (!seenParagraphKeys || allCitations.length <= 1) {
+    for (const c of allCitations) {
+      seenParagraphKeys?.add(`${chunk.sermonId}_${c.paragraphIndex}`);
+    }
+    return allCitations;
+  }
+
+  // Déduplique les paragraphes de chevauchement (overlap) déjà inclus par un chunk adjacent
+  const filtered = allCitations.filter(c => !seenParagraphKeys.has(`${chunk.sermonId}_${c.paragraphIndex}`));
+  const finalCitations = filtered.length > 0 ? filtered : [allCitations[0]];
+  for (const c of finalCitations) {
+    seenParagraphKeys.add(`${chunk.sermonId}_${c.paragraphIndex}`);
+  }
+  return finalCitations;
+}
 
 // Mots vides généraux pour l'analyse lexicale
 const UNIFIED_STOP_WORDS = new Set([
@@ -219,12 +265,15 @@ export function extractUnifiedQueryTerms(query: string): string[] {
     })
     .filter(w => w.length > 2);
 
+  const compounds = extractCompoundTheologicalTokens(query);
   const nonStop = words.filter(w => !UNIFIED_STOP_WORDS.has(w));
   const substantive = nonStop.filter(w => !CONTAINER_STOP_WORDS.has(w));
 
-  if (substantive.length > 0) return Array.from(new Set(substantive));
-  if (nonStop.length > 0) return Array.from(new Set(nonStop));
-  return Array.from(new Set(words));
+  const baseTerms = substantive.length > 0
+    ? substantive
+    : (nonStop.length > 0 ? nonStop : words);
+
+  return Array.from(new Set([...baseTerms, ...compounds]));
 }
 
 /**
@@ -240,6 +289,14 @@ export async function resolveAIContextChunks(
 
   const chunks: SermonChunk[] = [];
   const bibleVersion = options.bibleVersion || 'lsg1910';
+
+  // Pré-chargement unique des chunks de l'Exposé si au moins une source est de type 'expose'
+  let cachedExposeChunks: SermonChunk[] | null = null;
+  if (sources.some(s => s.sourceType === 'expose')) {
+    cachedExposeChunks = await createExposeDocumentChunks();
+  }
+
+  const sermonChunksToHydrate: SermonChunk[] = [];
 
   for (const src of sources) {
     // -------------------------------------------------------------
@@ -280,75 +337,67 @@ export async function resolveAIContextChunks(
         sermon = await getSermonById(baseId);
       }
 
-      // Fallback Web browser / Node.js static library.json
+      // Fallback Web browser / Node.js static library.json (mis en cache mémoire)
       if (!sermon || !sermon.text) {
         try {
-          if (typeof window !== 'undefined') {
-            const res = await fetch(getStaticResourceUrl('library.json'));
-            if (res.ok) {
-              const lib: Sermon[] = await res.json();
-              const baseId = cleanSourceId.split('-').slice(0, 2).join('-');
-              const found = lib.find(s => s.id === cleanSourceId || s.id === baseId || (s.version && `${s.id}-${s.version}` === cleanSourceId));
-              if (found && found.text) sermon = found;
-            }
-          } else {
-            const fs = await import('fs');
-            const path = await import('path');
-            const candidates = [
-              path.resolve('public/library.json'),
-              path.resolve('dist/library.json'),
-              path.resolve('../public/library.json')
-            ];
-            for (const cand of candidates) {
-              if (fs.existsSync(cand)) {
-                const lib: Sermon[] = JSON.parse(fs.readFileSync(cand, 'utf8'));
-                const baseId = cleanSourceId.split('-').slice(0, 2).join('-');
-                const found = lib.find(s => s.id === cleanSourceId || s.id === baseId || (s.version && `${s.id}-${s.version}` === cleanSourceId));
-                if (found && found.text) {
-                  sermon = found;
+          if (!staticLibraryFallbackCache) {
+            if (typeof window !== 'undefined') {
+              const res = await fetch(getStaticResourceUrl('library.json'));
+              if (res.ok) {
+                staticLibraryFallbackCache = await res.json();
+              }
+            } else {
+              const fs = await import('fs');
+              const path = await import('path');
+              const candidates = [
+                path.resolve('public/library.json'),
+                path.resolve('dist/library.json'),
+                path.resolve('../public/library.json')
+              ];
+              for (const cand of candidates) {
+                if (fs.existsSync(cand)) {
+                  staticLibraryFallbackCache = JSON.parse(fs.readFileSync(cand, 'utf8'));
                   break;
                 }
               }
             }
           }
+          if (staticLibraryFallbackCache) {
+            const baseId = cleanSourceId.split('-').slice(0, 2).join('-');
+            const found = staticLibraryFallbackCache.find(
+              s => s.id === cleanSourceId || s.id === baseId || (s.version && `${s.id}-${s.version}` === cleanSourceId)
+            );
+            if (found && found.text) sermon = found;
+          }
         } catch {}
       }
 
       if (sermon && sermon.text) {
-        const sermonChunks = createSermonChunks(sermon);
-        try {
-          const { hydrateChunksWithBinaryVectors } = await import('./binaryVectorStorageService');
-          const hydratedCount = await hydrateChunksWithBinaryVectors(sermonChunks, {
-            target: 'sermons',
-            binaryFileName: 'sermons_vectors.bin',
-            indexFileName: 'sermons_vectors.idx'
-          });
-          if (hydratedCount < sermonChunks.length) {
-            await hydrateExposePrecalculatedEmbeddings(sermonChunks);
-            const stored = await getChunksBySermonId(cleanSourceId);
-            if (stored && stored.length > 0) {
-              const embMap = new Map(stored.filter(s => s.embedding && (Array.isArray(s.embedding) || ArrayBuffer.isView(s.embedding)) && (s.embedding as any).length > 0).map(s => [s.chunkId, s.embedding]));
-              for (const c of sermonChunks) {
-                if (!c.embedding) {
-                  const foundEmb = embMap.get(c.chunkId);
-                  if (foundEmb) c.embedding = foundEmb;
-                }
-              }
-            }
+        const cacheKey = `${cleanSourceId}::${sermon.id}`;
+        const cachedEntry = sermonChunksMemoryCache.get(cacheKey);
+        let sermonChunks: SermonChunk[];
+
+        if (cachedEntry && cachedEntry.textLen === sermon.text.length) {
+          sermonChunks = cachedEntry.chunks;
+        } else {
+          sermonChunks = createSermonChunks(sermon);
+          for (const c of sermonChunks) {
+            c.documentType = 'sermon';
+            c.documentId = cleanSourceId;
+            c.sermonId = cleanSourceId;
           }
-        } catch {}
+          sermonChunksMemoryCache.set(cacheKey, { textLen: sermon.text.length, chunks: sermonChunks });
+        }
 
         for (const c of sermonChunks) {
-          c.documentType = 'sermon';
-          c.documentId = cleanSourceId; // Conserve l'ID sélectionné par l'utilisateur (avec suffixe) pour la synchronisation de l'IHM
-          c.sermonId = cleanSourceId;
-          
+          if (!c.embedding) {
+            sermonChunksToHydrate.push(c);
+          }
           // Filtrage granulaire par paragraphes autorisés si spécifié
           if (Array.isArray(src.allowedParagraphIds) && src.allowedParagraphIds.length > 0) {
             const hasOverlap = c.paragraphIds.some(pid => src.allowedParagraphIds!.includes(pid));
             if (!hasOverlap) continue;
           }
-
           chunks.push(c);
         }
       }
@@ -358,7 +407,7 @@ export async function resolveAIContextChunks(
     // 2. EXPOSÉ
     // -------------------------------------------------------------
     else if (src.sourceType === 'expose') {
-      const allExposeChunks = await createExposeDocumentChunks();
+      const allExposeChunks = cachedExposeChunks || await createExposeDocumentChunks();
       try {
         const stored = await getChunksBySermonId(src.sourceId);
         if (stored && stored.length > 0) {
@@ -501,6 +550,17 @@ export async function resolveAIContextChunks(
     }
   }
 
+  if (sermonChunksToHydrate.length > 0) {
+    try {
+      const { hydrateChunksWithBinaryVectors } = await import('./binaryVectorStorageService');
+      await hydrateChunksWithBinaryVectors(sermonChunksToHydrate, {
+        target: 'sermons',
+        binaryFileName: 'sermons_vectors.bin',
+        indexFileName: 'sermons_vectors.idx'
+      });
+    } catch {}
+  }
+
   return chunks;
 }
 
@@ -609,15 +669,10 @@ export async function executeUnifiedRagPipeline(
       chunk
     }));
 
+    const seenTransformationParas = new Set<string>();
     const evidence: RetrievalEvidence[] = transformationCandidates.slice(0, maxEvidenceCount * 2).map((item, idx) => {
-      const chunk = item.chunk || item;
-      const citationParagraphs: EvidenceParagraphCitation[] = (chunk.paragraphIds || [chunk.startParagraph]).map(pNum => ({
-        paragraphIndex: pNum,
-        formattedCitation: formatUnitCitation(chunk, pNum),
-        textSnippet: chunk.text,
-        fullParagraphText: chunk.text,
-        isAuthentic: true
-      }));
+      const chunk = (item.chunk || item) as SermonChunk;
+      const citationParagraphs = buildCitationParagraphsForChunk(chunk, seenTransformationParas);
 
       return {
         chunkId: chunk.chunkId,
@@ -653,10 +708,12 @@ export async function executeUnifiedRagPipeline(
   // Concaténation du texte intégral du contexte actif pour l'évaluation d'Answerability
   const contextCorpusText = allowedChunks.map(c => c.text).join(' ');
 
-  // Expansion doctrinale & décomposition Multi-Hop
-  const queryExpansion = await expandTheologicalQuery(cleanQuery, options.apiKey);
+  // Expansion doctrinale & décomposition Multi-Hop (locale par défaut pour 0 latence et 0 consommation de quota)
+  const expansionApiKey = aiConfig.featureFlags.useQueryRewrite ? options.apiKey : undefined;
+  const queryExpansion = await expandTheologicalQuery(cleanQuery, expansionApiKey);
+  const coreQueryTerms = extractUnifiedQueryTerms(cleanQuery);
   const effectiveQuery = queryExpansion.expandedQuery || cleanQuery;
-  const queryTerms = extractUnifiedQueryTerms(effectiveQuery);
+  const allExpandedCandidates = extractUnifiedQueryTerms(effectiveQuery);
   const normalizedQuery = normalizeText(cleanQuery);
   const queryWords = normalizedQuery.split(/\s+/).filter(w => w.length > 2);
 
@@ -664,7 +721,7 @@ export async function executeUnifiedRagPipeline(
   if (Array.isArray(queryExpansion.doctrinalKeywords) && queryExpansion.doctrinalKeywords.length > 0) {
     for (const kw of queryExpansion.doctrinalKeywords) {
       for (const t of extractUnifiedQueryTerms(kw)) {
-        if (!queryTerms.includes(t)) queryTerms.push(t);
+        if (!allExpandedCandidates.includes(t)) allExpandedCandidates.push(t);
       }
     }
   }
@@ -672,10 +729,14 @@ export async function executeUnifiedRagPipeline(
   if (queryExpansion.isMultiHop && queryExpansion.subQueries.length > 1) {
     for (const sq of queryExpansion.subQueries) {
       for (const t of extractUnifiedQueryTerms(sq)) {
-        if (!queryTerms.includes(t)) queryTerms.push(t);
+        if (!allExpandedCandidates.includes(t)) allExpandedCandidates.push(t);
       }
     }
   }
+
+  const coreTermSet = new Set(coreQueryTerms);
+  const expandedTerms = allExpandedCandidates.filter(t => !coreTermSet.has(t));
+  const queryTerms = [...coreQueryTerms, ...expandedTerms];
 
   // Bigrammes de la requête pour détecter les syntagmes doctrinaux précis
   const bigrams: string[] = [];
@@ -685,56 +746,79 @@ export async function executeUnifiedRagPipeline(
 
   // ÉTAPE 6 : PRE-FILTERING STRICT DES MÉTADONNÉES
   // Restreint le bassin de recherche avant tout calcul lexical ou vectoriel
-  const searchPool = options.metadataFilter && Object.keys(options.metadataFilter).length > 0
+  const metadataFilteredPool = options.metadataFilter && Object.keys(options.metadataFilter).length > 0
     ? allowedChunks.filter(c => matchesMetadataFilter(c, options.metadataFilter))
     : allowedChunks;
 
-  // 2. Recherche lexicale (BM25 / term match) STRICTEMENT sur les chunks du périmètre pré-filtré
-  const scoredChunks: Array<{ chunk: SermonChunk; score: number }> = [];
-  for (const chunk of searchPool) {
-    const normText = normalizeText(chunk.text);
-    let matchCount = 0;
-    let score = 0;
+  // Exclusion des chunks composés uniquement de bruit éditorial lorsqu'un document complet est exploré
+  const nonNoisePool = metadataFilteredPool.length > 5
+    ? metadataFilteredPool.filter(c => !isContentlessOrNoiseParagraph(c.text))
+    : metadataFilteredPool;
+  const searchPool = nonNoisePool.length > 0 ? nonNoisePool : metadataFilteredPool;
 
-    for (const term of queryTerms) {
-      if (normText.includes(term)) {
-        matchCount++;
-        const occurrences = normText.split(term).length - 1;
-        score += 20 + Math.min(occurrences * 8, 40);
-      }
-    }
-
-    let bigramMatches = 0;
-    for (const bg of bigrams) {
-      if (normText.includes(bg)) {
-        bigramMatches++;
-        score += 35;
-      }
-    }
-
-    if (normText.includes(normalizedQuery)) {
-      score += 50;
-    }
-
-    if (chunk.sectionTitle || chunk.sermonTitle) {
-      const normTitle = normalizeText(chunk.sectionTitle || chunk.sermonTitle);
-      for (const term of queryTerms) {
-        if (normTitle.includes(term)) score += 20;
-      }
-    }
-
-    if (matchCount > 0 && score >= 5) {
-      const termRatio = matchCount / Math.max(1, queryTerms.length);
-      score = score * (0.3 + 0.7 * termRatio);
-      scoredChunks.push({
-        chunk,
-        score: Math.round(score * 10) / 10
-      });
-    }
+  // 2. Recherche lexicale BM25 Okapi formelle via Index Inversé O(|Q| × postings)
+  let bm25Vocab = getActiveCorpusVocabulary();
+  if (!bm25Vocab || bm25Vocab.terms.size === 0) {
+    bm25Vocab = buildCorpusVocabulary(searchPool);
   }
 
-  scoredChunks.sort((a, b) => b.score - a.score);
-  const lexicalHits = scoredChunks.slice(0, 40).map((item, idx) => ({
+  let scoredChunks = searchBM25WithInvertedIndex(
+    searchPool,
+    coreQueryTerms,
+    expandedTerms,
+    bm25Vocab,
+    {
+      k1: 1.5,
+      b: 0.75,
+      bigrams,
+      fullPhrase: normalizedQuery.length > 3 ? normalizedQuery : undefined,
+      coreWeight: 1.0,
+      expandedWeight: 0.40
+    },
+    40
+  );
+
+  // 2b. Exécution Multi-Hop Réelle avec Quotas Équilibrés par Sous-Requête (Entité A vs Entité B)
+  if (queryExpansion.isMultiHop && queryExpansion.subQueries.length >= 2) {
+    const subQueryHitLists = queryExpansion.subQueries.map(sq => {
+      const sqTerms = extractUnifiedQueryTerms(sq);
+      return searchBM25WithInvertedIndex(
+        searchPool,
+        sqTerms.length > 0 ? sqTerms : coreQueryTerms,
+        expandedTerms,
+        bm25Vocab,
+        { k1: 1.5, b: 0.75, coreWeight: 1.0, expandedWeight: 0.35 },
+        15
+      );
+    });
+
+    // Fusion entrelacée (Round-Robin) garantissant que chaque facette/document est représentée en tête de classement
+    const mergedMap = new Map<string, typeof scoredChunks[0]>();
+    const maxLen = Math.max(scoredChunks.length, ...subQueryHitLists.map(l => l.length));
+
+    for (let i = 0; i < maxLen; i++) {
+      if (i < scoredChunks.length) {
+        const mainHit = scoredChunks[i];
+        if (!mergedMap.has(mainHit.chunk.chunkId)) {
+          mergedMap.set(mainHit.chunk.chunkId, mainHit);
+        }
+      }
+      for (const sqList of subQueryHitLists) {
+        if (i < sqList.length) {
+          const sqHit = sqList[i];
+          const existing = mergedMap.get(sqHit.chunk.chunkId);
+          if (!existing || sqHit.score > existing.score) {
+            mergedMap.set(sqHit.chunk.chunkId, sqHit);
+          }
+        }
+      }
+      if (mergedMap.size >= 40) break;
+    }
+
+    scoredChunks = Array.from(mergedMap.values());
+  }
+
+  const lexicalHits = scoredChunks.map((item, idx) => ({
     chunkId: item.chunk.chunkId,
     rank: idx + 1,
     score: item.score,
@@ -798,106 +882,85 @@ export async function executeUnifiedRagPipeline(
     }
   }
 
-  // 4. Fusion Hybride RRF (k=60)
+  // 4. Routage dynamique de requête (Adaptive RRF Weights) selon la force lexicale directe vs paraphrase sémantique
+  const topScoredLex = scoredChunks[0];
+  const compoundQueryTokens = extractCompoundTheologicalTokens(cleanQuery);
+  const adaptiveWeights = computeAdaptiveHybridWeights({
+    coreTermsCount: coreQueryTerms.filter(t => !t.includes('_')).length,
+    topCoreMatched: topScoredLex?.coreMatched || 0,
+    topExpandedMatched: topScoredLex?.expandedMatched || 0,
+    topBm25Score: topScoredLex?.score || 0,
+    hasCompoundReference: compoundQueryTokens.length > 0
+  });
+
+  // Détection du mode Long-Context ("style NotebookLM") sur petites sélections (1-2 documents, <= 120 chunks)
+  const isOverview = isOverviewOrSummaryQuery(cleanQuery);
+  const isBroadStudy = isBroadOrExhaustiveContextQuery(cleanQuery);
+  const distinctSelectedDocs = new Set(allowedChunks.map(c => c.sermonId)).size;
+  const isLongContextBypassEligible = isBroadStudy && distinctSelectedDocs <= 2 && allowedChunks.length <= 120;
+  const effectiveMaxEvidenceCount = (isLongContextBypassEligible && typeof options.maxEvidenceCount !== 'number')
+    ? Math.min(25, Math.max(maxEvidenceCount, allowedChunks.length))
+    : maxEvidenceCount;
+  const effectiveTopK = Math.max(topK, effectiveMaxEvidenceCount);
+
   let hybridResults = fuseRankings({
     lexicalHits,
     vectorHits,
     allChunks: allowedChunks,
-    options: { k: options.k || 60, topK: 20 }
+    options: {
+      k: options.k || 60,
+      topK: Math.max(20, effectiveTopK),
+      lexicalWeight: options.lexicalWeight ?? adaptiveWeights.lexicalWeight,
+      vectorWeight: options.vectorWeight ?? adaptiveWeights.vectorWeight
+    }
   });
 
-  // Cas spécial : Requête d'aperçu / synthèse ("de quoi ça parle", "résumé", etc.)
-  const isOverview = isOverviewOrSummaryQuery(cleanQuery);
-  if (isOverview && hybridResults.length === 0 && allowedChunks.length > 0) {
-    // Sélection des chunks initiaux et représentatifs des ressources autorisées dans l'AI Context
-    hybridResults = allowedChunks.slice(0, 15).map((chunk, idx) => ({
-      chunkId: chunk.chunkId,
-      sermonId: chunk.sermonId,
-      sermonTitle: chunk.sermonTitle,
-      paragraphIds: chunk.paragraphIds,
-      startParagraph: chunk.startParagraph,
-      endParagraph: chunk.endParagraph,
-      text: chunk.text,
-      date: chunk.date,
-      city: chunk.city,
-      version: chunk.version,
-      lexicalRank: idx + 1,
-      lexicalScore: Math.max(10, 50 - idx * 3),
-      vectorRank: idx + 1,
-      vectorScore: Math.max(0.6, 0.95 - idx * 0.03),
-      rrfScore: 1.0 / (60 + idx + 1),
-      rank: idx + 1,
-      chunk
-    }));
+  // Cas spécial : Requête d'aperçu / synthèse ou mode Long-Context sur petite sélection
+  if ((isOverview || isLongContextBypassEligible) && allowedChunks.length > 0) {
+    const existingIds = new Set(hybridResults.map(h => h.chunkId));
+    const targetCount = isLongContextBypassEligible ? Math.min(25, allowedChunks.length) : 15;
+    const step = Math.max(1, Math.floor(allowedChunks.length / targetCount));
+    for (let i = 0; i < allowedChunks.length && hybridResults.length < targetCount; i += step) {
+      const chunk = allowedChunks[i];
+      if (!existingIds.has(chunk.chunkId)) {
+        const idx = hybridResults.length;
+        hybridResults.push({
+          chunkId: chunk.chunkId,
+          sermonId: chunk.sermonId,
+          sermonTitle: chunk.sermonTitle,
+          paragraphIds: chunk.paragraphIds,
+          startParagraph: chunk.startParagraph,
+          endParagraph: chunk.endParagraph,
+          text: chunk.text,
+          date: chunk.date,
+          city: chunk.city,
+          version: chunk.version,
+          lexicalRank: idx + 1,
+          lexicalScore: Math.max(10, 50 - idx * 2),
+          vectorRank: idx + 1,
+          vectorScore: Math.max(0.6, 0.95 - idx * 0.02),
+          rrfScore: 1.0 / (60 + idx + 1),
+          rank: idx + 1,
+          chunk
+        });
+        existingIds.add(chunk.chunkId);
+      }
+    }
   }
 
-  // 5. Reranking local multi-signaux
+  // 5. Reranking local multi-signaux avec fenêtrage contextuel ±1 paragraphe
   const rerankedResults = rerankHybridResults({
     query: cleanQuery,
     hybridResults,
+    allChunks: searchPool,
     options: {
-      topK,
+      topK: effectiveTopK,
       vectorWeight: options.vectorWeight,
       lexicalWeight: options.lexicalWeight,
       rrfWeight: options.rrfWeight,
       multiModalBonus: options.multiModalBonus
     }
   });
-
-  // PHASE B : Sélection courte (sous la limite de 300 000 caractères ou budget de tokens)
-  // Transmet le texte COMPLET de la sélection à Gemini sans recherche ni troncation.
-  const isFullTextSelection = contextCorpusText.length <= 300000 && allowedChunks.length > 0;
-
-  if (isFullTextSelection) {
-    const uniqueDocs = Array.from(new Set(allowedChunks.map(c => c.sermonId)));
-    const docLabel = `texte complet de ${uniqueDocs.length} sermon${uniqueDocs.length > 1 ? 's' : ''}`;
-    
-    // Filtrage Phase C.3 : Exclusion des paragraphes de bruit éditorial isolé
-    const validChunks = allowedChunks.filter(c => !isContentlessOrNoiseParagraph(c.text));
-    const fullTextEvidence: RetrievalEvidence[] = validChunks.map((chunk, idx) => {
-      const citationParagraphs: EvidenceParagraphCitation[] = (chunk.paragraphIds || [chunk.startParagraph]).map(pNum => ({
-        paragraphIndex: pNum,
-        formattedCitation: formatUnitCitation(chunk, pNum),
-        textSnippet: chunk.text,
-        fullParagraphText: chunk.text,
-        isAuthentic: true
-      }));
-
-      return {
-        chunkId: chunk.chunkId,
-        sermonId: chunk.sermonId,
-        sermonTitle: chunk.sermonTitle,
-        paragraphIds: chunk.paragraphIds,
-        startParagraph: chunk.startParagraph,
-        endParagraph: chunk.endParagraph,
-        text: chunk.text,
-        date: chunk.date,
-        city: chunk.city,
-        version: chunk.version,
-        retrievalScore: 1.0,
-        rank: idx + 1,
-        sourceType: 'full_text',
-        citationParagraphs
-      };
-    });
-
-    console.log(`=== LOGS DE DIAGNOSTIC RAG UNIFIÉ (MODE TEXTE COMPLET) ===`);
-    console.log(`QUERY: ${cleanQuery}`);
-    console.log(`MODE: FULL_TEXT_SELECTION (${docLabel})`);
-    console.log(`TOTAL PARAGRAPHS TRANSMITTED: ${fullTextEvidence.length}`);
-    console.log('==========================================================');
-
-    return {
-      answerable: true,
-      confidenceScore: 1.0,
-      reason: docLabel,
-      evidence: fullTextEvidence,
-      query: cleanQuery,
-      totalCandidates: fullTextEvidence.length,
-      rejectedCount: 0,
-      vectorMethod: 'full_text_selection'
-    };
-  }
 
   // 6. Évaluation d'Answerability (STRICTEMENT par rapport au sous-ensemble contextuel)
   const assessment = assessAnswerability({
@@ -911,7 +974,7 @@ export async function executeUnifiedRagPipeline(
   console.log('=== LOGS DE DIAGNOSTIC RAG UNIFIÉ ===');
   console.log(`QUERY: ${cleanQuery}`);
   console.log(`INTENT: DOCUMENT_RETRIEVAL`);
-  console.log(`ROUTE: UNIFIED_RAG`);
+  console.log(`ROUTE: ${isLongContextBypassEligible ? 'UNIFIED_RAG_LONG_CONTEXT' : 'UNIFIED_RAG'}`);
   console.log(`QUERY EMBEDDING: ${queryVectorUsed ? 'YES' : 'NO'}`);
   console.log(`EMBEDDING MODEL: ${EMBEDDING_CONFIG.model}`);
   console.log(`EMBEDDING DIMENSION: ${queryVectorDim}`);
@@ -924,53 +987,29 @@ export async function executeUnifiedRagPipeline(
   console.log(`GEMINI GENERATION: ${assessment.answerable ? 'YES' : 'NO'}`);
   console.log('======================================');
 
-  // 7. Construction du Retrieval Evidence Package avec diversification par document si disponible
+  // 7. Construction du Retrieval Evidence Package avec Diversification MMR (lambda = 0.75)
   const evidence: RetrievalEvidence[] = [];
 
   if (assessment.answerable && rerankedResults.length > 0) {
-    // Si plusieurs documents sont disponibles, assurer une diversité sans écraser par un seul document
-    const selectedItems: typeof rerankedResults = [];
-    const docCounts = new Map<string, number>();
-    const maxPerDoc = maxEvidenceCount > 10 ? 4 : 2;
+    const maxPerDoc = isLongContextBypassEligible
+      ? 25
+      : (effectiveMaxEvidenceCount > 10 ? 4 : 2);
 
-    // Premier passage avec quota par document pour diversité
-    for (const item of rerankedResults) {
-      if (selectedItems.length >= maxEvidenceCount) break;
-      const docId = item.sermonId;
-      const count = docCounts.get(docId) || 0;
-      if (count < maxPerDoc) {
-        selectedItems.push(item);
-        docCounts.set(docId, count + 1);
+    const selectedItems = selectDiverseEvidenceWithMMR(
+      rerankedResults,
+      effectiveMaxEvidenceCount,
+      {
+        lambda: 0.75,
+        maxPerDoc,
+        isMultiHop: queryExpansion.isMultiHop
       }
-    }
+    );
 
-    // Complément si nécessaire jusqu'à maxEvidenceCount
-    if (selectedItems.length < maxEvidenceCount) {
-      const selectedIds = new Set(selectedItems.map(i => i.chunkId));
-      for (const item of rerankedResults) {
-        if (selectedItems.length >= maxEvidenceCount) break;
-        if (!selectedIds.has(item.chunkId)) {
-          selectedItems.push(item);
-          selectedIds.add(item.chunkId);
-        }
-      }
-    }
+    const seenCitationParagraphKeys = new Set<string>();
 
     for (const item of selectedItems) {
-      const chunk = item.chunk || item;
-      const citationParagraphs: EvidenceParagraphCitation[] = [];
-
-      for (const pNum of chunk.paragraphIds || [chunk.startParagraph]) {
-        const formattedCitation = formatUnitCitation(chunk, pNum);
-        
-        citationParagraphs.push({
-          paragraphIndex: pNum,
-          formattedCitation,
-          textSnippet: chunk.text,
-          fullParagraphText: chunk.text,
-          isAuthentic: true
-        });
-      }
+      const chunk = (item.chunk || item) as SermonChunk;
+      const citationParagraphs = buildCitationParagraphsForChunk(chunk, seenCitationParagraphKeys);
 
       evidence.push({
         chunkId: chunk.chunkId,
@@ -991,9 +1030,9 @@ export async function executeUnifiedRagPipeline(
     }
   }
 
-  // ÉTAPE 7 : ENRICHISSEMENT PARENT-CHILD (CONTEXTE ADJACENT §n-1 et §n+1)
+  // ÉTAPE 7 : FENÊTRAGE CONTEXTUEL ADJACENT (±1 PARAGRAPHE §n-1 et §n+1)
   let finalEvidence = evidence;
-  if (options.enableParentChild && evidence.length > 0) {
+  if (evidence.length > 0 && options.enableParentChild !== false) {
     const rawDocsMap = new Map<string, string>();
     for (const c of allowedChunks) {
       if (!rawDocsMap.has(c.sermonId)) {
@@ -1012,7 +1051,19 @@ export async function executeUnifiedRagPipeline(
         rawDocsMap.set(ev.sermonId, docChunks.map(dc => dc.text).join('\n\n'));
       }
     }
-    finalEvidence = applyParentChildToEvidencePackage(evidence, rawDocsMap, options.parentChildOptions);
+
+    if (options.enableParentChild === true) {
+      // Mode Parent-Child complet avec fusion des évidences adjacentes et texte balisé [Précédent]/[Cible]/[Suivant]
+      finalEvidence = applyParentChildToEvidencePackage(evidence, rawDocsMap, options.parentChildOptions);
+    } else {
+      // Mode fenêtrage adjacent non-destructif par défaut : peuple ev.adjacentContext (±1 paragraphe) tout en préservant ev.text
+      finalEvidence = evidence.map(ev => {
+        const docText = rawDocsMap.get(ev.sermonId) || '';
+        const docParas = extractDocumentParagraphs(docText);
+        const adjacentContext = buildAdjacentContextForEvidence(ev, docParas, options.parentChildOptions);
+        return adjacentContext ? { ...ev, adjacentContext } : ev;
+      });
+    }
   }
 
   if (process.env.NODE_ENV !== 'production' || typeof console !== 'undefined') {

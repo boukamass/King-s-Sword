@@ -14,11 +14,12 @@
 
 import { RetrievalEvidencePackage, CitationValidationResult, ChatMessage } from '../types';
 import { formatEvidenceContextForGemini } from './autoRagRetrievalService';
-import { validateResponseCitations } from './citationValidationService';
-import { getGeminiApiKey } from '../utils/apiKeyHelper';
+import { validateResponseCitations, validateSingleCitation, normalizeTextForComparison } from './citationValidationService';
+import { getGeminiApiKey, getAllGeminiApiKeys } from '../utils/apiKeyHelper';
 import { extractRequestedLineCount } from './queryIntentService';
 import { isDeepDiveStudyRequest } from './theologicalExegesisService';
 import { GoogleGenAI, Type } from '@google/genai';
+import { aiConfig } from '../config/aiConfig';
 
 export interface GeminiCaller {
   generateContent(params: {
@@ -151,6 +152,114 @@ export function detectTechnicalIdentifierExposure(text: string): {
   };
 }
 
+export interface CitationContextVerificationReport {
+  sanitizedResponse: StructuredResponseSchema;
+  verifiedCount: number;
+  repairedCount: number;
+  rejectedCount: number;
+}
+
+/**
+ * Vérificateur déterministe post-génération des citations par rapport au RetrievalEvidencePackage :
+ * 1. Vérifie que chaque citation (sourceId, paragraphIndex, exactQuote) correspond à une source réellement transmise.
+ * 2. Répare automatiquement les décalages de ±1 paragraphe (y compris dans adjacentContext) ou d'identifiant sourceId.
+ * 3. Écarte de la réponse finale toute citation inventée dont ni la source ni l'extrait ne figurent dans le contexte fourni.
+ */
+export function verifyCitationsAgainstContext(
+  structured: StructuredResponseSchema,
+  evidencePackage: RetrievalEvidencePackage
+): CitationContextVerificationReport {
+  if (!structured || !Array.isArray(structured.arguments)) {
+    return {
+      sanitizedResponse: structured,
+      verifiedCount: 0,
+      repairedCount: 0,
+      rejectedCount: 0
+    };
+  }
+
+  let verifiedCount = 0;
+  let repairedCount = 0;
+  let rejectedCount = 0;
+
+  const sanitizedArgs: StructuredArgument[] = structured.arguments.map(arg => {
+    const rawCitations = Array.isArray(arg.citations) ? arg.citations : [];
+    const verifiedCitations: StructuredCitation[] = [];
+
+    for (const c of rawCitations) {
+      const detail = validateSingleCitation(
+        c.exactQuote || '',
+        c.sourceId || null,
+        typeof c.paragraphIndex === 'number' ? c.paragraphIndex : null,
+        evidencePackage
+      );
+
+      if (detail.isValid) {
+        verifiedCount++;
+        const repairedSourceId = detail.actualSourceId || detail.sermonId || c.sourceId;
+        const repairedParaIdx = detail.actualParagraphIndex ?? detail.paragraphIndex ?? c.paragraphIndex;
+        const repairedQuote = detail.correctedQuote || c.exactQuote;
+
+        if (detail.isSourceIdCorrected || detail.isParagraphCorrected || detail.isQuoteCorrected) {
+          repairedCount++;
+        }
+
+        verifiedCitations.push({
+          sourceId: repairedSourceId,
+          paragraphIndex: repairedParaIdx,
+          exactQuote: repairedQuote
+        });
+        continue;
+      }
+
+      // Vérification secondaire dans le fenêtrage adjacent ±1 paragraphe (adjacentContext)
+      const normQuote = normalizeTextForComparison(c.exactQuote || '');
+      let foundInAdjacent: StructuredCitation | null = null;
+
+      if (normQuote.length >= 12 && Array.isArray(evidencePackage?.evidence)) {
+        for (const ev of evidencePackage.evidence) {
+          const adjParas = ev.adjacentContext?.adjacentParagraphs || [];
+          for (const adj of adjParas) {
+            const normAdj = normalizeTextForComparison(adj.text || '');
+            if (normAdj && normAdj.includes(normQuote)) {
+              foundInAdjacent = {
+                sourceId: ev.sermonId,
+                paragraphIndex: adj.paragraphIndex,
+                exactQuote: c.exactQuote
+              };
+              break;
+            }
+          }
+          if (foundInAdjacent) break;
+        }
+      }
+
+      if (foundInAdjacent) {
+        verifiedCount++;
+        repairedCount++;
+        verifiedCitations.push(foundInAdjacent);
+      } else {
+        rejectedCount++;
+      }
+    }
+
+    return {
+      ...arg,
+      citations: verifiedCitations
+    };
+  });
+
+  return {
+    sanitizedResponse: {
+      ...structured,
+      arguments: sanitizedArgs
+    },
+    verifiedCount,
+    repairedCount,
+    rejectedCount
+  };
+}
+
 export interface GenerateNewRagOptions {
   query: string;
   evidencePackage: RetrievalEvidencePackage;
@@ -205,11 +314,15 @@ export async function generateNewRagResponse(
   const lineInstruction = reqLines ? `\n\nCONSIGNE STRICTE DE LONGUEUR : L'utilisateur exige un résumé / résultat de sa demande en exactement ${reqLines} lignes.` : '';
   const promptContents = `${context}\n\n============================================================\nQUESTION DU CHERCHEUR :\n"${query}"${lineInstruction}`;
 
-  // Résolution du client Gemini
+  // Résolution du client Gemini (avec bascule automatique multi-clés et multi-modèles pour les appels réels)
   let client = geminiClient;
+  let activeModelUsed = model;
   if (!client) {
-    const key = apiKey || getGeminiApiKey();
-    if (!key) {
+    const candidateKeys = apiKey ? [apiKey, ...getAllGeminiApiKeys().filter(k => k !== apiKey)] : getAllGeminiApiKeys();
+    const fallbackSingleKey = apiKey || getGeminiApiKey();
+    const allKeys = candidateKeys.length > 0 ? candidateKeys : (fallbackSingleKey ? [fallbackSingleKey] : []);
+
+    if (allKeys.length === 0) {
       return {
         status: 'error',
         provider: 'none',
@@ -226,9 +339,41 @@ export async function generateNewRagResponse(
         sources: []
       };
     }
-    const googleAi = new GoogleGenAI({ apiKey: key });
+
+    const modelCascade = Array.from(new Set([
+      model,
+      'gemini-2.5-flash',
+      'gemini-flash-latest',
+      ...(aiConfig.models.fastFailoverCascade || [])
+    ].filter(Boolean)));
+
     client = {
-      generateContent: (p) => googleAi.models.generateContent(p)
+      generateContent: async (p) => {
+        let lastErr: any = null;
+        for (const k of allKeys) {
+          const googleAi = new GoogleGenAI({ apiKey: k });
+          for (const m of modelCascade) {
+            try {
+              const res = await googleAi.models.generateContent({ ...p, model: m });
+              activeModelUsed = m;
+              return res;
+            } catch (err: any) {
+              lastErr = err;
+              const msg = (err?.message || String(err)).toLowerCase();
+              const isModelError = msg.includes('404') || msg.includes('not found') || msg.includes('not supported');
+              const isQuotaOrRate = msg.includes('429') || msg.includes('quota') || msg.includes('resource_exhausted') || msg.includes('503') || msg.includes('overloaded');
+              if (isModelError) {
+                continue; // Essaie le modèle suivant sur la même clé
+              }
+              if (isQuotaOrRate) {
+                continue; // Essaie le modèle suivant puis la clé suivante
+              }
+              throw err;
+            }
+          }
+        }
+        throw lastErr || new Error('Échec de génération Gemini sur tous les modèles de secours.');
+      }
     };
   }
 
@@ -243,7 +388,8 @@ RÈGLES STRICTES ET MANDATOIRES (Étape 8 - Sortie Structurée JSON) :
    - 'arguments' (array) : Tableau d'arguments { pointTitle, explanation, citations[] }. Chaque citation contient { sourceId, paragraphIndex, exactQuote }. Une explication peut avoir plusieurs citations exactes.
    - 'deepDiveQuestions' (array) : 2 à 3 questions de recherche et d'approfondissement.
 4. CITATIONS EXACTES ET INTÉGRALES : Toute citation déclarée dans 'exactQuote' doit être une sous-chaîne exacte et intégrale du texte du paragraphe correspondant dans le package de preuves.
-5. SI ANSWERABILITY EST FALSE : Définis 'answerability' à false, 'summary' à "Les documents disponibles dans la base documentaire ne contiennent pas d'informations suffisantes pour répondre à cette question.", 'arguments' à [], et 'deepDiveQuestions' à [].`;
+5. SI ANSWERABILITY EST FALSE : Définis 'answerability' à false, 'summary' à "Les documents disponibles dans la base documentaire ne contiennent pas d'informations suffisantes pour répondre à cette question.", 'arguments' à [], et 'deepDiveQuestions' à [].
+6. GARDE ANTI-HALLUCINATION DE SECOND ÉTAGE (REQUÊTES PIÈGES VOISINES) : Si la question de l'utilisateur introduit un détail factuel, un chiffre, un lieu, une date, un objet ou un attribut anachronique/erroné qui est ABSENT ou CONTREDIT par les paragraphes fournis (ex: "huitième sceau", "trois témoins", "cheval vert", "pain au levain", "concile de Trente", "épée laser", "année 1975"), tu dois OBLIGATOIREMENT soit mettre 'answerability' à false, soit réfuter explicitement la fausse prémisse dans 'summary' en citant le fait exact du texte source sans jamais valider la prémisse erronée.`;
 
   // Préparation du payload multi-tours pour Gemini si un historique est disponible
   let contentsPayload: any;
@@ -301,13 +447,34 @@ RÈGLES STRICTES ET MANDATOIRES (Étape 8 - Sortie Structurée JSON) :
       }
     }
 
+    const rawTextTrimmed = (responseText || '').trim();
+    const isPlainMarkdownResponse =
+      !isValid &&
+      rawTextTrimmed.length > 0 &&
+      !rawTextTrimmed.startsWith('{') &&
+      !rawTextTrimmed.startsWith('[') &&
+      !rawTextTrimmed.toLowerCase().includes('non json') &&
+      !rawTextTrimmed.toLowerCase().includes('tronqué') &&
+      (!finishReason || finishReason === 'STOP' || finishReason === 1);
+
     // Repli (Rule 3): si le JSON est invalide ou tronqué (finishReason !== 'STOP' && finishReason !== 1), UNE SEULE nouvelle tentative
-    if (!isValid || (finishReason && finishReason !== 'STOP' && finishReason !== 1)) {
+    if ((!isValid && !isPlainMarkdownResponse) || (finishReason && finishReason !== 'STOP' && finishReason !== 1)) {
       console.warn('[GenerationAdapter - Étape 8] JSON invalide ou tronqué (finishReason:', finishReason, '). Tentative de réessai unique...');
       try {
+        const retryInstruction = "\n\nATTENTION : La réponse précédente était incomplète ou invalide. Renvoyez UN SEUL objet JSON complet et parfaitement valide respectant le schéma.";
+        const retryContents = Array.isArray(contentsPayload)
+          ? [
+              ...contentsPayload.slice(0, -1),
+              {
+                role: 'user',
+                parts: [{ text: `${promptContents}${retryInstruction}` }]
+              }
+            ]
+          : `${contentsPayload}${retryInstruction}`;
+
         const retryResponse = await client.generateContent({
-          model,
-          contents: contentsPayload + "\n\nATTENTION : La réponse précédente était incomplète ou invalide. Renvoyez UN SEUL objet JSON complet et parfaitement valide respectant le schéma.",
+          model: activeModelUsed,
+          contents: retryContents,
           config: {
             systemInstruction: step8SystemInstruction,
             temperature: 0.1,
@@ -333,6 +500,47 @@ RÈGLES STRICTES ET MANDATOIRES (Étape 8 - Sortie Structurée JSON) :
     const latencyMs = Date.now() - t0;
 
     if (!isValid || !parsedJson) {
+      if (isPlainMarkdownResponse) {
+        const answerText = rawTextTrimmed;
+        const exposureCheck = detectTechnicalIdentifierExposure(answerText);
+        const citationsValidation = validateResponseCitations({
+          responseText: answerText,
+          evidencePackage
+        });
+        const seenSourceKeys = new Set<string>();
+        const sources: Array<{ title: string; uri: string; sermonId: string; paragraphIndex: number }> = [];
+        for (const ev of evidencePackage.evidence) {
+          for (const cp of ev.citationParagraphs) {
+            const key = `${ev.sermonId}_${cp.paragraphIndex}`;
+            if (!seenSourceKeys.has(key)) {
+              seenSourceKeys.add(key);
+              sources.push({
+                title: `${ev.sermonTitle} (${ev.date || 'Non daté'}) — §${cp.paragraphIndex}`,
+                uri: `sermon://${ev.sermonId}/${cp.paragraphIndex}`,
+                sermonId: ev.sermonId,
+                paragraphIndex: cp.paragraphIndex
+              });
+            }
+          }
+        }
+        return {
+          status: 'success',
+          provider: 'google-gemini',
+          model: activeModelUsed,
+          responseOrigin: 'gemini',
+          answerText,
+          structuredResponse: null,
+          sourcesSuffisantes: true,
+          latencyMs,
+          errorCode: null,
+          errorMessage: null,
+          citationsValidation,
+          chunkIdExposure: exposureCheck.exposed,
+          technicalIdentifiersDetected: exposureCheck.identifiers,
+          sources
+        };
+      }
+
       return {
         status: 'error',
         provider: 'none',
@@ -370,11 +578,29 @@ RÈGLES STRICTES ET MANDATOIRES (Étape 8 - Sortie Structurée JSON) :
       };
     }
 
-    // Construction du texte markdown structuré pour rétrocompatibilité
-    let answerText = `## Synthèse\n${parsedJson.summary}\n\n`;
+    // Vérification déterministe post-génération et réparation d'ancrage (sourceId, §n et contexte adjacent ±1)
+    const verificationReport = verifyCitationsAgainstContext(parsedJson, evidencePackage);
+    const verifiedStructured = verificationReport.sanitizedResponse;
+
+    // Construction du texte markdown brut (avant filtrage des rejets) pour l'audit de validation
+    let rawAnswerText = `## Synthèse\n${parsedJson.summary}\n\n`;
     if (parsedJson.arguments && parsedJson.arguments.length > 0) {
-      answerText += `## Démonstrations & Arguments Doctrinaux\n\n`;
+      rawAnswerText += `## Démonstrations & Arguments Doctrinaux\n\n`;
       parsedJson.arguments.forEach((arg, idx) => {
+        rawAnswerText += `### ${idx + 1}. ${arg.pointTitle}\n${arg.explanation}\n\n`;
+        if (arg.citations && arg.citations.length > 0) {
+          arg.citations.forEach(c => {
+            rawAnswerText += `> « ${c.exactQuote} » [Réf: ${c.sourceId}, Para. ${c.paragraphIndex}]\n\n`;
+          });
+        }
+      });
+    }
+
+    // Construction du texte markdown final vérifié et réparé
+    let answerText = `## Synthèse\n${verifiedStructured.summary}\n\n`;
+    if (verifiedStructured.arguments && verifiedStructured.arguments.length > 0) {
+      answerText += `## Démonstrations & Arguments Doctrinaux\n\n`;
+      verifiedStructured.arguments.forEach((arg, idx) => {
         answerText += `### ${idx + 1}. ${arg.pointTitle}\n${arg.explanation}\n\n`;
         if (arg.citations && arg.citations.length > 0) {
           arg.citations.forEach(c => {
@@ -384,9 +610,9 @@ RÈGLES STRICTES ET MANDATOIRES (Étape 8 - Sortie Structurée JSON) :
       });
     }
 
-    if (parsedJson.deepDiveQuestions && parsedJson.deepDiveQuestions.length > 0) {
+    if (verifiedStructured.deepDiveQuestions && verifiedStructured.deepDiveQuestions.length > 0) {
       answerText += `### Pistes d'approfondissement\n`;
-      parsedJson.deepDiveQuestions.forEach(q => {
+      verifiedStructured.deepDiveQuestions.forEach(q => {
         answerText += `- ${q}\n`;
       });
     }
@@ -394,29 +620,37 @@ RÈGLES STRICTES ET MANDATOIRES (Étape 8 - Sortie Structurée JSON) :
     // Détection d'exposition d'identifiants techniques
     const exposureCheck = detectTechnicalIdentifierExposure(answerText);
 
-    // Validation des citations
+    // Validation des citations (évalue les citations générées et conserve la trace des rejets éventuels)
     const citationsValidation = validateResponseCitations({
-      responseText: answerText,
+      responseText: verificationReport.rejectedCount > 0 ? rawAnswerText : answerText,
       evidencePackage
     });
 
-    // Extraction des sources
-    const sources = evidencePackage.evidence.flatMap(ev =>
-      ev.citationParagraphs.map(cp => ({
-        title: `${ev.sermonTitle} (${ev.date || 'Non daté'}) — §${cp.paragraphIndex}`,
-        uri: `sermon://${ev.sermonId}/${cp.paragraphIndex}`,
-        sermonId: ev.sermonId,
-        paragraphIndex: cp.paragraphIndex
-      }))
-    );
+    // Extraction et déduplication des sources
+    const seenSourceKeys = new Set<string>();
+    const sources: Array<{ title: string; uri: string; sermonId: string; paragraphIndex: number }> = [];
+    for (const ev of evidencePackage.evidence) {
+      for (const cp of ev.citationParagraphs) {
+        const key = `${ev.sermonId}_${cp.paragraphIndex}`;
+        if (!seenSourceKeys.has(key)) {
+          seenSourceKeys.add(key);
+          sources.push({
+            title: `${ev.sermonTitle} (${ev.date || 'Non daté'}) — §${cp.paragraphIndex}`,
+            uri: `sermon://${ev.sermonId}/${cp.paragraphIndex}`,
+            sermonId: ev.sermonId,
+            paragraphIndex: cp.paragraphIndex
+          });
+        }
+      }
+    }
 
     return {
       status: 'success',
       provider: 'google-gemini',
-      model,
+      model: activeModelUsed,
       responseOrigin: 'gemini',
       answerText,
-      structuredResponse: parsedJson,
+      structuredResponse: verifiedStructured,
       sourcesSuffisantes: true,
       latencyMs,
       errorCode: null,
