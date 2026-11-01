@@ -1,6 +1,6 @@
 {
   "name": "kings-sword",
-  "version": "2.9.14",
+  "version": "2.9.15",
   "description": "Logiciel d'étude des sermons de W.M. Branham",
   "main": "main.js",
   "author": "Bienvenu Massamba & Gastin Ngakosso",
@@ -135,6 +135,10 @@
       {
         "from": "public/sermons_meta.json",
         "to": "sermons_meta.json"
+      },
+      {
+        "from": "public/library.json",
+        "to": "library.json"
       }
     ],
     "directories": {

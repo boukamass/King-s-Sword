@@ -66,6 +66,29 @@ export async function fetchJsonSafe<T = any>(
   fallbackUrls: string[] = [],
   options?: RequestInit
 ): Promise<T | null> {
+  // 1. En environnement Electron (bureau .exe), passer par l'IPC Node.js direct pour lire les fichiers locaux
+  if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.system) {
+    const isLocalFile = !primaryUrl.startsWith('http://') && !primaryUrl.startsWith('https://');
+    if (isLocalFile) {
+      try {
+        if (primaryUrl.includes('library.json') && window.electronAPI.system.getLibraryData) {
+          const res = await window.electronAPI.system.getLibraryData();
+          if (res && res.success && res.data) {
+            return res.data as T;
+          }
+        }
+        if (window.electronAPI.system.readLocalJson) {
+          const res = await window.electronAPI.system.readLocalJson(primaryUrl);
+          if (res && res.success && res.data) {
+            return res.data as T;
+          }
+        }
+      } catch (ipcErr) {
+        // En cas d'erreur IPC imprévue, poursuivre vers la tentative fetch classique
+      }
+    }
+  }
+
   const rawCandidateUrls = [primaryUrl, ...fallbackUrls];
   const resolvedUrls = rawCandidateUrls.map(u => getStaticResourceUrl(u));
   const uniqueUrls = Array.from(new Set(resolvedUrls));

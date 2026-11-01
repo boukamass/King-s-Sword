@@ -1253,6 +1253,57 @@ function createWindow() {
       return { success: false, error: e.message };
     }
   });
+
+  ipcMain.removeHandler('system:readLocalJson');
+  ipcMain.handle('system:readLocalJson', async (event, filename) => {
+    try {
+      const cleanName = path.basename(filename);
+      const resourcesPath = app.isPackaged ? process.resourcesPath : __dirname;
+      const candidates = [
+        path.join(resourcesPath, cleanName),
+        path.join(resourcesPath, 'public', cleanName),
+        path.join(resourcesPath, 'dist', cleanName),
+        path.join(resourcesPath, 'app.asar', 'dist', cleanName),
+        path.join(resourcesPath, 'app.asar', 'public', cleanName),
+        path.join(__dirname, 'public', cleanName),
+        path.join(__dirname, 'dist', cleanName),
+        path.join(__dirname, cleanName)
+      ];
+      const found = candidates.find(p => fs.existsSync(p));
+      if (found) {
+        const content = fs.readFileSync(found, 'utf8');
+        return { success: true, data: JSON.parse(content) };
+      }
+      return { success: false, error: `Fichier ${cleanName} introuvable sur disque` };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  });
+
+  ipcMain.removeHandler('system:getLibraryData');
+  ipcMain.handle('system:getLibraryData', async () => {
+    try {
+      const resourcesPath = app.isPackaged ? process.resourcesPath : __dirname;
+      const candidates = [
+        path.join(resourcesPath, 'library.json'),
+        path.join(resourcesPath, 'public', 'library.json'),
+        path.join(resourcesPath, 'dist', 'library.json'),
+        path.join(resourcesPath, 'app.asar', 'dist', 'library.json'),
+        path.join(resourcesPath, 'app.asar', 'public', 'library.json'),
+        path.join(__dirname, 'public', 'library.json'),
+        path.join(__dirname, 'dist', 'library.json'),
+        path.join(__dirname, 'library.json')
+      ];
+      const found = candidates.find(p => fs.existsSync(p));
+      if (found) {
+        const content = fs.readFileSync(found, 'utf8');
+        return { success: true, data: JSON.parse(content) };
+      }
+      return { success: false, error: 'Fichier library.json introuvable sur disque' };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  });
 }
 
 // Maintenance SQLite périodique en arrière-plan (checkpoint WAL passif toutes les 5 minutes d'inactivité)

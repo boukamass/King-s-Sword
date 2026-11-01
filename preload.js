@@ -52,6 +52,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   system: {
     getModelInfo: () => ipcRenderer.invoke('system:getModelInfo'),
     getPrecalculatedEmbeddings: () => ipcRenderer.invoke('system:getPrecalculatedEmbeddings'),
-    getSermonsPrecalculatedIndex: () => ipcRenderer.invoke('system:getSermonsPrecalculatedIndex')
+    getSermonsPrecalculatedIndex: () => ipcRenderer.invoke('system:getSermonsPrecalculatedIndex'),
+    readLocalJson: (filename) => ipcRenderer.invoke('system:readLocalJson', filename),
+    getLibraryData: () => ipcRenderer.invoke('system:getLibraryData')
   }
 });

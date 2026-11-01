@@ -525,7 +525,20 @@ export const useAppStore = create<AppState>((set, get) => ({
   resetLibrary: async () => {
     set({ isLoading: true, loadingMessage: "Récupération des données...", loadingProgress: 15 });
     try {
-      const rawIncoming = await fetchJsonSafe<any>('library.json', ['./library.json']);
+      let rawIncoming: any = null;
+      if (typeof window !== 'undefined' && window.electronAPI?.system?.getLibraryData) {
+        try {
+          const ipcRes = await window.electronAPI.system.getLibraryData();
+          if (ipcRes && ipcRes.success && ipcRes.data) {
+            rawIncoming = ipcRes.data;
+          }
+        } catch (e) {
+          console.warn("[Store] Erreur lecture IPC library.json:", e);
+        }
+      }
+      if (!rawIncoming) {
+        rawIncoming = await fetchJsonSafe<any>('library.json', ['./library.json']);
+      }
       const { extractLibrarySermonsArray } = await import('./services/chunkingService');
       const incoming = extractLibrarySermonsArray(rawIncoming);
       set({ loadingProgress: 55 });
