@@ -551,6 +551,24 @@ export interface ElectronAPI {
       binaryBuffer?: any;
       error?: string;
     }>;
+    getSermonsPrecalculatedIndex?: () => Promise<{
+      success: boolean;
+      metaJson?: any;
+      binaryBuffer?: any;
+      indexBuffer?: any;
+      embeddedLibrarySha256?: string | null;
+      error?: string;
+    }>;
+    readLocalJson?: (filename: string) => Promise<{
+      success: boolean;
+      data?: any;
+      error?: string;
+    }>;
+    getLibraryData?: () => Promise<{
+      success: boolean;
+      data?: any;
+      error?: string;
+    }>;
   };
 }
 
