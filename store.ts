@@ -602,11 +602,19 @@ export const useAppStore = create<AppState>((set, get) => ({
         if (chapterStr === 'all') {
           bibleSermon = await getBibleBookSermon(bookId, get().bibleVersion);
           if (get().selectedSermonId !== id) return;
+          if (!bibleSermon) {
+            set({ selectedSermonId: null, activeSermon: null, sidebarOpen: true });
+            return;
+          }
           set({ activeSermon: bibleSermon, selectedBibleBookId: bookId, selectedBibleChapter: 1, selectedBibleVerse: null });
         } else {
           const chapter = parseInt(chapterStr, 10) || 1;
           bibleSermon = await getBibleChapterSermon(bookId, chapter, get().bibleVersion);
           if (get().selectedSermonId !== id) return;
+          if (!bibleSermon) {
+            set({ selectedSermonId: null, activeSermon: null, sidebarOpen: true });
+            return;
+          }
           set({ activeSermon: bibleSermon, selectedBibleBookId: bookId, selectedBibleChapter: chapter, selectedBibleVerse: null });
         }
       } else if (id.startsWith('expose-')) {
@@ -615,7 +623,10 @@ export const useAppStore = create<AppState>((set, get) => ({
               const pageNumber = parseInt(id.replace('expose-pg-', ''), 10);
               const exposeSermon = await getExposePage(pageNumber);
               if (get().selectedSermonId !== id) return;
-
+              if (!exposeSermon) {
+                set({ selectedSermonId: null, activeSermon: null, sidebarOpen: true });
+                return;
+              }
               set({ 
                 activeSermon: exposeSermon
               });
@@ -623,6 +634,10 @@ export const useAppStore = create<AppState>((set, get) => ({
               const chNumber = id.replace('expose-ch-', '');
               const exposeSermon = await getExposeChapter(chNumber);
               if (get().selectedSermonId !== id) return;
+              if (!exposeSermon) {
+                set({ selectedSermonId: null, activeSermon: null, sidebarOpen: true });
+                return;
+              }
               set({ 
                 activeSermon: exposeSermon,
                 selectedExposeChapter: chNumber
@@ -632,18 +647,36 @@ export const useAppStore = create<AppState>((set, get) => ({
           const { getSongAsSermon } = await import('./services/songService');
           const songSermon = await getSongAsSermon(id);
           if (get().selectedSermonId !== id) return;
+          if (!songSermon) {
+            set({ selectedSermonId: null, activeSermon: null, sidebarOpen: true });
+            return;
+          }
           set({ activeSermon: songSermon });
       } else if (!get().isSqliteAvailable) {
         const s = get().sermonsMap.get(id) as Sermon;
         if (get().selectedSermonId !== id) return;
+        if (!s) {
+          set({ selectedSermonId: null, activeSermon: null, sidebarOpen: true });
+          return;
+        }
         set({ activeSermon: s });
       } else {
         const fullSermon = await getSermonById(id);
         if (get().selectedSermonId !== id) return;
+        if (!fullSermon) {
+          const fallback = get().sermonsMap.get(id);
+          if (fallback) {
+            set({ activeSermon: fallback as Sermon });
+            return;
+          }
+          set({ selectedSermonId: null, activeSermon: null, sidebarOpen: true });
+          return;
+        }
         set({ activeSermon: fullSermon });
       }
     } catch (error) {
       if (get().selectedSermonId === id) {
+        set({ selectedSermonId: null, activeSermon: null, sidebarOpen: true });
         get().addNotification("Erreur lors du chargement du document", "error");
       }
     }
