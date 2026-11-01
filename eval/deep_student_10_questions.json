@@ -1,0 +1,62 @@
+[
+  {
+    "id": "DS_Q01",
+    "question": "La gestion des finances dans un couple chrétien",
+    "category": "conceptuel_couple_finances",
+    "notes": "Question cible principale : vérifier l'absence d'extrapolation de doctrines générales (Semence du Serpent, Sept Sceaux, etc.) et le signalement explicite si moins de N passages traitent directement du budget/argent dans le couple."
+  },
+  {
+    "id": "DS_Q02",
+    "question": "Que dit le Message sur l'abîme et les démons ?",
+    "category": "conceptuel_demonologie_abime",
+    "notes": "Question cible principale : vérifier l'expansion vers les termes bibliques (puits de l'abîme, Tartare, chaînes d'obscurité, légion, Gadara, Apocalypse 9) et l'ancrage strict des citations."
+  },
+  {
+    "id": "DS_Q03",
+    "question": "Comment concilier la prédestination divine avec la responsabilité morale et le libre arbitre de l'homme ?",
+    "category": "conceptuel_soteriologie",
+    "notes": "Question conceptuelle exigeant de relier prescience, élection et choix personnel sans inventer de citations."
+  },
+  {
+    "id": "DS_Q04",
+    "question": "Quel est le rôle spirituel et pratique du père de famille dans l'éducation des enfants au foyer ?",
+    "category": "conceptuel_famille_foyer",
+    "notes": "Question pratique sur la vie familiale : tester l'expansion vers foyer, parents, discipline, instruction des enfants."
+  },
+  {
+    "id": "DS_Q05",
+    "question": "Quelle est la différence entre l'onction sur l'esprit extérieur et le baptême du Saint-Esprit dans l'âme ?",
+    "category": "conceptuel_pneumatologie",
+    "notes": "Question doctrinale fine (Les Oints du temps de la fin, trois cercles : corps, esprit, âme)."
+  },
+  {
+    "id": "DS_Q06",
+    "question": "Quelle attitude un chrétien doit-il adopter face aux dettes, au crédit et aux emprunts financiers ?",
+    "category": "conceptuel_ethique_financiere",
+    "notes": "Question ciblée sur l'éthique financière personnelle : vérifier le filtrage des passages purement métaphoriques (dette du péché) vs dettes matérielles."
+  },
+  {
+    "id": "DS_Q07",
+    "question": "Que deviennent les âmes des croyants et des incroyants immédiatement après la mort physique ?",
+    "category": "conceptuel_eschatologie_au_dela",
+    "notes": "Question conceptuelle : expansion vers sixième dimension, théophanie, sous l'autel, cinquième sceau, régions des perdus."
+  },
+  {
+    "id": "DS_Q08",
+    "question": "Comment discerner entre une véritable vision prophétique de Dieu et une illusion ou séduction psychique ?",
+    "category": "conceptuel_discernement",
+    "notes": "Question sur le discernement des esprits et l'épreuve par la Parole."
+  },
+  {
+    "id": "DS_Q09",
+    "question": "Quelle est la position de l'enseignement sur l'usage des réseaux sociaux et de l'intelligence artificielle dans l'Église ?",
+    "category": "conceptuel_anachronique_seuil",
+    "notes": "Question anachronique destinée à tester le seuil < N : doit déclarer explicitement que le corpus n'aborde pas directement ce sujet technologique moderne."
+  },
+  {
+    "id": "DS_Q10",
+    "question": "Pourquoi Dieu permet-il la souffrance, la maladie ou les épreuves dans la vie d'un croyant consacré ?",
+    "category": "conceptuel_epreuves_foi",
+    "notes": "Question pastorale et conceptuelle : expansion vers épreuve, fournaise, correction, perfectionnement, foi éprouvée."
+  }
+]

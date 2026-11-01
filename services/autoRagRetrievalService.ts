@@ -257,9 +257,14 @@ export async function executeAutoRagPipeline(
  * [Réf: SERMON_ID, §N] (ou [Réf: SERMON_ID, Para. N]).
  * JAMAIS de chunkId transmis comme consigne de citation.
  */
+export const LEGACY_EXTRAPOLATIVE_DIRECTIVE_6 = `6. Si la question est ciblée mais que le corpus restreint ne l'aborde que via des principes spirituels plus larges ou thèmes connexes (ex. richesses matérielles, foi, intendance chrétienne), déploie une analyse doctrinale complète en citant les extraits disponibles et en indiquant les sermons clés pour aller plus loin. Ne déclare une insuffisance que si la question est totalement profane ou hors-domaine.`;
+
+export const STRICT_ANTI_EXTRAPOLATION_DIRECTIVE_6 = `6. INTERDICTION STRICTE D'EXTRAPOLATION : Si les extraits fournis n'abordent pas directement le sujet précis de la question, déclare-le explicitement dès le début de la réponse (« Le corpus fourni n'aborde pas directement ce sujet ») et limite strictement l'étude aux seuls aspects que les passages établissent réellement. N'extrapole JAMAIS à partir de principes généraux et n'introduis AUCUNE doctrine « cardinale » qui ne soit pas explicitement énoncée dans les extraits ci-dessus.`;
+
 export function formatEvidenceContextForGemini(
   evidencePackage: RetrievalEvidencePackage,
-  question: string
+  question: string,
+  options?: { useLegacyExtrapolativeDirective6?: boolean }
 ): string {
   if (!evidencePackage || !evidencePackage.answerable || !Array.isArray(evidencePackage.evidence) || evidencePackage.evidence.length === 0) {
     return "AUCUNE SOURCE PERTINENTE DISPONIBLE DANS LA BASE DOCUMENTAIRE POUR CETTE QUESTION.";
@@ -298,6 +303,10 @@ ${fullParasText || ev.text}
 """${adjacentBlock}`;
   }).join('\n\n------------------------------------------------------------\n\n');
 
+  const directive6 = options?.useLegacyExtrapolativeDirective6
+    ? LEGACY_EXTRAPOLATIVE_DIRECTIVE_6
+    : STRICT_ANTI_EXTRAPOLATION_DIRECTIVE_6;
+
   return `PREUVES DOCUMENTAIRES SÉLECTIONNÉES DANS LA BIBLIOTHÈQUE POUR CETTE QUESTION :
 ============================================================
 ${sourcesList}
@@ -310,5 +319,5 @@ DIRECTIVES DE RÉPONSE STRICTES POUR L'ASSISTANT THÉOLOGIQUE :
 3. INTÉGRITÉ DES CITATIONS : Cite toujours la phrase ou le passage entier du paragraphe. Ne tronque JAMAIS une citation aux limites de chunks et ne coupe pas une phrase en deux fragments disjoints.
 4. N'utilise AUCUNE information extérieure et n'extrapole pas au-delà des extraits fournis.
 5. Dans la section finale '### Pistes d'approfondissement', formule uniquement des questions ouvertes de réflexion et n'inclus AUCUNE balise de référence [Réf: ...].
-6. Si la question est ciblée mais que le corpus restreint ne l'aborde que via des principes spirituels plus larges ou thèmes connexes (ex. richesses matérielles, foi, intendance chrétienne), déploie une analyse doctrinale complète en citant les extraits disponibles et en indiquant les sermons clés pour aller plus loin. Ne déclare une insuffisance que si la question est totalement profane ou hors-domaine.`;
+${directive6}`;
 }

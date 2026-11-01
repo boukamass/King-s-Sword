@@ -424,7 +424,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       if (!hasSqlite) {
         set({ loadingMessage: "Chargement des sermons...", loadingProgress: 35 });
-        const data = await fetchJsonSafe<Sermon[]>('library.json', ['./library.json']) || [];
+        const rawData = await fetchJsonSafe<any>('library.json', ['./library.json']);
+        const { extractLibrarySermonsArray } = await import('./services/chunkingService');
+        const data = extractLibrarySermonsArray(rawData);
         set({ loadingProgress: 80 });
         
         const uniqueMetadata: Omit<Sermon, 'text'>[] = [];
@@ -432,7 +434,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         const map = new Map();
         
         data.forEach(s => {
-          const uniqueKey = s.version ? `${s.id}-${s.version}` : s.id;
+          const uniqueKey = (s.version && !s.id.endsWith(`-${s.version}`)) ? `${s.id}-${s.version}` : s.id;
           if (!seenIds.has(uniqueKey)) {
             seenIds.add(uniqueKey);
             const { text, ...meta } = s;
@@ -516,10 +518,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   resetLibrary: async () => {
     set({ isLoading: true, loadingMessage: "Récupération des données...", loadingProgress: 15 });
     try {
-      const incoming = await fetchJsonSafe<Sermon[]>('library.json', ['./library.json']);
+      const rawIncoming = await fetchJsonSafe<any>('library.json', ['./library.json']);
+      const { extractLibrarySermonsArray } = await import('./services/chunkingService');
+      const incoming = extractLibrarySermonsArray(rawIncoming);
       set({ loadingProgress: 55 });
       
-      if (!incoming || !Array.isArray(incoming)) {
+      if (!incoming || !Array.isArray(incoming) || incoming.length === 0) {
         throw new Error("Les données de library.json sont introuvables ou invalides.");
       }
 
@@ -539,7 +543,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       
       incoming.forEach(s => {
         const baseId = s.id || `gen-${Math.random().toString(36).substr(2, 9)}`;
-        const uniqueKey = s.version ? `${baseId}-${s.version}` : baseId;
+        const uniqueKey = (s.version && !baseId.endsWith(`-${s.version}`)) ? `${baseId}-${s.version}` : baseId;
         
         if (!seenIds.has(uniqueKey)) {
           seenIds.add(uniqueKey);
