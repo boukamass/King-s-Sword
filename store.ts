@@ -434,23 +434,29 @@ export const useAppStore = create<AppState>((set, get) => ({
         const map = new Map();
         
         data.forEach(s => {
-          const uniqueKey = (s.version && !s.id.endsWith(`-${s.version}`)) ? `${s.id}-${s.version}` : s.id;
+          const baseId = s.id || `gen-${Math.random().toString(36).substr(2, 9)}`;
+          const uniqueKey = (s.version && !baseId.endsWith(`-${s.version}`)) ? `${baseId}-${s.version}` : baseId;
           if (!seenIds.has(uniqueKey)) {
             seenIds.add(uniqueKey);
             const { text, ...meta } = s;
             const metaWithUniqueId = { ...meta, id: uniqueKey };
+            const fullSermon = { ...s, id: uniqueKey };
             uniqueMetadata.push(metaWithUniqueId);
-            map.set(uniqueKey, { ...s, id: uniqueKey });
+            map.set(uniqueKey, fullSermon);
+            map.set(baseId, fullSermon);
+            map.set(uniqueKey.toLowerCase(), fullSermon);
+            map.set(baseId.toLowerCase(), fullSermon);
           }
         });
 
         const notes = await getAllNotes();
         set({ sermons: uniqueMetadata, sermonsMap: map, notes: sortNotesByRecency(notes), isLoading: false, loadingProgress: 100 });
         
-        // Restauration du document actif lors de la réouverture de l'application
+        // Restauration du document actif lors de la réouverture de l'application (ou 1er sermon par défaut)
         const savedSermonId = get().selectedSermonId;
-        if (savedSermonId) {
-          get().setSelectedSermonId(savedSermonId, false, true).catch(() => {});
+        const sermonToRestore = savedSermonId || (uniqueMetadata.length > 0 && get().libraryMode === 'sermons' ? uniqueMetadata[0].id : null);
+        if (sermonToRestore) {
+          get().setSelectedSermonId(sermonToRestore, false, true).catch(() => {});
         }
 
         // Enregistrer la carte des sermons pour permettre le démarrage à volonté
@@ -487,10 +493,11 @@ export const useAppStore = create<AppState>((set, get) => ({
         const notes = await getAllNotes();
         set({ sermons: metadata, sermonsMap: map, notes: sortNotesByRecency(notes), isLoading: false, loadingProgress: 100 });
         
-        // Restauration du document actif lors de la réouverture de l'application
+        // Restauration du document actif lors de la réouverture de l'application (ou 1er sermon par défaut)
         const savedSermonId = get().selectedSermonId;
-        if (savedSermonId) {
-          get().setSelectedSermonId(savedSermonId, false, true).catch(() => {});
+        const sermonToRestore = savedSermonId || (metadata.length > 0 && get().libraryMode === 'sermons' ? metadata[0].id : null);
+        if (sermonToRestore) {
+          get().setSelectedSermonId(sermonToRestore, false, true).catch(() => {});
         }
 
         // Enregistrer la carte des sermons pour permettre le démarrage à volonté
@@ -653,26 +660,61 @@ export const useAppStore = create<AppState>((set, get) => ({
           }
           set({ activeSermon: songSermon });
       } else if (!get().isSqliteAvailable) {
-        const s = get().sermonsMap.get(id) as Sermon;
+        let s = get().sermonsMap.get(id) as Sermon | undefined;
+        if (!s) {
+          const baseId = id.replace(/-[A-Za-z0-9]+$/, '');
+          s = get().sermonsMap.get(baseId) as Sermon | undefined;
+        }
+        if (!s) {
+          const idLower = id.toLowerCase();
+          for (const [k, v] of get().sermonsMap.entries()) {
+            if (k.toLowerCase() === idLower || k.toLowerCase().startsWith(idLower + '-') || idLower.startsWith(k.toLowerCase() + '-')) {
+              s = v as Sermon;
+              break;
+            }
+          }
+        }
         if (get().selectedSermonId !== id) return;
         if (!s) {
-          set({ selectedSermonId: null, activeSermon: null, sidebarOpen: true });
-          return;
-        }
-        set({ activeSermon: s });
-      } else {
-        const fullSermon = await getSermonById(id);
-        if (get().selectedSermonId !== id) return;
-        if (!fullSermon) {
-          const fallback = get().sermonsMap.get(id);
-          if (fallback) {
-            set({ activeSermon: fallback as Sermon });
-            return;
+          const available = get().sermons;
+          if (available.length > 0) {
+            const firstId = available[0].id;
+            const firstSermon = get().sermonsMap.get(firstId) as Sermon | undefined;
+            if (firstSermon) {
+              set({ selectedSermonId: firstId, activeSermon: firstSermon });
+              return;
+            }
           }
           set({ selectedSermonId: null, activeSermon: null, sidebarOpen: true });
           return;
         }
-        set({ activeSermon: fullSermon });
+        set({ activeSermon: s, selectedSermonId: s.id });
+      } else {
+        let fullSermon = await getSermonById(id);
+        if (!fullSermon) {
+          const baseId = id.replace(/-[A-Za-z0-9]+$/, '');
+          fullSermon = await getSermonById(baseId);
+        }
+        if (get().selectedSermonId !== id) return;
+        if (!fullSermon) {
+          const fallback = get().sermonsMap.get(id);
+          if (fallback && (fallback as any).text) {
+            set({ activeSermon: fallback as Sermon, selectedSermonId: fallback.id });
+            return;
+          }
+          const available = get().sermons;
+          if (available.length > 0) {
+            const firstId = available[0].id;
+            const firstFull = await getSermonById(firstId);
+            if (firstFull) {
+              set({ selectedSermonId: firstId, activeSermon: firstFull });
+              return;
+            }
+          }
+          set({ selectedSermonId: null, activeSermon: null, sidebarOpen: true });
+          return;
+        }
+        set({ activeSermon: fullSermon, selectedSermonId: fullSermon.id });
       }
     } catch (error) {
       if (get().selectedSermonId === id) {
