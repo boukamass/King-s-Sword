@@ -341,10 +341,11 @@ export async function resolveAIContextChunks(
       if (!sermon || !sermon.text) {
         try {
           if (!staticLibraryFallbackCache) {
+            const { extractLibrarySermonsArray } = await import('./chunkingService');
             if (typeof window !== 'undefined') {
               const res = await fetch(getStaticResourceUrl('library.json'));
               if (res.ok) {
-                staticLibraryFallbackCache = await res.json();
+                staticLibraryFallbackCache = extractLibrarySermonsArray(await res.json());
               }
             } else {
               const fs = await import('fs');
@@ -356,13 +357,13 @@ export async function resolveAIContextChunks(
               ];
               for (const cand of candidates) {
                 if (fs.existsSync(cand)) {
-                  staticLibraryFallbackCache = JSON.parse(fs.readFileSync(cand, 'utf8'));
+                  staticLibraryFallbackCache = extractLibrarySermonsArray(JSON.parse(fs.readFileSync(cand, 'utf8')));
                   break;
                 }
               }
             }
           }
-          if (staticLibraryFallbackCache) {
+          if (Array.isArray(staticLibraryFallbackCache)) {
             const baseId = cleanSourceId.split('-').slice(0, 2).join('-');
             const found = staticLibraryFallbackCache.find(
               s => s.id === cleanSourceId || s.id === baseId || (s.version && `${s.id}-${s.version}` === cleanSourceId)

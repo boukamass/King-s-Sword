@@ -48,6 +48,13 @@ export interface StructuredResponseSchema {
   deepDiveQuestions: string[];
 }
 
+export interface MeasuredUsageMetadata {
+  promptTokenCount: number;
+  candidatesTokenCount: number;
+  totalTokenCount: number;
+  measured: boolean;
+}
+
 export interface GenerationResult {
   status: 'success' | 'error' | 'not_answerable';
   provider: 'google-gemini' | 'none';
@@ -59,6 +66,7 @@ export interface GenerationResult {
   errorCode?: string | null;
   errorMessage?: string | null;
   latencyMs?: number | null;
+  usageMetadata?: MeasuredUsageMetadata | null;
   citationsValidation?: CitationValidationResult | null;
   chunkIdExposure?: boolean;
   technicalIdentifiersDetected?: string[];
@@ -270,6 +278,7 @@ export interface GenerateNewRagOptions {
   model?: string;
   history?: ChatMessage[];
   onStreamChunk?: (token: string) => void;
+  useLegacyExtrapolativeDirective6?: boolean;
 }
 
 /**
@@ -286,7 +295,8 @@ export async function generateNewRagResponse(
     systemInstruction,
     temperature = 0.2,
     model = 'gemini-3.8-flash',
-    history = []
+    history = [],
+    useLegacyExtrapolativeDirective6 = false
   } = options;
 
   // RÈGLE : Cas answerable === false
@@ -301,6 +311,7 @@ export async function generateNewRagResponse(
       errorCode: 'NOT_ANSWERABLE',
       errorMessage: evidencePackage?.reason || "Les documents disponibles ne contiennent pas d'informations suffisantes pour répondre à cette question.",
       latencyMs: 0,
+      usageMetadata: { promptTokenCount: 0, candidatesTokenCount: 0, totalTokenCount: 0, measured: false },
       citationsValidation: null,
       chunkIdExposure: false,
       technicalIdentifiersDetected: [],
@@ -309,7 +320,9 @@ export async function generateNewRagResponse(
   }
 
   // Formatage déterministe du contexte documentaire
-  const context = formatEvidenceContextForGemini(evidencePackage, query);
+  const context = formatEvidenceContextForGemini(evidencePackage, query, {
+    useLegacyExtrapolativeDirective6
+  });
   const reqLines = extractRequestedLineCount(query);
   const lineInstruction = reqLines ? `\n\nCONSIGNE STRICTE DE LONGUEUR : L'utilisateur exige un résumé / résultat de sa demande en exactement ${reqLines} lignes.` : '';
   const promptContents = `${context}\n\n============================================================\nQUESTION DU CHERCHEUR :\n"${query}"${lineInstruction}`;
@@ -434,6 +447,10 @@ RÈGLES STRICTES ET MANDATOIRES (Étape 8 - Sortie Structurée JSON) :
 
     const finishReason = response?.candidates?.[0]?.finishReason;
     const responseText = response?.text;
+    let promptTok = Number(response?.usageMetadata?.promptTokenCount ?? 0);
+    let candTok = Number(response?.usageMetadata?.candidatesTokenCount ?? 0);
+    let totTok = Number(response?.usageMetadata?.totalTokenCount ?? (promptTok + candTok));
+    let hasMeasuredUsage = Boolean(response?.usageMetadata);
 
     if (responseText) {
       try {
@@ -484,6 +501,16 @@ RÈGLES STRICTES ET MANDATOIRES (Étape 8 - Sortie Structurée JSON) :
           }
         });
 
+        if (retryResponse?.usageMetadata) {
+          const rPrompt = Number(retryResponse.usageMetadata.promptTokenCount ?? 0);
+          const rCand = Number(retryResponse.usageMetadata.candidatesTokenCount ?? 0);
+          const rTot = Number(retryResponse.usageMetadata.totalTokenCount ?? (rPrompt + rCand));
+          promptTok += rPrompt;
+          candTok += rCand;
+          totTok += rTot;
+          hasMeasuredUsage = true;
+        }
+
         const retryText = retryResponse?.text;
         if (retryText) {
           const retryCandidate = JSON.parse(retryText);
@@ -498,6 +525,12 @@ RÈGLES STRICTES ET MANDATOIRES (Étape 8 - Sortie Structurée JSON) :
     }
 
     const latencyMs = Date.now() - t0;
+    const measuredUsage: MeasuredUsageMetadata = {
+      promptTokenCount: promptTok,
+      candidatesTokenCount: candTok,
+      totalTokenCount: totTok,
+      measured: hasMeasuredUsage
+    };
 
     if (!isValid || !parsedJson) {
       if (isPlainMarkdownResponse) {
@@ -532,6 +565,7 @@ RÈGLES STRICTES ET MANDATOIRES (Étape 8 - Sortie Structurée JSON) :
           structuredResponse: null,
           sourcesSuffisantes: true,
           latencyMs,
+          usageMetadata: measuredUsage,
           errorCode: null,
           errorMessage: null,
           citationsValidation,
@@ -551,6 +585,7 @@ RÈGLES STRICTES ET MANDATOIRES (Étape 8 - Sortie Structurée JSON) :
         errorCode: 'INVALID_JSON_SCHEMA',
         errorMessage: 'La réponse générée par le modèle n\'est pas un JSON valide conforme au schéma ou a été tronquée après la réessai.',
         latencyMs,
+        usageMetadata: measuredUsage,
         citationsValidation: null,
         chunkIdExposure: false,
         technicalIdentifiersDetected: [],
@@ -569,6 +604,7 @@ RÈGLES STRICTES ET MANDATOIRES (Étape 8 - Sortie Structurée JSON) :
         structuredResponse: parsedJson,
         sourcesSuffisantes: false,
         latencyMs,
+        usageMetadata: measuredUsage,
         errorCode: 'NOT_ANSWERABLE',
         errorMessage: "Non answerable dans le contexte sélectionné.",
         citationsValidation: null,
@@ -653,6 +689,7 @@ RÈGLES STRICTES ET MANDATOIRES (Étape 8 - Sortie Structurée JSON) :
       structuredResponse: verifiedStructured,
       sourcesSuffisantes: true,
       latencyMs,
+      usageMetadata: measuredUsage,
       errorCode: null,
       errorMessage: null,
       citationsValidation,

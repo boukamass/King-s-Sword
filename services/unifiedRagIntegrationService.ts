@@ -50,7 +50,11 @@ import {
   cleanPistesDapprofondissement 
 } from './theologicalExegesisService';
 import { extractSubstantiveQueryTerms } from './rerankingService';
-import { aiConfig } from '../config/aiConfig';
+import { aiConfig, DeepStudentConfig, isDeepStudentModeEnabled } from '../config/aiConfig';
+import {
+  executeDeepStudentPipeline,
+  DeepStudentTelemetry
+} from './deepStudentModeService';
 
 export interface UnifiedRagIntegrationOptions extends UnifiedRagOptions {
   apiKey?: string;
@@ -61,6 +65,10 @@ export interface UnifiedRagIntegrationOptions extends UnifiedRagOptions {
   bibleVersion?: BibleVersion;
   forceGenerate?: boolean;
   history?: ChatMessage[];
+  useDeepStudentMode?: boolean;
+  deepStudentConfig?: Partial<DeepStudentConfig>;
+  onProgress?: (stepMessage: string) => void;
+  useLegacyExtrapolativeDirective6?: boolean;
 }
 
 export interface UnifiedRagExecutionResult {
@@ -80,6 +88,7 @@ export interface UnifiedRagExecutionResult {
   latencyMs: number;
   errorMessage?: string | null;
   vectorMethod?: string;
+  deepStudentTelemetry?: DeepStudentTelemetry | null;
 }
 
 export interface ShadowComparisonResult {
@@ -101,14 +110,56 @@ export async function executeUnifiedRagAssistantFlow(
 ): Promise<UnifiedRagExecutionResult> {
   const t0 = Date.now();
   const cleanQuery = (query || '').trim();
+  const deepStudentActive =
+    typeof options.useDeepStudentMode === 'boolean'
+      ? options.useDeepStudentMode
+      : isDeepStudentModeEnabled();
 
   // Extraction des IDs de contexte pour la clé de cache
   const contextIds = Array.isArray(aiContext) 
     ? aiContext.map(s => typeof s === 'string' ? s : s.sourceId)
     : (aiContext.sources || []).map(s => s.sourceId);
 
-  // 0. Vérification du Cache Sémantique Local (0 ms) — uniquement hors client de test et hors suivi multi-tours
-  if (!options.geminiClient && (!options.history || options.history.length <= 1)) {
+  // 0. Branchement optionnel du Mode Étudiant Profond (désactivé par défaut en production)
+  let fallbackTelemetryFrom429: DeepStudentTelemetry | null = null;
+  if (deepStudentActive) {
+    const deepResult = await executeDeepStudentPipeline(cleanQuery, aiContext, {
+      apiKey: options.apiKey,
+      geminiClient: options.geminiClient,
+      bibleVersion: options.bibleVersion,
+      loadedSermonsMap: options.loadedSermonsMap,
+      providedChunks: options.providedChunks,
+      history: options.history,
+      config: options.deepStudentConfig,
+      onProgress: options.onProgress
+    });
+
+    if (deepResult.status !== 'fallback_429') {
+      return {
+        status: deepResult.status === 'not_answerable' ? 'not_answerable' : (deepResult.status === 'error' ? 'error' : 'success'),
+        answerText: deepResult.answerText,
+        evidencePackage: deepResult.evidencePackage,
+        generationResult: deepResult.generationResult,
+        citationsValidation: deepResult.citationsValidation,
+        chunkIdExposure: deepResult.chunkIdExposure,
+        technicalIdentifiersDetected: deepResult.technicalIdentifiersDetected,
+        sources: deepResult.sources,
+        latencyMs: deepResult.latencyMs,
+        errorMessage: deepResult.errorMessage || null,
+        vectorMethod: deepResult.evidencePackage.vectorMethod,
+        deepStudentTelemetry: deepResult.telemetry
+      };
+    }
+
+    // Condition 3 : En cas d'erreur 429, repli propre et transparent vers le pipeline actuel sans perte
+    fallbackTelemetryFrom429 = deepResult.telemetry;
+    if (options.onProgress) {
+      options.onProgress('Repli automatique (429) vers le pipeline standard en cours...');
+    }
+  }
+
+  // 0b. Vérification du Cache Sémantique Local (0 ms) — uniquement hors client de test et hors suivi multi-tours
+  if (!options.geminiClient && !options.useLegacyExtrapolativeDirective6 && (!options.history || options.history.length <= 1)) {
     const cached = await getCachedRagResponse(cleanQuery, contextIds);
     if (cached && cached.answerText) {
       return {
@@ -129,7 +180,8 @@ export async function executeUnifiedRagAssistantFlow(
         technicalIdentifiersDetected: [],
         sources: cached.sources,
         latencyMs: 0,
-        vectorMethod: 'semantic_cache_hit'
+        vectorMethod: 'semantic_cache_hit',
+        deepStudentTelemetry: fallbackTelemetryFrom429
       };
     }
   }
@@ -232,7 +284,8 @@ export async function executeUnifiedRagAssistantFlow(
     systemInstruction: activeInstruction,
     temperature: options.temperature ?? aiConfig.models.autoRagTemperature,
     model: options.model ?? aiConfig.models.primaryFastModel,
-    history: options.history
+    history: options.history,
+    useLegacyExtrapolativeDirective6: options.useLegacyExtrapolativeDirective6
   });
 
   const latencyMs = Date.now() - t0;
@@ -250,7 +303,8 @@ export async function executeUnifiedRagAssistantFlow(
       sources: [],
       latencyMs,
       errorMessage: genResult.errorMessage || 'Erreur lors de la génération de la réponse.',
-      vectorMethod: evidencePackage.vectorMethod
+      vectorMethod: evidencePackage.vectorMethod,
+      deepStudentTelemetry: fallbackTelemetryFrom429
     };
   }
 
@@ -287,6 +341,7 @@ export async function executeUnifiedRagAssistantFlow(
   // Enregistrement en cache sémantique local uniquement si la réponse est saine (citations valides, zéro fuite technique)
   if (
     !options.geminiClient &&
+    !options.useLegacyExtrapolativeDirective6 &&
     !isRefusal &&
     !exposureCheck.exposed &&
     (!citationsValidation || citationsValidation.allCitationsValid)
@@ -327,7 +382,8 @@ export async function executeUnifiedRagAssistantFlow(
     sources: isRefusal ? [] : (genResult.sources || []),
     latencyMs,
     errorMessage: null,
-    vectorMethod: evidencePackage.vectorMethod
+    vectorMethod: evidencePackage.vectorMethod,
+    deepStudentTelemetry: fallbackTelemetryFrom429
   };
 }
 
