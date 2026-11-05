@@ -23,6 +23,16 @@ export interface AiFeatureFlags {
   useConversationalRewrite: boolean;
   // Retrieval piloté par Gemini (compréhension + multi-requêtes + reranking) pour les grandes sélections
   useSmartRetrieval: boolean;
+  // Affichage progressif de la réponse pendant sa génération (flux Gemini)
+  useStreamingAnswers: boolean;
+  // Relances : historique compact (synthèse, points, sermons cités) au lieu du texte complet des réponses
+  useCompactHistory: boolean;
+  // Relances : les paragraphes cités dans la réponse précédente sont réinjectés en priorité dans les preuves
+  useStickyFollowUpSources: boolean;
+  // Questions complexes : décomposition locale en facettes, recherche lexicale et vectorielle par facette
+  useComplexQueryDecomposition: boolean;
+  // Mémorisation des réponses aux relances (clé : question + contexte + dernier échange)
+  useFollowUpAnswerCache: boolean;
 }
 
 export interface SmartRetrievalConfig {
@@ -49,6 +59,8 @@ export interface TokenBudgetConfig {
   maxPromptChars: number;
   /** Plafond de caractères de l'historique de conversation transmis */
   maxHistoryChars: number;
+  /** Nombre maximal de messages de l'historique transmis (questions et réponses) */
+  maxHistoryMessages: number;
 }
 
 export interface LongContextConfig {
@@ -99,6 +111,11 @@ export const defaultFeatureFlags: AiFeatureFlags = {
   // au contexte plafonné. Les appels Gemini supplémentaires consommeraient le quota de la clé de l'utilisateur.
   useConversationalRewrite: false,
   useSmartRetrieval: false,
+  useStreamingAnswers: true,
+  useCompactHistory: true,
+  useStickyFollowUpSources: true,
+  useComplexQueryDecomposition: true,
+  useFollowUpAnswerCache: true,
 };
 
 export const defaultSmartRetrievalConfig: SmartRetrievalConfig = {
@@ -118,6 +135,7 @@ export const defaultTokenBudgetConfig: TokenBudgetConfig = {
   standardLongContextChars: 44000,
   maxPromptChars: 120000,
   maxHistoryChars: 12000,
+  maxHistoryMessages: 10,
 };
 
 export const defaultLongContextConfig: LongContextConfig = {
@@ -165,6 +183,34 @@ export function setDeepStudentModeEnabled(enabled: boolean): void {
         window.localStorage.setItem(DEEP_STUDENT_STORAGE_KEY, 'true');
       } else {
         window.localStorage.removeItem(DEEP_STUDENT_STORAGE_KEY);
+      }
+    } catch {}
+  }
+}
+
+const LOCAL_ONLY_STORAGE_KEY = 'kings_sword_local_only_mode';
+
+/**
+ * Mode local : la réponse est composée des meilleurs passages trouvés localement, sans appel à Gemini (0 token).
+ */
+export function isLocalOnlyModeEnabled(): boolean {
+  if (typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
+    try {
+      return window.localStorage.getItem(LOCAL_ONLY_STORAGE_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
+export function setLocalOnlyModeEnabled(enabled: boolean): void {
+  if (typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
+    try {
+      if (enabled) {
+        window.localStorage.setItem(LOCAL_ONLY_STORAGE_KEY, 'true');
+      } else {
+        window.localStorage.removeItem(LOCAL_ONLY_STORAGE_KEY);
       }
     } catch {}
   }

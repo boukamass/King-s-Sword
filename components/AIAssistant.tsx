@@ -6,7 +6,7 @@ import { retrieveRelevantSermonPassages, formatRagContextForGemini, RetrievedPar
 import { executeAutoRagPipeline, formatEvidenceContextForGemini } from '../services/autoRagRetrievalService';
 import { generateNewRagResponse } from '../services/generationAdapter';
 import { executeUnifiedRagAssistantFlow, executeShadowUnifiedRag } from '../services/unifiedRagIntegrationService';
-import { aiConfig, isDeepStudentModeEnabled, setDeepStudentModeEnabled } from '../config/aiConfig';
+import { aiConfig, isDeepStudentModeEnabled, setDeepStudentModeEnabled, isLocalOnlyModeEnabled, setLocalOnlyModeEnabled } from '../config/aiConfig';
 import { getSermonById } from '../services/db';
 import { getBibleChapterSermon, getBibleBookSermon } from '../services/bibleService';
 import { BIBLE_BOOKS_META } from '../services/bibleMetadata';
@@ -139,6 +139,8 @@ function buildLocalFallbackFromEvidence(
     reasonNotice = 'Mode Hors-Ligne (aucune connexion Internet) — résultats extraits directement par le moteur local.';
   } else if (code === 'RESOURCE_EXHAUSTED' || rawErr.includes('402') || rawErr.toLowerCase().includes('prepayment credits') || rawErr.includes('RESOURCE_EXHAUSTED') || rawErr.includes('429')) {
     reasonNotice = "Le service d'analyse a reçu trop de demandes en peu de temps. Réessayez dans une minute ; en attendant, voici les passages trouvés localement.";
+  } else if (code === 'LOCAL_ONLY') {
+    reasonNotice = 'Mode local (sans Gemini, 0 token consommé) — passages les plus pertinents, classés par pertinence.';
   } else if (code === 'SERVICE_UNAVAILABLE') {
     reasonNotice = "Le service d'analyse est momentanément surchargé. Réessayez dans quelques instants ; en attendant, voici les passages trouvés localement.";
   } else if (code === 'API_KEY_MISSING' || rawErr.toLowerCase().includes('clé') || rawErr.toLowerCase().includes('api key') || rawErr.includes('MISSING_API_KEY')) {
@@ -373,7 +375,44 @@ const AIAssistant: React.FC = () => {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingText, setEditingText] = useState<string>('');
   const [deepStudentMode, setDeepStudentMode] = useState<boolean>(() => isDeepStudentModeEnabled());
+  const [localOnlyMode, setLocalOnlyMode] = useState<boolean>(() => isLocalOnlyModeEnabled());
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Réponse provisoire affichée pendant la génération : mises à jour regroupées (au plus ~8 rendus par seconde)
+  const [streamingAnswer, setStreamingAnswer] = useState<string>('');
+  const pendingStreamRef = useRef<string>('');
+  const streamTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handlePartialAnswer = (markdown: string) => {
+    pendingStreamRef.current = markdown;
+    if (streamTimerRef.current) return;
+    streamTimerRef.current = setTimeout(() => {
+      streamTimerRef.current = null;
+      setStreamingAnswer(pendingStreamRef.current);
+    }, 120);
+  };
+  const resetStreamingAnswer = () => {
+    if (streamTimerRef.current) {
+      clearTimeout(streamTimerRef.current);
+      streamTimerRef.current = null;
+    }
+    pendingStreamRef.current = '';
+    setStreamingAnswer('');
+  };
+  useEffect(() => () => {
+    if (streamTimerRef.current) clearTimeout(streamTimerRef.current);
+  }, []);
+
+  const handleToggleLocalOnlyMode = () => {
+    const nextVal = !localOnlyMode;
+    setLocalOnlyMode(nextVal);
+    setLocalOnlyModeEnabled(nextVal);
+    addNotification(
+      nextVal
+        ? 'Mode local activé : les réponses sont composées des passages trouvés localement, sans appel à Gemini (0 token).'
+        : 'Mode local désactivé : les réponses sont rédigées par Gemini à partir des passages trouvés.',
+      'info'
+    );
+  };
 
   const handleToggleDeepStudentMode = () => {
     const nextVal = !deepStudentMode;
@@ -394,6 +433,7 @@ const AIAssistant: React.FC = () => {
     }
     setIsTyping(false);
     setTypingStatus('');
+    resetStreamingAnswer();
   };
 
   const [retrievalStats, setRetrievalStats] = useState<{ lastMethod: string; totalQueries: number; fallbackCount: number }>({
@@ -1016,7 +1056,7 @@ const AIAssistant: React.FC = () => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [history, isTyping]);
+  }, [history, isTyping, streamingAnswer]);
 
   const getFullSermons = async (ids: string[]): Promise<Sermon[]> => {
     const uniqueIds = Array.from(new Set(ids));
@@ -1167,6 +1207,7 @@ const AIAssistant: React.FC = () => {
     abortControllerRef.current = abortController;
 
     setIsTyping(true);
+    resetStreamingAnswer();
 
     try {
       if (assistantMode === 'auto-rag') {
@@ -1192,7 +1233,9 @@ const AIAssistant: React.FC = () => {
             topK: 25,
             history: historyToUse,
             useDeepStudentMode: deepStudentMode,
-            onProgress: (stepMsg) => setTypingStatus(stepMsg)
+            onProgress: (stepMsg) => setTypingStatus(stepMsg),
+            onPartialAnswer: (markdown) => { if (!abortController.signal.aborted) handlePartialAnswer(markdown); },
+            localOnly: localOnlyMode
           });
 
           if (abortController.signal.aborted) return;
@@ -1352,7 +1395,9 @@ const AIAssistant: React.FC = () => {
             topK: 25,
             history: historyToUse,
             useDeepStudentMode: deepStudentMode,
-            onProgress: (stepMsg) => setTypingStatus(stepMsg)
+            onProgress: (stepMsg) => setTypingStatus(stepMsg),
+            onPartialAnswer: (markdown) => { if (!abortController.signal.aborted) handlePartialAnswer(markdown); },
+            localOnly: localOnlyMode
           });
 
           if (abortController.signal.aborted) return;
@@ -1497,6 +1542,7 @@ const AIAssistant: React.FC = () => {
     } finally {
       if (abortControllerRef.current === abortController) {
         abortControllerRef.current = null;
+        resetStreamingAnswer();
       }
       setIsTyping(false);
     }
@@ -1888,6 +1934,20 @@ const AIAssistant: React.FC = () => {
             <BookOpen className="w-3.5 h-3.5" />
             <span>Étude Profonde {deepStudentMode ? 'ON' : 'OFF'}</span>
           </button>
+
+          <button
+            type="button"
+            onClick={handleToggleLocalOnlyMode}
+            className={`flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer border ${
+              localOnlyMode
+                ? 'bg-amber-600 text-white border-amber-500 shadow-sm'
+                : 'bg-white/60 dark:bg-zinc-900/60 text-zinc-500 dark:text-zinc-400 border-transparent hover:text-zinc-800 dark:hover:text-zinc-200'
+            }`}
+            data-tooltip="Mode local : réponse composée des passages trouvés dans la bibliothèque, sans appel à Gemini (0 token consommé)."
+          >
+            <WifiOff className="w-3.5 h-3.5" />
+            <span>Local {localOnlyMode ? 'ON' : 'OFF'}</span>
+          </button>
         </div>
 
         {assistantMode === 'auto-rag' ? null : (
@@ -2193,6 +2253,15 @@ const AIAssistant: React.FC = () => {
               </div>
             </div>
           ))
+        )}
+
+        {isTyping && streamingAnswer && (
+          <div className="flex flex-col items-start w-full">
+            <div className="max-w-[94%] p-4 rounded-[24px] rounded-tl-none bg-teal-50/60 dark:bg-teal-900/20 text-zinc-900 dark:text-zinc-100 border border-teal-100 dark:border-teal-800/50">
+              <div className="prose-styles text-[13px] leading-[1.75] serif-text [&_p]:my-2.5 [&_p]:leading-[1.75] [&_h2]:mt-3.5 [&_h2]:mb-2 [&_h2]:font-bold [&_h3]:mt-3 [&_h3]:mb-1.5 [&_h3]:font-bold [&_strong]:font-black text-zinc-900 dark:text-zinc-100" dangerouslySetInnerHTML={{ __html: formatAIResponse(streamingAnswer) as string }} />
+              <p className="mt-2 text-[8px] font-bold uppercase tracking-wider text-zinc-400">Rédaction en cours — les citations vérifiées s'afficheront à la fin</p>
+            </div>
+          </div>
         )}
 
         {isTyping && (

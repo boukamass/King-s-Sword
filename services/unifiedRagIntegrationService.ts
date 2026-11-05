@@ -54,6 +54,7 @@ import { normalizeText } from '../utils/textUtils';
 import { aiConfig, DeepStudentConfig, isDeepStudentModeEnabled } from '../config/aiConfig';
 import { buildLongContextEvidencePackage, rewriteFollowUpQuery } from './longContextRagService';
 import { executeSmartRetrieval } from './smartRagService';
+import { buildFollowUpCacheSignature, extractPreviousCitedParagraphs, injectFollowUpSources } from './followUpContextService';
 import {
   executeDeepStudentPipeline,
   DeepStudentTelemetry
@@ -73,6 +74,10 @@ export interface UnifiedRagIntegrationOptions extends UnifiedRagOptions {
   onProgress?: (stepMessage: string) => void;
   useLegacyExtrapolativeDirective6?: boolean;
   useSmartRetrieval?: boolean;
+  /** Réponse provisoire affichée au fil de la génération (flux Gemini) */
+  onPartialAnswer?: (markdown: string) => void;
+  /** Mode local : aucun appel Gemini, les passages trouvés localement constituent la réponse (0 token) */
+  localOnly?: boolean;
 }
 
 export interface UnifiedRagExecutionResult {
@@ -208,9 +213,14 @@ export async function executeUnifiedRagAssistantFlow(
     }
   }
 
-  // 0b. Vérification du Cache Sémantique Local (0 ms) — uniquement hors client de test et hors suivi multi-tours
-  if (!options.geminiClient && !options.useLegacyExtrapolativeDirective6 && (!options.history || options.history.length <= 1)) {
-    const cached = await getCachedRagResponse(cleanQuery, contextIds);
+  // 0b. Vérification du Cache Sémantique Local (0 ms) — hors client de test ; une relance est mémorisée
+  // avec la signature du dernier échange (la même question dans une autre conversation n'est pas confondue)
+  const isMultiTurn = Boolean(options.history && options.history.length > 1);
+  const cacheQuery = isMultiTurn ? `${cleanQuery} ||| ${buildFollowUpCacheSignature(options.history!)}` : cleanQuery;
+  const cacheEnabled = !options.geminiClient && !options.useLegacyExtrapolativeDirective6 && !options.localOnly &&
+    (!isMultiTurn || aiConfig.featureFlags.useFollowUpAnswerCache);
+  if (cacheEnabled) {
+    const cached = await getCachedRagResponse(cacheQuery, contextIds);
     if (cached && cached.answerText) {
       return {
         status: 'success',
@@ -252,6 +262,10 @@ export async function executeUnifiedRagAssistantFlow(
   // 0d. Question de relance : la recherche locale est enrichie du sujet de l'échange précédent (0 token)
   const hasHistory = Array.isArray(options.history) && options.history.length > 0;
   const localFollowUpQuery = hasHistory ? buildLocalFollowUpQuery(cleanQuery, options.history!) : cleanQuery;
+  // Paragraphes cités dans la réponse précédente : réinjectés en priorité pour une relance (0 token)
+  const previousCited = hasHistory && aiConfig.featureFlags.useStickyFollowUpSources
+    ? extractPreviousCitedParagraphs(options.history!)
+    : [];
 
   // 1. Mode Contexte Long (style NotebookLM) : sources intégrales si la sélection tient dans le budget
   const longContextPackage = aiConfig.featureFlags.useLongContextGrounding
@@ -259,7 +273,8 @@ export async function executeUnifiedRagAssistantFlow(
         bibleVersion: options.bibleVersion,
         loadedSermonsMap: options.loadedSermonsMap,
         providedChunks: options.providedChunks,
-        maxChars: longContextChars
+        maxChars: longContextChars,
+        priorityParagraphs: previousCited
       })
     : null;
   if (longContextPackage && options.onProgress) {
@@ -308,7 +323,7 @@ export async function executeUnifiedRagAssistantFlow(
   // Contexte plus riche (passages + voisins ±1) en un seul appel : le plafond du prompt garantit le budget de tokens
   const effectiveMaxEvidence = isAllPassages ? Math.max(options.maxEvidenceCount || 16, 40) : (isStudy ? Math.max(options.maxEvidenceCount || 16, 30) : Math.max(options.maxEvidenceCount || 12, 24));
 
-  const evidencePackage = primaryPackage ?? await executeUnifiedRagPipeline(retrievalQuery, aiContext, {
+  let evidencePackage = primaryPackage ?? await executeUnifiedRagPipeline(retrievalQuery, aiContext, {
     topK: effectiveTopK,
     maxEvidenceCount: effectiveMaxEvidence,
     k: options.k,
@@ -322,6 +337,14 @@ export async function executeUnifiedRagAssistantFlow(
     apiKey: options.apiKey,
     queryVector: (options as any).queryVector
   });
+
+  if (!longContextPackage && previousCited.length > 0) {
+    evidencePackage = await injectFollowUpSources(evidencePackage, previousCited, aiContext, {
+      bibleVersion: options.bibleVersion,
+      loadedSermonsMap: options.loadedSermonsMap,
+      providedChunks: options.providedChunks
+    });
+  }
 
   if (options.forceGenerate && !evidencePackage.answerable && evidencePackage.evidence && evidencePackage.evidence.length > 0) {
     evidencePackage.answerable = true;
@@ -359,6 +382,38 @@ export async function executeUnifiedRagAssistantFlow(
     };
   }
 
+  // 2b. Mode local : les passages trouvés constituent la réponse, sans appel à Gemini (0 token)
+  if (options.localOnly) {
+    const latencyMs = Date.now() - t0;
+    const localMessage = 'Mode local : réponse composée des passages trouvés dans votre bibliothèque, sans appel au service d\'analyse.';
+    return {
+      status: 'error',
+      answerText: null,
+      evidencePackage,
+      generationResult: {
+        status: 'error',
+        provider: 'none',
+        model: null,
+        responseOrigin: 'none',
+        answerText: null,
+        errorCode: 'LOCAL_ONLY',
+        errorMessage: localMessage,
+        latencyMs,
+        citationsValidation: null,
+        chunkIdExposure: false,
+        technicalIdentifiersDetected: [],
+        sources: []
+      },
+      citationsValidation: null,
+      chunkIdExposure: false,
+      technicalIdentifiersDetected: [],
+      sources: [],
+      latencyMs,
+      errorMessage: localMessage,
+      vectorMethod: evidencePackage.vectorMethod
+    };
+  }
+
   // 3. Appel au Generation Adapter avec les preuves authentifiées (le plan d'étude du profil « deep »
   // complète les règles de fiabilité au lieu de les remplacer)
   const activeInstruction = options.systemInstruction;
@@ -375,7 +430,8 @@ export async function executeUnifiedRagAssistantFlow(
     useLegacyExtrapolativeDirective6: options.useLegacyExtrapolativeDirective6,
     maxPromptChars,
     answerDepth,
-    onProgress: options.onProgress
+    onProgress: options.onProgress,
+    onPartialAnswer: options.onPartialAnswer
   });
 
   const latencyMs = Date.now() - t0;
@@ -448,14 +504,13 @@ export async function executeUnifiedRagAssistantFlow(
 
   // Enregistrement en cache sémantique local uniquement si la réponse est saine (citations valides, zéro fuite technique)
   if (
-    !options.geminiClient &&
-    !options.useLegacyExtrapolativeDirective6 &&
+    cacheEnabled &&
     !isRefusal &&
     !exposureCheck.exposed &&
     (!citationsValidation || citationsValidation.allCitationsValid)
   ) {
     setCachedRagResponse(
-      cleanQuery,
+      cacheQuery,
       contextIds,
       finalAnswerText,
       genResult.sources,

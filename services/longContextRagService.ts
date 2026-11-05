@@ -33,6 +33,8 @@ export interface LongContextOptions {
   providedChunks?: SermonChunk[];
   maxChars?: number;
   maxSources?: number;
+  /** Relance : paragraphes cités dans la réponse précédente, sélectionnés en priorité (avec leurs voisins ±1) */
+  priorityParagraphs?: Array<{ sermonId: string; paragraphIndex: number }>;
 }
 
 interface DocParagraphs {
@@ -179,7 +181,10 @@ async function selectMostRelevant(
     providedChunks: options.providedChunks,
     enableParentChild: false
   });
-  if (!pkg.answerable || pkg.evidence.length === 0) return null;
+  const priority = (options.priorityParagraphs || []).filter(p => docs.some(d => d.docId === p.sermonId));
+  // Une relance (« et pourquoi ? ») reste répondable à partir des passages de la réponse précédente
+  if ((!pkg.answerable || pkg.evidence.length === 0) && priority.length === 0) return null;
+  const rankedEvidence = pkg.answerable ? pkg.evidence : [];
 
   // Positions de chaque numéro de paragraphe par document (un numéro peut apparaître plusieurs fois)
   const docsById = new Map(docs.map(d => [d.docId, d]));
@@ -206,9 +211,23 @@ async function selectMostRelevant(
     return true;
   };
 
+  // Passe 0 : paragraphes cités dans la réponse précédente et leurs voisins immédiats
+  for (const radius of [0, 1]) {
+    for (const p of priority) {
+      const doc = docsById.get(p.sermonId);
+      for (const pos of positionsByDoc.get(p.sermonId)?.get(p.paragraphIndex) || []) {
+        const targets = radius === 0 ? [pos] : [pos - 1, pos + 1];
+        for (const t of targets) {
+          if (!doc || t < 0 || t >= doc.paragraphs.length) continue;
+          if (!tryAdd(doc, t)) return keys;
+        }
+      }
+    }
+  }
+
   // Passe 1 : paragraphes des preuves, par rang ; passe 2 : voisins ±1 puis ±2 pour la continuité du propos
   for (const radius of [0, 1, 2]) {
-    for (const ev of pkg.evidence) {
+    for (const ev of rankedEvidence) {
       const doc = docsById.get(ev.sermonId);
       const positions = positionsByDoc.get(ev.sermonId);
       if (!doc || !positions) continue;

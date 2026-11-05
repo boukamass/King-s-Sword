@@ -37,6 +37,7 @@ import { mapParagraphsToChunkHits, fuseRankings, computeAdaptiveHybridWeights } 
 import { rerankHybridResults, assessAnswerability, extractSignificantQueryTerms, extractSubstantiveQueryTerms, isOverviewOrSummaryQuery, isBroadOrExhaustiveContextQuery, selectDiverseEvidenceWithMMR } from './rerankingService';
 import { expandTheologicalQuery } from './theologicalQueryService';
 import { searchByVector, embedQueryText, matchesMetadataFilter } from './vectorSearchService';
+import { decomposeComplexQuery, fuseRankedLists } from './complexQueryService';
 import { getChunksBySermonId } from './chunkStorageService';
 import { EMBEDDING_CONFIG, computeE5Embedding } from './embeddingService';
 import { getGeminiApiKey } from '../utils/apiKeyHelper';
@@ -895,10 +896,15 @@ export async function executeUnifiedRagPipeline(
   const expansionApiKey = aiConfig.featureFlags.useQueryRewrite ? options.apiKey : undefined;
   // Expansion en ligne uniquement si la reformulation par Gemini est activée (sinon : 100 % locale, 0 token)
   const queryExpansion = await expandTheologicalQuery(cleanQuery, expansionApiKey, aiConfig.featureFlags.useQueryRewrite);
-  const coreQueryTerms = extractUnifiedQueryTerms(cleanQuery);
+  // Question complexe : requête « cœur » sans formules de cadrage et volets recherchés séparément (local, 0 token)
+  const decomposition = aiConfig.featureFlags.useComplexQueryDecomposition
+    ? decomposeComplexQuery(cleanQuery, extractUnifiedQueryTerms)
+    : { coreQuery: cleanQuery, facets: [] as string[], isComplex: false };
+  const coreOnlyTerms = extractUnifiedQueryTerms(decomposition.coreQuery);
+  const coreQueryTerms = coreOnlyTerms.length > 0 ? coreOnlyTerms : extractUnifiedQueryTerms(cleanQuery);
   const effectiveQuery = queryExpansion.expandedQuery || cleanQuery;
   const allExpandedCandidates = extractUnifiedQueryTerms(effectiveQuery);
-  const normalizedQuery = normalizeText(cleanQuery);
+  const normalizedQuery = normalizeText(decomposition.coreQuery);
   const queryWords = normalizedQuery.split(/\s+/).filter(w => w.length > 2);
 
   // Termes additionnels issus des mots-clés doctrinaux et sous-requêtes multi-hop
@@ -946,6 +952,13 @@ export async function executeUnifiedRagPipeline(
     bm25Vocab = buildCorpusVocabulary(searchPool);
   }
 
+  // Volets recherchés séparément : sous-requêtes multi-hop, sinon facettes de la question complexe
+  const facetQueries = queryExpansion.isMultiHop && queryExpansion.subQueries.length >= 2
+    ? queryExpansion.subQueries
+    : decomposition.facets;
+  const isFacetedQuery = facetQueries.length >= 2;
+  const lexicalPoolSize = decomposition.isComplex ? 60 : 40;
+
   let scoredChunks = searchBM25WithInvertedIndex(
     searchPool,
     coreQueryTerms,
@@ -959,12 +972,12 @@ export async function executeUnifiedRagPipeline(
       coreWeight: 1.0,
       expandedWeight: 0.40
     },
-    40
+    lexicalPoolSize
   );
 
   // 2b. Exécution Multi-Hop Réelle avec Quotas Équilibrés par Sous-Requête (Entité A vs Entité B)
-  if (queryExpansion.isMultiHop && queryExpansion.subQueries.length >= 2) {
-    const subQueryHitLists = queryExpansion.subQueries.map(sq => {
+  if (isFacetedQuery) {
+    const subQueryHitLists = facetQueries.map(sq => {
       const sqTerms = extractUnifiedQueryTerms(sq);
       return searchBM25WithInvertedIndex(
         searchPool,
@@ -972,7 +985,7 @@ export async function executeUnifiedRagPipeline(
         expandedTerms,
         bm25Vocab,
         { k1: 1.5, b: 0.75, coreWeight: 1.0, expandedWeight: 0.35 },
-        15
+        decomposition.isComplex ? 20 : 15
       );
     });
 
@@ -996,7 +1009,7 @@ export async function executeUnifiedRagPipeline(
           }
         }
       }
-      if (mergedMap.size >= 40) break;
+      if (mergedMap.size >= lexicalPoolSize) break;
     }
 
     scoredChunks = Array.from(mergedMap.values());
@@ -1045,7 +1058,20 @@ export async function executeUnifiedRagPipeline(
         });
 
         if (validE5Chunks.length > 0) {
-          const vecResults = searchByVector(qVec, validE5Chunks, { topK: 40 });
+          let vecResults = searchByVector(qVec, validE5Chunks, { topK: 40 });
+          // Question complexe : un vecteur par volet (et pour la requête cœur), fusionnés par RRF,
+          // pour qu'aucun sujet de la question ne soit noyé dans la moyenne sémantique
+          if (decomposition.isComplex && !options.queryVector) {
+            const extraQueries = Array.from(new Set(
+              [decomposition.coreQuery, ...decomposition.facets].filter(q => q && q !== cleanQuery)
+            )).slice(0, 4);
+            const lists = [vecResults];
+            for (const extra of extraQueries) {
+              const extraVec = await computeE5Embedding(extra, 'query: ');
+              if (extraVec && extraVec.length === 384) lists.push(searchByVector(extraVec, validE5Chunks, { topK: 40 }));
+            }
+            if (lists.length > 1) vecResults = fuseRankedLists(lists, 60);
+          }
           if (vecResults.length > 0) {
             vectorHits = vecResults.map((item, idx) => ({
               chunk: item.chunk,
@@ -1185,7 +1211,7 @@ export async function executeUnifiedRagPipeline(
       {
         lambda: 0.75,
         maxPerDoc,
-        isMultiHop: queryExpansion.isMultiHop
+        isMultiHop: queryExpansion.isMultiHop || isFacetedQuery
       }
     );
 

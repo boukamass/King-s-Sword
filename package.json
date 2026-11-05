@@ -1,6 +1,6 @@
 {
   "name": "kings-sword",
-  "version": "2.9.16",
+  "version": "2.9.17",
   "description": "Logiciel d'étude des sermons de W.M. Branham",
   "main": "main.js",
   "author": "Bienvenu Massamba & Gastin Ngakosso",
@@ -17,6 +17,7 @@
     "test:guard": "npx tsx scripts/guard_auto_test.mjs",
     "test:longcontext": "npx tsx scripts/test_long_context_rag.ts",
     "test:smartrag": "npx tsx scripts/test_smart_rag.ts",
+    "test:notebooklm": "npx tsx scripts/test_notebooklm_features.ts",
     "bench:rag": "npx tsx scripts/bench_rag_library.ts",
     "test:rag": "node scripts/test_rag.mjs",
     "test:api": "node scripts/test_api_key_flow.mjs",

@@ -21,6 +21,8 @@ import { isDeepDiveStudyRequest } from './theologicalExegesisService';
 import { GoogleGenAI, Type } from '@google/genai';
 import { aiConfig } from '../config/aiConfig';
 import { LONG_CONTEXT_VECTOR_METHOD, LONG_CONTEXT_DIRECTIVES, formatLongContextSources } from './longContextRagService';
+import { buildHistoryForPrompt } from './followUpContextService';
+import { renderPartialStructuredAnswer } from './streamingAnswerService';
 
 export interface GeminiCaller {
   generateContent(params: {
@@ -28,6 +30,12 @@ export interface GeminiCaller {
     contents: any;
     config: any;
   }): Promise<{ text?: string | null; candidates?: any[]; usageMetadata?: any }>;
+  /** Version en flux (optionnelle) : la réponse arrive morceau par morceau */
+  generateContentStream?(params: {
+    model: string;
+    contents: any;
+    config: any;
+  }): Promise<AsyncIterable<{ text?: string | null; candidates?: any[]; usageMetadata?: any }>>;
 }
 
 export interface StructuredCitation {
@@ -288,6 +296,8 @@ export interface GenerateNewRagOptions {
   additionalInstruction?: string;
   /** Message de progression affiché à l'utilisateur (ex. nouvelle tentative après une surcharge) */
   onProgress?: (message: string) => void;
+  /** Réponse provisoire (Markdown, sans citations) affichée au fil de la génération */
+  onPartialAnswer?: (markdown: string) => void;
 }
 
 /** Délais d'attente avant chaque nouvelle tentative du modèle principal après une surcharge (503) */
@@ -343,6 +353,99 @@ PLAN D'ÉTUDE APPROFONDIE (demande de synthèse, de résumé ou d'étude) :
 - 'summary' : introduction de 3 à 5 paragraphes présentant le thème, la thèse d'ensemble et le fil conducteur des sources mobilisées (nombre de sermons et période couverte).
 - 'arguments' : 5 à 8 points organisés comme un plan d'étude (fondements scripturaires et définitions, développement doctrinal, enchaînement ou chronologie, concordances avec les Écritures et l'Exposé, portée pratique et spirituelle). Les tableaux Markdown sont permis dans 'explanation' pour comparer ou ordonner.
 - Pour un résumé d'un sermon : suis l'ordre du sermon, de l'introduction à la conclusion, en dégageant chaque mouvement de la prédication.`;
+
+/**
+ * Rédaction naturelle et développée (style NotebookLM) : un texte suivi plutôt qu'une liste de fragments.
+ */
+export const NATURAL_PROSE_RULES = `
+
+STYLE DE RÉDACTION :
+H. Écris en prose française naturelle et fluide, comme un enseignant qui explique à un étudiant : phrases complètes, transitions logiques entre les idées (« ainsi », « c'est pourquoi », « en revanche », « plus loin dans le même sermon »).
+I. Le 'summary' est un texte suivi : une ouverture qui répond directement, un développement qui articule les idées principales, une conclusion qui en dégage la portée. Pas de liste à puces dans le 'summary'.
+J. Chaque 'explanation' développe l'idée comme un paragraphe d'essai : elle situe le passage (sermon, date, contexte), expose l'enseignement, explique le raisonnement du prédicateur et relie ce point aux autres.
+K. Intègre de courtes expressions du prédicateur entre guillemets dans le fil du texte quand elles éclairent l'explication ; les citations longues vont dans 'citations'.`;
+
+/**
+ * Relances : la question s'interprète à la lumière de l'échange précédent.
+ */
+export const FOLLOW_UP_RULES = `
+
+CONVERSATION EN COURS :
+L. La question peut prolonger l'échange précédent (historique ci-dessus). Interprète les pronoms et les ellipses (« il », « ce silence », « ce point », « pourquoi ? », « et ensuite ? ») d'après le sujet de cet échange, puis réponds à la question ainsi complétée.
+M. Ne répète pas la réponse précédente : approfondis, précise ou complète-la avec de nouveaux passages ; renvoie à ce qui a déjà été établi en une phrase si nécessaire.`;
+
+/** Réponse du modèle (texte seul) qui ouvre la conversation après le bloc de sources */
+const SOURCES_ACKNOWLEDGEMENT = "Sources reçues. Je répondrai exclusivement à partir de ces passages, en citant leurs références exactes.";
+
+const SUPERSCRIPT_DIGITS = ['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
+/** Appel de note en exposant (¹, ², ¹²…) : sans crochets, pour ne pas être confondu avec une référence de sermon */
+export function toSuperscriptNumber(n: number): string {
+  return String(n).split('').map(d => SUPERSCRIPT_DIGITS[Number(d)] ?? d).join('');
+}
+
+/**
+ * Réponse Markdown : synthèse, puis chaque point avec ses appels de note numérotés et ses citations vérifiées.
+ */
+export function buildStructuredAnswerMarkdown(structured: StructuredResponseSchema, includeDeepDive: boolean): string {
+  let text = `## Synthèse\n${structured.summary}\n\n`;
+  let noteNumber = 0;
+  if (structured.arguments && structured.arguments.length > 0) {
+    text += `## Démonstrations & Arguments Doctrinaux\n\n`;
+    structured.arguments.forEach((arg, idx) => {
+      const citations = arg.citations || [];
+      const notes = citations.map(() => toSuperscriptNumber(++noteNumber));
+      const markers = notes.length > 0 ? ` ${notes.join(' ')}` : '';
+      text += `### ${idx + 1}. ${arg.pointTitle}\n${arg.explanation}${markers}\n\n`;
+      citations.forEach((c, cIdx) => {
+        text += `> ${notes[cIdx]} « ${c.exactQuote} » [Réf: ${c.sourceId}, Para. ${c.paragraphIndex}]\n\n`;
+      });
+    });
+  }
+  if (includeDeepDive && structured.deepDiveQuestions && structured.deepDiveQuestions.length > 0) {
+    text += `### Pistes d'approfondissement\n`;
+    structured.deepDiveQuestions.forEach(q => {
+      text += `- ${q}\n`;
+    });
+  }
+  return text;
+}
+
+/**
+ * Lit la réponse en flux : la réponse provisoire est transmise à chaque morceau reçu. Une coupure en cours de flux
+ * est traitée comme une réponse tronquée (la nouvelle tentative unique s'applique ensuite).
+ */
+async function readStreamedResponse(
+  client: GeminiCaller,
+  params: { model: string; contents: any; config: any },
+  onPartialAnswer: (markdown: string) => void
+): Promise<{ text: string; candidates: any[]; usageMetadata?: any }> {
+  const stream = await client.generateContentStream!(params);
+  let text = '';
+  let finishReason: any = undefined;
+  let usageMetadata: any = undefined;
+  let lastEmitted = '';
+  try {
+    for await (const chunk of stream) {
+      const piece = chunk?.text;
+      if (piece) {
+        text += piece;
+        const partial = renderPartialStructuredAnswer(text);
+        if (partial && partial !== lastEmitted) {
+          lastEmitted = partial;
+          try { onPartialAnswer(partial); } catch {}
+        }
+      }
+      const fr = chunk?.candidates?.[0]?.finishReason;
+      if (fr) finishReason = fr;
+      if (chunk?.usageMetadata) usageMetadata = chunk.usageMetadata;
+    }
+  } catch (err) {
+    if (!text) throw err;
+    console.warn('[GenerationAdapter] Flux interrompu, réponse traitée comme tronquée :', (err as any)?.message || err);
+    finishReason = 'STREAM_INTERRUPTED';
+  }
+  return { text, candidates: [{ finishReason }], usageMetadata };
+}
 
 /**
  * Exécute la génération New RAG en respectant strictement l'inviolabilité du contrat de génération (Étape 8 - Sortie Structurée).
@@ -409,7 +512,8 @@ export async function generateNewRagResponse(
     maxPromptChars = aiConfig.tokenBudgetConfig.maxPromptChars,
     answerDepth = 'standard',
     additionalInstruction = '',
-    onProgress
+    onProgress,
+    onPartialAnswer
   } = options;
 
   // Plafond strict du contexte transmis (préserve le quota Gemini de l'utilisateur, quelle que soit la sélection)
@@ -441,7 +545,8 @@ export async function generateNewRagResponse(
   const context = buildGenerationContext(evidencePackage, query, useLegacyExtrapolativeDirective6);
   const reqLines = extractRequestedLineCount(query);
   const lineInstruction = reqLines ? `\n\nCONSIGNE STRICTE DE LONGUEUR : L'utilisateur exige un résumé / résultat de sa demande en exactement ${reqLines} lignes.` : '';
-  const promptContents = `${context}\n\n============================================================\nQUESTION DU CHERCHEUR :\n"${query}"${lineInstruction}`;
+  const questionBlock = `QUESTION DU CHERCHEUR :\n"${query}"${lineInstruction}`;
+  const promptContents = `${context}\n\n============================================================\n${questionBlock}`;
 
   // Résolution du client Gemini (avec bascule automatique multi-clés et multi-modèles pour les appels réels)
   let client = geminiClient;
@@ -473,63 +578,67 @@ export async function generateNewRagResponse(
     // et gemini-2.5-flash (404) ne produisaient que des requêtes inutiles et des messages d'erreur trompeurs
     const modelCascade = Array.from(new Set([model, 'gemini-flash-latest'].filter(Boolean)));
 
-    client = {
-      generateContent: async (p) => {
-        let lastErr: any = null;
-        let overloadErr: any = null;
-        let quotaErr: any = null;
-        let authErr: any = null;
-        for (const k of allKeys) {
-          // Clé déjà refusée (401/403) pendant cette session : inutile de la solliciter à nouveau
-          if (invalidGeminiKeys.has(k)) continue;
-          const googleAi = new GoogleGenAI({ apiKey: k });
-          let switchKey = false;
-          for (const m of modelCascade) {
-            // Le modèle principal est réessayé après une surcharge passagère (503) ; les autres une seule fois
-            const maxAttempts = m === model ? OVERLOAD_RETRY_DELAYS_MS.length + 1 : 1;
-            for (let attempt = 0; attempt < maxAttempts; attempt++) {
-              try {
-                const res = await googleAi.models.generateContent({ ...p, model: m });
-                activeModelUsed = m;
-                return res;
-              } catch (err: any) {
-                lastErr = err;
-                const kind = classifyGeminiError(err);
-                if (kind === 'overloaded') {
-                  overloadErr = err;
-                  if (attempt < maxAttempts - 1) {
-                    onProgress?.("Le service d'analyse est très sollicité, nouvelle tentative dans quelques secondes...");
-                    await new Promise(resolve => setTimeout(resolve, OVERLOAD_RETRY_DELAYS_MS[attempt]));
-                    continue;
-                  }
-                  break; // Modèle suivant sur la même clé
+    // Une même cascade (clés, modèles, nouvelles tentatives) pour l'appel classique et l'appel en flux
+    const runWithCascade = async <T>(call: (googleAi: GoogleGenAI, m: string) => Promise<T>): Promise<T> => {
+      let lastErr: any = null;
+      let overloadErr: any = null;
+      let quotaErr: any = null;
+      let authErr: any = null;
+      for (const k of allKeys) {
+        // Clé déjà refusée (401/403) pendant cette session : inutile de la solliciter à nouveau
+        if (invalidGeminiKeys.has(k)) continue;
+        const googleAi = new GoogleGenAI({ apiKey: k });
+        let switchKey = false;
+        for (const m of modelCascade) {
+          // Le modèle principal est réessayé après une surcharge passagère (503) ; les autres une seule fois
+          const maxAttempts = m === model ? OVERLOAD_RETRY_DELAYS_MS.length + 1 : 1;
+          for (let attempt = 0; attempt < maxAttempts; attempt++) {
+            try {
+              const res = await call(googleAi, m);
+              activeModelUsed = m;
+              return res;
+            } catch (err: any) {
+              lastErr = err;
+              const kind = classifyGeminiError(err);
+              if (kind === 'overloaded') {
+                overloadErr = err;
+                if (attempt < maxAttempts - 1) {
+                  onProgress?.("Le service d'analyse est très sollicité, nouvelle tentative dans quelques secondes...");
+                  await new Promise(resolve => setTimeout(resolve, OVERLOAD_RETRY_DELAYS_MS[attempt]));
+                  continue;
                 }
-                if (kind === 'model_unavailable') break; // Modèle suivant sur la même clé
-                if (kind === 'quota') {
-                  // Quota épuisé pour cette clé : seule situation où l'on passe à la clé suivante
-                  quotaErr = err;
-                  switchKey = true;
-                  break;
-                }
-                if (kind === 'auth') {
-                  invalidGeminiKeys.add(k);
-                  authErr = err;
-                  switchKey = true;
-                  break;
-                }
-                throw err;
+                break; // Modèle suivant sur la même clé
               }
+              if (kind === 'model_unavailable') break; // Modèle suivant sur la même clé
+              if (kind === 'quota') {
+                // Quota épuisé pour cette clé : seule situation où l'on passe à la clé suivante
+                quotaErr = err;
+                switchKey = true;
+                break;
+              }
+              if (kind === 'auth') {
+                invalidGeminiKeys.add(k);
+                authErr = err;
+                switchKey = true;
+                break;
+              }
+              throw err;
             }
-            if (switchKey) break;
           }
-          // Une surcharge touche le modèle pour toutes les clés : solliciter les autres clés serait inutile
-          if (!switchKey) break;
+          if (switchKey) break;
         }
-        // Erreur la plus représentative de la cause réelle (et non la dernière tentée)
-        const meaningfulErr = overloadErr || quotaErr || authErr || lastErr;
-        if (meaningfulErr) throw meaningfulErr;
-        throw new Error('API key not valid : toutes les clés Gemini enregistrées ont été refusées.');
+        // Une surcharge touche le modèle pour toutes les clés : solliciter les autres clés serait inutile
+        if (!switchKey) break;
       }
+      // Erreur la plus représentative de la cause réelle (et non la dernière tentée)
+      const meaningfulErr = overloadErr || quotaErr || authErr || lastErr;
+      if (meaningfulErr) throw meaningfulErr;
+      throw new Error('API key not valid : toutes les clés Gemini enregistrées ont été refusées.');
+    };
+
+    client = {
+      generateContent: (p) => runWithCascade((googleAi, m) => googleAi.models.generateContent({ ...p, model: m })),
+      generateContentStream: (p) => runWithCascade((googleAi, m) => googleAi.models.generateContentStream({ ...p, model: m }))
     };
   }
 
@@ -546,50 +655,34 @@ RÈGLES STRICTES ET MANDATOIRES (Étape 8 - Sortie Structurée JSON) :
 4. CITATIONS EXACTES ET INTÉGRALES : Toute citation déclarée dans 'exactQuote' doit être une sous-chaîne exacte et intégrale du texte du paragraphe correspondant dans le package de preuves.
 5. SI ANSWERABILITY EST FALSE : Définis 'answerability' à false, 'summary' à "Les documents disponibles dans la base documentaire ne contiennent pas d'informations suffisantes pour répondre à cette question.", 'arguments' à [], et 'deepDiveQuestions' à [].
 6. GARDE ANTI-HALLUCINATION DE SECOND ÉTAGE (REQUÊTES PIÈGES VOISINES) : Si la question de l'utilisateur introduit un détail factuel, un chiffre, un lieu, une date, un objet ou un attribut anachronique/erroné qui est ABSENT ou CONTREDIT par les paragraphes fournis (ex: "huitième sceau", "trois témoins", "cheval vert", "pain au levain", "concile de Trente", "épée laser", "année 1975"), tu dois OBLIGATOIREMENT soit mettre 'answerability' à false, soit réfuter explicitement la fausse prémisse dans 'summary' en citant le fait exact du texte source sans jamais valider la prémisse erronée.`;
+  // Préparation du payload multi-tours pour Gemini si un historique est disponible (réponses compactées)
+  const cleanHistory = Array.isArray(history) && history.length > 0 ? buildHistoryForPrompt(history) : [];
+  const hasConversation = cleanHistory.length > 0;
+
   const step8SystemInstruction = baseSystemInstruction
     + ANSWER_QUALITY_RULES
+    + NATURAL_PROSE_RULES
     + (answerDepth === 'deep' ? DEEP_STUDY_RULES : '')
+    + (hasConversation ? FOLLOW_UP_RULES : '')
     + (additionalInstruction ? `\n\n${additionalInstruction}` : '');
 
-  // Préparation du payload multi-tours pour Gemini si un historique est disponible
-  let contentsPayload: any;
-  if (Array.isArray(history) && history.length > 0) {
-    const cleanHistory = history
-      .filter(h => h.content && !h.content.startsWith('**Erreur') && !h.content.toLowerCase().startsWith('erreur') && !h.content.startsWith('> **Information') && !h.content.startsWith('**Aucun passage') && !h.content.includes('\u274C') && !h.content.includes('\u26A0'))
-      .slice(-6)
-      .map(h => ({
-        role: h.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: h.content.substring(0, 4000) }]
-      }));
-    // Plafond global de l'historique : on conserve les échanges les plus récents
-    let historyChars = 0;
-    for (let i = cleanHistory.length - 1; i >= 0; i--) {
-      historyChars += cleanHistory[i].parts[0].text.length;
-      if (historyChars > aiConfig.tokenBudgetConfig.maxHistoryChars) {
-        cleanHistory.splice(0, i + 1);
-        break;
-      }
-    }
-
-    contentsPayload = cleanHistory.length > 0
-      ? [
-          ...cleanHistory,
-          {
-            role: 'user',
-            parts: [{ text: promptContents }]
-          }
-        ]
-      : promptContents;
-  } else {
-    contentsPayload = promptContents;
-  }
+  // Les sources ouvrent la conversation, avant l'historique : d'une relance à l'autre sur les mêmes sources,
+  // le début du prompt est identique et Gemini le réutilise automatiquement (mise en cache implicite, tokens économisés)
+  const contentsPayload: any = hasConversation
+    ? [
+        { role: 'user', parts: [{ text: context }] },
+        { role: 'model', parts: [{ text: SOURCES_ACKNOWLEDGEMENT }] },
+        ...cleanHistory,
+        { role: 'user', parts: [{ text: questionBlock }] }
+      ]
+    : promptContents;
 
   const t0 = Date.now();
   let parsedJson: StructuredResponseSchema | null = null;
   let isValid = false;
 
   try {
-    const response = await client.generateContent({
+    const requestParams = {
       model,
       contents: contentsPayload,
       config: {
@@ -599,7 +692,11 @@ RÈGLES STRICTES ET MANDATOIRES (Étape 8 - Sortie Structurée JSON) :
         responseMimeType: 'application/json',
         responseSchema: STEP8_RESPONSE_SCHEMA
       }
-    });
+    };
+    const useStreaming = Boolean(onPartialAnswer && client.generateContentStream && aiConfig.featureFlags.useStreamingAnswers);
+    const response = useStreaming
+      ? await readStreamedResponse(client, requestParams, onPartialAnswer!)
+      : await client.generateContent(requestParams);
 
     const finishReason = response?.candidates?.[0]?.finishReason;
     const responseText = response?.text;
@@ -640,7 +737,7 @@ RÈGLES STRICTES ET MANDATOIRES (Étape 8 - Sortie Structurée JSON) :
               ...contentsPayload.slice(0, -1),
               {
                 role: 'user',
-                parts: [{ text: `${promptContents}${retryInstruction}` }]
+                parts: [{ text: `${hasConversation ? questionBlock : promptContents}${retryInstruction}` }]
               }
             ]
           : `${contentsPayload}${retryInstruction}`;
@@ -775,39 +872,10 @@ RÈGLES STRICTES ET MANDATOIRES (Étape 8 - Sortie Structurée JSON) :
     const verifiedStructured = verificationReport.sanitizedResponse;
 
     // Construction du texte markdown brut (avant filtrage des rejets) pour l'audit de validation
-    let rawAnswerText = `## Synthèse\n${parsedJson.summary}\n\n`;
-    if (parsedJson.arguments && parsedJson.arguments.length > 0) {
-      rawAnswerText += `## Démonstrations & Arguments Doctrinaux\n\n`;
-      parsedJson.arguments.forEach((arg, idx) => {
-        rawAnswerText += `### ${idx + 1}. ${arg.pointTitle}\n${arg.explanation}\n\n`;
-        if (arg.citations && arg.citations.length > 0) {
-          arg.citations.forEach(c => {
-            rawAnswerText += `> « ${c.exactQuote} » [Réf: ${c.sourceId}, Para. ${c.paragraphIndex}]\n\n`;
-          });
-        }
-      });
-    }
+    const rawAnswerText = buildStructuredAnswerMarkdown(parsedJson, false);
 
-    // Construction du texte markdown final vérifié et réparé
-    let answerText = `## Synthèse\n${verifiedStructured.summary}\n\n`;
-    if (verifiedStructured.arguments && verifiedStructured.arguments.length > 0) {
-      answerText += `## Démonstrations & Arguments Doctrinaux\n\n`;
-      verifiedStructured.arguments.forEach((arg, idx) => {
-        answerText += `### ${idx + 1}. ${arg.pointTitle}\n${arg.explanation}\n\n`;
-        if (arg.citations && arg.citations.length > 0) {
-          arg.citations.forEach(c => {
-            answerText += `> « ${c.exactQuote} » [Réf: ${c.sourceId}, Para. ${c.paragraphIndex}]\n\n`;
-          });
-        }
-      });
-    }
-
-    if (verifiedStructured.deepDiveQuestions && verifiedStructured.deepDiveQuestions.length > 0) {
-      answerText += `### Pistes d'approfondissement\n`;
-      verifiedStructured.deepDiveQuestions.forEach(q => {
-        answerText += `- ${q}\n`;
-      });
-    }
+    // Construction du texte markdown final vérifié et réparé (appels de note ¹ ² renvoyant aux citations)
+    const answerText = buildStructuredAnswerMarkdown(verifiedStructured, true);
 
     // Détection d'exposition d'identifiants techniques
     const exposureCheck = detectTechnicalIdentifierExposure(answerText);
