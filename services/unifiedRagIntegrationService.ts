@@ -50,6 +50,7 @@ import {
 } from './theologicalExegesisService';
 import { extractSubstantiveQueryTerms, isOverviewOrSummaryQuery, isBroadOrExhaustiveContextQuery } from './rerankingService';
 import { detectQueryIntent } from './queryIntentService';
+import { normalizeText } from '../utils/textUtils';
 import { aiConfig, DeepStudentConfig, isDeepStudentModeEnabled } from '../config/aiConfig';
 import { buildLongContextEvidencePackage, rewriteFollowUpQuery } from './longContextRagService';
 import { executeSmartRetrieval } from './smartRagService';
@@ -100,6 +101,52 @@ export interface ShadowComparisonResult {
   unifiedResult: UnifiedRagExecutionResult;
   legacyRun: boolean;
   timestamp: string;
+}
+
+// Termes structurels des réponses générées, sans valeur pour retrouver le sujet de l'échange
+const ANSWER_BOILERPLATE_TERMS = new Set([
+  'synthese', 'demonstrations', 'arguments', 'doctrinaux', 'pistes', 'approfondissement', 'william', 'branham',
+  'marrion', 'sermon', 'sermons', 'predicateur', 'passages', 'consultes', 'para', 'paragraphe', 'citation', 'citations'
+]);
+
+/**
+ * Enrichit localement une question de relance (« et pourquoi ce silence ? ») avec le sujet de l'échange précédent :
+ * termes de la question précédente, puis termes les plus fréquents de la réponse précédente.
+ */
+export function buildLocalFollowUpQuery(query: string, history: ChatMessage[]): string {
+  const isFollowUp = /\b(pourquoi|comment|qui|que|quoi|et pour|ce que tu viens|ce point|cette phrase|cette citation|ce sujet|approfondis|developpe|explique|plus de citations|ensuite|autre|deuxieme|troisieme|quatrieme|precedent|suivant)\b/i
+    .test(normalizeText(query)) || query.split(/\s+/).length <= 5;
+  if (!isFollowUp) return query;
+
+  const ownTerms = new Set(extractSubstantiveQueryTerms(query).map(t => normalizeText(t)));
+  const lastUser = [...history].reverse().find(m => m.role === 'user' && m.content && m.content.trim() !== query.trim());
+  const lastAssistant = [...history].reverse().find(m =>
+    m.role === 'assistant' && m.content && !m.content.startsWith('**Erreur') && !m.content.startsWith('> **Mode Local'));
+
+  const keywords: string[] = [];
+  if (lastUser) {
+    for (const t of extractSubstantiveQueryTerms(lastUser.content)) {
+      const nt = normalizeText(t);
+      if (!ownTerms.has(nt) && !keywords.includes(nt)) keywords.push(nt);
+      if (keywords.length >= 4) break;
+    }
+  }
+  if (lastAssistant) {
+    const text = normalizeText(lastAssistant.content.replace(/\[R[ée]f:[^\]]*\]/g, ' '));
+    const counts = new Map<string, number>();
+    for (const word of text.split(/[^a-z0-9]+/)) {
+      if (word.length < 5 || ANSWER_BOILERPLATE_TERMS.has(word) || ownTerms.has(word) || keywords.includes(word)) continue;
+      counts.set(word, (counts.get(word) || 0) + 1);
+    }
+    const substantive = new Set(extractSubstantiveQueryTerms(Array.from(counts.keys()).join(' ')).map(t => normalizeText(t)));
+    const frequent = Array.from(counts.entries())
+      .filter(([w, n]) => n >= 2 && substantive.has(w))
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([w]) => w);
+    keywords.push(...frequent);
+  }
+  return keywords.length > 0 ? `${query} ${keywords.join(' ')}` : query;
 }
 
 /**
@@ -202,9 +249,13 @@ export async function executeUnifiedRagAssistantFlow(
   const maxPromptChars = answerDepth === 'deep' ? budget.maxPromptChars : budget.standardPromptChars;
   const longContextChars = answerDepth === 'deep' ? aiConfig.longContextConfig.maxChars : budget.standardLongContextChars;
 
+  // 0d. Question de relance : la recherche locale est enrichie du sujet de l'échange précédent (0 token)
+  const hasHistory = Array.isArray(options.history) && options.history.length > 0;
+  const localFollowUpQuery = hasHistory ? buildLocalFollowUpQuery(cleanQuery, options.history!) : cleanQuery;
+
   // 1. Mode Contexte Long (style NotebookLM) : sources intégrales si la sélection tient dans le budget
   const longContextPackage = aiConfig.featureFlags.useLongContextGrounding
-    ? await buildLongContextEvidencePackage(cleanQuery, aiContext, {
+    ? await buildLongContextEvidencePackage(localFollowUpQuery, aiContext, {
         bibleVersion: options.bibleVersion,
         loadedSermonsMap: options.loadedSermonsMap,
         providedChunks: options.providedChunks,
@@ -224,7 +275,6 @@ export async function executeUnifiedRagAssistantFlow(
   const isAllPassages = isAllPassagesRequest(cleanQuery);
 
   // 1b. Retrieval intelligent piloté par Gemini pour les sélections trop grandes pour le contexte long
-  const hasHistory = Array.isArray(options.history) && options.history.length > 0;
   const smartEnabled = !longContextPackage &&
     !options.forceGenerate &&
     aiConfig.featureFlags.useSmartRetrieval &&
@@ -246,30 +296,12 @@ export async function executeUnifiedRagAssistantFlow(
 
   // 1c. Repli : Retrieval Unified RAG local sous contrainte stricte de l'AI Context
   // Enrichissement contextuel de la requête pour les questions de relance / multi-tours
-  let retrievalQuery = smartResult?.standaloneQuery || cleanQuery;
+  let retrievalQuery = smartResult?.standaloneQuery || localFollowUpQuery;
   const rewrittenQuery = !primaryPackage && !smartResult && hasHistory && aiConfig.featureFlags.useConversationalRewrite && !options.geminiClient
     ? await rewriteFollowUpQuery(cleanQuery, options.history!, { apiKey: options.apiKey })
     : null;
   if (rewrittenQuery) {
     retrievalQuery = rewrittenQuery;
-  } else if (!primaryPackage && retrievalQuery === cleanQuery && hasHistory) {
-    const isFollowUp = /\b(pourquoi|comment|qui|que|quoi|et pour|ce que tu viens|ce point|cette phrase|cette citation|ce sujet|approfondis|developpe|explique|plus de citations|ensuite|autre|deuxieme|troisieme|quatrieme|precedent|suivant)\b/i.test(cleanQuery) || cleanQuery.split(/\s+/).length <= 4;
-    if (isFollowUp) {
-      const lastUserMsg = [...options.history].reverse().find(m => m.role === 'user' && m.content !== cleanQuery);
-      const lastAssistantMsg = [...options.history].reverse().find(m => m.role === 'assistant' && m.content && !m.content.startsWith('**Erreur') && !m.content.toLowerCase().startsWith('erreur'));
-      
-      const prevKeywords: string[] = [];
-      if (lastUserMsg && lastUserMsg.content) {
-        prevKeywords.push(...extractSubstantiveQueryTerms(lastUserMsg.content).slice(0, 3));
-      }
-      if (lastAssistantMsg && lastAssistantMsg.content) {
-        prevKeywords.push(...extractSubstantiveQueryTerms(lastAssistantMsg.content).slice(0, 3));
-      }
-      const uniqueKeywords = Array.from(new Set(prevKeywords));
-      if (uniqueKeywords.length > 0) {
-        retrievalQuery = `${cleanQuery} ${uniqueKeywords.join(' ')}`;
-      }
-    }
   }
 
   const effectiveTopK = isAllPassages ? Math.max(options.topK || 25, 50) : (isStudy ? Math.max(options.topK || 20, 35) : Math.max(options.topK || 20, 25));
@@ -342,12 +374,31 @@ export async function executeUnifiedRagAssistantFlow(
     history: options.history,
     useLegacyExtrapolativeDirective6: options.useLegacyExtrapolativeDirective6,
     maxPromptChars,
-    answerDepth
+    answerDepth,
+    onProgress: options.onProgress
   });
 
   const latencyMs = Date.now() - t0;
 
-  // 4. Si la génération a échoué
+  // 4a. Gemini a lu les sources et conclut qu'elles ne couvrent pas la question : réponse de refus (pas une panne)
+  if (genResult.status === 'not_answerable' && genResult.answerText) {
+    return {
+      status: 'success',
+      answerText: genResult.answerText,
+      evidencePackage,
+      generationResult: { ...genResult, sourcesSuffisantes: false },
+      citationsValidation: null,
+      chunkIdExposure: false,
+      technicalIdentifiersDetected: [],
+      sources: [],
+      latencyMs,
+      errorMessage: null,
+      vectorMethod: evidencePackage.vectorMethod,
+      deepStudentTelemetry: fallbackTelemetryFrom429
+    };
+  }
+
+  // 4b. Si la génération a échoué
   if (genResult.status !== 'success' || !genResult.answerText) {
     return {
       status: genResult.status === 'not_answerable' ? 'not_answerable' : 'error',

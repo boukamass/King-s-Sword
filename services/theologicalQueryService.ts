@@ -287,10 +287,12 @@ export function expandLocally(query: string): ExpandedTheologicalQuery {
 /**
  * Expande la requête avec le LLM en ligne si la clé API est disponible,
  * avec repli automatique sur l'expansion locale déterministe.
+ * allowRemote = false : expansion strictement locale (aucun appel Gemini, quota de l'utilisateur préservé).
  */
 export async function expandTheologicalQuery(
   query: string,
-  apiKey?: string
+  apiKey?: string,
+  allowRemote: boolean = true
 ): Promise<ExpandedTheologicalQuery> {
   const cleanQuery = (query || '').trim();
   if (!cleanQuery) {
@@ -304,6 +306,9 @@ export async function expandTheologicalQuery(
   }
 
   const localResult = expandLocally(cleanQuery);
+  if (!allowRemote) {
+    return localResult;
+  }
   const activeKey = apiKey || getGeminiApiKey();
 
   // Si pas de clé ou hors-ligne, retourner l'expansion locale instantanée

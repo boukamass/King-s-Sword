@@ -286,6 +286,38 @@ export interface GenerateNewRagOptions {
   answerDepth?: 'standard' | 'deep';
   /** Consignes complémentaires ajoutées aux règles de base (sans jamais les remplacer) */
   additionalInstruction?: string;
+  /** Message de progression affiché à l'utilisateur (ex. nouvelle tentative après une surcharge) */
+  onProgress?: (message: string) => void;
+}
+
+/** Délais d'attente avant chaque nouvelle tentative du modèle principal après une surcharge (503) */
+export const OVERLOAD_RETRY_DELAYS_MS = [3000, 8000];
+
+/** Clés refusées par Google (401/403) pendant la session : elles ne sont plus sollicitées */
+const invalidGeminiKeys = new Set<string>();
+
+export type GeminiErrorKind = 'overloaded' | 'model_unavailable' | 'quota' | 'auth' | 'other';
+
+/**
+ * Classe une erreur de l'API Gemini selon sa cause réelle.
+ */
+export function classifyGeminiError(err: any): GeminiErrorKind {
+  const msg = String(err?.message || err || '').toLowerCase();
+  const status = Number(err?.status ?? err?.code ?? 0);
+  if (status === 401 || status === 403 || msg.includes('"code":401') || msg.includes('"code":403') ||
+      msg.includes('api key not valid') || msg.includes('unauthenticated') || msg.includes('permission_denied')) {
+    return 'auth';
+  }
+  if (status === 429 || msg.includes('"code":429') || msg.includes('resource_exhausted') || msg.includes('quota')) {
+    return 'quota';
+  }
+  if (status === 503 || msg.includes('"code":503') || msg.includes('overloaded') || msg.includes('high demand') || msg.includes('"status":"unavailable"')) {
+    return 'overloaded';
+  }
+  if (status === 404 || msg.includes('"code":404') || msg.includes('not found') || msg.includes('not supported')) {
+    return 'model_unavailable';
+  }
+  return 'other';
 }
 
 /**
@@ -376,7 +408,8 @@ export async function generateNewRagResponse(
     useLegacyExtrapolativeDirective6 = false,
     maxPromptChars = aiConfig.tokenBudgetConfig.maxPromptChars,
     answerDepth = 'standard',
-    additionalInstruction = ''
+    additionalInstruction = '',
+    onProgress
   } = options;
 
   // Plafond strict du contexte transmis (préserve le quota Gemini de l'utilisateur, quelle que soit la sélection)
@@ -436,39 +469,66 @@ export async function generateNewRagResponse(
       };
     }
 
-    const modelCascade = Array.from(new Set([
-      model,
-      'gemini-2.5-flash',
-      'gemini-flash-latest',
-      ...(aiConfig.models.fastFailoverCascade || [])
-    ].filter(Boolean)));
+    // Cascade limitée aux modèles Flash accessibles avec une clé gratuite : le modèle Pro (quota gratuit nul)
+    // et gemini-2.5-flash (404) ne produisaient que des requêtes inutiles et des messages d'erreur trompeurs
+    const modelCascade = Array.from(new Set([model, 'gemini-flash-latest'].filter(Boolean)));
 
     client = {
       generateContent: async (p) => {
         let lastErr: any = null;
+        let overloadErr: any = null;
+        let quotaErr: any = null;
+        let authErr: any = null;
         for (const k of allKeys) {
+          // Clé déjà refusée (401/403) pendant cette session : inutile de la solliciter à nouveau
+          if (invalidGeminiKeys.has(k)) continue;
           const googleAi = new GoogleGenAI({ apiKey: k });
+          let switchKey = false;
           for (const m of modelCascade) {
-            try {
-              const res = await googleAi.models.generateContent({ ...p, model: m });
-              activeModelUsed = m;
-              return res;
-            } catch (err: any) {
-              lastErr = err;
-              const msg = (err?.message || String(err)).toLowerCase();
-              const isModelError = msg.includes('404') || msg.includes('not found') || msg.includes('not supported');
-              const isQuotaOrRate = msg.includes('429') || msg.includes('quota') || msg.includes('resource_exhausted') || msg.includes('503') || msg.includes('overloaded');
-              if (isModelError) {
-                continue; // Essaie le modèle suivant sur la même clé
+            // Le modèle principal est réessayé après une surcharge passagère (503) ; les autres une seule fois
+            const maxAttempts = m === model ? OVERLOAD_RETRY_DELAYS_MS.length + 1 : 1;
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+              try {
+                const res = await googleAi.models.generateContent({ ...p, model: m });
+                activeModelUsed = m;
+                return res;
+              } catch (err: any) {
+                lastErr = err;
+                const kind = classifyGeminiError(err);
+                if (kind === 'overloaded') {
+                  overloadErr = err;
+                  if (attempt < maxAttempts - 1) {
+                    onProgress?.("Le service d'analyse est très sollicité, nouvelle tentative dans quelques secondes...");
+                    await new Promise(resolve => setTimeout(resolve, OVERLOAD_RETRY_DELAYS_MS[attempt]));
+                    continue;
+                  }
+                  break; // Modèle suivant sur la même clé
+                }
+                if (kind === 'model_unavailable') break; // Modèle suivant sur la même clé
+                if (kind === 'quota') {
+                  // Quota épuisé pour cette clé : seule situation où l'on passe à la clé suivante
+                  quotaErr = err;
+                  switchKey = true;
+                  break;
+                }
+                if (kind === 'auth') {
+                  invalidGeminiKeys.add(k);
+                  authErr = err;
+                  switchKey = true;
+                  break;
+                }
+                throw err;
               }
-              if (isQuotaOrRate) {
-                continue; // Essaie le modèle suivant puis la clé suivante
-              }
-              throw err;
             }
+            if (switchKey) break;
           }
+          // Une surcharge touche le modèle pour toutes les clés : solliciter les autres clés serait inutile
+          if (!switchKey) break;
         }
-        throw lastErr || new Error('Échec de génération Gemini sur tous les modèles de secours.');
+        // Erreur la plus représentative de la cause réelle (et non la dernière tentée)
+        const meaningfulErr = overloadErr || quotaErr || authErr || lastErr;
+        if (meaningfulErr) throw meaningfulErr;
+        throw new Error('API key not valid : toutes les clés Gemini enregistrées ont été refusées.');
       }
     };
   }
@@ -758,20 +818,33 @@ RÈGLES STRICTES ET MANDATOIRES (Étape 8 - Sortie Structurée JSON) :
       evidencePackage
     });
 
-    // Extraction et déduplication des sources
+    // Sources affichées : uniquement les paragraphes réellement cités dans la réponse, dans leur ordre d'apparition
+    // (repli : les premiers paragraphes transmis si le modèle n'a cité aucun passage)
     const seenSourceKeys = new Set<string>();
     const sources: Array<{ title: string; uri: string; sermonId: string; paragraphIndex: number }> = [];
-    for (const ev of evidencePackage.evidence) {
-      for (const cp of ev.citationParagraphs) {
-        const key = `${ev.sermonId}_${cp.paragraphIndex}`;
-        if (!seenSourceKeys.has(key)) {
-          seenSourceKeys.add(key);
-          sources.push({
-            title: `${ev.sermonTitle} (${ev.date || 'Non daté'}) — §${cp.paragraphIndex}`,
-            uri: `sermon://${ev.sermonId}/${cp.paragraphIndex}`,
-            sermonId: ev.sermonId,
-            paragraphIndex: cp.paragraphIndex
-          });
+    const evidenceByDoc = new Map(evidencePackage.evidence.map(ev => [ev.sermonId, ev]));
+    const pushSource = (sermonId: string, paragraphIndex: number) => {
+      const key = `${sermonId}_${paragraphIndex}`;
+      const ev = evidenceByDoc.get(sermonId);
+      if (!ev || seenSourceKeys.has(key)) return;
+      seenSourceKeys.add(key);
+      sources.push({
+        title: `${ev.sermonTitle} (${ev.date || 'Non daté'}) — §${paragraphIndex}`,
+        uri: `sermon://${sermonId}/${paragraphIndex}`,
+        sermonId,
+        paragraphIndex
+      });
+    };
+    for (const arg of verifiedStructured.arguments || []) {
+      for (const c of arg.citations || []) {
+        if (c && c.sourceId && Number.isFinite(Number(c.paragraphIndex))) pushSource(c.sourceId, Number(c.paragraphIndex));
+      }
+    }
+    if (sources.length === 0) {
+      for (const ev of evidencePackage.evidence) {
+        for (const cp of ev.citationParagraphs) {
+          if (sources.length >= 20) break;
+          pushSource(ev.sermonId, cp.paragraphIndex);
         }
       }
     }
@@ -801,12 +874,16 @@ RÈGLES STRICTES ET MANDATOIRES (Étape 8 - Sortie Structurée JSON) :
 
     let errorCode = 'API_ERROR';
     let userMessage = errorMsg;
-    if (normErr.includes('429') || normErr.includes('resource_exhausted') || normErr.includes('quota')) {
+    const errorKind = classifyGeminiError(err);
+    if (errorKind === 'quota') {
       errorCode = 'RESOURCE_EXHAUSTED';
       userMessage = "Le service d'analyse a reçu trop de demandes en peu de temps. Patientez environ une minute, puis reposez votre question.";
-    } else if (normErr.includes('503') || normErr.includes('unavailable') || normErr.includes('high demand') || normErr.includes('overloaded')) {
+    } else if (errorKind === 'overloaded' || normErr.includes('unavailable')) {
       errorCode = 'SERVICE_UNAVAILABLE';
       userMessage = "Le service d'analyse est momentanément surchargé. Réessayez dans quelques instants.";
+    } else if (errorKind === 'auth') {
+      errorCode = 'API_KEY_INVALID';
+      userMessage = "La clé Gemini enregistrée est refusée par Google. Vérifiez-la ou remplacez-la via le bouton « Clé Active ».";
     }
     // Le détail technique (codes, quotas, tokens) reste dans la console et n'est jamais montré à l'utilisateur
     console.warn('[GenerationAdapter] Échec de génération :', errorMsg);

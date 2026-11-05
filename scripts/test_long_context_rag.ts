@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { SermonChunk } from '../types';
 import { buildLongContextEvidencePackage, rewriteFollowUpQuery, LONG_CONTEXT_VECTOR_METHOD } from '../services/longContextRagService';
-import { executeUnifiedRagAssistantFlow } from '../services/unifiedRagIntegrationService';
+import { executeUnifiedRagAssistantFlow, buildLocalFollowUpQuery } from '../services/unifiedRagIntegrationService';
 import { GeminiCaller, enforcePromptBudget } from '../services/generationAdapter';
 import { aiConfig } from '../config/aiConfig';
 
@@ -198,6 +198,69 @@ async function main() {
       assert.ok(si.includes("PLAN D'ÉTUDE APPROFONDIE"));
       const ti = targeted.sent[0].instruction;
       assert.ok(ti.includes('RÈGLES DE RÉDACTION') && !ti.includes("PLAN D'ÉTUDE APPROFONDIE"));
+    } finally {
+      console.log = quiet;
+    }
+  });
+
+  await test('relance : la recherche locale reprend le sujet de l’échange précédent', async () => {
+    const history: any[] = [
+      { role: 'user', content: 'Que dit-il du septième sceau ?' },
+      { role: 'assistant', content: "## Synthèse\nWilliam Branham enseigne que le Septième Sceau provoque un silence. Le mystère du Septième Sceau est caché. Le mystère est lié aux Tonnerres. [Réf: 63-0324M, Para. 44]" },
+      { role: 'user', content: 'Et pourquoi ce silence ?' }
+    ];
+    const enriched = buildLocalFollowUpQuery('Et pourquoi ce silence ?', history);
+    assert.ok(enriched.startsWith('Et pourquoi ce silence ?'));
+    assert.ok(/septieme/.test(enriched) && /sceau/.test(enriched), enriched);
+    assert.ok(!/synthese|branham|william/.test(enriched), enriched);
+    const standalone = "Quelle est la différence entre la foi et l'espérance dans les sermons de 1963 ?";
+    assert.equal(buildLocalFollowUpQuery(standalone, history), standalone);
+  });
+
+  await test('un refus formulé par Gemini est rendu comme un refus, pas comme une panne', async () => {
+    const quiet = console.log;
+    console.log = () => {};
+    try {
+      const client: GeminiCaller = {
+        async generateContent() {
+          return { text: JSON.stringify({ answerability: false, summary: 'x', arguments: [], deepDiveQuestions: [] }), candidates: [{ finishReason: 'STOP' }] };
+        }
+      };
+      const res = await executeUnifiedRagAssistantFlow('Que signifie le septième sceau ?', ['63-0318'], { providedChunks: longChunks, geminiClient: client, useDeepStudentMode: false });
+      console.log = quiet;
+      assert.equal(res.status, 'success');
+      assert.equal(res.generationResult?.sourcesSuffisantes, false);
+      assert.ok(res.answerText && res.answerText.length > 0);
+    } finally {
+      console.log = quiet;
+    }
+  });
+
+  await test('les sources affichées se limitent aux paragraphes cités', async () => {
+    const quiet = console.log;
+    console.log = () => {};
+    try {
+      const client: GeminiCaller = {
+        async generateContent() {
+          return {
+            text: JSON.stringify({
+              answerability: true,
+              summary: 'Le septième sceau est un mystère.',
+              arguments: [{
+                pointTitle: 'Le silence',
+                explanation: 'Explication.',
+                citations: [{ sourceId: '63-0318', paragraphIndex: 10, exactQuote: 'Le septième sceau est le mystère caché, et le silence se fit dans le ciel pendant une demi-heure.' }]
+              }],
+              deepDiveQuestions: []
+            }),
+            candidates: [{ finishReason: 'STOP' }]
+          };
+        }
+      };
+      const res = await executeUnifiedRagAssistantFlow('Que signifie le septième sceau ?', ['63-0318'], { providedChunks: longChunks, geminiClient: client, useDeepStudentMode: false });
+      console.log = quiet;
+      assert.equal(res.status, 'success');
+      assert.deepEqual((res.sources || []).map(s => s.paragraphIndex), [10]);
     } finally {
       console.log = quiet;
     }

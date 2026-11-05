@@ -28,7 +28,7 @@ import {
   isIndexingPausedOnStartup,
   setIndexingPausedOnStartup
 } from '../services/corpusIndexInitializationService';
-import { Sermon, ChatMessage, CitationValidationResult, RetrievalEvidencePackage } from '../types';
+import { Sermon, ChatMessage, CitationValidationResult, RetrievalEvidence, RetrievalEvidencePackage } from '../types';
 import { splitSermonIntoParagraphs, extractLeadingParagraphNumber } from '../utils/textUtils';
 import { 
   Lightbulb, 
@@ -93,12 +93,39 @@ interface ChatMessageWithSources extends ChatMessage {
 
 function buildLocalFallbackFromEvidence(
   evidencePackage?: RetrievalEvidencePackage,
-  errorMessage?: string | null
+  errorMessage?: string | null,
+  errorCode?: string | null
 ): { content: string; sources: GeminiSource[] } | null {
-  const evidence = evidencePackage?.evidence || [];
-  if (evidence.length === 0) return null;
+  const rawEvidence = evidencePackage?.evidence || [];
+  if (rawEvidence.length === 0) return null;
+
+  // Une source transmise en texte intégral (contexte long) est présentée par ses paragraphes les plus pertinents
+  const fallbackQueryTerms = (evidencePackage?.query || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^\w\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 2);
+  const evidence: RetrievalEvidence[] = rawEvidence.flatMap(ev => {
+    if (ev.sourceType !== 'full_text' || !Array.isArray(ev.citationParagraphs) || ev.citationParagraphs.length <= 1) return [ev];
+    const scored = ev.citationParagraphs.map(cp => {
+      const pText = (cp.fullParagraphText || cp.textSnippet || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+      return { cp, score: fallbackQueryTerms.reduce((n, t) => n + (pText.includes(t) ? 1 : 0), 0) };
+    });
+    const best = scored.filter(s => s.score > 0).sort((a, b) => b.score - a.score).slice(0, 6);
+    return (best.length > 0 ? best : scored.slice(0, 3)).map(({ cp }) => ({
+      ...ev,
+      paragraphIds: [cp.paragraphIndex],
+      startParagraph: cp.paragraphIndex,
+      endParagraph: cp.paragraphIndex,
+      text: cp.fullParagraphText || cp.textSnippet,
+      citationParagraphs: [cp]
+    }));
+  });
 
   const rawErr = errorMessage || '';
+  const code = errorCode || '';
   const isOffline = (typeof navigator !== 'undefined' && navigator.onLine === false) ||
     rawErr.toLowerCase().includes('failed to fetch') ||
     rawErr.toLowerCase().includes('networkerror') ||
@@ -106,12 +133,15 @@ function buildLocalFallbackFromEvidence(
     rawErr.toLowerCase().includes('offline') ||
     rawErr.toLowerCase().includes('err_internet_disconnected');
 
-  let reasonNotice = 'Le service de synthèse Gemini est actuellement indisponible ou sans crédit.';
+  // La cause est déterminée par le code d'erreur (le message affiché à l'utilisateur ne contient aucun détail technique)
+  let reasonNotice = "Le service d'analyse n'a pas pu rédiger la réponse cette fois-ci. Reformulez ou reposez la question dans un instant.";
   if (isOffline) {
     reasonNotice = 'Mode Hors-Ligne (aucune connexion Internet) — résultats extraits directement par le moteur local.';
-  } else if (rawErr.includes('402') || rawErr.toLowerCase().includes('prepayment credits') || rawErr.includes('RESOURCE_EXHAUSTED') || rawErr.includes('429') || rawErr.toLowerCase().includes('quota')) {
-    reasonNotice = 'Crédits ou quota Gemini épuisés — bascule automatique sur les résultats du modèle local.';
-  } else if (rawErr.toLowerCase().includes('clé') || rawErr.toLowerCase().includes('api key') || rawErr.includes('MISSING_API_KEY')) {
+  } else if (code === 'RESOURCE_EXHAUSTED' || rawErr.includes('402') || rawErr.toLowerCase().includes('prepayment credits') || rawErr.includes('RESOURCE_EXHAUSTED') || rawErr.includes('429')) {
+    reasonNotice = "Le service d'analyse a reçu trop de demandes en peu de temps. Réessayez dans une minute ; en attendant, voici les passages trouvés localement.";
+  } else if (code === 'SERVICE_UNAVAILABLE') {
+    reasonNotice = "Le service d'analyse est momentanément surchargé. Réessayez dans quelques instants ; en attendant, voici les passages trouvés localement.";
+  } else if (code === 'API_KEY_MISSING' || rawErr.toLowerCase().includes('clé') || rawErr.toLowerCase().includes('api key') || rawErr.includes('MISSING_API_KEY')) {
     reasonNotice = 'Clé Gemini absente ou inactive — bascule automatique sur les résultats du modèle local.';
   }
 
@@ -171,6 +201,10 @@ function buildLocalFallbackFromEvidence(
     const paraLabel = startPara === endPara ? `Para. ${bestPara}` : `Para. ${bestPara} (bloc §${startPara}-${endPara})`;
 
     lines.push(`### ${idx + 1}. ${title}${dateSuffix} — ${paraLabel} [Réf: ${ev.sermonId}, Para. ${bestPara}]`);
+    const bestText = (ev.citationParagraphs?.find(cp => cp.paragraphIndex === bestPara)?.fullParagraphText || ev.text || '').trim();
+    if (bestText) {
+      lines.push(`> « ${bestText.length > 320 ? `${bestText.slice(0, 320).trim()}…` : bestText} »`, '');
+    }
 
     const sourceKey = `${ev.sermonId}_${bestPara}`;
     if (!seenSources.has(sourceKey)) {
@@ -598,7 +632,7 @@ const AIAssistant: React.FC = () => {
           sources: unifiedResult.sources && unifiedResult.sources.length > 0 ? unifiedResult.sources : undefined
         });
       } else {
-        const localFallback = buildLocalFallbackFromEvidence(unifiedResult.evidencePackage, unifiedResult.errorMessage);
+        const localFallback = buildLocalFallbackFromEvidence(unifiedResult.evidencePackage, unifiedResult.errorMessage, unifiedResult.generationResult?.errorCode);
         if (localFallback) {
           addChatMessage(chatKey, {
             role: 'assistant',
@@ -1233,7 +1267,7 @@ const AIAssistant: React.FC = () => {
               };
               addChatMessage(chatKey, newMessage);
             } else {
-              const localFallback = buildLocalFallbackFromEvidence(unifiedResult.evidencePackage, unifiedResult.errorMessage);
+              const localFallback = buildLocalFallbackFromEvidence(unifiedResult.evidencePackage, unifiedResult.errorMessage, unifiedResult.generationResult?.errorCode);
               if (localFallback) {
                 addChatMessage(chatKey, {
                   role: 'assistant',
@@ -1386,7 +1420,7 @@ const AIAssistant: React.FC = () => {
               };
               addChatMessage(chatKey, newMessage);
             } else {
-              const localFallback = buildLocalFallbackFromEvidence(unifiedResult.evidencePackage, unifiedResult.errorMessage);
+              const localFallback = buildLocalFallbackFromEvidence(unifiedResult.evidencePackage, unifiedResult.errorMessage, unifiedResult.generationResult?.errorCode);
               if (localFallback) {
                 addChatMessage(chatKey, {
                   role: 'assistant',

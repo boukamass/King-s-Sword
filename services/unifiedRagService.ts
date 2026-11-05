@@ -893,7 +893,8 @@ export async function executeUnifiedRagPipeline(
 
   // Expansion doctrinale & décomposition Multi-Hop (locale par défaut pour 0 latence et 0 consommation de quota)
   const expansionApiKey = aiConfig.featureFlags.useQueryRewrite ? options.apiKey : undefined;
-  const queryExpansion = await expandTheologicalQuery(cleanQuery, expansionApiKey);
+  // Expansion en ligne uniquement si la reformulation par Gemini est activée (sinon : 100 % locale, 0 token)
+  const queryExpansion = await expandTheologicalQuery(cleanQuery, expansionApiKey, aiConfig.featureFlags.useQueryRewrite);
   const coreQueryTerms = extractUnifiedQueryTerms(cleanQuery);
   const effectiveQuery = queryExpansion.expandedQuery || cleanQuery;
   const allExpandedCandidates = extractUnifiedQueryTerms(effectiveQuery);

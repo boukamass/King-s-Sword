@@ -83,8 +83,17 @@ export async function buildLongContextEvidencePackage(
   let totalChars = 0;
   for (const [docId, docChunks] of chunksByDoc) {
     docChunks.sort((a, b) => a.startParagraph - b.startParagraph);
+    // Un paragraphe long forme parfois à lui seul le chunk de chevauchement suivant : sa copie identique
+    // (même numéro et même texte) est retirée pour ne pas être transmise ni comptée deux fois
+    const seenParagraphTexts = new Set<string>();
     const paragraphs = docChunks
       .flatMap(c => buildCitationParagraphsForChunk(c, seenParagraphKeys))
+      .filter(cp => {
+        const key = `${cp.paragraphIndex}\u0000${cp.fullParagraphText || cp.textSnippet || ''}`;
+        if (seenParagraphTexts.has(key)) return false;
+        seenParagraphTexts.add(key);
+        return true;
+      })
       .sort((a, b) => a.paragraphIndex - b.paragraphIndex);
     if (paragraphs.length === 0) continue;
     for (const cp of paragraphs) totalChars += paragraphLength(cp);
@@ -113,8 +122,9 @@ export async function buildLongContextEvidencePackage(
   // Le retrieval local juge la question hors sujet : refus local sans consommer de tokens
   if (selectedKeys === null) return null;
 
+  // Clés de sélection par position dans le document (deux paragraphes peuvent porter le même numéro)
   const kept = docs
-    .map(d => ({ doc: d, kept: d.paragraphs.filter(cp => selectedKeys.has(`${d.docId}_${cp.paragraphIndex}`)) }))
+    .map(d => ({ doc: d, kept: d.paragraphs.filter((_, pos) => selectedKeys.has(`${d.docId}#${pos}`)) }))
     .filter(entry => entry.kept.length > 0);
   if (kept.length === 0) return null;
 
@@ -137,15 +147,15 @@ function selectEvenlyDistributed(docs: DocParagraphs[], maxChars: number): Set<s
     // Un paragraphe sur 1/ratio, avec accumulateur pour conserver une répartition homogène
     let acc = 0;
     let used = 0;
-    for (const cp of d.paragraphs) {
+    d.paragraphs.forEach((cp, pos) => {
       acc += ratio;
       const len = paragraphLength(cp);
       if (acc >= 1 && used + len <= docBudget) {
         acc -= 1;
         used += len;
-        keys.add(`${d.docId}_${cp.paragraphIndex}`);
+        keys.add(`${d.docId}#${pos}`);
       }
-    }
+    });
   }
   return keys;
 }
@@ -171,20 +181,25 @@ async function selectMostRelevant(
   });
   if (!pkg.answerable || pkg.evidence.length === 0) return null;
 
-  const lengths = new Map<string, number>();
-  const orderedByDoc = new Map<string, number[]>();
+  // Positions de chaque numéro de paragraphe par document (un numéro peut apparaître plusieurs fois)
+  const docsById = new Map(docs.map(d => [d.docId, d]));
+  const positionsByDoc = new Map<string, Map<number, number[]>>();
   for (const d of docs) {
-    orderedByDoc.set(d.docId, d.paragraphs.map(cp => cp.paragraphIndex));
-    for (const cp of d.paragraphs) lengths.set(`${d.docId}_${cp.paragraphIndex}`, paragraphLength(cp));
+    const positions = new Map<number, number[]>();
+    d.paragraphs.forEach((cp, pos) => {
+      const list = positions.get(cp.paragraphIndex);
+      if (list) list.push(pos);
+      else positions.set(cp.paragraphIndex, [pos]);
+    });
+    positionsByDoc.set(d.docId, positions);
   }
 
   const keys = new Set<string>();
   let used = 0;
-  const tryAdd = (docId: string, paragraphIndex: number): boolean => {
-    const key = `${docId}_${paragraphIndex}`;
+  const tryAdd = (doc: DocParagraphs, pos: number): boolean => {
+    const key = `${doc.docId}#${pos}`;
     if (keys.has(key)) return true;
-    const len = lengths.get(key);
-    if (len === undefined) return true;
+    const len = paragraphLength(doc.paragraphs[pos]);
     if (used + len > maxChars) return false;
     keys.add(key);
     used += len;
@@ -194,15 +209,16 @@ async function selectMostRelevant(
   // Passe 1 : paragraphes des preuves, par rang ; passe 2 : voisins ±1 puis ±2 pour la continuité du propos
   for (const radius of [0, 1, 2]) {
     for (const ev of pkg.evidence) {
-      const ordered = orderedByDoc.get(ev.sermonId);
-      if (!ordered) continue;
+      const doc = docsById.get(ev.sermonId);
+      const positions = positionsByDoc.get(ev.sermonId);
+      if (!doc || !positions) continue;
       for (const pid of ev.paragraphIds) {
-        const pos = ordered.indexOf(pid);
-        if (pos < 0) continue;
-        const targets = radius === 0 ? [pos] : [pos - radius, pos + radius];
-        for (const t of targets) {
-          if (t < 0 || t >= ordered.length) continue;
-          if (!tryAdd(ev.sermonId, ordered[t])) return keys;
+        for (const pos of positions.get(pid) || []) {
+          const targets = radius === 0 ? [pos] : [pos - radius, pos + radius];
+          for (const t of targets) {
+            if (t < 0 || t >= doc.paragraphs.length) continue;
+            if (!tryAdd(doc, t)) return keys;
+          }
         }
       }
     }
