@@ -978,6 +978,8 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280, height: 800,
     backgroundColor: '#09090b',
+    // Icône de la fenêtre et de la barre des tâches (sinon Electron affiche son logo par défaut en développement)
+    icon: path.join(__dirname, isDev ? 'public' : 'dist', 'icon.ico'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -1044,7 +1046,8 @@ function createWindow() {
     return { action: 'allow' };
   });
 
-  if (isDev) mainWindow.loadURL('http://localhost:5173');
+  // Même port que le serveur Vite (vite.config.ts → server.port) et que wait-on dans « npm run electron:dev »
+  if (isDev) mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL || 'http://localhost:5321');
   else mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
 
   autoUpdater.removeAllListeners('update-available');

@@ -62,7 +62,7 @@
     "audit:phase2f7a": "npx tsx scripts/run_phase2f7a_audit.mjs",
     "audit:corpus": "npx tsx scripts/audit_corpus.mjs",
     "preview": "vite preview",
-    "electron:dev": "concurrently \"npm start\" \"wait-on http://localhost:3000 && electron .\"",
+    "electron:dev": "concurrently \"npm start\" \"wait-on http://localhost:5321 && electron .\"",
     "electron:build": "npm run build && electron-builder",
     "publish": "npm run build && electron-builder --publish always",
     "rebuild": "electron-rebuild -f -w better-sqlite3",

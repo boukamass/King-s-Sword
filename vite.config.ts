@@ -19,7 +19,11 @@ export default defineConfig(({ mode }) => {
       }
     },
     server: {
-      port: 3000,
+      // Port dédié à King's Sword (doit rester identique à main.js et au wait-on de « npm run electron:dev »)
+      port: 5321,
+      // Échoue clairement si le port est occupé au lieu de basculer en silence sur un autre port
+      // (Electron chargerait alors une page vide)
+      strictPort: true,
       host: '0.0.0.0',
     },
     base: './', // Crucial pour Electron : permet de charger les assets via file://
