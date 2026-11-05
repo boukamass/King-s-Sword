@@ -20,6 +20,7 @@ import { extractRequestedLineCount } from './queryIntentService';
 import { isDeepDiveStudyRequest } from './theologicalExegesisService';
 import { GoogleGenAI, Type } from '@google/genai';
 import { aiConfig } from '../config/aiConfig';
+import { LONG_CONTEXT_VECTOR_METHOD, LONG_CONTEXT_DIRECTIVES, formatLongContextSources } from './longContextRagService';
 
 export interface GeminiCaller {
   generateContent(params: {
@@ -87,21 +88,21 @@ export const STEP8_RESPONSE_SCHEMA = {
     },
     summary: {
       type: Type.STRING,
-      description: "Synthèse globale concise, claire et pédagogique."
+      description: "Réponse directe à la question, développée en 2 à 4 paragraphes : thèse principale, articulation des idées et nuances, en s'appuyant sur ce que les sources disent réellement."
     },
     arguments: {
       type: Type.ARRAY,
-      description: "Liste des points doctrinaux ou arguments développés.",
+      description: "3 à 7 points complémentaires couvrant tous les aspects de la question présents dans les sources, du plus central au plus secondaire.",
       items: {
         type: Type.OBJECT,
         properties: {
           pointTitle: {
             type: Type.STRING,
-            description: "Titre court du point doctrinal ou argument."
+            description: "Titre précis du point doctrinal ou de l'argument (pas un titre générique)."
           },
           explanation: {
             type: Type.STRING,
-            description: "Explication et exégèse détaillée."
+            description: "Explication développée (au moins 2 paragraphes) : ce que le texte affirme, comment il le justifie (Écritures citées, images, raisonnement), le contexte du passage et le lien avec les autres points."
           },
           citations: {
             type: Type.ARRAY,
@@ -279,25 +280,109 @@ export interface GenerateNewRagOptions {
   history?: ChatMessage[];
   onStreamChunk?: (token: string) => void;
   useLegacyExtrapolativeDirective6?: boolean;
+  /** Plafond de caractères du prompt (défaut : profil approfondi de la configuration) */
+  maxPromptChars?: number;
+  /** 'deep' : synthèse, résumé ou étude (plan d'étude structuré) ; 'standard' : question ciblée */
+  answerDepth?: 'standard' | 'deep';
+  /** Consignes complémentaires ajoutées aux règles de base (sans jamais les remplacer) */
+  additionalInstruction?: string;
 }
+
+/**
+ * Règles de rédaction appliquées à toute réponse : profondeur, précision et rigueur de type NotebookLM.
+ */
+export const ANSWER_QUALITY_RULES = `
+
+RÈGLES DE RÉDACTION (QUALITÉ DES RÉPONSES) :
+A. RÉPONDS VRAIMENT À LA QUESTION POSÉE : commence le 'summary' par la réponse directe, puis développe-la. Ne paraphrase pas la question.
+B. DÉVELOPPE : chaque 'explanation' fait au moins deux paragraphes et explique ce que le texte affirme, POURQUOI (raisonnement, Écritures invoquées, images employées par le prédicateur) et dans quel contexte du sermon.
+C. EXPLOITE TOUTES LES PREUVES PERTINENTES : relie des passages éloignés ou issus de sermons différents, signale les convergences, les précisions successives et les éventuelles nuances ou évolutions (avec les dates).
+D. SOIS PRÉCIS : reprends les termes exacts du prédicateur, les références bibliques qu'il cite, les noms, chiffres et dates présents dans les sources. Évite les formules vagues ou génériques.
+E. CITE ABONDAMMENT : 1 à 3 citations exactes par point, choisies pour leur force probante (la phrase qui établit l'affirmation, pas une phrase voisine).
+F. DISTINGUE ce que les sources affirment explicitement de ce qui en découle ; si une partie de la question n'est pas couverte par les sources, dis-le précisément dans le 'summary' au lieu de combler par des suppositions.
+G. 'deepDiveQuestions' : 2 à 3 questions qui prolongent réellement l'étude à partir de ce que contiennent les sources.`;
+
+/**
+ * Plan d'étude approfondie, compatible avec le schéma structuré (synthèse + points argumentés).
+ */
+export const DEEP_STUDY_RULES = `
+
+PLAN D'ÉTUDE APPROFONDIE (demande de synthèse, de résumé ou d'étude) :
+- 'summary' : introduction de 3 à 5 paragraphes présentant le thème, la thèse d'ensemble et le fil conducteur des sources mobilisées (nombre de sermons et période couverte).
+- 'arguments' : 5 à 8 points organisés comme un plan d'étude (fondements scripturaires et définitions, développement doctrinal, enchaînement ou chronologie, concordances avec les Écritures et l'Exposé, portée pratique et spirituelle). Les tableaux Markdown sont permis dans 'explanation' pour comparer ou ordonner.
+- Pour un résumé d'un sermon : suis l'ordre du sermon, de l'introduction à la conclusion, en dégageant chaque mouvement de la prédication.`;
 
 /**
  * Exécute la génération New RAG en respectant strictement l'inviolabilité du contrat de génération (Étape 8 - Sortie Structurée).
  */
+function buildGenerationContext(
+  evidencePackage: RetrievalEvidencePackage,
+  query: string,
+  useLegacyExtrapolativeDirective6: boolean
+): string {
+  return evidencePackage.vectorMethod === LONG_CONTEXT_VECTOR_METHOD
+    ? `SOURCES SÉLECTIONNÉES :\n============================================================\n${formatLongContextSources(evidencePackage)}\n============================================================\n\n${LONG_CONTEXT_DIRECTIVES}`
+    : formatEvidenceContextForGemini(evidencePackage, query, { useLegacyExtrapolativeDirective6 });
+}
+
+/**
+ * Retire les preuves les moins bien classées (puis, pour une source unique, ses derniers paragraphes)
+ * jusqu'à ce que le contexte formaté respecte le plafond de caractères du prompt.
+ */
+export function enforcePromptBudget(
+  evidencePackage: RetrievalEvidencePackage,
+  query: string,
+  useLegacyExtrapolativeDirective6 = false,
+  maxChars: number = aiConfig.tokenBudgetConfig.maxPromptChars
+): RetrievalEvidencePackage {
+  if (!evidencePackage.answerable || !Array.isArray(evidencePackage.evidence) || evidencePackage.evidence.length === 0) {
+    return evidencePackage;
+  }
+  let pkg = evidencePackage;
+  let length = buildGenerationContext(pkg, query, useLegacyExtrapolativeDirective6).length;
+  if (length <= maxChars) return pkg;
+
+  while (length > maxChars && pkg.evidence.length > 1) {
+    pkg = { ...pkg, evidence: pkg.evidence.slice(0, -1), isPartial: true };
+    length = buildGenerationContext(pkg, query, useLegacyExtrapolativeDirective6).length;
+  }
+  while (length > maxChars && pkg.evidence[0].citationParagraphs.length > 1) {
+    const ev = pkg.evidence[0];
+    const kept = ev.citationParagraphs.slice(0, Math.max(1, Math.floor(ev.citationParagraphs.length * 0.9)));
+    const paragraphIds = kept.map(cp => cp.paragraphIndex);
+    pkg = {
+      ...pkg,
+      isPartial: true,
+      evidence: [{ ...ev, citationParagraphs: kept, paragraphIds, endParagraph: paragraphIds[paragraphIds.length - 1] }]
+    };
+    length = buildGenerationContext(pkg, query, useLegacyExtrapolativeDirective6).length;
+  }
+  console.log(`[GenerationAdapter] Contexte plafonné à ${length} caractères (${pkg.evidence.length} preuve(s)).`);
+  return pkg;
+}
+
 export async function generateNewRagResponse(
   options: GenerateNewRagOptions
 ): Promise<GenerationResult> {
   const {
     query,
-    evidencePackage,
+    evidencePackage: inputEvidencePackage,
     apiKey,
     geminiClient,
     systemInstruction,
     temperature = 0.2,
     model = 'gemini-3.8-flash',
     history = [],
-    useLegacyExtrapolativeDirective6 = false
+    useLegacyExtrapolativeDirective6 = false,
+    maxPromptChars = aiConfig.tokenBudgetConfig.maxPromptChars,
+    answerDepth = 'standard',
+    additionalInstruction = ''
   } = options;
+
+  // Plafond strict du contexte transmis (préserve le quota Gemini de l'utilisateur, quelle que soit la sélection)
+  const evidencePackage = inputEvidencePackage
+    ? enforcePromptBudget(inputEvidencePackage, query, useLegacyExtrapolativeDirective6, maxPromptChars)
+    : inputEvidencePackage;
 
   // RÈGLE : Cas answerable === false
   if (!evidencePackage || !evidencePackage.answerable || !evidencePackage.evidence || evidencePackage.evidence.length === 0) {
@@ -319,10 +404,8 @@ export async function generateNewRagResponse(
     };
   }
 
-  // Formatage déterministe du contexte documentaire
-  const context = formatEvidenceContextForGemini(evidencePackage, query, {
-    useLegacyExtrapolativeDirective6
-  });
+  // Formatage déterministe du contexte documentaire (sources intégrales en mode contexte long)
+  const context = buildGenerationContext(evidencePackage, query, useLegacyExtrapolativeDirective6);
   const reqLines = extractRequestedLineCount(query);
   const lineInstruction = reqLines ? `\n\nCONSIGNE STRICTE DE LONGUEUR : L'utilisateur exige un résumé / résultat de sa demande en exactement ${reqLines} lignes.` : '';
   const promptContents = `${context}\n\n============================================================\nQUESTION DU CHERCHEUR :\n"${query}"${lineInstruction}`;
@@ -390,7 +473,7 @@ export async function generateNewRagResponse(
     };
   }
 
-  const step8SystemInstruction = systemInstruction || `Tu es l'assistant d'étude théologique de King's Sword, expert des sermons de William Marrion Branham et de l'Exposé des Sept Âges.
+  const baseSystemInstruction = systemInstruction || `Tu es l'assistant d'étude théologique de King's Sword, expert des sermons de William Marrion Branham et de l'Exposé des Sept Âges.
 
 RÈGLES STRICTES ET MANDATOIRES (Étape 8 - Sortie Structurée JSON) :
 1. INTERDICTION ABSOLUE DE TOUTE CONNAISSANCE EXTÉRIEURE : N'utilise AUCUNE connaissance externe ni source web. Réponds EXCLUSIVEMENT à partir des blocs d'évidence fournis dans le package de preuves ci-dessous.
@@ -403,6 +486,10 @@ RÈGLES STRICTES ET MANDATOIRES (Étape 8 - Sortie Structurée JSON) :
 4. CITATIONS EXACTES ET INTÉGRALES : Toute citation déclarée dans 'exactQuote' doit être une sous-chaîne exacte et intégrale du texte du paragraphe correspondant dans le package de preuves.
 5. SI ANSWERABILITY EST FALSE : Définis 'answerability' à false, 'summary' à "Les documents disponibles dans la base documentaire ne contiennent pas d'informations suffisantes pour répondre à cette question.", 'arguments' à [], et 'deepDiveQuestions' à [].
 6. GARDE ANTI-HALLUCINATION DE SECOND ÉTAGE (REQUÊTES PIÈGES VOISINES) : Si la question de l'utilisateur introduit un détail factuel, un chiffre, un lieu, une date, un objet ou un attribut anachronique/erroné qui est ABSENT ou CONTREDIT par les paragraphes fournis (ex: "huitième sceau", "trois témoins", "cheval vert", "pain au levain", "concile de Trente", "épée laser", "année 1975"), tu dois OBLIGATOIREMENT soit mettre 'answerability' à false, soit réfuter explicitement la fausse prémisse dans 'summary' en citant le fait exact du texte source sans jamais valider la prémisse erronée.`;
+  const step8SystemInstruction = baseSystemInstruction
+    + ANSWER_QUALITY_RULES
+    + (answerDepth === 'deep' ? DEEP_STUDY_RULES : '')
+    + (additionalInstruction ? `\n\n${additionalInstruction}` : '');
 
   // Préparation du payload multi-tours pour Gemini si un historique est disponible
   let contentsPayload: any;
@@ -414,6 +501,15 @@ RÈGLES STRICTES ET MANDATOIRES (Étape 8 - Sortie Structurée JSON) :
         role: h.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: h.content.substring(0, 4000) }]
       }));
+    // Plafond global de l'historique : on conserve les échanges les plus récents
+    let historyChars = 0;
+    for (let i = cleanHistory.length - 1; i >= 0; i--) {
+      historyChars += cleanHistory[i].parts[0].text.length;
+      if (historyChars > aiConfig.tokenBudgetConfig.maxHistoryChars) {
+        cleanHistory.splice(0, i + 1);
+        break;
+      }
+    }
 
     contentsPayload = cleanHistory.length > 0
       ? [
@@ -704,11 +800,16 @@ RÈGLES STRICTES ET MANDATOIRES (Étape 8 - Sortie Structurée JSON) :
     const normErr = errorMsg.toLowerCase();
 
     let errorCode = 'API_ERROR';
+    let userMessage = errorMsg;
     if (normErr.includes('429') || normErr.includes('resource_exhausted') || normErr.includes('quota')) {
       errorCode = 'RESOURCE_EXHAUSTED';
-    } else if (normErr.includes('503') || normErr.includes('unavailable') || normErr.includes('high demand')) {
+      userMessage = "Le service d'analyse a reçu trop de demandes en peu de temps. Patientez environ une minute, puis reposez votre question.";
+    } else if (normErr.includes('503') || normErr.includes('unavailable') || normErr.includes('high demand') || normErr.includes('overloaded')) {
       errorCode = 'SERVICE_UNAVAILABLE';
+      userMessage = "Le service d'analyse est momentanément surchargé. Réessayez dans quelques instants.";
     }
+    // Le détail technique (codes, quotas, tokens) reste dans la console et n'est jamais montré à l'utilisateur
+    console.warn('[GenerationAdapter] Échec de génération :', errorMsg);
 
     return {
       status: 'error',
@@ -718,7 +819,7 @@ RÈGLES STRICTES ET MANDATOIRES (Étape 8 - Sortie Structurée JSON) :
       answerText: null,
       structuredResponse: null,
       errorCode,
-      errorMessage: errorMsg,
+      errorMessage: userMessage,
       latencyMs,
       citationsValidation: null,
       chunkIdExposure: false,

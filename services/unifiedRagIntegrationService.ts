@@ -44,13 +44,15 @@ import { getCachedRagResponse, setCachedRagResponse } from './semanticCacheServi
 import { 
   isDeepDiveStudyRequest, 
   detectExhaustiveStudyIntent,
-  isAllPassagesRequest, 
-  getDeepDiveSystemInstruction, 
-  formatCoverageSummary, 
+  isAllPassagesRequest,
+  formatCoverageSummary,
   cleanPistesDapprofondissement 
 } from './theologicalExegesisService';
-import { extractSubstantiveQueryTerms } from './rerankingService';
+import { extractSubstantiveQueryTerms, isOverviewOrSummaryQuery, isBroadOrExhaustiveContextQuery } from './rerankingService';
+import { detectQueryIntent } from './queryIntentService';
 import { aiConfig, DeepStudentConfig, isDeepStudentModeEnabled } from '../config/aiConfig';
+import { buildLongContextEvidencePackage, rewriteFollowUpQuery } from './longContextRagService';
+import { executeSmartRetrieval } from './smartRagService';
 import {
   executeDeepStudentPipeline,
   DeepStudentTelemetry
@@ -69,6 +71,7 @@ export interface UnifiedRagIntegrationOptions extends UnifiedRagOptions {
   deepStudentConfig?: Partial<DeepStudentConfig>;
   onProgress?: (stepMessage: string) => void;
   useLegacyExtrapolativeDirective6?: boolean;
+  useSmartRetrieval?: boolean;
 }
 
 export interface UnifiedRagExecutionResult {
@@ -186,10 +189,70 @@ export async function executeUnifiedRagAssistantFlow(
     }
   }
 
-  // 1. Exécution du Retrieval Unified RAG sous contrainte stricte de l'AI Context
+  // 0c. Profil de réponse décidé localement (0 token) : une synthèse, un résumé ou une étude reçoit
+  // un budget de contexte et un plan de rédaction approfondis ; une question ciblée, un budget réduit
+  const answerDepth: 'standard' | 'deep' = (
+    isDeepDiveStudyRequest(cleanQuery) ||
+    isAllPassagesRequest(cleanQuery) ||
+    isOverviewOrSummaryQuery(cleanQuery) ||
+    isBroadOrExhaustiveContextQuery(cleanQuery) ||
+    detectQueryIntent(cleanQuery).intent === 'CONTENT_TRANSFORMATION'
+  ) ? 'deep' : 'standard';
+  const budget = aiConfig.tokenBudgetConfig;
+  const maxPromptChars = answerDepth === 'deep' ? budget.maxPromptChars : budget.standardPromptChars;
+  const longContextChars = answerDepth === 'deep' ? aiConfig.longContextConfig.maxChars : budget.standardLongContextChars;
+
+  // 1. Mode Contexte Long (style NotebookLM) : sources intégrales si la sélection tient dans le budget
+  const longContextPackage = aiConfig.featureFlags.useLongContextGrounding
+    ? await buildLongContextEvidencePackage(cleanQuery, aiContext, {
+        bibleVersion: options.bibleVersion,
+        loadedSermonsMap: options.loadedSermonsMap,
+        providedChunks: options.providedChunks,
+        maxChars: longContextChars
+      })
+    : null;
+  if (longContextPackage && options.onProgress) {
+    options.onProgress(`Lecture intégrale de ${longContextPackage.evidence.length} source(s) sélectionnée(s)...`);
+  }
+
+  const isStudy = aiConfig.featureFlags.useQueryRewrite
+    ? await detectExhaustiveStudyIntent(cleanQuery, {
+        apiKey: options.apiKey,
+        geminiClient: options.geminiClient
+      })
+    : isDeepDiveStudyRequest(cleanQuery);
+  const isAllPassages = isAllPassagesRequest(cleanQuery);
+
+  // 1b. Retrieval intelligent piloté par Gemini pour les sélections trop grandes pour le contexte long
+  const hasHistory = Array.isArray(options.history) && options.history.length > 0;
+  const smartEnabled = !longContextPackage &&
+    !options.forceGenerate &&
+    aiConfig.featureFlags.useSmartRetrieval &&
+    (options.useSmartRetrieval ?? !options.geminiClient);
+  const smartResult = smartEnabled
+    ? await executeSmartRetrieval(cleanQuery, aiContext, {
+        history: options.history,
+        apiKey: options.apiKey,
+        geminiClient: options.geminiClient,
+        bibleVersion: options.bibleVersion,
+        loadedSermonsMap: options.loadedSermonsMap,
+        providedChunks: options.providedChunks,
+        maxEvidence: isAllPassages ? 40 : (isStudy ? 35 : undefined),
+        onProgress: options.onProgress
+      })
+    : null;
+  const smartPackage = smartResult?.status === 'ok' ? smartResult.evidencePackage ?? null : null;
+  const primaryPackage = longContextPackage ?? smartPackage;
+
+  // 1c. Repli : Retrieval Unified RAG local sous contrainte stricte de l'AI Context
   // Enrichissement contextuel de la requête pour les questions de relance / multi-tours
-  let retrievalQuery = cleanQuery;
-  if (Array.isArray(options.history) && options.history.length > 0) {
+  let retrievalQuery = smartResult?.standaloneQuery || cleanQuery;
+  const rewrittenQuery = !primaryPackage && !smartResult && hasHistory && aiConfig.featureFlags.useConversationalRewrite && !options.geminiClient
+    ? await rewriteFollowUpQuery(cleanQuery, options.history!, { apiKey: options.apiKey })
+    : null;
+  if (rewrittenQuery) {
+    retrievalQuery = rewrittenQuery;
+  } else if (!primaryPackage && retrievalQuery === cleanQuery && hasHistory) {
     const isFollowUp = /\b(pourquoi|comment|qui|que|quoi|et pour|ce que tu viens|ce point|cette phrase|cette citation|ce sujet|approfondis|developpe|explique|plus de citations|ensuite|autre|deuxieme|troisieme|quatrieme|precedent|suivant)\b/i.test(cleanQuery) || cleanQuery.split(/\s+/).length <= 4;
     if (isFollowUp) {
       const lastUserMsg = [...options.history].reverse().find(m => m.role === 'user' && m.content !== cleanQuery);
@@ -209,17 +272,11 @@ export async function executeUnifiedRagAssistantFlow(
     }
   }
 
-  const isStudy = aiConfig.featureFlags.useQueryRewrite
-    ? await detectExhaustiveStudyIntent(cleanQuery, {
-        apiKey: options.apiKey,
-        geminiClient: options.geminiClient
-      })
-    : isDeepDiveStudyRequest(cleanQuery);
-  const isAllPassages = isAllPassagesRequest(cleanQuery);
   const effectiveTopK = isAllPassages ? Math.max(options.topK || 25, 50) : (isStudy ? Math.max(options.topK || 20, 35) : Math.max(options.topK || 20, 25));
-  const effectiveMaxEvidence = isAllPassages ? Math.max(options.maxEvidenceCount || 16, 25) : (isStudy ? Math.max(options.maxEvidenceCount || 16, 20) : Math.max(options.maxEvidenceCount || 12, 16));
+  // Contexte plus riche (passages + voisins ±1) en un seul appel : le plafond du prompt garantit le budget de tokens
+  const effectiveMaxEvidence = isAllPassages ? Math.max(options.maxEvidenceCount || 16, 40) : (isStudy ? Math.max(options.maxEvidenceCount || 16, 30) : Math.max(options.maxEvidenceCount || 12, 24));
 
-  const evidencePackage = await executeUnifiedRagPipeline(retrievalQuery, aiContext, {
+  const evidencePackage = primaryPackage ?? await executeUnifiedRagPipeline(retrievalQuery, aiContext, {
     topK: effectiveTopK,
     maxEvidenceCount: effectiveMaxEvidence,
     k: options.k,
@@ -270,11 +327,9 @@ export async function executeUnifiedRagAssistantFlow(
     };
   }
 
-  // 3. Appel au Generation Adapter avec les preuves authentifiées
-  let activeInstruction = options.systemInstruction;
-  if (isDeepDiveStudyRequest(cleanQuery)) {
-    activeInstruction = (activeInstruction || '') + getDeepDiveSystemInstruction();
-  }
+  // 3. Appel au Generation Adapter avec les preuves authentifiées (le plan d'étude du profil « deep »
+  // complète les règles de fiabilité au lieu de les remplacer)
+  const activeInstruction = options.systemInstruction;
 
   const genResult = await generateNewRagResponse({
     query: cleanQuery,
@@ -285,7 +340,9 @@ export async function executeUnifiedRagAssistantFlow(
     temperature: options.temperature ?? aiConfig.models.autoRagTemperature,
     model: options.model ?? aiConfig.models.primaryFastModel,
     history: options.history,
-    useLegacyExtrapolativeDirective6: options.useLegacyExtrapolativeDirective6
+    useLegacyExtrapolativeDirective6: options.useLegacyExtrapolativeDirective6,
+    maxPromptChars,
+    answerDepth
   });
 
   const latencyMs = Date.now() - t0;
@@ -355,7 +412,7 @@ export async function executeUnifiedRagAssistantFlow(
     ).catch(() => {});
   }
 
-  if (!isRefusal && (isStudy || isAllPassages) && evidencePackage.evidence.length > 0) {
+  if (!isRefusal && !longContextPackage && (isStudy || isAllPassages) && evidencePackage.evidence.length > 0) {
     const docIds = Array.from(new Set(evidencePackage.evidence.map(e => e.sermonId)));
     const uniqueDocsCount = docIds.length;
     const passagesCount = evidencePackage.evidence.length;

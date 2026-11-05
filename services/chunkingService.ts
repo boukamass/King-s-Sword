@@ -32,8 +32,28 @@ export const DEFAULT_CHUNKING_OPTIONS: Required<ChunkingOptions> = {
   maxCharacters: 900,
   minCharacters: 200,
   overlapParagraphs: 1,
-  maxParagraphsPerChunk: 3
+  maxParagraphsPerChunk: 3,
+  computeHashes: true
 };
+
+/**
+ * Compte les mots sans allouer de tableau intermédiaire (équivalent à split(/\s+/).filter(Boolean).length).
+ */
+export function countWords(text: string): number {
+  let count = 0;
+  let inWord = false;
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    const isSpace = code === 32 || (code >= 9 && code <= 13) || code === 160 || code === 0x2028 || code === 0x2029 || code === 0xfeff || (code >= 0x2000 && code <= 0x200a) || code === 0x1680 || code === 0x202f || code === 0x205f || code === 0x3000;
+    if (isSpace) {
+      inWord = false;
+    } else if (!inWord) {
+      inWord = true;
+      count++;
+    }
+  }
+  return count;
+}
 
 /**
  * Calcule le hash SHA-1 via le module standard node:crypto ou Web Crypto API.
@@ -159,7 +179,7 @@ export function computeChunkHash(sermonId: string, paragraphIds: number[], text:
  * Découpe un texte de sermon en liste de paragraphes ordonnés avec leur indexation originale.
  * Calcule pour chaque paragraphe son hash SHA-1 conforme à l'Étape 5.
  */
-export function parseSermonParagraphs(text: string): ParsedParagraph[] {
+export function parseSermonParagraphs(text: string, computeHashes = true): ParsedParagraph[] {
   if (!text || typeof text !== 'string') return [];
   
   const rawParagraphs = text.split(/\n\s*\n/).filter(p => p.trim().length > 0);
@@ -168,14 +188,14 @@ export function parseSermonParagraphs(text: string): ParsedParagraph[] {
     const trimmed = raw.trim();
     const leadingNumMatch = trimmed.match(/^(\d+)[\.\s]/);
     const num = leadingNumMatch ? parseInt(leadingNumMatch[1], 10) : idx + 1;
-    const sha1 = computeParagraphSha1(trimmed);
+    const sha1 = computeHashes ? computeParagraphSha1(trimmed) : undefined;
     
     return {
       num,
       text: trimmed,
       sha1,
       charCount: trimmed.length,
-      wordCount: trimmed.split(/\s+/).filter(Boolean).length
+      wordCount: countWords(trimmed)
     };
   });
 }
@@ -191,7 +211,7 @@ export function createSermonChunks(sermon: Sermon, options?: ChunkingOptions): S
     ...(options || {})
   };
 
-  const paragraphs = parseSermonParagraphs(sermon.text);
+  const paragraphs = parseSermonParagraphs(sermon.text, opts.computeHashes);
   if (paragraphs.length === 0) return [];
 
   const chunks: SermonChunk[] = [];
@@ -228,8 +248,8 @@ export function createSermonChunks(sermon: Sermon, options?: ChunkingOptions): S
     const endParagraph = paragraphIds[paragraphIds.length - 1];
     const chunkText = currentGroup.map(p => p.text).join('\n\n');
     const contentHash = computeChunkHash(sermon.id, paragraphIds, chunkText);
-    const paragraphSha1s = currentGroup.map(p => p.sha1 || computeParagraphSha1(p.text));
-    const paragraphSha1 = computeParagraphSha1(chunkText);
+    const paragraphSha1s = opts.computeHashes ? currentGroup.map(p => p.sha1 || computeParagraphSha1(p.text)) : undefined;
+    const paragraphSha1 = opts.computeHashes ? computeParagraphSha1(chunkText) : undefined;
     const nowIso = new Date().toISOString();
 
     chunks.push({
@@ -244,7 +264,7 @@ export function createSermonChunks(sermon: Sermon, options?: ChunkingOptions): S
       city: sermon.city,
       version: sermon.version,
       characterCount: chunkText.length,
-      wordCount: chunkText.split(/\s+/).filter(Boolean).length,
+      wordCount: countWords(chunkText),
       contentHash,
       paragraphSha1,
       paragraphSha1s,

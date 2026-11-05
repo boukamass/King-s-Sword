@@ -168,11 +168,14 @@ export interface ContiguousVectorMatrix {
   dim: number;
   count: number;
   chunks: SermonChunk[];
-  matrix: Float32Array;
+  matrix: Float32Array | Int8Array;
   norms: Float32Array;
 }
 
-let cachedVectorMatrix: ContiguousVectorMatrix | null = null;
+// Cache LRU multi-emplacements : évite de reconstruire la matrice de la bibliothèque entière
+// lorsque l'utilisateur alterne entre le Dock et la recherche globale
+const MAX_CACHED_VECTOR_MATRICES = 3;
+const cachedVectorMatrices = new Map<string, ContiguousVectorMatrix>();
 
 /**
  * Construit ou récupère une matrice Float32Array contiguë en mémoire avec normes L2 précalculées.
@@ -190,8 +193,11 @@ export function getOrBuildContiguousVectorMatrix(
   const lastId = chunks[n - 1]?.chunkId || '';
   const signature = `${n}:${expectedDim}:${firstId}:${midId}:${lastId}`;
 
-  if (cachedVectorMatrix && cachedVectorMatrix.signature === signature) {
-    return cachedVectorMatrix;
+  const cachedMatrix = cachedVectorMatrices.get(signature);
+  if (cachedMatrix) {
+    cachedVectorMatrices.delete(signature);
+    cachedVectorMatrices.set(signature, cachedMatrix);
+    return cachedMatrix;
   }
 
   const validChunks: SermonChunk[] = [];
@@ -205,7 +211,10 @@ export function getOrBuildContiguousVectorMatrix(
   if (validChunks.length < 16) return null;
 
   const count = validChunks.length;
-  const matrix = new Float32Array(count * expectedDim);
+  // Les vecteurs E5 Int8 restent en Int8 (4x moins de mémoire qu'une copie Float32, produit scalaire identique)
+  const matrix = validChunks.every(c => c.embedding instanceof Int8Array)
+    ? new Int8Array(count * expectedDim)
+    : new Float32Array(count * expectedDim);
   const norms = new Float32Array(count);
 
   for (let row = 0; row < count; row++) {
@@ -227,7 +236,7 @@ export function getOrBuildContiguousVectorMatrix(
     norms[row] = validRow && sumSq > 0 ? Math.sqrt(sumSq) : 0;
   }
 
-  cachedVectorMatrix = {
+  const built: ContiguousVectorMatrix = {
     signature,
     dim: expectedDim,
     count,
@@ -236,7 +245,12 @@ export function getOrBuildContiguousVectorMatrix(
     norms
   };
 
-  return cachedVectorMatrix;
+  if (cachedVectorMatrices.size >= MAX_CACHED_VECTOR_MATRICES) {
+    const oldestKey = cachedVectorMatrices.keys().next().value;
+    if (oldestKey !== undefined) cachedVectorMatrices.delete(oldestKey);
+  }
+  cachedVectorMatrices.set(signature, built);
+  return built;
 }
 
 /**

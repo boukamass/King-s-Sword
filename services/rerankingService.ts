@@ -121,6 +121,10 @@ export function computeQueryTermCoverage(terms: string[], targetText: string): n
  * Combine RRF, score cosinus, score lexical, bonus multi-modal et couverture de requête
  * étendue aux paragraphes immédiatement adjacents (§n-1 et §n+1) pour capturer les réponses scindées.
  */
+// Index sermonId → chunks du bassin de recherche, réutilisé tant que le bassin (identité stable) ne change pas
+type SermonWindowChunk = { sermonId: string; startParagraph: number; endParagraph: number; text: string };
+const chunksBySermonPoolCache = new WeakMap<object, Map<string, SermonWindowChunk[]>>();
+
 export function rerankHybridResults(params: {
   query: string;
   hybridResults: HybridSearchResult[];
@@ -146,20 +150,20 @@ export function rerankHybridResults(params: {
   const maxPossibleRrf = (1 / 61) + (1 / 61); // ~0.032787 (RRF score pour 2 rangs 1)
 
   // Indexation rapide des chunks par sermonId pour le fenêtrage adjacent ±1 paragraphe
-  const chunksBySermon = new Map<string, Array<{ startParagraph: number; endParagraph: number; text: string }>>();
-  const sourcePool = allChunks.length > 0 ? allChunks : hybridResults;
-  for (const c of sourcePool) {
-    if (!c || !c.sermonId) continue;
-    let list = chunksBySermon.get(c.sermonId);
-    if (!list) {
-      list = [];
-      chunksBySermon.set(c.sermonId, list);
+  const sourcePool: Array<{ sermonId: string; startParagraph: number; endParagraph: number; text: string }> = allChunks.length > 0 ? allChunks : hybridResults;
+  let chunksBySermon = chunksBySermonPoolCache.get(sourcePool);
+  if (!chunksBySermon) {
+    chunksBySermon = new Map();
+    for (const c of sourcePool) {
+      if (!c || !c.sermonId) continue;
+      let list = chunksBySermon.get(c.sermonId);
+      if (!list) {
+        list = [];
+        chunksBySermon.set(c.sermonId, list);
+      }
+      list.push(c);
     }
-    list.push({
-      startParagraph: c.startParagraph,
-      endParagraph: c.endParagraph,
-      text: c.text
-    });
+    chunksBySermonPoolCache.set(sourcePool, chunksBySermon);
   }
 
   const reranked: RerankedSearchResult[] = [];

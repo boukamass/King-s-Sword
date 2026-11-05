@@ -398,9 +398,13 @@ ipcMain.handle('db:importSermons', (event, sermons) => {
       const insP = db.prepare('INSERT INTO paragraphs (sermon_id, paragraph_index, content) VALUES (?, ?, ?)');
       const insFTS = db.prepare('INSERT INTO paragraphs_fts (content, sermon_id, paragraph_index) VALUES (?, ?, ?)');
       
+      // Ignore les doublons id+version de library.json (sinon leurs paragraphes seraient insérés deux fois)
+      const seenIds = new Set();
       for (const s of data) {
         const baseId = s.id || `gen-${Math.random().toString(36).substr(2, 9)}`;
         const sId = s.version ? `${baseId}-${s.version}` : baseId;
+        if (seenIds.has(sId)) continue;
+        seenIds.add(sId);
         const sText = s.text || "...";
 
         insS.run(
@@ -1165,46 +1169,28 @@ function createWindow() {
     }
   });
 
+  // Emplacements des ressources livrées : en .exe, les copies extraResources ; en développement, public/
+  // en priorité (les fichiers homonymes à la racine du projet sont des échantillons de test incomplets)
+  const getBundledResourceCandidates = (fileName) => app.isPackaged
+    ? [
+        path.join(process.resourcesPath, fileName),
+        path.join(process.resourcesPath, 'app.asar', 'dist', fileName)
+      ]
+    : [
+        path.join(__dirname, 'public', fileName),
+        path.join(__dirname, 'dist', fileName)
+      ];
+  const getLibraryJsonCandidates = () => getBundledResourceCandidates('library.json');
+
   let cachedLibrarySha256 = null;
   ipcMain.removeHandler('system:getSermonsPrecalculatedIndex');
   ipcMain.handle('system:getSermonsPrecalculatedIndex', async () => {
     try {
       const resourcesPath = app.isPackaged ? process.resourcesPath : __dirname;
-      const candidatesMeta = [
-        path.join(resourcesPath, 'sermons_meta.json'),
-        path.join(resourcesPath, 'public', 'sermons_meta.json'),
-        path.join(resourcesPath, 'dist', 'sermons_meta.json'),
-        path.join(resourcesPath, 'app.asar', 'dist', 'sermons_meta.json'),
-        path.join(__dirname, 'sermons_meta.json'),
-        path.join(__dirname, 'public', 'sermons_meta.json'),
-        path.join(__dirname, 'dist', 'sermons_meta.json')
-      ];
-      const candidatesBin = [
-        path.join(resourcesPath, 'sermons_vectors.bin'),
-        path.join(resourcesPath, 'public', 'sermons_vectors.bin'),
-        path.join(resourcesPath, 'dist', 'sermons_vectors.bin'),
-        path.join(resourcesPath, 'app.asar', 'dist', 'sermons_vectors.bin'),
-        path.join(__dirname, 'sermons_vectors.bin'),
-        path.join(__dirname, 'public', 'sermons_vectors.bin'),
-        path.join(__dirname, 'dist', 'sermons_vectors.bin')
-      ];
-      const candidatesIdx = [
-        path.join(resourcesPath, 'sermons_vectors.idx'),
-        path.join(resourcesPath, 'public', 'sermons_vectors.idx'),
-        path.join(resourcesPath, 'dist', 'sermons_vectors.idx'),
-        path.join(resourcesPath, 'app.asar', 'dist', 'sermons_vectors.idx'),
-        path.join(__dirname, 'sermons_vectors.idx'),
-        path.join(__dirname, 'public', 'sermons_vectors.idx'),
-        path.join(__dirname, 'dist', 'sermons_vectors.idx')
-      ];
-      const candidatesLibrary = [
-        path.join(resourcesPath, 'library.json'),
-        path.join(resourcesPath, 'public', 'library.json'),
-        path.join(resourcesPath, 'dist', 'library.json'),
-        path.join(resourcesPath, 'app.asar', 'dist', 'library.json'),
-        path.join(__dirname, 'public', 'library.json'),
-        path.join(__dirname, 'dist', 'library.json')
-      ];
+      const candidatesMeta = getBundledResourceCandidates('sermons_meta.json');
+      const candidatesBin = getBundledResourceCandidates('sermons_vectors.bin');
+      const candidatesIdx = getBundledResourceCandidates('sermons_vectors.idx');
+      const candidatesLibrary = getLibraryJsonCandidates();
 
       const foundMeta = candidatesMeta.find(p => fs.existsSync(p));
       const foundBin = candidatesBin.find(p => fs.existsSync(p));
@@ -1259,7 +1245,7 @@ function createWindow() {
     try {
       const cleanName = path.basename(filename);
       const resourcesPath = app.isPackaged ? process.resourcesPath : __dirname;
-      const candidates = [
+      const candidates = cleanName === 'library.json' ? getLibraryJsonCandidates() : [
         path.join(resourcesPath, cleanName),
         path.join(resourcesPath, 'public', cleanName),
         path.join(resourcesPath, 'dist', cleanName),
@@ -1283,17 +1269,7 @@ function createWindow() {
   ipcMain.removeHandler('system:getLibraryData');
   ipcMain.handle('system:getLibraryData', async () => {
     try {
-      const resourcesPath = app.isPackaged ? process.resourcesPath : __dirname;
-      const candidates = [
-        path.join(resourcesPath, 'library.json'),
-        path.join(resourcesPath, 'public', 'library.json'),
-        path.join(resourcesPath, 'dist', 'library.json'),
-        path.join(resourcesPath, 'app.asar', 'dist', 'library.json'),
-        path.join(resourcesPath, 'app.asar', 'public', 'library.json'),
-        path.join(__dirname, 'public', 'library.json'),
-        path.join(__dirname, 'dist', 'library.json'),
-        path.join(__dirname, 'library.json')
-      ];
+      const candidates = getLibraryJsonCandidates();
       const found = candidates.find(p => fs.existsSync(p));
       if (found) {
         const content = fs.readFileSync(found, 'utf8');

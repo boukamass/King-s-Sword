@@ -249,6 +249,8 @@ export interface ChunkingOptions {
   minCharacters?: number;
   overlapParagraphs?: number;
   maxParagraphsPerChunk?: number;
+  /** Calcule les empreintes SHA-1 (requises par l'indexation, inutiles pour le retrieval en mémoire) */
+  computeHashes?: boolean;
 }
 
 export interface MetadataFilter {

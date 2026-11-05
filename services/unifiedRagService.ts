@@ -42,19 +42,47 @@ import { EMBEDDING_CONFIG, computeE5Embedding } from './embeddingService';
 import { getGeminiApiKey } from '../utils/apiKeyHelper';
 import { detectQueryIntent, logQueryIntent } from './queryIntentService';
 import { normalizeText, splitSermonIntoParagraphs, extractLeadingParagraphNumber } from '../utils/textUtils';
-import { isContentlessOrNoiseParagraph, computeBM25Score, getActiveCorpusVocabulary, buildCorpusVocabulary, searchBM25WithInvertedIndex, extractCompoundTheologicalTokens } from './corpusVocabularyService';
+import { isContentlessOrNoiseParagraph, computeBM25Score, getActiveCorpusVocabulary, buildCorpusVocabulary, searchBM25WithInvertedIndex, extractCompoundTheologicalTokens, prewarmBM25InvertedIndex } from './corpusVocabularyService';
 import { applyParentChildToEvidencePackage, buildAdjacentContextForEvidence, extractDocumentParagraphs, ParentChildOptions } from './parentChildService';
 import { aiConfig } from '../config/aiConfig';
 
 // Cache mémoire pour éviter de re-découper et re-hacher (SHA-1) les sermons à chaque requête
 const sermonChunksMemoryCache = new Map<string, { textLen: number; chunks: SermonChunk[] }>();
 let staticLibraryFallbackCache: Sermon[] | null = null;
+// Chunks par source déjà résolue : évite toute relecture du texte (IPC SQLite) aux requêtes suivantes
+const sourceChunksCache = new Map<string, SermonChunk[]>();
+// Sélections complètes déjà résolues (LRU) et résolutions en cours (dédoublonnage des requêtes concurrentes)
+const MAX_RESOLVED_CONTEXTS = 4;
+const resolvedContextCache = new Map<string, SermonChunk[]>();
+const pendingContextResolutions = new Map<string, Promise<SermonChunk[]>>();
+let baseIdIndexCache: { map: Map<string, any>; size: number; index: Map<string, Sermon> } | null = null;
+// Pool filtré du bruit éditorial par tableau de chunks (identité stable grâce au cache de contexte)
+const nonNoisePoolCache = new WeakMap<SermonChunk[], SermonChunk[]>();
+const pendingNoiseFilters = new WeakMap<SermonChunk[], Promise<SermonChunk[]>>();
+const chunksBySermonCache = new WeakMap<SermonChunk[], Map<string, SermonChunk[]>>();
+const contextStatsCache = new WeakMap<SermonChunk[], { uniqueTitles: string[]; distinctDocCount: number }>();
+
+function getContextStats(chunks: SermonChunk[]): { uniqueTitles: string[]; distinctDocCount: number } {
+  let stats = contextStatsCache.get(chunks);
+  if (!stats) {
+    const titles = new Set<string>();
+    const docs = new Set<string>();
+    for (const c of chunks) {
+      const title = c.sermonTitle || c.sermonId;
+      if (title) titles.add(title);
+      docs.add(c.sermonId);
+    }
+    stats = { uniqueTitles: Array.from(titles), distinctDocCount: docs.size };
+    contextStatsCache.set(chunks, stats);
+  }
+  return stats;
+}
 
 /**
  * Découpe le texte d'un chunk multi-paragraphes afin que chaque numéro de paragraphe
  * dans citationParagraphs reçoive son propre texte exact (sans triplication).
  */
-function buildCitationParagraphsForChunk(
+export function buildCitationParagraphsForChunk(
   chunk: SermonChunk,
   seenParagraphKeys?: Set<string>
 ): EvidenceParagraphCitation[] {
@@ -287,6 +315,152 @@ export async function resolveAIContextChunks(
   const sources = aiContext.sources || [];
   if (sources.length === 0) return [];
 
+  // Même sélection → même tableau (identité stable) : les index BM25, vocabulaires et matrices
+  // vectorielles en aval restent en cache et la requête suivante ne refait aucun calcul lourd
+  const contextKey = `${options.bibleVersion || 'lsg1910'}|${options.loadedSermonsMap?.size ?? 0}|` + sources
+    .map(s => `${s.sourceType}:${s.sourceId}:${s.selectedUnit?.type ?? ''}:${s.selectedUnit?.id ?? ''}:${(s.allowedParagraphIds || []).join(',')}:${(s.allowedVerses || []).join(',')}`)
+    .join('|');
+  const cachedContext = resolvedContextCache.get(contextKey);
+  if (cachedContext) {
+    resolvedContextCache.delete(contextKey);
+    resolvedContextCache.set(contextKey, cachedContext);
+    return cachedContext;
+  }
+  const pending = pendingContextResolutions.get(contextKey);
+  if (pending) return pending;
+
+  const resolution = resolveAIContextChunksUncached(sources, options)
+    .then(chunks => {
+      if (chunks.length > 0) {
+        if (resolvedContextCache.size >= MAX_RESOLVED_CONTEXTS) {
+          const oldestKey = resolvedContextCache.keys().next().value;
+          if (oldestKey !== undefined) resolvedContextCache.delete(oldestKey);
+        }
+        resolvedContextCache.set(contextKey, chunks);
+      }
+      return chunks;
+    })
+    .finally(() => pendingContextResolutions.delete(contextKey));
+  pendingContextResolutions.set(contextKey, resolution);
+  return resolution;
+}
+
+/**
+ * Vide les caches de chunks résolus (à appeler après un réimport de la bibliothèque).
+ */
+export function clearResolvedContextCaches(): void {
+  resolvedContextCache.clear();
+  sourceChunksCache.clear();
+  sermonChunksMemoryCache.clear();
+  baseIdIndexCache = null;
+  staticLibraryFallbackCache = null;
+}
+
+/**
+ * Résout l'AI Context et renvoie le bassin de recherche filtré du bruit éditorial (mêmes caches que le pipeline).
+ */
+export async function getContextSearchPool(
+  contextInput: AIContext | (string | AIContextSource)[],
+  options: { bibleVersion?: BibleVersion; loadedSermonsMap?: Map<string, any>; providedChunks?: SermonChunk[] } = {}
+): Promise<{ allowedChunks: SermonChunk[]; searchPool: SermonChunk[] }> {
+  const allowedChunks = options.providedChunks && options.providedChunks.length > 0
+    ? options.providedChunks
+    : await resolveAIContextChunks(normalizeAIContext(contextInput), options);
+  if (allowedChunks.length <= 5) return { allowedChunks, searchPool: allowedChunks };
+  const nonNoise = await getNoiseFilteredPool(allowedChunks);
+  const searchPool = nonNoise.length > 0 ? nonNoise : allowedChunks;
+  // Index BM25 construit par tranches asynchrones : la recherche synchrone qui suit le trouve en cache
+  await prewarmBM25InvertedIndex(searchPool);
+  return { allowedChunks, searchPool };
+}
+
+/**
+ * Filtre le bruit éditorial par tranches asynchrones (aucun gel de l'interface sur ~185k chunks), avec cache.
+ */
+export function getNoiseFilteredPool(chunks: SermonChunk[]): Promise<SermonChunk[]> {
+  const cached = nonNoisePoolCache.get(chunks);
+  if (cached) return Promise.resolve(cached);
+  const pending = pendingNoiseFilters.get(chunks);
+  if (pending) return pending;
+
+  const run = (async () => {
+    const kept: SermonChunk[] = [];
+    let i = 0;
+    while (i < chunks.length) {
+      const sliceStart = nowMs();
+      while (i < chunks.length && nowMs() - sliceStart < UI_FRAME_BUDGET_MS) {
+        const end = Math.min(chunks.length, i + 128);
+        for (; i < end; i++) {
+          if (!isContentlessOrNoiseParagraph(chunks[i].text)) kept.push(chunks[i]);
+        }
+      }
+      if (i < chunks.length) await yieldToEventLoop();
+    }
+    nonNoisePoolCache.set(chunks, kept);
+    return kept;
+  })().finally(() => pendingNoiseFilters.delete(chunks));
+  pendingNoiseFilters.set(chunks, run);
+  return run;
+}
+
+/**
+ * Prépare en arrière-plan tout ce qu'une requête sur ce contexte exigera (chunks, filtre, index BM25, vocabulaire),
+ * afin que la première question de l'utilisateur soit aussi rapide que les suivantes.
+ */
+export async function prewarmContextRetrieval(
+  contextInput: AIContext | (string | AIContextSource)[],
+  options: { bibleVersion?: BibleVersion; loadedSermonsMap?: Map<string, any> } = {}
+): Promise<void> {
+  const { searchPool } = await getContextSearchPool(contextInput, options);
+  if (!getActiveCorpusVocabulary() || getActiveCorpusVocabulary()!.terms.size === 0) {
+    buildCorpusVocabulary(searchPool);
+  }
+}
+
+/**
+ * Index sermonId → chunks triés par paragraphe, pour reconstruire le contexte adjacent sans balayage O(N).
+ */
+export function getChunksBySermonIndex(chunks: SermonChunk[]): Map<string, SermonChunk[]> {
+  let index = chunksBySermonCache.get(chunks);
+  if (!index) {
+    index = new Map();
+    for (const c of chunks) {
+      const list = index.get(c.sermonId);
+      if (list) list.push(c);
+      else index.set(c.sermonId, [c]);
+    }
+    for (const list of index.values()) list.sort((a, b) => a.startParagraph - b.startParagraph);
+    chunksBySermonCache.set(chunks, index);
+  }
+  return index;
+}
+
+/**
+ * Index ID de base (sans suffixe de version) → sermon avec texte, construit une seule fois par map.
+ */
+function getBaseIdIndex(map: Map<string, any>): Map<string, Sermon> {
+  if (baseIdIndexCache && baseIdIndexCache.map === map && baseIdIndexCache.size === map.size) {
+    return baseIdIndexCache.index;
+  }
+  const index = new Map<string, Sermon>();
+  for (const [key, value] of map.entries()) {
+    if (!value || typeof value.text !== 'string' || value.text.length === 0) continue;
+    const keyBase = key.split('-').slice(0, 2).join('-');
+    if (!index.has(keyBase)) index.set(keyBase, value as Sermon);
+  }
+  baseIdIndexCache = { map, size: map.size, index };
+  return index;
+}
+
+const yieldToEventLoop = () => new Promise<void>(resolve => setTimeout(resolve, 0));
+const nowMs = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+// Durée maximale d'un traitement continu avant de rendre la main à l'interface (< 1 frame à 60 Hz)
+const UI_FRAME_BUDGET_MS = 12;
+
+async function resolveAIContextChunksUncached(
+  sources: AIContextSource[],
+  options: { bibleVersion?: BibleVersion; loadedSermonsMap?: Map<string, Sermon | Omit<Sermon, 'text'>> | Map<string, any> }
+): Promise<SermonChunk[]> {
   const chunks: SermonChunk[] = [];
   const bibleVersion = options.bibleVersion || 'lsg1910';
 
@@ -297,110 +471,120 @@ export async function resolveAIContextChunks(
   }
 
   const sermonChunksToHydrate: SermonChunk[] = [];
+  const baseIdIndex = options.loadedSermonsMap ? getBaseIdIndex(options.loadedSermonsMap as Map<string, any>) : null;
+
+  const findSermonInMap = (sourceId: string): Sermon | null => {
+    const candidate = options.loadedSermonsMap?.get(sourceId);
+    if (candidate && typeof (candidate as any).text === 'string' && (candidate as any).text.length > 0) {
+      return candidate as Sermon;
+    }
+    return baseIdIndex?.get(sourceId.split('-').slice(0, 2).join('-')) || null;
+  };
+
+  // Pré-chargement parallèle (par lots) des textes absents de la mémoire : en mode SQLite, la map ne
+  // contient que les métadonnées et la bibliothèque entière exigerait sinon ~1400 allers-retours IPC séquentiels
+  const prefetchedSermons = new Map<string, Sermon | null>();
+  const idsToFetch = sources
+    .filter(s => s.sourceType === 'sermon' && !sourceChunksCache.has(s.sourceId) && !findSermonInMap(s.sourceId))
+    .map(s => s.sourceId);
+  const FETCH_CONCURRENCY = 12;
+  for (let i = 0; i < idsToFetch.length; i += FETCH_CONCURRENCY) {
+    const batch = idsToFetch.slice(i, i + FETCH_CONCURRENCY);
+    const results = await Promise.all(batch.map(async id => {
+      try {
+        let sermon = await getSermonById(id);
+        if (!sermon || !sermon.text) {
+          sermon = await getSermonById(id.split('-').slice(0, 2).join('-'));
+        }
+        return sermon && sermon.text ? sermon : null;
+      } catch {
+        return null;
+      }
+    }));
+    batch.forEach((id, idx) => prefetchedSermons.set(id, results[idx]));
+  }
+
+  let sliceStart = nowMs();
 
   for (const src of sources) {
     // -------------------------------------------------------------
     // 1. SERMON
     // -------------------------------------------------------------
     if (src.sourceType === 'sermon') {
-      let sermon: Sermon | null = null;
       const cleanSourceId = src.sourceId;
+      let sermonChunks = sourceChunksCache.get(cleanSourceId);
 
-      // 1. Recherche par ID exact dans la map chargée
-      if (options.loadedSermonsMap && options.loadedSermonsMap.has(cleanSourceId)) {
-        const candidate = options.loadedSermonsMap.get(cleanSourceId);
-        if (candidate && typeof (candidate as any).text === 'string' && (candidate as any).text.length > 0) {
-          sermon = candidate as Sermon;
-        }
-      }
+      if (!sermonChunks) {
+        let sermon: Sermon | null = findSermonInMap(cleanSourceId) || prefetchedSermons.get(cleanSourceId) || null;
 
-      // 2. Recherche par ID de base (sans suffixe de version) dans la map chargée
-      if (!sermon && options.loadedSermonsMap) {
-        const baseId = cleanSourceId.split('-').slice(0, 2).join('-');
-        for (const [key, value] of options.loadedSermonsMap.entries()) {
-          const keyBase = key.split('-').slice(0, 2).join('-');
-          if (keyBase === baseId && value && typeof (value as any).text === 'string' && (value as any).text.length > 0) {
-            sermon = value as Sermon;
-            break;
-          }
-        }
-      }
-
-      // 3. Recherche par ID exact dans la base de données
-      if (!sermon || !sermon.text) {
-        sermon = await getSermonById(cleanSourceId);
-      }
-
-      // 4. Recherche par ID de base dans la base de données
-      if (!sermon || !sermon.text) {
-        const baseId = cleanSourceId.split('-').slice(0, 2).join('-');
-        sermon = await getSermonById(baseId);
-      }
-
-      // Fallback Web browser / Node.js static library.json (mis en cache mémoire)
-      if (!sermon || !sermon.text) {
-        try {
-          if (!staticLibraryFallbackCache) {
-            const { extractLibrarySermonsArray } = await import('./chunkingService');
-            if (typeof window !== 'undefined') {
-              const res = await fetch(getStaticResourceUrl('library.json'));
-              if (res.ok) {
-                staticLibraryFallbackCache = extractLibrarySermonsArray(await res.json());
-              }
-            } else {
-              const fs = await import('fs');
-              const path = await import('path');
-              const candidates = [
-                path.resolve('public/library.json'),
-                path.resolve('dist/library.json'),
-                path.resolve('../public/library.json')
-              ];
-              for (const cand of candidates) {
-                if (fs.existsSync(cand)) {
-                  staticLibraryFallbackCache = extractLibrarySermonsArray(JSON.parse(fs.readFileSync(cand, 'utf8')));
-                  break;
+        // Fallback Web browser / Node.js static library.json (mis en cache mémoire)
+        if (!sermon || !sermon.text) {
+          try {
+            if (!staticLibraryFallbackCache) {
+              const { extractLibrarySermonsArray } = await import('./chunkingService');
+              if (typeof window !== 'undefined') {
+                const res = await fetch(getStaticResourceUrl('library.json'));
+                if (res.ok) {
+                  staticLibraryFallbackCache = extractLibrarySermonsArray(await res.json());
+                }
+              } else {
+                const fs = await import('fs');
+                const path = await import('path');
+                const candidates = [
+                  path.resolve('public/library.json'),
+                  path.resolve('dist/library.json'),
+                  path.resolve('../public/library.json')
+                ];
+                for (const cand of candidates) {
+                  if (fs.existsSync(cand)) {
+                    staticLibraryFallbackCache = extractLibrarySermonsArray(JSON.parse(fs.readFileSync(cand, 'utf8')));
+                    break;
+                  }
                 }
               }
             }
-          }
-          if (Array.isArray(staticLibraryFallbackCache)) {
-            const baseId = cleanSourceId.split('-').slice(0, 2).join('-');
-            const found = staticLibraryFallbackCache.find(
-              s => s.id === cleanSourceId || s.id === baseId || (s.version && `${s.id}-${s.version}` === cleanSourceId)
-            );
-            if (found && found.text) sermon = found;
-          }
-        } catch {}
-      }
+            if (Array.isArray(staticLibraryFallbackCache)) {
+              const baseId = cleanSourceId.split('-').slice(0, 2).join('-');
+              const found = staticLibraryFallbackCache.find(
+                s => s.id === cleanSourceId || s.id === baseId || (s.version && `${s.id}-${s.version}` === cleanSourceId)
+              );
+              if (found && found.text) sermon = found;
+            }
+          } catch {}
+        }
 
-      if (sermon && sermon.text) {
+        if (!sermon || !sermon.text) continue;
+
         const cacheKey = `${cleanSourceId}::${sermon.id}`;
         const cachedEntry = sermonChunksMemoryCache.get(cacheKey);
-        let sermonChunks: SermonChunk[];
-
         if (cachedEntry && cachedEntry.textLen === sermon.text.length) {
           sermonChunks = cachedEntry.chunks;
         } else {
-          sermonChunks = createSermonChunks(sermon);
+          sermonChunks = createSermonChunks(sermon, { computeHashes: false });
           for (const c of sermonChunks) {
             c.documentType = 'sermon';
             c.documentId = cleanSourceId;
             c.sermonId = cleanSourceId;
+            if (!c.embedding) sermonChunksToHydrate.push(c);
           }
           sermonChunksMemoryCache.set(cacheKey, { textLen: sermon.text.length, chunks: sermonChunks });
         }
+        sourceChunksCache.set(cleanSourceId, sermonChunks);
 
-        for (const c of sermonChunks) {
-          if (!c.embedding) {
-            sermonChunksToHydrate.push(c);
-          }
-          // Filtrage granulaire par paragraphes autorisés si spécifié
-          if (Array.isArray(src.allowedParagraphIds) && src.allowedParagraphIds.length > 0) {
-            const hasOverlap = c.paragraphIds.some(pid => src.allowedParagraphIds!.includes(pid));
-            if (!hasOverlap) continue;
-          }
-          chunks.push(c);
+        // Rend la main à l'interface pendant le découpage initial d'une grande sélection
+        if (nowMs() - sliceStart >= UI_FRAME_BUDGET_MS) {
+          await yieldToEventLoop();
+          sliceStart = nowMs();
         }
+      }
+
+      for (const c of sermonChunks) {
+        // Filtrage granulaire par paragraphes autorisés si spécifié
+        if (Array.isArray(src.allowedParagraphIds) && src.allowedParagraphIds.length > 0) {
+          const hasOverlap = c.paragraphIds.some(pid => src.allowedParagraphIds!.includes(pid));
+          if (!hasOverlap) continue;
+        }
+        chunks.push(c);
       }
     }
 
@@ -637,7 +821,7 @@ export async function executeUnifiedRagPipeline(
 
   // 0. Détection d'intention (CONTENT_TRANSFORMATION vs DOCUMENT_RETRIEVAL)
   const intentResult = detectQueryIntent(cleanQuery);
-  const uniqueTitles = Array.from(new Set(allowedChunks.map(c => c.sermonTitle || c.sermonId).filter(Boolean)));
+  const { uniqueTitles, distinctDocCount } = getContextStats(allowedChunks);
   const aiContextDesc = uniqueTitles.length > 0 
     ? (uniqueTitles.slice(0, 2).join(', ') + (uniqueTitles.length > 2 ? ` (+${uniqueTitles.length - 2})` : ''))
     : 'Ressources sélectionnées';
@@ -706,8 +890,6 @@ export async function executeUnifiedRagPipeline(
   }
 
   // ROUTAGE INTENTION B : DOCUMENT_RETRIEVAL (Pipeline RAG habituel inchangé)
-  // Concaténation du texte intégral du contexte actif pour l'évaluation d'Answerability
-  const contextCorpusText = allowedChunks.map(c => c.text).join(' ');
 
   // Expansion doctrinale & décomposition Multi-Hop (locale par défaut pour 0 latence et 0 consommation de quota)
   const expansionApiKey = aiConfig.featureFlags.useQueryRewrite ? options.apiKey : undefined;
@@ -752,10 +934,10 @@ export async function executeUnifiedRagPipeline(
     : allowedChunks;
 
   // Exclusion des chunks composés uniquement de bruit éditorial lorsqu'un document complet est exploré
-  const nonNoisePool = metadataFilteredPool.length > 5
-    ? metadataFilteredPool.filter(c => !isContentlessOrNoiseParagraph(c.text))
-    : metadataFilteredPool;
+  const nonNoisePool = metadataFilteredPool.length > 5 ? await getNoiseFilteredPool(metadataFilteredPool) : metadataFilteredPool;
   const searchPool = nonNoisePool.length > 0 ? nonNoisePool : metadataFilteredPool;
+  // Construction (ou attente) asynchrone de l'index BM25 : jamais de construction synchrone bloquante
+  await prewarmBM25InvertedIndex(searchPool);
 
   // 2. Recherche lexicale BM25 Okapi formelle via Index Inversé O(|Q| × postings)
   let bm25Vocab = getActiveCorpusVocabulary();
@@ -897,7 +1079,7 @@ export async function executeUnifiedRagPipeline(
   // Détection du mode Long-Context ("style NotebookLM") sur petites sélections (1-2 documents, <= 120 chunks)
   const isOverview = isOverviewOrSummaryQuery(cleanQuery);
   const isBroadStudy = isBroadOrExhaustiveContextQuery(cleanQuery);
-  const distinctSelectedDocs = new Set(allowedChunks.map(c => c.sermonId)).size;
+  const distinctSelectedDocs = distinctDocCount;
   const isLongContextBypassEligible = isBroadStudy && distinctSelectedDocs <= 2 && allowedChunks.length <= 120;
   const effectiveMaxEvidenceCount = (isLongContextBypassEligible && typeof options.maxEvidenceCount !== 'number')
     ? Math.min(25, Math.max(maxEvidenceCount, allowedChunks.length))
@@ -967,8 +1149,8 @@ export async function executeUnifiedRagPipeline(
   const assessment = assessAnswerability({
     query: cleanQuery,
     candidates: rerankedResults,
-    corpusTextIndex: contextCorpusText,
-    corpusChunks: allowedChunks
+    corpusTextIndex: '',
+    corpusChunks: searchPool
   });
 
   // 7. Logs de diagnostic structurés (Requirement 12)

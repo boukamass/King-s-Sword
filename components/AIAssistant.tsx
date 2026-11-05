@@ -927,7 +927,25 @@ const AIAssistant: React.FC = () => {
 
     return marked(formattedText, { breaks: true });
   };
-  
+
+  // Cache du rendu HTML par contenu de message : chaque frappe dans le champ de saisie re-rend le composant,
+  // sans ce cache tous les messages seraient ré-analysés (regex, recherche de sermons, Markdown) à chaque touche
+  const formattedHtmlCacheRef = useRef<{ sermons: unknown; selected: unknown; map: Map<string, string> }>({ sermons: null, selected: null, map: new Map() });
+  const getFormattedHtml = (content: string): string => {
+    const cache = formattedHtmlCacheRef.current;
+    if (cache.sermons !== sermons || cache.selected !== selectedSermonsMetadata) {
+      formattedHtmlCacheRef.current = { sermons, selected: selectedSermonsMetadata, map: new Map() };
+    }
+    const map = formattedHtmlCacheRef.current.map;
+    let html = map.get(content);
+    if (html === undefined) {
+      html = formatAIResponse(content) as string;
+      if (map.size >= 300) map.clear();
+      map.set(content, html);
+    }
+    return html;
+  };
+
   // Gestion du clic sur une référence ou un lien interne vers un sermon / document
   const handleContentClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -1847,13 +1865,13 @@ const AIAssistant: React.FC = () => {
                 </span>
                 {contextSermonIds.length > 0 && (
                   <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[7.5px] font-bold border ${
-                    estimatedDockStats.chars <= 300000 
+                    estimatedDockStats.chars <= aiConfig.longContextConfig.maxChars
                       ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20'
                       : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
                   }`}>
-                    {estimatedDockStats.chars <= 300000 
+                    {estimatedDockStats.chars <= aiConfig.longContextConfig.maxChars
                       ? `texte complet de ${selectedSermonsMetadata.length} sermon${selectedSermonsMetadata.length > 1 ? 's' : ''}`
-                      : `recherche dans ${selectedSermonsMetadata.length} sermons`} (~{estimatedDockStats.tokens.toLocaleString()} tok)
+                      : `passages clés de ${selectedSermonsMetadata.length} sermon${selectedSermonsMetadata.length > 1 ? 's' : ''}`}
                   </span>
                 )}
               </div>
@@ -1948,7 +1966,7 @@ const AIAssistant: React.FC = () => {
               }`}>
                 {msg.role === 'assistant' ? (
                   <div className="flex flex-col gap-2">
-                    <div className="prose-styles text-[13px] leading-[1.75] serif-text [&_p]:my-2.5 [&_p]:leading-[1.75] [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2.5 [&_ul]:space-y-1.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2.5 [&_ol]:space-y-1.5 [&_li]:my-1 [&_li]:leading-relaxed [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:font-black [&_h2]:mt-3.5 [&_h2]:mb-2 [&_h2]:font-bold [&_h3]:mt-3 [&_h3]:mb-1.5 [&_h3]:font-bold [&_strong]:font-black text-zinc-900 dark:text-zinc-100" dangerouslySetInnerHTML={{ __html: formatAIResponse(msg.content) as string }} />
+                    <div className="prose-styles text-[13px] leading-[1.75] serif-text [&_p]:my-2.5 [&_p]:leading-[1.75] [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2.5 [&_ul]:space-y-1.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2.5 [&_ol]:space-y-1.5 [&_li]:my-1 [&_li]:leading-relaxed [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:font-black [&_h2]:mt-3.5 [&_h2]:mb-2 [&_h2]:font-bold [&_h3]:mt-3 [&_h3]:mb-1.5 [&_h3]:font-bold [&_strong]:font-black text-zinc-900 dark:text-zinc-100" dangerouslySetInnerHTML={{ __html: getFormattedHtml(msg.content) }} />
                     {msg.citationsValidation && (
                       <CitationValidationBlock validation={msg.citationsValidation} />
                     )}

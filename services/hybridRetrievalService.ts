@@ -182,6 +182,8 @@ export function mapParagraphsToChunkHits(
  * Fusionne les hits lexicaux et les hits vectoriels selon l'algorithme RRF.
  * Fonction 100% pure, déterministe et isolée.
  */
+const unfilteredChunksMapCache = new WeakMap<SermonChunk[], Map<string, SermonChunk>>();
+
 export function fuseRankings(params: {
   lexicalHits: LexicalChunkHit[];
   vectorHits: VectorSearchResult[];
@@ -209,13 +211,18 @@ export function fuseRankings(params: {
     : (opts.sermonIdFilter && opts.sermonIdFilter.length > 0 ? { sermonIds: opts.sermonIdFilter } : undefined);
 
   // PRE-FILTERING STRICT : on indexe uniquement les chunks du périmètre
-  const chunksMap = new Map<string, SermonChunk>();
-  for (const c of allChunks) {
-    if (c && c.chunkId) {
-      if (!effectiveFilter || matchesMetadataFilter(c, effectiveFilter)) {
-        chunksMap.set(c.chunkId, c);
+  // (sans filtre, l'index du périmètre complet est réutilisé tant que le tableau de chunks est le même)
+  let chunksMap = effectiveFilter ? undefined : unfilteredChunksMapCache.get(allChunks);
+  if (!chunksMap) {
+    chunksMap = new Map<string, SermonChunk>();
+    for (const c of allChunks) {
+      if (c && c.chunkId) {
+        if (!effectiveFilter || matchesMetadataFilter(c, effectiveFilter)) {
+          chunksMap.set(c.chunkId, c);
+        }
       }
     }
+    if (!effectiveFilter) unfilteredChunksMapCache.set(allChunks, chunksMap);
   }
 
   // Dictionnaires de recherche des hits par chunkId

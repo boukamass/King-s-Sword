@@ -216,7 +216,19 @@ export function isDirectiveOrConversationalToken(token: string): boolean {
  */
 export function extractCompoundTheologicalTokens(text: string): string[] {
   if (!text || typeof text !== 'string') return [];
-  const norm = normalizeText(text).toLowerCase();
+  return extractCompoundTokensFromNormalized(normalizeText(text).toLowerCase());
+}
+
+/**
+ * Variante opérant sur un texte déjà normalisé (évite une seconde normalisation lors de la tokenisation).
+ * Chaque expression coûteuse n'est évaluée que si sa condition nécessaire (pré-test linéaire) est remplie.
+ */
+function extractCompoundTokensFromNormalized(norm: string): string[] {
+  if (!norm) return [];
+  // Sans chiffre, seul le nombre écrit en toutes lettres « cent quarante-quatre mille » peut produire un jeton
+  if (!/\d/.test(norm)) {
+    return /\bcent\s+quarante[- ]quatre\s+mille\b/.test(norm) ? ['144000'] : [];
+  }
   const compounds: string[] = [];
 
   // 1. Codes de sermons Branham : YY-MMDD[A/M/E/S/B/X] (ex: 65-1128m, 63-0324e)
@@ -228,7 +240,8 @@ export function extractCompoundTheologicalTokens(text: string): string[] {
 
   // 2a. Références bibliques compactes ou abrégées : ex: "Apoc. 10:7", "Ap 10.7", "Actes 2:38", "1 Cor. 13:1"
   const compactBibleRegex = /\b(?:([123])\s*)?([a-z]{2,15})\.?\s+(\d{1,3})\s*[:.,v]\s*(\d{1,3})\b/g;
-  while ((m = compactBibleRegex.exec(norm)) !== null) {
+  const hasCompactCandidate = /[a-z]\.?\s+\d{1,3}\s*[:.,v]\s*\d/.test(norm);
+  while (hasCompactCandidate && (m = compactBibleRegex.exec(norm)) !== null) {
     const numPrefix = m[1] ? `${m[1]}_` : '';
     const rawBook = m[2];
     const chap = m[3];
@@ -248,7 +261,8 @@ export function extractCompoundTheologicalTokens(text: string): string[] {
 
   // 2b. Références bibliques rédigées en toutes lettres dans les sermons : ex: "Matthieu chapitre 24, verset 24", "Apocalypse 11"
   const verbalBibleRegex = /\b(?:([123])\s+)?([a-z]{2,15})\.?\s+(?:chapitre\s+)?(\d{1,3})(?:\s*[,;:]?\s*versets?\s*(\d{1,3}))?\b/g;
-  while ((m = verbalBibleRegex.exec(norm)) !== null) {
+  const hasVerbalCandidate = /[a-z]\.?\s+(?:chapitre\s+)?\d/.test(norm);
+  while (hasVerbalCandidate && (m = verbalBibleRegex.exec(norm)) !== null) {
     const numPrefix = m[1] ? `${m[1]}_` : '';
     const rawBook = m[2];
     const chap = m[3];
@@ -266,7 +280,8 @@ export function extractCompoundTheologicalTokens(text: string): string[] {
 
   // 3. Expressions numériques cardinales doctrinales (ex: 7 sceaux, 7 tonnerres, 24 anciens, 3 pull, 144 000)
   const numericConceptRegex = /\b([1-9]|12|24|70|144)\s+(sceaux?|ages?|tonnerres?|eglises?|anges?|cavernes?|chevaux|etres?|anciens?|temoins?|trompettes?|coupes?|plaies?|pull|dimensions?|vierges?|cornes?|couronnes?|tetes?)\b/g;
-  while ((m = numericConceptRegex.exec(norm)) !== null) {
+  const hasNumericCandidate = /\d\s+[a-z]/.test(norm);
+  while (hasNumericCandidate && (m = numericConceptRegex.exec(norm)) !== null) {
     const num = m[1];
     const noun = m[2].replace(/s$/, '');
     compounds.push(`${num}_${noun}`);
@@ -285,19 +300,54 @@ export function extractCompoundTheologicalTokens(text: string): string[] {
  * tout en préservant les jetons composés (références bibliques, codes sermons, nombres doctrinaux).
  * Sépare proprement les articles et prépositions élidés (ex: l'église -> eglise, léglise -> eglise).
  */
+const UNICODE_WORD_CHAR = /^[\p{L}\p{N}]$/u;
+
+/**
+ * Équivalent en un seul passage de text.replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(w => w.length >= 2).
+ */
+function extractWordRuns(text: string): string[] {
+  const words: string[] = [];
+  let start = -1;
+  let i = 0;
+  while (i < text.length) {
+    const code = text.charCodeAt(i);
+    let width = 1;
+    let isWordChar: boolean;
+    if (code < 128) {
+      isWordChar = (code >= 48 && code <= 57) || (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
+    } else if (code >= 0xd800 && code <= 0xdbff && i + 1 < text.length) {
+      width = 2;
+      isWordChar = UNICODE_WORD_CHAR.test(text.slice(i, i + 2));
+    } else {
+      isWordChar = UNICODE_WORD_CHAR.test(text[i]);
+    }
+    if (isWordChar) {
+      if (start < 0) start = i;
+    } else if (start >= 0) {
+      if (i - start >= 2) words.push(text.slice(start, i));
+      start = -1;
+    }
+    i += width;
+  }
+  if (start >= 0 && text.length - start >= 2) words.push(text.slice(start));
+  return words;
+}
+
 export function tokenizeText(text: string): string[] {
   if (!text || typeof text !== 'string') return [];
-  // 1. Découpage explicite des apostrophes d'élision (ex: l'église -> l eglise, d'or -> d or)
-  const withSeparatedApostrophes = text.replace(/([ldqujcsnmtLDQUJCSNMT])['`’]([\p{L}\p{N}]+)/gu, '$1 $2');
-  const normalized = normalizeText(withSeparatedApostrophes);
-  const words = normalized
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
-    .split(/\s+/)
-    .filter(w => w.length >= 2);
+  return tokenizeNormalizedText(normalizeText(text));
+}
+
+/**
+ * Tokenisation d'un texte déjà passé par normalizeText (permet de réutiliser la normalisation lors de l'indexation).
+ */
+function tokenizeNormalizedText(normalized: string): string[] {
+  // Extraction en un passage des séquences de lettres/chiffres de 2+ caractères :
+  // les apostrophes d'élision (l'église -> l, eglise) sont des séparateurs comme toute ponctuation
+  const words = extractWordRuns(normalized);
 
   // 2. Ajout des jetons composés (références bibliques, codes de sermons, nombres théologiques)
-  const compounds = extractCompoundTheologicalTokens(text);
+  const compounds = extractCompoundTokensFromNormalized(normalized);
   if (compounds.length > 0) {
     return [...words, ...compounds];
   }
@@ -372,20 +422,49 @@ export function computeTrigramSimilarity(a: string, b: string): number {
  * Construit dynamiquement le vocabulaire et les poids IDF à partir de n'importe quelle liste de chunks.
  * Reconstruit automatiquement à chaque indexation de documents.
  */
-export function buildCorpusVocabulary(chunks: Array<{ text: string }>): CorpusVocabulary {
-  const totalChunks = Math.max(1, chunks.length);
-  const docFrequency = new Map<string, number>();
-  let totalWords = 0;
+// Cache LRU du vocabulaire par signature de corpus : le vocabulaire de la bibliothèque entière
+// (≈185k chunks) n'est calculé qu'une seule fois au lieu d'être reconstruit à chaque requête
+const MAX_CACHED_VOCABULARIES = 4;
+const cachedVocabularies = new Map<string, CorpusVocabulary>();
 
-  for (const chunk of chunks) {
-    if (!chunk || !chunk.text) continue;
-    const tokens = tokenizeText(chunk.text);
-    totalWords += tokens.length;
-    const uniqueTokensInChunk = new Set(tokens);
-    for (const token of uniqueTokensInChunk) {
-      docFrequency.set(token, (docFrequency.get(token) || 0) + 1);
+function computeCorpusSignature(chunks: Array<{ text: string; chunkId?: string }>): string {
+  const n = chunks.length;
+  const keyOf = (c: { text: string; chunkId?: string } | undefined) => c ? (c.chunkId || (c.text || '').slice(0, 32)) : '';
+  return `${n}:${keyOf(chunks[0])}:${keyOf(chunks[Math.floor(n / 3)])}:${keyOf(chunks[Math.floor((2 * n) / 3)])}:${keyOf(chunks[n - 1])}`;
+}
+
+export function buildCorpusVocabulary(chunks: Array<{ text: string }>): CorpusVocabulary {
+  const signature = computeCorpusSignature(chunks);
+  let vocab = cachedVocabularies.get(signature);
+  if (vocab) {
+    cachedVocabularies.delete(signature);
+  } else {
+    vocab = computeCorpusVocabulary(chunks);
+    if (cachedVocabularies.size >= MAX_CACHED_VOCABULARIES) {
+      const oldestKey = cachedVocabularies.keys().next().value;
+      if (oldestKey !== undefined) cachedVocabularies.delete(oldestKey);
     }
   }
+  cachedVocabularies.set(signature, vocab);
+
+  // Ne pas écraser un vocabulaire global robuste (>= 1000 chunks) avec un échantillon local restreint
+  if (!globalCorpusVocabulary || globalCorpusVocabulary.totalChunks < 1000 || vocab.totalChunks >= 1000) {
+    globalCorpusVocabulary = vocab;
+  }
+  return vocab;
+}
+
+function computeCorpusVocabulary(chunks: Array<{ text: string }>): CorpusVocabulary {
+  const totalChunks = Math.max(1, chunks.length);
+  // Les fréquences documentaires sont exactement les longueurs des listes d'inversion de l'index BM25 :
+  // on réutilise l'index (déjà nécessaire à la recherche) au lieu de retokeniser tout le corpus
+  const index = getOrBuildBM25InvertedIndex(chunks.filter(c => c && c.text));
+  const docFrequency = new Map<string, number>();
+  for (const [term, postings] of index.termPostings) {
+    docFrequency.set(term, postings.length / 2);
+  }
+  let totalWords = 0;
+  for (let i = 0; i < index.docLengths.length; i++) totalWords += index.docLengths[i];
 
   const terms = new Map<string, VocabularyTermInfo>();
   const maxPossibleIdf = Math.max(1.0, Math.log(1 + totalChunks));
@@ -407,11 +486,6 @@ export function buildCorpusVocabulary(chunks: Array<{ text: string }>): CorpusVo
     averageChunkLength: Math.round(totalWords / totalChunks),
     updatedAt: new Date().toISOString()
   };
-
-  // Ne pas écraser un vocabulaire global robuste (>= 1000 chunks) avec un échantillon local restreint
-  if (!globalCorpusVocabulary || globalCorpusVocabulary.totalChunks < 1000 || totalChunks >= 1000) {
-    globalCorpusVocabulary = vocab;
-  }
   return vocab;
 }
 
@@ -598,10 +672,11 @@ export function computeBM25Score(
   };
 }
 
-export interface InvertedPosting {
-  docIdx: number;
-  tf: number;
-}
+/**
+ * Liste d'inversion compacte : paires consécutives [docIdx, tf, docIdx, tf, ...].
+ * Un Int32Array remplace des millions d'objets { docIdx, tf } (≈ 3x moins de mémoire, aucune pression GC).
+ */
+export type PackedPostings = Int32Array;
 
 export interface BM25InvertedIndex<T extends { text: string; chunkId?: string; sermonTitle?: string; sectionTitle?: string } = any> {
   signature: string;
@@ -610,11 +685,177 @@ export interface BM25InvertedIndex<T extends { text: string; chunkId?: string; s
   avgDocLength: number;
   normDocs: string[];
   normTitles: string[];
-  termPostings: Map<string, InvertedPosting[]>;
-  stemPostings: Map<string, InvertedPosting[]>;
+  termPostings: Map<string, PackedPostings>;
+  stemPostings: Map<string, PackedPostings>;
 }
 
-let cachedInvertedIndex: BM25InvertedIndex | null = null;
+// Cache LRU multi-emplacements (bibliothèque entière + sélections du Dock) pour éviter les reconstructions
+const MAX_CACHED_INVERTED_INDEXES = 3;
+const cachedInvertedIndexes = new Map<string, BM25InvertedIndex>();
+const pendingIndexBuilds = new Map<string, Promise<BM25InvertedIndex>>();
+const indexBuildProgressListeners = new Map<string, Set<(fraction: number) => void>>();
+// Durée maximale d'une tranche de construction avant de rendre la main à l'interface
+const INDEX_BUILD_FRAME_BUDGET_MS = 12;
+
+interface IndexBuildState {
+  next: number;
+  totalWords: number;
+  docLengths: Float32Array;
+  normDocs: string[];
+  normTitles: string[];
+  // Termes et radicaux internés en identifiants entiers : une seule recherche de Map par occurrence de mot
+  termIds: Map<string, number>;
+  termNames: string[];
+  termLists: number[][];
+  termStemIds: number[];
+  termCounts: number[];
+  stemIds: Map<string, number>;
+  stemNames: string[];
+  stemLists: number[][];
+  stemCounts: number[];
+  titleCache: Map<string, string>;
+}
+
+function computeIndexSignature(chunks: Array<{ text: string; chunkId?: string }>): string {
+  const n = chunks.length;
+  const firstId = n > 0 ? (chunks[0].chunkId || chunks[0].text.slice(0, 24)) : '';
+  const lastId = n > 0 ? (chunks[n - 1].chunkId || chunks[n - 1].text.slice(0, 24)) : '';
+  const midId = n > 2 ? (chunks[Math.floor(n / 2)].chunkId || '') : '';
+  return `${n}:${firstId}:${midId}:${lastId}`;
+}
+
+function getCachedIndex<T extends { text: string }>(signature: string, n: number): BM25InvertedIndex<T> | null {
+  const cachedIndex = cachedInvertedIndexes.get(signature);
+  if (!cachedIndex || cachedIndex.chunks.length !== n) return null;
+  cachedInvertedIndexes.delete(signature);
+  cachedInvertedIndexes.set(signature, cachedIndex);
+  return cachedIndex as BM25InvertedIndex<T>;
+}
+
+function createIndexBuildState(n: number): IndexBuildState {
+  return {
+    next: 0,
+    totalWords: 0,
+    docLengths: new Float32Array(n),
+    normDocs: new Array<string>(n),
+    normTitles: new Array<string>(n),
+    termIds: new Map(),
+    termNames: [],
+    termLists: [],
+    termStemIds: [],
+    termCounts: [],
+    stemIds: new Map(),
+    stemNames: [],
+    stemLists: [],
+    stemCounts: [],
+    titleCache: new Map()
+  };
+}
+
+function indexDocuments<T extends { text: string; sermonTitle?: string; sectionTitle?: string }>(
+  state: IndexBuildState,
+  chunks: T[],
+  end: number
+): void {
+  const touchedTerms: number[] = [];
+  const touchedStems: number[] = [];
+  const { termIds, termNames, termLists, termStemIds, termCounts, stemIds, stemNames, stemLists, stemCounts } = state;
+  for (let docIdx = state.next; docIdx < end; docIdx++) {
+    const c = chunks[docIdx];
+    const rawText = c?.text || '';
+    const normalized = rawText ? normalizeText(rawText) : '';
+    const tokens = normalized ? tokenizeNormalizedText(normalized) : [];
+    const len = Math.max(1, tokens.length);
+    state.docLengths[docIdx] = len;
+    state.totalWords += len;
+    state.normDocs[docIdx] = normalized;
+
+    // Les titres sont partagés par tous les chunks d'un sermon : une seule chaîne normalisée par titre
+    const rawTitle = (c as any)?.sectionTitle || c?.sermonTitle || '';
+    let normTitle = state.titleCache.get(rawTitle);
+    if (normTitle === undefined) {
+      normTitle = rawTitle ? normalizeText(rawTitle).toLowerCase() : '';
+      state.titleCache.set(rawTitle, normTitle);
+    }
+    state.normTitles[docIdx] = normTitle;
+
+    touchedTerms.length = 0;
+    touchedStems.length = 0;
+    for (let i = 0; i < tokens.length; i++) {
+      const t = tokens[i];
+      let id = termIds.get(t);
+      if (id === undefined) {
+        id = termNames.length;
+        termIds.set(t, id);
+        termNames.push(t);
+        termLists.push([]);
+        termCounts.push(0);
+        // Radical calculé une seule fois par terme distinct
+        const stem = extractFrenchStem(t);
+        let stemId = -1;
+        if (stem.length >= 3) {
+          stemId = stemIds.get(stem) ?? -1;
+          if (stemId < 0) {
+            stemId = stemNames.length;
+            stemIds.set(stem, stemId);
+            stemNames.push(stem);
+            stemLists.push([]);
+            stemCounts.push(0);
+          }
+        }
+        termStemIds.push(stemId);
+      }
+      if (termCounts[id]++ === 0) touchedTerms.push(id);
+      const stemId = termStemIds[id];
+      if (stemId >= 0 && stemCounts[stemId]++ === 0) touchedStems.push(stemId);
+    }
+
+    for (let k = 0; k < touchedTerms.length; k++) {
+      const id = touchedTerms[k];
+      termLists[id].push(docIdx, termCounts[id]);
+      termCounts[id] = 0;
+    }
+    for (let k = 0; k < touchedStems.length; k++) {
+      const id = touchedStems[k];
+      stemLists[id].push(docIdx, stemCounts[id]);
+      stemCounts[id] = 0;
+    }
+  }
+  state.next = end;
+}
+
+function packPostings(names: string[], lists: number[][]): Map<string, PackedPostings> {
+  const packed = new Map<string, PackedPostings>();
+  for (let i = 0; i < names.length; i++) {
+    packed.set(names[i], Int32Array.from(lists[i]));
+  }
+  lists.length = 0;
+  return packed;
+}
+
+function finalizeIndex<T extends { text: string }>(state: IndexBuildState, signature: string, chunks: T[]): BM25InvertedIndex<T> {
+  const n = chunks.length;
+  const index: BM25InvertedIndex<T> = {
+    signature,
+    chunks,
+    docLengths: state.docLengths,
+    avgDocLength: n > 0 ? state.totalWords / n : 100,
+    normDocs: state.normDocs,
+    normTitles: state.normTitles,
+    termPostings: packPostings(state.termNames, state.termLists),
+    stemPostings: packPostings(state.stemNames, state.stemLists)
+  };
+  storeIndex(signature, index);
+  return index;
+}
+
+function storeIndex(signature: string, index: BM25InvertedIndex): void {
+  if (cachedInvertedIndexes.size >= MAX_CACHED_INVERTED_INDEXES) {
+    const oldestKey = cachedInvertedIndexes.keys().next().value;
+    if (oldestKey !== undefined) cachedInvertedIndexes.delete(oldestKey);
+  }
+  cachedInvertedIndexes.set(signature, index);
+}
 
 /**
  * Construit ou récupère depuis le cache un index inversé BM25 haute performance en mémoire.
@@ -624,79 +865,93 @@ let cachedInvertedIndex: BM25InvertedIndex | null = null;
 export function getOrBuildBM25InvertedIndex<T extends { text: string; chunkId?: string; sermonTitle?: string; sectionTitle?: string }>(
   chunks: T[]
 ): BM25InvertedIndex<T> {
-  const n = chunks.length;
-  const firstId = n > 0 ? (chunks[0].chunkId || chunks[0].text.slice(0, 24)) : '';
-  const lastId = n > 0 ? (chunks[n - 1].chunkId || chunks[n - 1].text.slice(0, 24)) : '';
-  const midId = n > 2 ? (chunks[Math.floor(n / 2)].chunkId || '') : '';
-  const signature = `${n}:${firstId}:${midId}:${lastId}`;
+  const signature = computeIndexSignature(chunks);
+  const cached = getCachedIndex<T>(signature, chunks.length);
+  if (cached) return cached;
 
-  if (cachedInvertedIndex && cachedInvertedIndex.signature === signature && cachedInvertedIndex.chunks.length === n) {
-    return cachedInvertedIndex as BM25InvertedIndex<T>;
+  const state = createIndexBuildState(chunks.length);
+  indexDocuments(state, chunks, chunks.length);
+  return finalizeIndex(state, signature, chunks);
+}
+
+/**
+ * Construit l'index en tâche de fond par tranches, en rendant la main à l'interface entre chaque tranche.
+ * Les appels synchrones ultérieurs (recherche) trouvent ensuite l'index en cache, sans aucun gel.
+ */
+export function prewarmBM25InvertedIndex<T extends { text: string; chunkId?: string; sermonTitle?: string; sectionTitle?: string }>(
+  chunks: T[],
+  onProgress?: (fraction: number) => void
+): Promise<BM25InvertedIndex<T>> {
+  const signature = computeIndexSignature(chunks);
+  const cached = getCachedIndex<T>(signature, chunks.length);
+  if (cached) return Promise.resolve(cached);
+  const pending = pendingIndexBuilds.get(signature);
+  if (pending) {
+    if (onProgress) indexBuildProgressListeners.get(signature)?.add(onProgress);
+    return pending as Promise<BM25InvertedIndex<T>>;
   }
 
-  const docLengths = new Float32Array(n);
-  const normDocs = new Array<string>(n);
-  const normTitles = new Array<string>(n);
-  const termPostings = new Map<string, InvertedPosting[]>();
-  const stemPostings = new Map<string, InvertedPosting[]>();
-  let totalWords = 0;
+  const listeners = new Set<(fraction: number) => void>(onProgress ? [onProgress] : []);
+  indexBuildProgressListeners.set(signature, listeners);
+  const notify = (fraction: number) => listeners.forEach(fn => { try { fn(fraction); } catch {} });
+  const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+  const yieldToUi = () => new Promise<void>(resolve => setTimeout(resolve, 0));
 
-  for (let docIdx = 0; docIdx < n; docIdx++) {
-    const c = chunks[docIdx];
-    const rawText = c?.text || '';
-    const tokens = tokenizeText(rawText);
-    const len = Math.max(1, tokens.length);
-    docLengths[docIdx] = len;
-    totalWords += len;
-    normDocs[docIdx] = normalizeText(rawText).toLowerCase();
-
-    const rawTitle = (c as any)?.sectionTitle || c?.sermonTitle || '';
-    normTitles[docIdx] = rawTitle ? normalizeText(rawTitle).toLowerCase() : '';
-
-    const tfMap = new Map<string, number>();
-    const stemTfMap = new Map<string, number>();
-
-    for (let i = 0; i < tokens.length; i++) {
-      const t = tokens[i];
-      tfMap.set(t, (tfMap.get(t) || 0) + 1);
-      const stem = extractFrenchStem(t);
-      if (stem.length >= 3) {
-        stemTfMap.set(stem, (stemTfMap.get(stem) || 0) + 1);
+  const build = (async () => {
+    const n = chunks.length;
+    const state = createIndexBuildState(n);
+    // Tranches bornées par un budget de temps (< 1 frame à 60 Hz) plutôt que par un nombre fixe de documents
+    while (state.next < n) {
+      // Un appel synchrone concurrent a pu construire l'index entre deux tranches
+      const done = getCachedIndex<T>(signature, n);
+      if (done) return done;
+      const sliceStart = now();
+      while (state.next < n && now() - sliceStart < INDEX_BUILD_FRAME_BUDGET_MS) {
+        indexDocuments(state, chunks, Math.min(n, state.next + 32));
       }
+      notify(0.95 * (state.next / n));
+      await yieldToUi();
     }
 
-    for (const [term, tf] of tfMap.entries()) {
-      let list = termPostings.get(term);
-      if (!list) {
-        list = [];
-        termPostings.set(term, list);
+    const packAsync = async (names: string[], lists: number[][]): Promise<Map<string, PackedPostings>> => {
+      const packed = new Map<string, PackedPostings>();
+      let i = 0;
+      while (i < names.length) {
+        const sliceStart = now();
+        while (i < names.length && now() - sliceStart < INDEX_BUILD_FRAME_BUDGET_MS) {
+          const end = Math.min(names.length, i + 256);
+          for (; i < end; i++) packed.set(names[i], Int32Array.from(lists[i]));
+        }
+        await yieldToUi();
       }
-      list.push({ docIdx, tf });
-    }
+      lists.length = 0;
+      return packed;
+    };
+    const termPostings = await packAsync(state.termNames, state.termLists);
+    const stemPostings = await packAsync(state.stemNames, state.stemLists);
 
-    for (const [stem, tf] of stemTfMap.entries()) {
-      let list = stemPostings.get(stem);
-      if (!list) {
-        list = [];
-        stemPostings.set(stem, list);
-      }
-      list.push({ docIdx, tf });
-    }
-  }
+    const existing = getCachedIndex<T>(signature, n);
+    if (existing) return existing;
+    const index: BM25InvertedIndex<T> = {
+      signature,
+      chunks,
+      docLengths: state.docLengths,
+      avgDocLength: n > 0 ? state.totalWords / n : 100,
+      normDocs: state.normDocs,
+      normTitles: state.normTitles,
+      termPostings,
+      stemPostings
+    };
+    storeIndex(signature, index);
+    notify(1);
+    return index;
+  })().finally(() => {
+    pendingIndexBuilds.delete(signature);
+    indexBuildProgressListeners.delete(signature);
+  });
 
-  const index: BM25InvertedIndex<T> = {
-    signature,
-    chunks,
-    docLengths,
-    avgDocLength: n > 0 ? totalWords / n : 100,
-    normDocs,
-    normTitles,
-    termPostings,
-    stemPostings
-  };
-
-  cachedInvertedIndex = index;
-  return index;
+  pendingIndexBuilds.set(signature, build);
+  return build;
 }
 
 /**
@@ -732,176 +987,409 @@ export function searchBM25WithInvertedIndex<T extends { text: string; chunkId?: 
       if (stemInfo) return stemInfo.idf;
     }
     const postings = index.termPostings.get(term) || index.stemPostings.get(extractFrenchStem(term));
-    const df = postings ? postings.length : 0;
+    const df = postings ? postings.length / 2 : 0;
     return Math.max(0.5, Math.log(1 + (totalChunksCount - df + 0.5) / (df + 0.5)));
   };
 
-  // Accumulateurs par docIdx uniquement pour les documents touchés par les listes d'inversion
-  const coreScores = new Map<number, number>();
-  const coreMatchCounts = new Map<number, number>();
-  const expandedScores = new Map<number, number>();
-  const expandedMatchCounts = new Map<number, number>();
-  const candidateDocIndices = new Set<number>();
+  // Accumulateurs denses (tableaux typés) au lieu de Map : O(1) sans hachage ni allocation par document.
+  // L'ordre des additions par document est identique à l'implémentation par Map (mêmes valeurs flottantes).
+  const n = index.chunks.length;
+  const buffers = getSearchBuffers(n);
+  const { coreScores, expandedScores, coreMatchCounts, expandedMatchCounts, touched, visitStamp } = buffers;
+  const candidates: number[] = [];
+  let stamp = buffers.stamp;
+
+  const touch = (docIdx: number) => {
+    if (touched[docIdx] === 0) {
+      touched[docIdx] = 1;
+      candidates.push(docIdx);
+    }
+  };
+
+  const accumulate = (
+    list: PackedPostings,
+    idf: number,
+    scores: Float64Array,
+    counts: Int32Array,
+    termStamp: number,
+    skipVisited: boolean
+  ) => {
+    for (let i = 0; i < list.length; i += 2) {
+      const docIdx = list[i];
+      if (skipVisited && visitStamp[docIdx] === termStamp) continue;
+      visitStamp[docIdx] = termStamp;
+      touch(docIdx);
+      const tf = list[i + 1];
+      const lenNorm = 1 - b + b * (index.docLengths[docIdx] / avgDocLen);
+      const tfSat = (tf * (k1 + 1)) / (tf + k1 * lenNorm);
+      scores[docIdx] += idf * tfSat;
+      counts[docIdx] += 1;
+    }
+  };
 
   const normCoreTerms = coreTerms
     .map(t => normalizeText(t).toLowerCase().trim())
     .filter(Boolean);
   const coreTermSet = new Set(normCoreTerms);
 
-  for (const normTerm of normCoreTerms) {
-    const idf = getIdf(normTerm);
-    const exactList = index.termPostings.get(normTerm);
-    const visitedForTerm = new Set<number>();
-
-    if (exactList) {
-      for (let i = 0; i < exactList.length; i++) {
-        const { docIdx, tf } = exactList[i];
-        visitedForTerm.add(docIdx);
-        candidateDocIndices.add(docIdx);
-        const lenNorm = 1 - b + b * (index.docLengths[docIdx] / avgDocLen);
-        const tfSat = (tf * (k1 + 1)) / (tf + k1 * lenNorm);
-        coreScores.set(docIdx, (coreScores.get(docIdx) || 0) + idf * tfSat);
-        coreMatchCounts.set(docIdx, (coreMatchCounts.get(docIdx) || 0) + 1);
+  try {
+    for (const normTerm of normCoreTerms) {
+      const idf = getIdf(normTerm);
+      const termStamp = ++stamp;
+      const exactList = index.termPostings.get(normTerm);
+      if (exactList) accumulate(exactList, idf, coreScores, coreMatchCounts, termStamp, false);
+      const termStem = extractFrenchStem(normTerm);
+      if (termStem.length >= 3) {
+        const stemList = index.stemPostings.get(termStem);
+        if (stemList) accumulate(stemList, idf, coreScores, coreMatchCounts, termStamp, true);
       }
     }
 
-    const termStem = extractFrenchStem(normTerm);
-    if (termStem.length >= 3) {
-      const stemList = index.stemPostings.get(termStem);
-      if (stemList) {
-        for (let i = 0; i < stemList.length; i++) {
-          const { docIdx, tf } = stemList[i];
-          if (visitedForTerm.has(docIdx)) continue;
-          visitedForTerm.add(docIdx);
-          candidateDocIndices.add(docIdx);
-          const lenNorm = 1 - b + b * (index.docLengths[docIdx] / avgDocLen);
-          const tfSat = (tf * (k1 + 1)) / (tf + k1 * lenNorm);
-          coreScores.set(docIdx, (coreScores.get(docIdx) || 0) + idf * tfSat);
-          coreMatchCounts.set(docIdx, (coreMatchCounts.get(docIdx) || 0) + 1);
+    for (const rawExp of expandedTerms) {
+      const normTerm = normalizeText(rawExp).toLowerCase().trim();
+      if (!normTerm || coreTermSet.has(normTerm)) continue;
+      const idf = getIdf(normTerm);
+      const termStamp = ++stamp;
+      const exactList = index.termPostings.get(normTerm);
+      if (exactList) accumulate(exactList, idf, expandedScores, expandedMatchCounts, termStamp, false);
+      const termStem = extractFrenchStem(normTerm);
+      if (termStem.length >= 3) {
+        const stemList = index.stemPostings.get(termStem);
+        if (stemList) accumulate(stemList, idf, expandedScores, expandedMatchCounts, termStamp, true);
+      }
+    }
+
+    // Bonus de titre mémoïsé par titre (partagé par tous les chunks d'un sermon)
+    const titleBonusCache = new Map<string, number>();
+    const getTitleBonus = (normTitle: string): number => {
+      if (!normTitle) return 0;
+      let bonus = titleBonusCache.get(normTitle);
+      if (bonus === undefined) {
+        bonus = 0;
+        for (let i = 0; i < normCoreTerms.length; i++) {
+          const nt = normCoreTerms[i];
+          if (nt && normTitle.includes(nt)) {
+            bonus += Math.min(5.0, getIdf(nt) * 1.0);
+          }
         }
+        titleBonusCache.set(normTitle, bonus);
+      }
+      return bonus;
+    };
+
+    const hasBigrams = Boolean(options.bigrams && options.bigrams.length > 0);
+    const hasFullPhrase = Boolean(options.fullPhrase && options.fullPhrase.length > 4);
+    const bigramList = hasBigrams ? options.bigrams! : [];
+
+    // Documents pouvant contenir chaque expression (condition nécessaire exacte dérivée des tokens) :
+    // null = aucune restriction possible, l'expression doit être testée sur tous les documents
+    const bigramPossible = bigramList.map(bg => getPhrasePossibleDocs(index, bg));
+    const fullPhrasePossible = hasFullPhrase ? getPhrasePossibleDocs(index, options.fullPhrase!) : null;
+
+    // Borne supérieure du bonus de phrase propre à chaque document
+    const phraseUpperBound = (docIdx: number): number => {
+      let possibleBigrams = 0;
+      for (let i = 0; i < bigramPossible.length; i++) {
+        const set = bigramPossible[i];
+        if (!set || set[docIdx] === 1) possibleBigrams++;
+      }
+      let ub = possibleBigrams > 0 ? (possibleBigrams / bigramList.length) * 12.0 : 0;
+      if (hasFullPhrase && (!fullPhrasePossible || fullPhrasePossible[docIdx] === 1)) ub += 15.0;
+      return ub;
+    };
+
+    // Score de base (sans bonus de phrase, coûteux car il parcourt le texte du chunk)
+    const baseScores = new Float64Array(candidates.length);
+    const kthBaseHeap = new MinHeap();
+    for (let order = 0; order < candidates.length; order++) {
+      const docIdx = candidates[order];
+      const base = (coreWeight * coreScores[docIdx]) + (expandedWeight * expandedScores[docIdx]) + Math.min(getTitleBonus(index.normTitles[docIdx]), 10.0);
+      baseScores[order] = base;
+      if (kthBaseHeap.size < topK) kthBaseHeap.push(base);
+      else if (base > kthBaseHeap.peek()) { kthBaseHeap.pop(); kthBaseHeap.push(base); }
+    }
+
+    // Présélection exacte : le score final est ≥ au score de base, donc le K-ième score final arrondi est
+    // ≥ arrondi(K-ième score de base). Un candidat dont la borne supérieure reste en dessous ne peut pas
+    // entrer dans le top K : inutile de le trier ni d'évaluer son bonus de phrase.
+    const kthBaseRounded = kthBaseHeap.size >= topK ? Math.round(kthBaseHeap.peek() * 100) / 100 : -Infinity;
+    const canPrefilter = kthBaseRounded >= 0.5;
+    type Candidate = { docIdx: number; order: number; upper: number };
+    const scored: Candidate[] = [];
+    for (let order = 0; order < candidates.length; order++) {
+      const docIdx = candidates[order];
+      if (coreMatchCounts[docIdx] + expandedMatchCounts[docIdx] === 0) continue;
+      // Marge de 0,01 : protège l'élagage des écarts d'arrondi flottant dus à l'ordre des additions
+      const upper = Math.round((baseScores[order] + phraseUpperBound(docIdx)) * 100) / 100 + 0.01;
+      if (canPrefilter && upper < kthBaseRounded) continue;
+      scored.push({ docIdx, order, upper });
+    }
+
+    // Élagage exact : on évalue les candidats par borne supérieure décroissante et l'on s'arrête dès que
+    // la borne (score de base + bonus de phrase atteignable) passe sous le K-ième meilleur score exact
+    scored.sort((x, y) => (y.upper - x.upper) || (x.order - y.order));
+    const kept: Array<{ docIdx: number; order: number; score: number }> = [];
+    const topScores = new MinHeap();
+    for (const cand of scored) {
+      if (topScores.size >= topK && cand.upper < topScores.peek()) break;
+
+      const normDocText = index.normDocs[cand.docIdx];
+      let phraseBonus = 0;
+      if (hasBigrams) {
+        let matchedBigrams = 0;
+        for (let i = 0; i < bigramList.length; i++) {
+          const set = bigramPossible[i];
+          if ((!set || set[cand.docIdx] === 1) && normDocText.includes(bigramList[i])) matchedBigrams++;
+        }
+        if (matchedBigrams > 0) phraseBonus += (matchedBigrams / bigramList.length) * 12.0;
+      }
+      if (hasFullPhrase && (!fullPhrasePossible || fullPhrasePossible[cand.docIdx] === 1) && normDocText.includes(options.fullPhrase!)) {
+        phraseBonus += 15.0;
+      }
+
+      const bm25Core = coreScores[cand.docIdx];
+      const bm25Expanded = expandedScores[cand.docIdx];
+      const titleBonus = getTitleBonus(index.normTitles[cand.docIdx]);
+      const rawScore = (coreWeight * bm25Core) + (expandedWeight * bm25Expanded) + phraseBonus + Math.min(titleBonus, 10.0);
+      const finalScore = Math.round(rawScore * 100) / 100;
+      if (finalScore < 0.5) continue;
+
+      kept.push({ docIdx: cand.docIdx, order: cand.order, score: finalScore });
+      topScores.push(finalScore);
+      if (topScores.size > topK) topScores.pop();
+    }
+
+    // Tri stable équivalent à l'implémentation d'origine (score décroissant, puis ordre d'apparition)
+    kept.sort((x, y) => (y.score - x.score) || (x.order - y.order));
+    return kept.slice(0, topK).map(k => ({
+      chunk: index.chunks[k.docIdx],
+      score: k.score,
+      coreMatched: coreMatchCounts[k.docIdx],
+      expandedMatched: expandedMatchCounts[k.docIdx]
+    }));
+  } finally {
+    // Remise à zéro ciblée des seuls documents touchés (les tampons sont réutilisés d'une requête à l'autre)
+    for (let i = 0; i < candidates.length; i++) {
+      const docIdx = candidates[i];
+      coreScores[docIdx] = 0;
+      expandedScores[docIdx] = 0;
+      coreMatchCounts[docIdx] = 0;
+      expandedMatchCounts[docIdx] = 0;
+      touched[docIdx] = 0;
+    }
+    buffers.stamp = stamp;
+  }
+}
+
+// Ensembles de documents par contrainte de token (préfixe / suffixe / exact / contenu), mis en cache par index
+const affixDocSetCache = new WeakMap<BM25InvertedIndex, Map<string, Uint8Array>>();
+const MAX_AFFIX_SETS_PER_INDEX = 96;
+
+function isPureWordToken(word: string): boolean {
+  if (word.length < 2) return false;
+  const runs = extractWordRuns(word);
+  return runs.length === 1 && runs[0] === word;
+}
+
+function getAffixDocSet(index: BM25InvertedIndex, affix: string, mode: 'prefix' | 'suffix' | 'exact' | 'contains'): Uint8Array {
+  let cache = affixDocSetCache.get(index);
+  if (!cache) {
+    cache = new Map();
+    affixDocSetCache.set(index, cache);
+  }
+  const key = `${mode}:${affix}`;
+  const cached = cache.get(key);
+  if (cached) return cached;
+
+  const set = new Uint8Array(index.chunks.length);
+  const mark = (postings: PackedPostings) => {
+    for (let i = 0; i < postings.length; i += 2) set[postings[i]] = 1;
+  };
+  if (mode === 'exact') {
+    const postings = index.termPostings.get(affix);
+    if (postings) mark(postings);
+  } else {
+    for (const [term, postings] of index.termPostings) {
+      if (mode === 'prefix' ? term.startsWith(affix) : mode === 'suffix' ? term.endsWith(affix) : term.includes(affix)) {
+        mark(postings);
       }
     }
   }
+  if (cache.size >= MAX_AFFIX_SETS_PER_INDEX) cache.clear();
+  cache.set(key, set);
+  return set;
+}
 
-  for (const rawExp of expandedTerms) {
-    const normTerm = normalizeText(rawExp).toLowerCase().trim();
-    if (!normTerm || coreTermSet.has(normTerm)) continue;
-
-    const idf = getIdf(normTerm);
-    const exactList = index.termPostings.get(normTerm);
-    const visitedForTerm = new Set<number>();
-
-    if (exactList) {
-      for (let i = 0; i < exactList.length; i++) {
-        const { docIdx, tf } = exactList[i];
-        visitedForTerm.add(docIdx);
-        candidateDocIndices.add(docIdx);
-        const lenNorm = 1 - b + b * (index.docLengths[docIdx] / avgDocLen);
-        const tfSat = (tf * (k1 + 1)) / (tf + k1 * lenNorm);
-        expandedScores.set(docIdx, (expandedScores.get(docIdx) || 0) + idf * tfSat);
-        expandedMatchCounts.set(docIdx, (expandedMatchCounts.get(docIdx) || 0) + 1);
-      }
-    }
-
-    const termStem = extractFrenchStem(normTerm);
-    if (termStem.length >= 3) {
-      const stemList = index.stemPostings.get(termStem);
-      if (stemList) {
-        for (let i = 0; i < stemList.length; i++) {
-          const { docIdx, tf } = stemList[i];
-          if (visitedForTerm.has(docIdx)) continue;
-          visitedForTerm.add(docIdx);
-          candidateDocIndices.add(docIdx);
-          const lenNorm = 1 - b + b * (index.docLengths[docIdx] / avgDocLen);
-          const tfSat = (tf * (k1 + 1)) / (tf + k1 * lenNorm);
-          expandedScores.set(docIdx, (expandedScores.get(docIdx) || 0) + idf * tfSat);
-          expandedMatchCounts.set(docIdx, (expandedMatchCounts.get(docIdx) || 0) + 1);
-        }
-      }
+/**
+ * Documents pouvant contenir l'expression (sous-chaîne de normDocs), ou null si aucune restriction n'est déductible.
+ * Condition nécessaire exacte : une occurrence de « w0 w1 … wm » impose qu'un token se termine par w0,
+ * que les mots intérieurs soient des tokens entiers et que le token suivant le dernier espace commence par wm
+ * (un mot seul doit être contenu dans un token). Seuls les mots purement alphanumériques de 2+ caractères
+ * contraignent : leurs tokens englobants sont alors de longueur ≥ 2, donc présents dans l'index.
+ */
+function getPhrasePossibleDocs(index: BM25InvertedIndex, phrase: string): Uint8Array | null {
+  const words = phrase.split(' ');
+  const constraints: Uint8Array[] = [];
+  if (words.length === 1) {
+    if (isPureWordToken(words[0])) constraints.push(getAffixDocSet(index, words[0], 'contains'));
+  } else {
+    for (let i = 0; i < words.length; i++) {
+      const w = words[i];
+      if (!isPureWordToken(w)) continue;
+      const mode = i === 0 ? 'suffix' : i === words.length - 1 ? 'prefix' : 'exact';
+      constraints.push(getAffixDocSet(index, w, mode));
     }
   }
-
-  const results: Array<{ chunk: T; score: number; coreMatched: number; expandedMatched: number }> = [];
-
-  for (const docIdx of candidateDocIndices) {
-    const cMatched = coreMatchCounts.get(docIdx) || 0;
-    const eMatched = expandedMatchCounts.get(docIdx) || 0;
-    if (cMatched + eMatched === 0) continue;
-
-    const bm25Core = coreScores.get(docIdx) || 0;
-    const bm25Expanded = expandedScores.get(docIdx) || 0;
-    const normDocText = index.normDocs[docIdx];
-
-    let phraseBonus = 0;
-    if (options.bigrams && options.bigrams.length > 0) {
-      let matchedBigrams = 0;
-      for (let i = 0; i < options.bigrams.length; i++) {
-        if (normDocText.includes(options.bigrams[i])) {
-          matchedBigrams++;
-        }
-      }
-      if (matchedBigrams > 0) {
-        phraseBonus += (matchedBigrams / options.bigrams.length) * 12.0;
-      }
+  if (constraints.length === 0) return null;
+  if (constraints.length === 1) return constraints[0];
+  const result = new Uint8Array(index.chunks.length);
+  const first = constraints[0];
+  for (let d = 0; d < result.length; d++) {
+    if (first[d] !== 1) continue;
+    let ok = 1;
+    for (let c = 1; c < constraints.length; c++) {
+      if (constraints[c][d] !== 1) { ok = 0; break; }
     }
+    result[d] = ok;
+  }
+  return result;
+}
 
-    if (options.fullPhrase && options.fullPhrase.length > 4 && normDocText.includes(options.fullPhrase)) {
-      phraseBonus += 15.0;
-    }
+interface SearchBuffers {
+  size: number;
+  coreScores: Float64Array;
+  expandedScores: Float64Array;
+  coreMatchCounts: Int32Array;
+  expandedMatchCounts: Int32Array;
+  touched: Uint8Array;
+  visitStamp: Int32Array;
+  stamp: number;
+}
 
-    let titleBonus = 0;
-    const normTitle = index.normTitles[docIdx];
-    if (normTitle) {
-      for (let i = 0; i < normCoreTerms.length; i++) {
-        const nt = normCoreTerms[i];
-        if (nt && normTitle.includes(nt)) {
-          titleBonus += Math.min(5.0, getIdf(nt) * 1.0);
-        }
-      }
-    }
+let sharedSearchBuffers: SearchBuffers | null = null;
 
-    const rawScore = (coreWeight * bm25Core) + (expandedWeight * bm25Expanded) + phraseBonus + Math.min(titleBonus, 10.0);
-    const finalScore = Math.round(rawScore * 100) / 100;
+function getSearchBuffers(n: number): SearchBuffers {
+  if (!sharedSearchBuffers || sharedSearchBuffers.size < n || sharedSearchBuffers.stamp > 2_000_000_000) {
+    const size = Math.max(n, sharedSearchBuffers?.size ?? 0);
+    sharedSearchBuffers = {
+      size,
+      coreScores: new Float64Array(size),
+      expandedScores: new Float64Array(size),
+      coreMatchCounts: new Int32Array(size),
+      expandedMatchCounts: new Int32Array(size),
+      touched: new Uint8Array(size),
+      visitStamp: new Int32Array(size),
+      stamp: 0
+    };
+  }
+  return sharedSearchBuffers;
+}
 
-    if (finalScore >= 0.5) {
-      results.push({
-        chunk: index.chunks[docIdx],
-        score: finalScore,
-        coreMatched: cMatched,
-        expandedMatched: eMatched
-      });
+/** Tas binaire minimal de nombres (K meilleurs scores). */
+class MinHeap {
+  private data: number[] = [];
+  get size(): number { return this.data.length; }
+  peek(): number { return this.data[0]; }
+  push(value: number): void {
+    const d = this.data;
+    d.push(value);
+    let i = d.length - 1;
+    while (i > 0) {
+      const parent = (i - 1) >> 1;
+      if (d[parent] <= d[i]) break;
+      [d[parent], d[i]] = [d[i], d[parent]];
+      i = parent;
     }
   }
-
-  results.sort((a, b) => b.score - a.score);
-  return results.slice(0, topK);
+  pop(): number | undefined {
+    const d = this.data;
+    if (d.length === 0) return undefined;
+    const top = d[0];
+    const last = d.pop()!;
+    if (d.length > 0) {
+      d[0] = last;
+      let i = 0;
+      for (;;) {
+        const l = 2 * i + 1;
+        const r = l + 1;
+        let smallest = i;
+        if (l < d.length && d[l] < d[smallest]) smallest = l;
+        if (r < d.length && d[r] < d[smallest]) smallest = r;
+        if (smallest === i) break;
+        [d[smallest], d[i]] = [d[i], d[smallest]];
+        i = smallest;
+      }
+    }
+    return top;
+  }
 }
 
 /**
  * PHASE C.3 : Détection structurelle des paragraphes sans contenu ou bruits éditoriaux.
  * Détecte par structure (crochets, ratio de ponctuation, longueur) sans liste statique de phrases.
  */
+/**
+ * Équivalent sans allocation de text.replace(/[^\p{L}\p{N}]/gu, '').length.
+ */
+function countLetterOrDigitCodeUnits(text: string): number {
+  let count = 0;
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    if (code < 128) {
+      if ((code >= 48 && code <= 57) || (code >= 65 && code <= 90) || (code >= 97 && code <= 122)) count++;
+    } else if (code >= 0xd800 && code <= 0xdbff && i + 1 < text.length) {
+      if (UNICODE_WORD_CHAR.test(text.slice(i, i + 2))) count += 2;
+      i++;
+    } else if (UNICODE_WORD_CHAR.test(text[i])) {
+      count++;
+    }
+  }
+  return count;
+}
+
+function countLatinWordRuns(text: string, limit: number): number {
+  let runs = 0;
+  let runLength = 0;
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    const isWordChar =
+      (code >= 48 && code <= 57) || (code >= 65 && code <= 90) || (code >= 97 && code <= 122) ||
+      (code >= 0xc0 && code <= 0x24f && code !== 0xd7 && code !== 0xf7);
+    if (isWordChar) {
+      runLength++;
+    } else {
+      if (runLength >= 2 && ++runs >= limit) return runs;
+      runLength = 0;
+    }
+  }
+  if (runLength >= 2) runs++;
+  return runs;
+}
+
 export function isContentlessOrNoiseParagraph(text: string): boolean {
   if (!text || typeof text !== 'string') return true;
   const trimmed = text.trim();
   if (trimmed.length < 15) return true;
 
-  // 1. Détection structurelle de notes éditoriales entre crochets
-  if (/^\s*\[.*\]\s*$/s.test(trimmed)) return true;
-  const bracketMatches = trimmed.match(/\[.*?\]/g) || [];
-  const bracketChars = bracketMatches.join('').length;
-  if (bracketChars / trimmed.length > 0.45) return true;
+  // 1. Détection structurelle de notes éditoriales entre crochets (uniquement si le texte en contient)
+  if (trimmed.includes('[')) {
+    if (/^\s*\[.*\]\s*$/s.test(trimmed)) return true;
+    const bracketMatches = trimmed.match(/\[.*?\]/g) || [];
+    const bracketChars = bracketMatches.join('').length;
+    if (bracketChars / trimmed.length > 0.45) return true;
+  }
 
   // 2. Passages inaudibles ou bruits d'enregistrement ("...?... ", "…?... ")
-  if (/\b\.\.\.\?\.\.\.|\b…\?…|inconnu|inaudible|enregistrement/i.test(trimmed) && trimmed.length < 90) {
+  if (trimmed.length < 90 && /\b\.\.\.\?\.\.\.|\b…\?…|inconnu|inaudible|enregistrement/i.test(trimmed)) {
     return true;
   }
 
   // 3. Ratio de ponctuation/symboles anormalement élevé (> 35% de non-lettres)
-  const letters = trimmed.replace(/[^\p{L}\p{N}]/gu, '');
-  if (letters.length / trimmed.length < 0.50) return true;
+  if (countLetterOrDigitCodeUnits(trimmed) / trimmed.length < 0.50) return true;
 
-  // 4. Moins de 4 mots significatifs
+  // 4. Moins de 4 mots significatifs (chemin rapide : 4 séquences alphanumériques latines de 2+ caractères
+  // impliquent au moins 4 jetons ; la tokenisation complète n'est faite que dans les cas limites)
+  if (countLatinWordRuns(trimmed, 4) >= 4) return false;
   const words = tokenizeText(trimmed);
   if (words.length < 4) return true;
 
