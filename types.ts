@@ -536,6 +536,14 @@ export interface ElectronAPI {
     encryptSecureData?: (plainText: string) => Promise<string>;
     decryptSecureData?: (cipherText: string) => Promise<string>;
   };
+  ai?: {
+    /** Scores du cross-encoder (processus principal) pour chaque texte, dans l'ordre */
+    crossEncoderScore: (payload: { query: string; texts: string[]; maxLength?: number }) => Promise<{
+      success: boolean;
+      scores?: number[];
+      error?: string;
+    }>;
+  };
   system?: {
     getModelInfo: () => Promise<{
       success: boolean;

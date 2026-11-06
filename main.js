@@ -859,6 +859,56 @@ ipcMain.handle('security:decryptSecureData', (event, cipherText) => {
   return decryptSecret(cipherText);
 });
 
+// Reranking local par cross-encoder (mmarco-mMiniLMv2-L12-H384) : exécuté dans le processus principal
+// avec onnxruntime-node (tous les cœurs), le moteur WebAssembly du renderer n'utilisant qu'un seul thread.
+const CROSS_ENCODER_MODEL_ID = 'cross-encoder/mmarco-mMiniLMv2-L12-H384-v1';
+let crossEncoderPromise = null;
+function loadCrossEncoder() {
+  if (!crossEncoderPromise) {
+    crossEncoderPromise = (async () => {
+      const dirs = app.isPackaged
+        ? [path.join(process.resourcesPath, 'models')]
+        : [path.join(__dirname, 'models'), path.join(__dirname, 'public', 'models')];
+      const dir = dirs.find(d => fs.existsSync(path.join(d, CROSS_ENCODER_MODEL_ID, 'onnx', 'model_quantized.onnx')));
+      if (!dir) throw new Error('Modèle cross-encoder absent');
+      const { AutoTokenizer, AutoModelForSequenceClassification, env } = await import('@xenova/transformers');
+      env.allowRemoteModels = false;
+      env.allowLocalModels = true;
+      env.localModelPath = dir + path.sep;
+      const tok = await AutoTokenizer.from_pretrained(CROSS_ENCODER_MODEL_ID);
+      const model = await AutoModelForSequenceClassification.from_pretrained(CROSS_ENCODER_MODEL_ID, { quantized: true });
+      return { tok, model };
+    })().catch(err => {
+      crossEncoderPromise = null;
+      throw err;
+    });
+  }
+  return crossEncoderPromise;
+}
+
+ipcMain.handle('ai:crossEncoderScore', async (event, payload) => {
+  try {
+    const query = String(payload?.query || '');
+    const texts = Array.isArray(payload?.texts) ? payload.texts.map(t => String(t || '')) : [];
+    const maxLength = Number(payload?.maxLength) || 256;
+    if (!query || texts.length === 0) return { success: true, scores: [] };
+    const { tok, model } = await loadCrossEncoder();
+    const scores = [];
+    const batchSize = 16;
+    for (let i = 0; i < texts.length; i += batchSize) {
+      const part = texts.slice(i, i + batchSize);
+      const inputs = tok(new Array(part.length).fill(query), { text_pair: part, padding: true, truncation: true, max_length: maxLength });
+      const { logits } = await model(inputs);
+      const width = logits.dims[1] || 1;
+      for (let j = 0; j < part.length; j++) scores.push(width === 1 ? logits.data[j] : logits.data[j * width + (width - 1)]);
+    }
+    return { success: true, scores };
+  } catch (e) {
+    console.warn('[CrossEncoder] Indisponible :', e.message);
+    return { success: false, error: e.message };
+  }
+});
+
 ipcMain.handle('backup:exportUserData', async () => {
   if (!db) return { success: false, error: 'Base de données non disponible' };
   try {

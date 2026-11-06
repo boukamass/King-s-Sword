@@ -1,0 +1,812 @@
+{
+ "mode": "ce",
+ "date": "2026-11-06T07:00:01.902Z",
+ "summary": {
+  "toutes": {
+   "n": 89,
+   "top1": 60,
+   "top5": 81,
+   "top10": 88,
+   "top24": 89,
+   "mrr": 0.707
+  },
+  "mots_cles": {
+   "n": 47,
+   "top1": 74,
+   "top5": 96,
+   "top10": 100,
+   "top24": 100,
+   "mrr": 0.851
+  },
+  "paraphrases": {
+   "n": 42,
+   "top1": 43,
+   "top5": 64,
+   "top10": 74,
+   "top24": 76,
+   "mrr": 0.545
+  },
+  "refus_a_tort": 0,
+  "hors_corpus_acceptees": 5,
+  "hors_corpus_total": 8,
+  "latence_moyenne_ms": 7870
+ },
+ "rows": [
+  {
+   "id": "R001",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 70873
+  },
+  {
+   "id": "R002",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 9965
+  },
+  {
+   "id": "R003",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 8718
+  },
+  {
+   "id": "R004",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 6921
+  },
+  {
+   "id": "R005",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 8783
+  },
+  {
+   "id": "R006",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 6,
+   "ms": 6661
+  },
+  {
+   "id": "R007",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 7763
+  },
+  {
+   "id": "R008",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 2,
+   "ms": 6754
+  },
+  {
+   "id": "R009",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 6806
+  },
+  {
+   "id": "R010",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 6956
+  },
+  {
+   "id": "R011",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 6554
+  },
+  {
+   "id": "R012",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 6610
+  },
+  {
+   "id": "R013",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 8279
+  },
+  {
+   "id": "R014",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": null,
+   "ms": 7444
+  },
+  {
+   "id": "R015",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 3,
+   "ms": 6520
+  },
+  {
+   "id": "R016",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 7,
+   "ms": 6395
+  },
+  {
+   "id": "R017",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 7,
+   "ms": 6760
+  },
+  {
+   "id": "R018",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 6498
+  },
+  {
+   "id": "R019",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 2,
+   "ms": 7443
+  },
+  {
+   "id": "R020",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 6608
+  },
+  {
+   "id": "R021",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 2,
+   "ms": 7475
+  },
+  {
+   "id": "R022",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 9,
+   "ms": 6554
+  },
+  {
+   "id": "R023",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 6452
+  },
+  {
+   "id": "R024",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 2,
+   "ms": 6362
+  },
+  {
+   "id": "R025",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 6902
+  },
+  {
+   "id": "R026",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 7912
+  },
+  {
+   "id": "R027",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": null,
+   "ms": 6593
+  },
+  {
+   "id": "R028",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 6470
+  },
+  {
+   "id": "R029",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 2,
+   "ms": 7314
+  },
+  {
+   "id": "R030",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": null,
+   "ms": 7375
+  },
+  {
+   "id": "R031",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 6516
+  },
+  {
+   "id": "R032",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": null,
+   "ms": 7698
+  },
+  {
+   "id": "R033",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 2,
+   "ms": 7191
+  },
+  {
+   "id": "R034",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 6379
+  },
+  {
+   "id": "R035",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 6405
+  },
+  {
+   "id": "R036",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 2,
+   "ms": 6691
+  },
+  {
+   "id": "R037",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 6668
+  },
+  {
+   "id": "R038",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 4,
+   "ms": 6642
+  },
+  {
+   "id": "R039",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 2,
+   "ms": 6850
+  },
+  {
+   "id": "R040",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 7622
+  },
+  {
+   "id": "R041",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": null,
+   "ms": 7212
+  },
+  {
+   "id": "R042",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 7283
+  },
+  {
+   "id": "R043",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 2,
+   "ms": 6438
+  },
+  {
+   "id": "R044",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 6974
+  },
+  {
+   "id": "R045",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 7291
+  },
+  {
+   "id": "R046",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": null,
+   "ms": 6642
+  },
+  {
+   "id": "R047",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 6700
+  },
+  {
+   "id": "R048",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 8018
+  },
+  {
+   "id": "R049",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": null,
+   "ms": 6449
+  },
+  {
+   "id": "R050",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 2,
+   "ms": 7690
+  },
+  {
+   "id": "R051",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 6917
+  },
+  {
+   "id": "R052",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 2,
+   "ms": 6713
+  },
+  {
+   "id": "R053",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 6433
+  },
+  {
+   "id": "R054",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 7,
+   "ms": 6333
+  },
+  {
+   "id": "R055",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 2,
+   "ms": 6476
+  },
+  {
+   "id": "R056",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 6549
+  },
+  {
+   "id": "R057",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": null,
+   "ms": 6440
+  },
+  {
+   "id": "R058",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 2,
+   "ms": 6601
+  },
+  {
+   "id": "R059",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 6524
+  },
+  {
+   "id": "R060",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 7287
+  },
+  {
+   "id": "R061",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 7280
+  },
+  {
+   "id": "R062",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 6963
+  },
+  {
+   "id": "R063",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 6537
+  },
+  {
+   "id": "R064",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 7133
+  },
+  {
+   "id": "R065",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 7069
+  },
+  {
+   "id": "R066",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 3,
+   "ms": 7042
+  },
+  {
+   "id": "R067",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 6,
+   "ms": 7272
+  },
+  {
+   "id": "R068",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 7192
+  },
+  {
+   "id": "R069",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 6729
+  },
+  {
+   "id": "R070",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 11,
+   "ms": 7195
+  },
+  {
+   "id": "R071",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 6893
+  },
+  {
+   "id": "R072",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 2,
+   "ms": 7112
+  },
+  {
+   "id": "R073",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 7191
+  },
+  {
+   "id": "R074",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 6464
+  },
+  {
+   "id": "R075",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 6453
+  },
+  {
+   "id": "R076",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 6357
+  },
+  {
+   "id": "R077",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 9350
+  },
+  {
+   "id": "R078",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 8773
+  },
+  {
+   "id": "R079",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 7037
+  },
+  {
+   "id": "R080",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 2,
+   "ms": 8800
+  },
+  {
+   "id": "R081",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 2,
+   "ms": 8721
+  },
+  {
+   "id": "R082",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": null,
+   "ms": 9172
+  },
+  {
+   "id": "R083",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 7267
+  },
+  {
+   "id": "R084",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 6935
+  },
+  {
+   "id": "R085",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 8929
+  },
+  {
+   "id": "R086",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 8842
+  },
+  {
+   "id": "R087",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 7561
+  },
+  {
+   "id": "R088",
+   "category": "mots_cles",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": 1,
+   "ms": 7407
+  },
+  {
+   "id": "R089",
+   "category": "paraphrase_semantique",
+   "expectedAnswerable": true,
+   "answerable": true,
+   "rank": null,
+   "ms": 8115
+  },
+  {
+   "id": "Q073",
+   "category": "hors_corpus",
+   "expectedAnswerable": false,
+   "answerable": false,
+   "rank": null,
+   "ms": 8915
+  },
+  {
+   "id": "Q074",
+   "category": "hors_corpus",
+   "expectedAnswerable": false,
+   "answerable": true,
+   "rank": null,
+   "ms": 9178
+  },
+  {
+   "id": "Q075",
+   "category": "hors_corpus",
+   "expectedAnswerable": false,
+   "answerable": true,
+   "rank": null,
+   "ms": 8229
+  },
+  {
+   "id": "Q076",
+   "category": "hors_corpus",
+   "expectedAnswerable": false,
+   "answerable": true,
+   "rank": null,
+   "ms": 6353
+  },
+  {
+   "id": "Q077",
+   "category": "hors_corpus",
+   "expectedAnswerable": false,
+   "answerable": true,
+   "rank": null,
+   "ms": 7276
+  },
+  {
+   "id": "Q078",
+   "category": "hors_corpus",
+   "expectedAnswerable": false,
+   "answerable": true,
+   "rank": null,
+   "ms": 6608
+  },
+  {
+   "id": "Q079",
+   "category": "hors_corpus",
+   "expectedAnswerable": false,
+   "answerable": false,
+   "rank": null,
+   "ms": 7857
+  },
+  {
+   "id": "Q080",
+   "category": "hors_corpus",
+   "expectedAnswerable": false,
+   "answerable": false,
+   "rank": null,
+   "ms": 6859
+  }
+ ]
+}

@@ -11,7 +11,7 @@ export const getAppVersion = (): string => {
   if (typeof process !== 'undefined' && process.env?.APP_VERSION) {
     return process.env.APP_VERSION;
   }
-  return '2.9.21';
+  return '2.9.22';
 };
 
 export const APP_VERSION = getAppVersion();

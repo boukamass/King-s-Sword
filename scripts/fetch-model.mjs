@@ -32,4 +32,46 @@ if (!fs.existsSync(publicModels)) {
     ? `[fetch-model] ${copied} fichier(s) de modèle complété(s) dans models/.`
     : '[fetch-model] Model already present at: ' + rootModels);
 }
+
+// Cross-encoder de reranking (processus principal Electron) : téléchargé une seule fois dans models/
+// (≈ 136 Mo, non versionné). En cas d'échec, l'application garde le classement BM25 en tête.
+// KS_SKIP_MODEL_DOWNLOAD=1 désactive le téléchargement.
+const CROSS_ENCODER = {
+  id: 'cross-encoder/mmarco-mMiniLMv2-L12-H384-v1',
+  files: {
+    'config.json': 'config.json',
+    'tokenizer.json': 'tokenizer.json',
+    'tokenizer_config.json': 'tokenizer_config.json',
+    'special_tokens_map.json': 'special_tokens_map.json',
+    // Version quantifiée int8 publiée par l'auteur du modèle, renommée selon la convention de transformers.js
+    'onnx/model_quantized.onnx': 'onnx/model_quint8_avx2.onnx'
+  }
+};
+
+async function downloadCrossEncoder() {
+  if (process.env.KS_SKIP_MODEL_DOWNLOAD === '1') {
+    console.log('[fetch-model] Téléchargement du cross-encoder désactivé (KS_SKIP_MODEL_DOWNLOAD=1).');
+    return;
+  }
+  const dir = path.join(rootModels, ...CROSS_ENCODER.id.split('/'));
+  for (const [target, remote] of Object.entries(CROSS_ENCODER.files)) {
+    const dst = path.join(dir, ...target.split('/'));
+    if (fs.existsSync(dst) && fs.statSync(dst).size > 0) continue;
+    const url = `https://huggingface.co/${CROSS_ENCODER.id}/resolve/main/${remote}`;
+    console.log('[fetch-model] Téléchargement :', url);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status} pour ${url}`);
+    const buf = Buffer.from(await res.arrayBuffer());
+    fs.mkdirSync(path.dirname(dst), { recursive: true });
+    fs.writeFileSync(dst + '.part', buf);
+    fs.renameSync(dst + '.part', dst);
+  }
+  console.log('[fetch-model] Cross-encoder présent :', dir);
+}
+
+try {
+  await downloadCrossEncoder();
+} catch (err) {
+  console.warn('[fetch-model] Cross-encoder non téléchargé (le classement BM25 en tête sera utilisé) :', err.message);
+}
 process.exit(0);

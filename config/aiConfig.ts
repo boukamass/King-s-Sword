@@ -33,6 +33,27 @@ export interface AiFeatureFlags {
   useComplexQueryDecomposition: boolean;
   // Mémorisation des réponses aux relances (clé : question + contexte + dernier échange)
   useFollowUpAnswerCache: boolean;
+  // Classement des passages : tête BM25, puis fusion RRF BM25 + E5 (remplace le reranking pondéré)
+  useBm25LedRanking: boolean;
+  // Reranking local par cross-encoder (processus principal Electron) au-dessus du classement BM25 en tête
+  useCrossEncoderRerank: boolean;
+}
+
+export interface RetrievalRankingConfig {
+  /** Nombre de premiers passages BM25 conservés en tête, dans leur ordre */
+  bm25HeadCount: number;
+  /** Constante k de la fusion RRF du reste du classement */
+  rrfK: number;
+  /** Nombre de passages du classement soumis au cross-encoder */
+  crossEncoderPoolSize: number;
+  /** Longueur maximale (tokens) question + passage lue par le cross-encoder */
+  crossEncoderMaxLength: number;
+  /** Délai maximal du cross-encoder avant repli sur le classement BM25 en tête */
+  crossEncoderTimeoutMs: number;
+  /** Poids du rang cross-encoder face au rang BM25 en tête dans la fusion finale (1 = cross-encoder seul) */
+  crossEncoderWeight: number;
+  /** Lambda de la diversification MMR avec ce classement (1 = ordre conservé, sous le plafond par sermon) */
+  mmrLambda: number;
 }
 
 export interface SmartRetrievalConfig {
@@ -116,6 +137,20 @@ export const defaultFeatureFlags: AiFeatureFlags = {
   useStickyFollowUpSources: true,
   useComplexQueryDecomposition: true,
   useFollowUpAnswerCache: true,
+  useBm25LedRanking: true,
+  useCrossEncoderRerank: true,
+};
+
+export const defaultRetrievalRankingConfig: RetrievalRankingConfig = {
+  bm25HeadCount: 5,
+  rrfK: 60,
+  // Banc d'essai (185 k passages) : 30 → top 24 à 84 %, 40 → 87 %, 60 → 90 % ; le temps croît avec le bassin
+  crossEncoderPoolSize: 40,
+  crossEncoderMaxLength: 256,
+  crossEncoderTimeoutMs: 20000,
+  crossEncoderWeight: 1,
+  // Banc d'essai : λ = 0,75 → top 5 à 67 % ; λ = 1 → 73 % (la diversité reste assurée par le plafond par sermon)
+  mmrLambda: 1
 };
 
 export const defaultSmartRetrievalConfig: SmartRetrievalConfig = {
@@ -239,6 +274,7 @@ export const aiConfig: {
   longContextConfig: LongContextConfig;
   smartRetrievalConfig: SmartRetrievalConfig;
   tokenBudgetConfig: TokenBudgetConfig;
+  retrievalRankingConfig: RetrievalRankingConfig;
   models: AiModelConfig;
 } = {
   featureFlags: { ...defaultFeatureFlags },
@@ -246,6 +282,7 @@ export const aiConfig: {
   longContextConfig: { ...defaultLongContextConfig },
   smartRetrievalConfig: { ...defaultSmartRetrievalConfig },
   tokenBudgetConfig: { ...defaultTokenBudgetConfig },
+  retrievalRankingConfig: { ...defaultRetrievalRankingConfig },
   models: {
     // Modèle vérifié disponible et rapide
     primaryFastModel: "gemini-3.8-flash",

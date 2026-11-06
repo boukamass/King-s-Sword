@@ -1,2727 +1,2177 @@
 [
-  {
-    "id": "Q001",
-    "question": "Que portait le cavalier sur le cheval blanc et quel élément crucial lui manquait-il ?",
-    "category": "enseignement_precis",
-    "difficulty": "easy",
-    "answerable": true,
-    "expected_sermons": [
-      "63-0324M"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "Il portait un arc, mais n'avait aucune flèche. C'est le grand bluff religieux du temps de la fin.",
-    "expected_answer": "Le cavalier portait un arc mais n'avait aucune flèche, ce qui représente le grand bluff religieux du temps de la fin.",
-    "expected_answer_keywords": [
-      "arc",
-      "flèche",
-      "bluff religieux"
-    ]
-  },
-  {
-    "id": "Q002",
-    "question": "Pourquoi les questions et les réponses sont-elles qualifiées de partie essentielle de l'enseignement ?",
-    "category": "enseignement_precis",
-    "difficulty": "easy",
-    "answerable": true,
-    "expected_sermons": [
-      "63-0324M"
-    ],
-    "expected_paragraphs": [
-      1
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 1
-      }
-    ],
-    "relevant_snippet": "Les questions et les réponses sont toujours une partie essentielle de l'enseignement. Cela nous permet de clarifier les points qui auraient pu être mal compris pendant les réunions du soir.",
-    "expected_answer": "Elles permettent de clarifier les points qui auraient pu être mal compris pendant les réunions du soir.",
-    "expected_answer_keywords": [
-      "clarifier",
-      "mal compris",
-      "réunions du soir"
-    ]
-  },
-  {
-    "id": "Q003",
-    "question": "De quoi la communion n'est-elle pas simplement faite selon Frère Branham ?",
-    "category": "enseignement_precis",
-    "difficulty": "easy",
-    "answerable": true,
-    "expected_sermons": [
-      "65-1212"
-    ],
-    "expected_paragraphs": [
-      1
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-1212",
-        "paragraphIndex": 1
-      }
-    ],
-    "relevant_snippet": "La communion n'est pas simplement manger un morceau de pain sans levain et boire un peu de jus de cep.",
-    "expected_answer": "Elle n'est pas simplement manger un morceau de pain sans levain et boire un peu de jus de cep, mais une union spirituelle.",
-    "expected_answer_keywords": [
-      "pain sans levain",
-      "jus de cep",
-      "union spirituelle"
-    ]
-  },
-  {
-    "id": "Q004",
-    "question": "Où était réservée la manne cachée dans l'Ancien Testament selon le sermon sur La Communion ?",
-    "category": "enseignement_precis",
-    "difficulty": "easy",
-    "answerable": true,
-    "expected_sermons": [
-      "65-1212"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-1212",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "La manne cachée dans l'Ancien Testament était réservée à l'intérieur du Lieu Très Saint.",
-    "expected_answer": "Elle était réservée à l'intérieur du Lieu Très Saint.",
-    "expected_answer_keywords": [
-      "manne cachée",
-      "Lieu Très Saint",
-      "Ancien Testament"
-    ]
-  },
-  {
-    "id": "Q005",
-    "question": "Que sonnait la fête des trompettes dans l'Ancien Testament sous la loi mosaïque ?",
-    "category": "enseignement_precis",
-    "difficulty": "easy",
-    "answerable": true,
-    "expected_sermons": [
-      "64-0719M"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "64-0719M",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "Dans l'Ancien Testament, sous la loi mosaïque, la fête des trompettes sonnait le rassemblement d'Israël pour le jour du grand pardon.",
-    "expected_answer": "Elle sonnait le rassemblement d'Israël pour le jour du grand pardon sous la loi mosaïque.",
-    "expected_answer_keywords": [
-      "loi mosaïque",
-      "rassemblement",
-      "Israël",
-      "grand pardon"
-    ]
-  },
-  {
-    "id": "Q006",
-    "question": "Quel symbole végétal et quel drapeau attestent du rétablissement d'Israël ?",
-    "category": "enseignement_precis",
-    "difficulty": "easy",
-    "answerable": true,
-    "expected_sermons": [
-      "64-0719M"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "64-0719M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "Le figuier a repoussé ses feuilles, la nation d'Israël est érigée, le drapeau à l'étoile de David flotte à Jérusalem",
-    "expected_answer": "Le figuier a repoussé ses feuilles et le drapeau à l'étoile de David flotte à Jérusalem.",
-    "expected_answer_keywords": [
-      "figuier",
-      "feuilles",
-      "étoile de David",
-      "Jérusalem"
-    ]
-  },
-  {
-    "id": "Q007",
-    "question": "Sur quoi la pluie de Dieu tombe-t-elle indifféremment dans le même champ ?",
-    "category": "enseignement_precis",
-    "difficulty": "easy",
-    "answerable": true,
-    "expected_sermons": [
-      "65-0725M"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-0725M",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "tout comme la pluie de Dieu tombe indifféremment sur le bon blé et sur l'ivraie dans le même champ.",
-    "expected_answer": "La pluie de Dieu tombe indifféremment sur le bon blé et sur l'ivraie dans le même champ.",
-    "expected_answer_keywords": [
-      "pluie",
-      "bon blé",
-      "ivraie",
-      "champ"
-    ]
-  },
-  {
-    "id": "Q008",
-    "question": "De quoi les yeux spirituels des croyants doivent-ils être oints selon la prière finale de 65-0725M ?",
-    "category": "enseignement_precis",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "65-0725M"
-    ],
-    "expected_paragraphs": [
-      4
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-0725M",
-        "paragraphIndex": 4
-      }
-    ],
-    "relevant_snippet": "Que le Dieu de toute grâce nous accorde un cœur pur et des yeux spirituels oints du collyre divin pour reconnaître la Vérité",
-    "expected_answer": "Ils doivent être oints du collyre divin afin de reconnaître la Vérité et marcher dans Sa lumière.",
-    "expected_answer_keywords": [
-      "yeux spirituels",
-      "collyre divin",
-      "reconnaître la Vérité"
-    ]
-  },
-  {
-    "id": "Q009",
-    "question": "Quel est le thème biblique de la lumière du soir prophétisée par Zacharie ?",
-    "category": "theme_biblique",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "63-0324M"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "Dieu rassemble Ses élus hors de la confusion babylonienne pour les amener dans la lumière parfaite du soir, selon le prophète Zacharie : \"Au temps du soir, la lumière paraîtra.\"",
-    "expected_answer": "Le rassemblement des élus hors de Babylone dans la lumière parfaite de la Parole restaurée au temps de la fin.",
-    "expected_answer_keywords": [
-      "lumière parfaite du soir",
-      "Zacharie",
-      "élus",
-      "confusion babylonienne"
-    ]
-  },
-  {
-    "id": "Q010",
-    "question": "Comment le thème du discernement spirituel est-il opposé aux apparences extérieures ?",
-    "category": "theme_biblique",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "63-0324M"
-    ],
-    "expected_paragraphs": [
-      4
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 4
-      }
-    ],
-    "relevant_snippet": "Ne vous laissez pas séduire par les apparences extérieures, l'éloquence humaine ou la grandeur des édifices. Regardez uniquement à la Parole écrites et révélée par le Saint-Esprit",
-    "expected_answer": "Le discernement ne doit pas se baser sur les grands édifices ou l'éloquence mais uniquement sur la Parole écrite et révélée.",
-    "expected_answer_keywords": [
-      "apparences extérieures",
-      "éloquence humaine",
-      "édifices",
-      "Parole"
-    ]
-  },
-  {
-    "id": "Q011",
-    "question": "Comment le thème biblique de la manne cachée s'applique-t-il à la Parole révélée aujourd'hui ?",
-    "category": "theme_biblique",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "65-1212"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-1212",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "Aujourd'hui, cette manne spirituelle, c'est la Parole révélée de Dieu dispensée au peuple de la promesse.",
-    "expected_answer": "La manne spirituelle représente la Parole révélée de Dieu accordée au peuple de la promesse pour le temps présent.",
-    "expected_answer_keywords": [
-      "manne spirituelle",
-      "Parole révélée",
-      "peuple de la promesse"
-    ]
-  },
-  {
-    "id": "Q012",
-    "question": "Quel est le thème biblique du Calvaire et de l'identification spirituelle à Christ ?",
-    "category": "theme_biblique",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "65-1212"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-1212",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "C'est un acte de foi pure, une identification directe avec le sacrifice parfait accompli une fois pour toutes au Calvaire.",
-    "expected_answer": "Une foi vivante et une identification directe avec le sacrifice parfait de Jésus-Christ au Calvaire.",
-    "expected_answer_keywords": [
-      "identification directe",
-      "sacrifice parfait",
-      "Calvaire"
-    ]
-  },
-  {
-    "id": "Q013",
-    "question": "Comment le thème biblique du figuier qui reverdit annonce-t-il la proximité du retour du Seigneur ?",
-    "category": "theme_biblique",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "64-0719M"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "64-0719M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "Le figuier a repoussé ses feuilles, la nation d'Israël est érigée, le drapeau à l'étoile de David flotte à Jérusalem, et la venue du Seigneur est plus proche que lorsque nous avons cru",
-    "expected_answer": "Le reverdissement du figuier symbolise le retour d'Israël comme nation souveraine signalant la venue imminente du Seigneur.",
-    "expected_answer_keywords": [
-      "figuier",
-      "nation d'Israël",
-      "venue du Seigneur"
-    ]
-  },
-  {
-    "id": "Q014",
-    "question": "Quel est le thème du rassemblement des cent quarante-quatre mille Juifs scellés ?",
-    "category": "theme_biblique",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "64-0719M"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "64-0719M",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "Entre la Sixième et la Septième Trompette se trouve le rassemblement des cent quarante-quatre mille Juifs scellés par le ministère des deux témoins prophétiques d'Apocalypse 11.",
-    "expected_answer": "Le rassemblement des 144 000 élus d'Israël scellés entre la Sixième et Septième Trompette.",
-    "expected_answer_keywords": [
-      "cent quarante-quatre mille",
-      "scellés",
-      "deux témoins",
-      "Apocalypse 11"
-    ]
-  },
-  {
-    "id": "Q015",
-    "question": "Comment le thème biblique de la pluie tombant sur le blé et l'ivraie explique-t-il les faux prophètes ?",
-    "category": "theme_biblique",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "65-0725M"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-0725M",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "tout comme la pluie de Dieu tombe indifféremment sur le bon blé et sur l'ivraie dans le même champ. Mais bien que l'esprit extérieur soit oint, leur âme intérieure n'est pas née de la Semence incorruptible",
-    "expected_answer": "L'Esprit oint l'extérieur des individus tout comme la pluie arrose le blé et l'ivraie, mais la nature intérieure reste distincte.",
-    "expected_answer_keywords": [
-      "pluie de Dieu",
-      "bon blé",
-      "ivraie",
-      "esprit extérieur",
-      "âme intérieure"
-    ]
-  },
-  {
-    "id": "Q016",
-    "question": "Quel est le thème de la Semence incorruptible de la Parole face aux dons spirituels temporaires ?",
-    "category": "theme_biblique",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "65-0725M"
-    ],
-    "expected_paragraphs": [
-      2,
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-0725M",
-        "paragraphIndex": 2
-      },
-      {
-        "sermonId": "65-0725M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "leur âme intérieure n'est pas née de la Semence incorruptible de la Parole.",
-    "expected_answer": "La nouvelle naissance de l'âme par la Semence incorruptible de la Parole est supérieure et distincte de la simple manifestation des dons.",
-    "expected_answer_keywords": [
-      "Semence incorruptible",
-      "âme intérieure",
-      "dons spirituels"
-    ]
-  },
-  {
-    "id": "Q017",
-    "question": "Dans quel contexte l'expression « grand bluff religieux du temps de la fin » est-elle employée ?",
-    "category": "phrase_expression",
-    "difficulty": "easy",
-    "answerable": true,
-    "expected_sermons": [
-      "63-0324M"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "Il portait un arc, mais n'avait aucune flèche. C'est le grand bluff religieux du temps de la fin.",
-    "expected_answer": "Elle qualifie le cavalier sur le cheval blanc portant un arc sans flèche qui séduit par un faux dogme.",
-    "expected_answer_keywords": [
-      "grand bluff religieux",
-      "arc",
-      "flèche",
-      "cavalier"
-    ]
-  },
-  {
-    "id": "Q018",
-    "question": "Où trouve-t-on l'expression « Au temps du soir, la lumière paraîtra » et quel prophète l'a dite ?",
-    "category": "phrase_expression",
-    "difficulty": "easy",
-    "answerable": true,
-    "expected_sermons": [
-      "63-0324M"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "selon le prophète Zacharie : \"Au temps du soir, la lumière paraîtra.\"",
-    "expected_answer": "Dans le sermon des Sceaux §3, citant le prophète Zacharie.",
-    "expected_answer_keywords": [
-      "Zacharie",
-      "temps du soir",
-      "lumière"
-    ]
-  },
-  {
-    "id": "Q019",
-    "question": "Quelle phrase résume le témoignage du croyant crucifié avec Christ lors du service de communion ?",
-    "category": "phrase_expression",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "65-1212"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-1212",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "\"Je suis crucifié avec Christ, je ne vis plus pour moi-même, mais c'est Christ qui vit en moi par Sa résurrection.\"",
-    "expected_answer": "« Je suis crucifié avec Christ, je ne vis plus pour moi-même, mais c'est Christ qui vit en moi par Sa résurrection. »",
-    "expected_answer_keywords": [
-      "crucifié avec Christ",
-      "vit en moi",
-      "résurrection"
-    ]
-  },
-  {
-    "id": "Q020",
-    "question": "Dans quel sermon trouve-t-on la phrase « manger un morceau de pain sans levain et boire un peu de jus de cep » ?",
-    "category": "phrase_expression",
-    "difficulty": "easy",
-    "answerable": true,
-    "expected_sermons": [
-      "65-1212"
-    ],
-    "expected_paragraphs": [
-      1
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-1212",
-        "paragraphIndex": 1
-      }
-    ],
-    "relevant_snippet": "La communion n'est pas simplement manger un morceau de pain sans levain et boire un peu de jus de cep.",
-    "expected_answer": "Dans le sermon 'La Communion' (65-1212 §1).",
-    "expected_answer_keywords": [
-      "pain sans levain",
-      "jus de cep",
-      "communion"
-    ]
-  },
-  {
-    "id": "Q021",
-    "question": "Que signifie l'expression « le figuier a repoussé ses feuilles » dans La Fête des Trompettes ?",
-    "category": "phrase_expression",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "64-0719M"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "64-0719M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "Le figuier a repoussé ses feuilles, la nation d'Israël est érigée",
-    "expected_answer": "Elle désigne l'érection et la restauration nationale d'Israël.",
-    "expected_answer_keywords": [
-      "figuier",
-      "feuilles",
-      "nation d'Israël"
-    ]
-  },
-  {
-    "id": "Q022",
-    "question": "Dans quel contexte Branham parle-t-il du « drapeau à l'étoile de David » flottant à Jérusalem ?",
-    "category": "phrase_expression",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "64-0719M"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "64-0719M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "le drapeau à l'étoile de David flotte à Jérusalem, et la venue du Seigneur est plus proche que lorsque nous avons cru au commencement.",
-    "expected_answer": "Pour illustrer l'accomplissement prophétique du retour des Juifs signalant la proximité du retour du Seigneur.",
-    "expected_answer_keywords": [
-      "drapeau",
-      "étoile de David",
-      "Jérusalem",
-      "venue du Seigneur"
-    ]
-  },
-  {
-    "id": "Q023",
-    "question": "À propos de quoi Branham emploie-t-il l'expression « dévient d'un seul iota du pur Ainsi dit le Seigneur » ?",
-    "category": "phrase_expression",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "65-0725M"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-0725M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "L'Épouse de Christ ne se laisse pas éblouir par des miracles spectaculaires si ceux-ci dévient d'un seul iota du pur \"Ainsi dit le Seigneur\".",
-    "expected_answer": "À propos du refus de l'Épouse d'être séduite par des miracles qui s'écartent de la pure Parole de Dieu.",
-    "expected_answer_keywords": [
-      "iota",
-      "Ainsi dit le Seigneur",
-      "miracles spectaculaires"
-    ]
-  },
-  {
-    "id": "Q024",
-    "question": "Que désigne l'expression « collyre divin » dans Les Oints du Temps de la Fin ?",
-    "category": "phrase_expression",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "65-0725M"
-    ],
-    "expected_paragraphs": [
-      4
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-0725M",
-        "paragraphIndex": 4
-      }
-    ],
-    "relevant_snippet": "yeux spirituels oints du collyre divin pour reconnaître la Vérité et marcher dans Sa lumière.",
-    "expected_answer": "L'onction spirituelle qui ouvre les yeux de l'esprit pour discerner et reconnaître la Vérité.",
-    "expected_answer_keywords": [
-      "collyre divin",
-      "yeux spirituels",
-      "reconnaître la Vérité"
-    ]
-  },
-  {
-    "id": "Q025",
-    "question": "Quelle est la doctrine enseignée sur la véritable identité du cavalier sur le cheval blanc ?",
-    "category": "doctrine",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "63-0324M"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "le cavalier sur le cheval blanc n'était pas le Seigneur Jésus-Christ, mais bien l'antichrist imitant le Véritable.",
-    "expected_answer": "Le cavalier blanc du premier sceau n'est pas Jésus-Christ mais l'esprit de l'antichrist imitant le Seigneur.",
-    "expected_answer_keywords": [
-      "cavalier",
-      "cheval blanc",
-      "antichrist",
-      "imitant"
-    ]
-  },
-  {
-    "id": "Q026",
-    "question": "Quelle doctrine Branham expose-t-il sur l'infaillibilité de la Parole divine face aux dogmes humains ?",
-    "category": "doctrine",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "63-0324M"
-    ],
-    "expected_paragraphs": [
-      3,
-      4
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 3
-      },
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 4
-      }
-    ],
-    "relevant_snippet": "la Parole est la seule Vérité infaillible qui subsistera à jamais quand les cieux et la terre passeront.",
-    "expected_answer": "La Parole de Dieu révélée par le Saint-Esprit est la seule vérité absolue et immuable, au-dessus de tout système religieux.",
-    "expected_answer_keywords": [
-      "Vérité infaillible",
-      "Parole",
-      "dogmes humains"
-    ]
-  },
-  {
-    "id": "Q027",
-    "question": "Quelle est la doctrine biblique de la Sainte Cène comme union vivante plutôt que simple rite commémoratif ?",
-    "category": "doctrine",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "65-1212"
-    ],
-    "expected_paragraphs": [
-      1
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-1212",
-        "paragraphIndex": 1
-      }
-    ],
-    "relevant_snippet": "C'est une union spirituelle profonde et vivante entre le croyant racheté et son Seigneur glorieux.",
-    "expected_answer": "La communion est une union vivante et profonde entre le croyant racheté et son Seigneur glorieux.",
-    "expected_answer_keywords": [
-      "union spirituelle",
-      "croyant racheté",
-      "Seigneur glorieux"
-    ]
-  },
-  {
-    "id": "Q028",
-    "question": "Comment la doctrine de la manne du sanctuaire est-elle reliée à la nourriture spirituelle de l'Épouse ?",
-    "category": "doctrine",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "65-1212"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-1212",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "Aujourd'hui, cette manne spirituelle, c'est la Parole révélée de Dieu dispensée au peuple de la promesse.",
-    "expected_answer": "La manne cachée du Lieu Très Saint trouve son accomplissement doctrinal dans la Parole révélée donnée au peuple de la promesse.",
-    "expected_answer_keywords": [
-      "manne spirituelle",
-      "Lieu Très Saint",
-      "Parole révélée"
-    ]
-  },
-  {
-    "id": "Q029",
-    "question": "Quelle doctrine régit le calendrier prophétique du réveil d'Israël après l'Enlèvement de l'Épouse ?",
-    "category": "doctrine",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "64-0719M"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "64-0719M",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "cette trompette sonne le réveil d'Israël juste après que l'Épouse des Nations est enlevée dans la gloire.",
-    "expected_answer": "Le réveil prophétique d'Israël a lieu immédiatement après que l'Épouse des Nations est enlevée dans la gloire.",
-    "expected_answer_keywords": [
-      "réveil d'Israël",
-      "Épouse des Nations",
-      "enlevée dans la gloire"
-    ]
-  },
-  {
-    "id": "Q030",
-    "question": "Quelle doctrine régit le scellement des 144 000 Juifs par les deux témoins ?",
-    "category": "doctrine",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "64-0719M"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "64-0719M",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "Entre la Sixième et la Septième Trompette se trouve le rassemblement des cent quarante-quatre mille Juifs scellés par le ministère des deux témoins prophétiques d'Apocalypse 11.",
-    "expected_answer": "Ils sont scellés entre la Sixième et Septième Trompette grâce au ministère prophétique d'Apocalypse 11.",
-    "expected_answer_keywords": [
-      "cent quarante-quatre mille",
-      "scellés",
-      "deux témoins prophétiques"
-    ]
-  },
-  {
-    "id": "Q031",
-    "question": "Quelle doctrine fondamentale sépare l'onction de l'Esprit extérieur de la régénération intérieure ?",
-    "category": "doctrine",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "65-0725M"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-0725M",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "bien que l'esprit extérieur soit oint, leur âme intérieure n'est pas née de la Semence incorruptible de la Parole.",
-    "expected_answer": "L'esprit extérieur peut être oint pour opérer des prodiges, mais seule l'âme régénérée par la Semence incorruptible appartient à Dieu.",
-    "expected_answer_keywords": [
-      "esprit extérieur",
-      "oint",
-      "âme intérieure",
-      "Semence incorruptible"
-    ]
-  },
-  {
-    "id": "Q032",
-    "question": "Quelle doctrine établit le Fruit et la Parole originale comme unique test de vérité spirituelle ?",
-    "category": "doctrine",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "65-0725M"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-0725M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "C'est par la comparaison stricte avec le Fruit et la Parole originale consommée dans Sa totalité.",
-    "expected_answer": "Le critère d'authenticité divine n'est pas le miracle mais l'alignement sans réserve avec le Fruit et la Parole originale.",
-    "expected_answer_keywords": [
-      "Fruit",
-      "Parole originale",
-      "totalité"
-    ]
-  },
-  {
-    "id": "Q033",
-    "question": "Quel rôle le prophète Zacharie joue-t-il dans la prédication des Sceaux ?",
-    "category": "personne_biblique",
-    "difficulty": "easy",
-    "answerable": true,
-    "expected_sermons": [
-      "63-0324M"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "selon le prophète Zacharie : \"Au temps du soir, la lumière paraîtra.\"",
-    "expected_answer": "Il prophétise l'apparition de la lumière divine au temps du soir pour rassembler les élus.",
-    "expected_answer_keywords": [
-      "Zacharie",
-      "lumière",
-      "temps du soir"
-    ]
-  },
-  {
-    "id": "Q034",
-    "question": "Comment le Seigneur Jésus-Christ est-il distingué du cavalier imposteur dans le premier sceau ?",
-    "category": "personne_biblique",
-    "difficulty": "easy",
-    "answerable": true,
-    "expected_sermons": [
-      "63-0324M"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "le cavalier sur le cheval blanc n'était pas le Seigneur Jésus-Christ, mais bien l'antichrist imitant le Véritable.",
-    "expected_answer": "Jésus-Christ est le Véritable, tandis que le cavalier blanc est l'antichrist qui L'imite.",
-    "expected_answer_keywords": [
-      "Seigneur Jésus-Christ",
-      "antichrist",
-      "imitant le Véritable"
-    ]
-  },
-  {
-    "id": "Q035",
-    "question": "Quelle déclaration de Jésus dans l'Évangile de Jean est citée dans le sermon sur La Communion ?",
-    "category": "personne_biblique",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "65-1212"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-1212",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "dans l'Évangile de Jean : \"Si vous ne mangez la chair du Fils de l'homme, et si vous ne buvez son sang, vous n'avez point la vie en vous-mêmes.\"",
-    "expected_answer": "La parole de Jésus disant que sans manger la chair du Fils de l'homme et boire son sang, on n'a point la vie.",
-    "expected_answer_keywords": [
-      "Jean",
-      "chair du Fils de l'homme",
-      "sang",
-      "vie"
-    ]
-  },
-  {
-    "id": "Q036",
-    "question": "Qui sont les deux témoins prophétiques d'Apocalypse 11 mentionnés dans La Fête des Trompettes ?",
-    "category": "personne_biblique",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "64-0719M"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "64-0719M",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "scellés par le ministère des deux témoins prophétiques d'Apocalypse 11.",
-    "expected_answer": "Ce sont les deux témoins prophétiques chargés de sceller les cent quarante-quatre mille Juifs.",
-    "expected_answer_keywords": [
-      "deux témoins prophétiques",
-      "Apocalypse 11",
-      "scellés"
-    ]
-  },
-  {
-    "id": "Q037",
-    "question": "Quel rôle la loi de Moïse joue-t-elle dans l'institution de la fête des trompettes ?",
-    "category": "personne_biblique",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "64-0719M"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "64-0719M",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "Dans l'Ancien Testament, sous la loi mosaïque, la fête des trompettes sonnait le rassemblement d'Israël pour le jour du grand pardon.",
-    "expected_answer": "Elle a institué la fête des trompettes pour sonner le rassemblement d'Israël en vue du jour du grand pardon.",
-    "expected_answer_keywords": [
-      "loi mosaïque",
-      "rassemblement",
-      "grand pardon"
-    ]
-  },
-  {
-    "id": "Q038",
-    "question": "Quelle parole d'avertissement de Jésus dans Matthieu 24 est citée dans Les Oints du Temps de la Fin ?",
-    "category": "personne_biblique",
-    "difficulty": "easy",
-    "answerable": true,
-    "expected_sermons": [
-      "65-0725M"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-0725M",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "Dans Matthieu chapitre 24, verset 24, le Seigneur Jésus avertit expressément : \"Car il s'élèvera de faux Christs et de faux prophètes; ils feront de grands prodiges et des miracles, au point de séduire, s'il était possible, même les élus.\"",
-    "expected_answer": "Jésus avertit qu'il s'élèvera de faux Christs et faux prophètes faisant de grands miracles pour séduire même les élus.",
-    "expected_answer_keywords": [
-      "Matthieu 24",
-      "faux Christs",
-      "faux prophètes",
-      "élus"
-    ]
-  },
-  {
-    "id": "Q039",
-    "question": "Quel roi d'Israël dont le symbole flotte à Jérusalem est mentionné dans La Fête des Trompettes ?",
-    "category": "personne_biblique",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "64-0719M"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "64-0719M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "le drapeau à l'étoile de David flotte à Jérusalem",
-    "expected_answer": "Le roi David, à travers l'étoile de David figurant sur le drapeau national.",
-    "expected_answer_keywords": [
-      "étoile de David",
-      "David",
-      "Jérusalem"
-    ]
-  },
-  {
-    "id": "Q040",
-    "question": "Quelle figure messianique vit dans le croyant qui participe à la communion par Sa résurrection ?",
-    "category": "personne_biblique",
-    "difficulty": "easy",
-    "answerable": true,
-    "expected_sermons": [
-      "65-1212"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-1212",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "mais c'est Christ qui vit en moi par Sa résurrection.",
-    "expected_answer": "Jésus-Christ Lui-même vivant dans le croyant par la puissance de Sa résurrection.",
-    "expected_answer_keywords": [
-      "Christ",
-      "vit en moi",
-      "résurrection"
-    ]
-  },
-  {
-    "id": "Q041",
-    "question": "Quel événement biblique marque l'ouverture du premier sceau ?",
-    "category": "evenement_biblique",
-    "difficulty": "easy",
-    "answerable": true,
-    "expected_sermons": [
-      "63-0324M"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "Le premier sceau a été ouvert, et nous avons clairement vu que le cavalier sur le cheval blanc n'était pas le Seigneur Jésus-Christ, mais bien l'antichrist",
-    "expected_answer": "L'ouverture du premier sceau révélant le départ du cavalier blanc antichrist pour séduire le monde.",
-    "expected_answer_keywords": [
-      "premier sceau",
-      "ouvert",
-      "cavalier",
-      "cheval blanc"
-    ]
-  },
-  {
-    "id": "Q042",
-    "question": "Quel événement prophétique survient lorsque le Septième Ange sonne du clairon ?",
-    "category": "evenement_biblique",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "63-0324M"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "Mais lorsque le Septième Ange sonne du clairon, tous les mystères cachés depuis la fondation du monde doivent s'accomplir.",
-    "expected_answer": "Tous les mystères cachés depuis la fondation du monde doivent s'accomplir.",
-    "expected_answer_keywords": [
-      "Septième Ange",
-      "clairon",
-      "mystères cachés",
-      "s'accomplir"
-    ]
-  },
-  {
-    "id": "Q043",
-    "question": "Quel événement historique et spirituel au Calvaire fonde le mémorial de la communion ?",
-    "category": "evenement_biblique",
-    "difficulty": "easy",
-    "answerable": true,
-    "expected_sermons": [
-      "65-1212"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-1212",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "une identification directe avec le sacrifice parfait accompli une fois pour toutes au Calvaire.",
-    "expected_answer": "Le sacrifice parfait accompli une fois pour toutes au Calvaire par Jésus-Christ.",
-    "expected_answer_keywords": [
-      "sacrifice parfait",
-      "Calvaire"
-    ]
-  },
-  {
-    "id": "Q044",
-    "question": "Quel événement biblique de l'Ancien Testament correspondait au jour du grand pardon ?",
-    "category": "evenement_biblique",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "64-0719M"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "64-0719M",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "la fête des trompettes sonnait le rassemblement d'Israël pour le jour du grand pardon.",
-    "expected_answer": "La sonnerie des trompettes rassemblant le peuple d'Israël.",
-    "expected_answer_keywords": [
-      "fête des trompettes",
-      "rassemblement d'Israël",
-      "grand pardon"
-    ]
-  },
-  {
-    "id": "Q045",
-    "question": "Quel événement glorieux concernant l'Épouse des Nations précède immédiatement le réveil d'Israël ?",
-    "category": "evenement_biblique",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "64-0719M"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "64-0719M",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "juste après que l'Épouse des Nations est enlevée dans la gloire.",
-    "expected_answer": "L'Enlèvement de l'Épouse des Nations dans la gloire.",
-    "expected_answer_keywords": [
-      "Épouse des Nations",
-      "enlevée dans la gloire"
-    ]
-  },
-  {
-    "id": "Q046",
-    "question": "Quel événement contemporain a permis de ramener le peuple juif dans sa patrie d'origine ?",
-    "category": "evenement_biblique",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "64-0719M"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "64-0719M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "les trompettes ont retenti pour persécuter et secouer le peuple juif à travers les nations de la terre, les ramenant ainsi dans leur patrie d'origine.",
-    "expected_answer": "Les persécutions et le retentissement des trompettes secouant les Juifs à travers les nations.",
-    "expected_answer_keywords": [
-      "trompettes",
-      "persécuter",
-      "patrie d'origine"
-    ]
-  },
-  {
-    "id": "Q047",
-    "question": "Quel événement de séduction spirituelle mondiale Jésus a-t-il annoncé pour la fin des temps dans Matthieu 24 ?",
-    "category": "evenement_biblique",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "65-0725M"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-0725M",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "Car il s'élèvera de faux Christs et de faux prophètes; ils feront de grands prodiges et des miracles, au point de séduire, s'il était possible, même les élus.",
-    "expected_answer": "La montée de faux Christs et de faux prophètes opérant de grands miracles pour tenter de séduire même les élus.",
-    "expected_answer_keywords": [
-      "faux Christs",
-      "faux prophètes",
-      "prodiges",
-      "séduire"
-    ]
-  },
-  {
-    "id": "Q048",
-    "question": "Quel événement solennel final est annoncé par la sonnerie prochaine de la trompette de Dieu ?",
-    "category": "evenement_biblique",
-    "difficulty": "easy",
-    "answerable": true,
-    "expected_sermons": [
-      "64-0719M"
-    ],
-    "expected_paragraphs": [
-      4
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "64-0719M",
-        "paragraphIndex": 4
-      }
-    ],
-    "relevant_snippet": "car la trompette de Dieu sonnera très bientôt pour l'Enlèvement.",
-    "expected_answer": "L'Enlèvement de l'Église.",
-    "expected_answer_keywords": [
-      "trompette de Dieu",
-      "Enlèvement"
-    ]
-  },
-  {
-    "id": "Q049",
-    "question": "Quelle relation le sermon sur les Sceaux établit-il entre le Septième Ange et Zacharie ?",
-    "category": "relations_passages",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "63-0324M"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "lorsque le Septième Ange sonne du clairon, tous les mystères cachés depuis la fondation du monde doivent s'accomplir. Dieu rassemble Ses élus hors de la confusion babylonienne pour les amener dans la lumière parfaite du soir, selon le prophète Zacharie : \"Au temps du soir, la lumière paraîtra.\"",
-    "expected_answer": "La sonnerie du Septième Ange accomplit la prophétie de Zacharie en révélant la lumière parfaite du soir pour rassembler les élus.",
-    "expected_answer_keywords": [
-      "Septième Ange",
-      "Zacharie",
-      "lumière parfaite du soir"
-    ]
-  },
-  {
-    "id": "Q050",
-    "question": "Comment le passage de l'Évangile de Jean sur la chair et le sang est-il relié au Calvaire ?",
-    "category": "relations_passages",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "65-1212"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-1212",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "dans l'Évangile de Jean : \"Si vous ne mangez la chair du Fils de l'homme, et si vous ne buvez son sang, vous n'avez point la vie en vous-mêmes.\" C'est un acte de foi pure, une identification directe avec le sacrifice parfait accompli une fois pour toutes au Calvaire.",
-    "expected_answer": "Participer aux éléments de la communion est une foi pure et une identification directe au sacrifice du Calvaire.",
-    "expected_answer_keywords": [
-      "Évangile de Jean",
-      "sacrifice parfait",
-      "Calvaire",
-      "identification"
-    ]
-  },
-  {
-    "id": "Q051",
-    "question": "Quelle relation existe-t-il entre la loi mosaïque et le ministère des deux témoins d'Apocalypse 11 ?",
-    "category": "relations_passages",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "64-0719M"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "64-0719M",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "Entre la Sixième et la Septième Trompette se trouve le rassemblement des cent quarante-quatre mille Juifs scellés par le ministère des deux témoins prophétiques d'Apocalypse 11.",
-    "expected_answer": "La fête instituée sous la loi mosaïque trouve son accomplissement prophétique final lors du scellement des 144 000 par les témoins d'Apocalypse 11.",
-    "expected_answer_keywords": [
-      "loi mosaïque",
-      "Apocalypse 11",
-      "rassemblement",
-      "scellés"
-    ]
-  },
-  {
-    "id": "Q052",
-    "question": "Quel lien est établi entre Matthieu 24:24 et la métaphore de la pluie sur le blé et l'ivraie ?",
-    "category": "relations_passages",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "65-0725M"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-0725M",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "Dans Matthieu chapitre 24, verset 24, le Seigneur Jésus avertit expressément : \"Car il s'élèvera de faux Christs et de faux prophètes; ils feront de grands prodiges et des miracles, au point de séduire, s'il était possible, même les élus.\"",
-    "expected_answer": "Les faux oints opèrent de vrais prodiges car ils reçoivent la pluie de l'onction tout comme l'ivraie reçoit la même eau que le blé.",
-    "expected_answer_keywords": [
-      "Matthieu 24",
-      "faux Christs",
-      "pluie",
-      "blé",
-      "ivraie"
-    ]
-  },
-  {
-    "id": "Q053",
-    "question": "Comment la manne cachée du Lieu Très Saint est-elle mise en rapport avec la Parole révélée actuelle ?",
-    "category": "relations_passages",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "65-1212"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-1212",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "La manne cachée dans l'Ancien Testament était réservée à l'intérieur du Lieu Très Saint. Aujourd'hui, cette manne spirituelle, c'est la Parole révélée de Dieu dispensée au peuple de la promesse.",
-    "expected_answer": "Ce qui était typifié matériellement dans le sanctuaire est maintenant dispensé spirituellement comme la Parole révélée.",
-    "expected_answer_keywords": [
-      "manne cachée",
-      "Lieu Très Saint",
-      "Parole révélée"
-    ]
-  },
-  {
-    "id": "Q054",
-    "question": "Quelle relation unit la persécution des Juifs à travers les nations et le rassemblement prophétique des Trompettes ?",
-    "category": "relations_passages",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "64-0719M"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "64-0719M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "les trompettes ont retenti pour persécuter et secouer le peuple juif à travers les nations de la terre, les ramenant ainsi dans leur patrie d'origine.",
-    "expected_answer": "Les persécutions ont servi d'instrument divin pour secouer le peuple juif et le contraindre à regagner sa patrie selon la prophétie.",
-    "expected_answer_keywords": [
-      "trompettes",
-      "persécuter",
-      "secouer",
-      "patrie d'origine"
-    ]
-  },
-  {
-    "id": "Q055",
-    "question": "Quel lien direct unit le discernement spirituel de l'Épouse à la Parole infaillible de Dieu ?",
-    "category": "relations_passages",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "63-0324M"
-    ],
-    "expected_paragraphs": [
-      4
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 4
-      }
-    ],
-    "relevant_snippet": "Regardez uniquement à la Parole écrites et révélée par le Saint-Esprit, car la Parole est la seule Vérité infaillible qui subsistera à jamais quand les cieux et la terre passeront.",
-    "expected_answer": "Le discernement spirituel repose exclusivement sur la Parole révélée par le Saint-Esprit, seule vérité infaillible.",
-    "expected_answer_keywords": [
-      "discernement",
-      "Parole écrites",
-      "Vérité infaillible"
-    ]
-  },
-  {
-    "id": "Q056",
-    "question": "Comment la manifestation des dons spirituels est-elle subordonnée au Fruit et à la Parole totale ?",
-    "category": "relations_passages",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "65-0725M"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-0725M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "Ce n'est pas par la manifestation des dons spirituels seuls, car l'ivraie peut manifester les dons. C'est par la comparaison stricte avec le Fruit et la Parole originale consommée dans Sa totalité.",
-    "expected_answer": "Les dons ne prouvent rien à eux seuls car l'ivraie les manifeste ; ils doivent obligatoirement être éprouvés par le Fruit et la Parole intégrale.",
-    "expected_answer_keywords": [
-      "dons spirituels",
-      "ivraie",
-      "Fruit",
-      "Parole originale"
-    ]
-  },
-  {
-    "id": "Q057",
-    "question": "Comment l'avertissement contre la séduction du premier sceau (63-0324M) complète-t-il celui sur les faux oints (65-0725M) ?",
-    "category": "multi_sermons",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "63-0324M",
-      "65-0725M"
-    ],
-    "expected_paragraphs": [
-      2,
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 2
-      },
-      {
-        "sermonId": "65-0725M",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "C'est le grand bluff religieux du temps de la fin. L'esprit de l'antichrist est sorti conquérant pour séduire le monde entier",
-    "expected_answer": "Dans les Sceaux, l'antichrist séduit par un bluff sans flèche et de faux dogmes, tandis que dans les faux oints, cette séduction s'opère par des hommes oints faisant de vrais miracles mais sans semence divine.",
-    "expected_answer_keywords": [
-      "bluff religieux",
-      "faux dogme",
-      "faux oints",
-      "séduire"
-    ]
-  },
-  {
-    "id": "Q058",
-    "question": "En quoi l'Épouse de Christ décrite dans les Sceaux diffère-t-elle des séducteurs démasqués dans Les Oints du Temps de la Fin ?",
-    "category": "multi_sermons",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "63-0324M",
-      "65-0725M"
-    ],
-    "expected_paragraphs": [
-      2,
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 2
-      },
-      {
-        "sermonId": "65-0725M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "Mais l'Épouse de Christ a l'Esprit de Dieu pour discerner ces choses avec une précision divine.",
-    "expected_answer": "L'Épouse possède l'Esprit de Dieu pour discerner avec précision divine et ne se laisse pas éblouir par les miracles si la Parole est violée.",
-    "expected_answer_keywords": [
-      "Épouse de Christ",
-      "discerner",
-      "précision divine",
-      "Ainsi dit le Seigneur"
-    ]
-  },
-  {
-    "id": "Q059",
-    "question": "Quel rôle central la Parole révélée joue-t-elle à la fois dans La Communion (65-1212) et dans les Sceaux (63-0324M) ?",
-    "category": "multi_sermons",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "65-1212",
-      "63-0324M"
-    ],
-    "expected_paragraphs": [
-      3,
-      4
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-1212",
-        "paragraphIndex": 3
-      },
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 4
-      }
-    ],
-    "relevant_snippet": "cette manne spirituelle, c'est la Parole révélée de Dieu dispensée au peuple de la promesse.",
-    "expected_answer": "Dans la communion elle est la manne spirituelle du peuple de la promesse, et dans les Sceaux elle est la seule vérité infaillible qui subsiste à jamais.",
-    "expected_answer_keywords": [
-      "manne spirituelle",
-      "Parole révélée",
-      "Vérité infaillible"
-    ]
-  },
-  {
-    "id": "Q060",
-    "question": "Comment l'Enlèvement de l'Épouse est-il articulé entre La Fête des Trompettes (64-0719M) et l'appel hors de Babylone (63-0324M) ?",
-    "category": "multi_sermons",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "64-0719M",
-      "63-0324M"
-    ],
-    "expected_paragraphs": [
-      2,
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "64-0719M",
-        "paragraphIndex": 2
-      },
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "juste après que l'Épouse des Nations est enlevée dans la gloire.",
-    "expected_answer": "L'Épouse est d'abord rassemblée hors de la confusion babylonienne dans la lumière du soir (63-0324M) avant d'être enlevée dans la gloire précédant le réveil d'Israël (64-0719M).",
-    "expected_answer_keywords": [
-      "Épouse des Nations",
-      "enlevée dans la gloire",
-      "confusion babylonienne",
-      "lumière du soir"
-    ]
-  },
-  {
-    "id": "Q061",
-    "question": "De quelle façon la manne cachée de l'Ancien Testament (65-1212) fait-elle écho aux mystères dévoilés par le Septième Ange (63-0324M) ?",
-    "category": "multi_sermons",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "65-1212",
-      "63-0324M"
-    ],
-    "expected_paragraphs": [
-      3,
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-1212",
-        "paragraphIndex": 3
-      },
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "La manne cachée dans l'Ancien Testament était réservée à l'intérieur du Lieu Très Saint.",
-    "expected_answer": "La nourriture cachée autrefois dans le Lieu Très Saint correspond aux mystères cachés depuis la fondation du monde accomplis lors du son du Septième Ange.",
-    "expected_answer_keywords": [
-      "manne cachée",
-      "mystères cachés",
-      "Septième Ange"
-    ]
-  },
-  {
-    "id": "Q062",
-    "question": "Quelle distinction de calendrier prophétique existe-t-il entre le salut des Nations (64-0719M) et l'appel des élus (63-0324M) ?",
-    "category": "multi_sermons",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "64-0719M",
-      "63-0324M"
-    ],
-    "expected_paragraphs": [
-      3,
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "64-0719M",
-        "paragraphIndex": 3
-      },
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "pendant que Dieu traite avec les Nations pour en tirer un peuple pour Son Nom, les trompettes ont retenti pour persécuter et secouer le peuple juif",
-    "expected_answer": "Dieu traite avec les Nations pour en tirer un peuple pour Son Nom en les amenant dans la lumière du soir, tandis qu'Israël attend après le départ des Nations.",
-    "expected_answer_keywords": [
-      "Dieu traite avec les Nations",
-      "peuple pour Son Nom",
-      "élus"
-    ]
-  },
-  {
-    "id": "Q063",
-    "question": "Comment la sainteté requise pour la communion (65-1212) fait-elle écho à la pureté de cœur demandée dans les faux oints (65-0725M) ?",
-    "category": "multi_sermons",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "65-1212",
-      "65-0725M"
-    ],
-    "expected_paragraphs": [
-      3,
-      4
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-1212",
-        "paragraphIndex": 3
-      },
-      {
-        "sermonId": "65-0725M",
-        "paragraphIndex": 4
-      }
-    ],
-    "relevant_snippet": "Restez dans cet esprit de prière et de grande humilité pendant que nous nous préparons pour cet acte sacré",
-    "expected_answer": "Les deux textes appellent à une grande humilité intérieure et à un cœur pur oint par Dieu plutôt qu'à un simple formalisme extérieur.",
-    "expected_answer_keywords": [
-      "esprit de prière",
-      "humilité",
-      "cœur pur"
-    ]
-  },
-  {
-    "id": "Q064",
-    "question": "Pourquoi ni les grands édifices (63-0324M) ni les miracles spectaculaires (65-0725M) ne prouvent-ils la vérité divine ?",
-    "category": "multi_sermons",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "63-0324M",
-      "65-0725M"
-    ],
-    "expected_paragraphs": [
-      4,
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 4
-      },
-      {
-        "sermonId": "65-0725M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "Ne vous laissez pas séduire par les apparences extérieures, l'éloquence humaine ou la grandeur des édifices.",
-    "expected_answer": "Parce que les grands édifices ne sont que des apparences humaines et que l'ivraie peut manifester des miracles ; seule la Parole originale fait autorité.",
-    "expected_answer_keywords": [
-      "grandeur des édifices",
-      "miracles spectaculaires",
-      "Parole",
-      "ivraie"
-    ]
-  },
-  {
-    "id": "Q065",
-    "question": "Et que portait cet imposteur monté sur le cheval ?",
-    "category": "ambigue",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "63-0324M"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "Il portait un arc, mais n'avait aucune flèche.",
-    "expected_answer": "Il portait un arc mais n'avait aucune flèche.",
-    "expected_answer_keywords": [
-      "arc",
-      "flèche"
-    ]
-  },
-  {
-    "id": "Q066",
-    "question": "Où cette nourriture sacrée était-elle gardée autrefois ?",
-    "category": "ambigue",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "65-1212"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-1212",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "La manne cachée dans l'Ancien Testament était réservée à l'intérieur du Lieu Très Saint.",
-    "expected_answer": "À l'intérieur du Lieu Très Saint.",
-    "expected_answer_keywords": [
-      "Lieu Très Saint",
-      "manne cachée"
-    ]
-  },
-  {
-    "id": "Q067",
-    "question": "Et combien sont-ils à être scellés à ce moment précis ?",
-    "category": "ambigue",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "64-0719M"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "64-0719M",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "le rassemblement des cent quarante-quatre mille Juifs scellés par le ministère des deux témoins",
-    "expected_answer": "Cent quarante-quatre mille (144 000) Juifs.",
-    "expected_answer_keywords": [
-      "cent quarante-quatre mille",
-      "144 000"
-    ]
-  },
-  {
-    "id": "Q068",
-    "question": "Pourquoi les miracles seuls ne suffisent-ils pas à les reconnaître ?",
-    "category": "ambigue",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "65-0725M"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-0725M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "Ce n'est pas par la manifestation des dons spirituels seuls, car l'ivraie peut manifester les dons.",
-    "expected_answer": "Parce que l'ivraie est aussi capable de manifester les dons spirituels.",
-    "expected_answer_keywords": [
-      "ivraie",
-      "dons spirituels",
-      "manifester"
-    ]
-  },
-  {
-    "id": "Q069",
-    "question": "Quel prophète de l'Écriture a annoncé cette clarté vespérale ?",
-    "category": "ambigue",
-    "difficulty": "easy",
-    "answerable": true,
-    "expected_sermons": [
-      "63-0324M"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "selon le prophète Zacharie : \"Au temps du soir, la lumière paraîtra.\"",
-    "expected_answer": "Le prophète Zacharie.",
-    "expected_answer_keywords": [
-      "Zacharie",
-      "lumière",
-      "soir"
-    ]
-  },
-  {
-    "id": "Q070",
-    "question": "Et quel étendard flotte aujourd'hui au-dessus de cette ville ?",
-    "category": "ambigue",
-    "difficulty": "easy",
-    "answerable": true,
-    "expected_sermons": [
-      "64-0719M"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "64-0719M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "le drapeau à l'étoile de David flotte à Jérusalem",
-    "expected_answer": "Le drapeau à l'étoile de David à Jérusalem.",
-    "expected_answer_keywords": [
-      "drapeau",
-      "étoile de David",
-      "Jérusalem"
-    ]
-  },
-  {
-    "id": "Q071",
-    "question": "De quelle semence leur être intérieur doit-il obligatoirement naître ?",
-    "category": "ambigue",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "65-0725M"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-0725M",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "leur âme intérieure n'est pas née de la Semence incorruptible de la Parole.",
-    "expected_answer": "De la Semence incorruptible de la Parole.",
-    "expected_answer_keywords": [
-      "Semence incorruptible",
-      "Parole"
-    ]
-  },
-  {
-    "id": "Q072",
-    "question": "Et pourquoi ne faut-il pas regarder à la magnificence de leurs temples ?",
-    "category": "ambigue",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "63-0324M"
-    ],
-    "expected_paragraphs": [
-      4
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 4
-      }
-    ],
-    "relevant_snippet": "Ne vous laissez pas séduire par les apparences extérieures, l'éloquence humaine ou la grandeur des édifices. Regardez uniquement à la Parole",
-    "expected_answer": "Parce que ce ne sont que des apparences extérieures et que seule la Parole révélée est la Vérité infaillible.",
-    "expected_answer_keywords": [
-      "apparences extérieures",
-      "grandeur des édifices",
-      "Parole"
-    ]
-  },
-  {
-    "id": "Q073",
-    "question": "Que dit William Branham sur la construction de la Tour Eiffel à Paris ?",
-    "category": "hors_corpus",
-    "difficulty": "hard",
-    "answerable": false,
-    "expected_sermons": [],
-    "expected_paragraphs": [],
-    "expected_sources": [],
-    "relevant_snippet": "",
-    "expected_answer": "Information absente du corpus documentaire King's Sword.",
-    "expected_answer_keywords": [
-      "absente",
-      "non mentionné"
-    ]
-  },
-  {
-    "id": "Q074",
-    "question": "Quelle est la date exacte de l'invention d'Internet selon les sermons disponibles ?",
-    "category": "hors_corpus",
-    "difficulty": "hard",
-    "answerable": false,
-    "expected_sermons": [],
-    "expected_paragraphs": [],
-    "expected_sources": [],
-    "relevant_snippet": "",
-    "expected_answer": "Information absente du corpus documentaire King's Sword.",
-    "expected_answer_keywords": [
-      "absente",
-      "non mentionné"
-    ]
-  },
-  {
-    "id": "Q075",
-    "question": "Comment réparer une pompe à injection diesel sur un tracteur agricole ?",
-    "category": "hors_corpus",
-    "difficulty": "hard",
-    "answerable": false,
-    "expected_sermons": [],
-    "expected_paragraphs": [],
-    "expected_sources": [],
-    "relevant_snippet": "",
-    "expected_answer": "Information absente du corpus documentaire King's Sword.",
-    "expected_answer_keywords": [
-      "absente",
-      "non mentionné"
-    ]
-  },
-  {
-    "id": "Q076",
-    "question": "Dans quel sermon Branham affirme-t-il que le cavalier noir maniait une épée laser ?",
-    "category": "hors_corpus",
-    "difficulty": "hard",
-    "answerable": false,
-    "expected_sermons": [],
-    "expected_paragraphs": [],
-    "expected_sources": [],
-    "relevant_snippet": "",
-    "expected_answer": "Information absente du corpus documentaire King's Sword.",
-    "expected_answer_keywords": [
-      "absente",
-      "non mentionné"
-    ]
-  },
-  {
-    "id": "Q077",
-    "question": "Quel est le résultat de la finale de la coupe du monde de football de 1998 ?",
-    "category": "hors_corpus",
-    "difficulty": "hard",
-    "answerable": false,
-    "expected_sermons": [],
-    "expected_paragraphs": [],
-    "expected_sources": [],
-    "relevant_snippet": "",
-    "expected_answer": "Information absente du corpus documentaire King's Sword.",
-    "expected_answer_keywords": [
-      "absente",
-      "non mentionné"
-    ]
-  },
-  {
-    "id": "Q078",
-    "question": "Quelle est la formule mathématique de la relativité générale énoncée par Einstein selon les textes ?",
-    "category": "hors_corpus",
-    "difficulty": "hard",
-    "answerable": false,
-    "expected_sermons": [],
-    "expected_paragraphs": [],
-    "expected_sources": [],
-    "relevant_snippet": "",
-    "expected_answer": "Information absente du corpus documentaire King's Sword.",
-    "expected_answer_keywords": [
-      "absente",
-      "non mentionné"
-    ]
-  },
-  {
-    "id": "Q079",
-    "question": "Combien de chapitres compte la sourate Al-Baqara selon William Branham ?",
-    "category": "hors_corpus",
-    "difficulty": "hard",
-    "answerable": false,
-    "expected_sermons": [],
-    "expected_paragraphs": [],
-    "expected_sources": [],
-    "relevant_snippet": "",
-    "expected_answer": "Information absente du corpus documentaire King's Sword.",
-    "expected_answer_keywords": [
-      "absente",
-      "non mentionné"
-    ]
-  },
-  {
-    "id": "Q080",
-    "question": "Quelle est la température d'ébullition de l'azote liquide selon les sermons de Jeffersonville ?",
-    "category": "hors_corpus",
-    "difficulty": "hard",
-    "answerable": false,
-    "expected_sermons": [],
-    "expected_paragraphs": [],
-    "expected_sources": [],
-    "relevant_snippet": "",
-    "expected_answer": "Information absente du corpus documentaire King's Sword.",
-    "expected_answer_keywords": [
-      "absente",
-      "non mentionné"
-    ]
-  },
-  {
-    "id": "Q081",
-    "question": "Citer exactement la phrase décrivant l'armement et la supercherie du cavalier sur le cheval blanc.",
-    "category": "citation_precise",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "63-0324M"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "Il portait un arc, mais n'avait aucune flèche. C'est le grand bluff religieux du temps de la fin.",
-    "expected_answer": "« Il portait un arc, mais n'avait aucune flèche. C'est le grand bluff religieux du temps de la fin. »",
-    "expected_answer_keywords": [
-      "portait un arc",
-      "aucune flèche",
-      "grand bluff religieux"
-    ]
-  },
-  {
-    "id": "Q082",
-    "question": "Citer la prophétie de Zacharie telle qu'elle est retranscrite mot à mot dans le sermon des Sceaux.",
-    "category": "citation_precise",
-    "difficulty": "easy",
-    "answerable": true,
-    "expected_sermons": [
-      "63-0324M"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "\"Au temps du soir, la lumière paraîtra.\"",
-    "expected_answer": "« Au temps du soir, la lumière paraîtra. »",
-    "expected_answer_keywords": [
-      "Au temps du soir",
-      "lumière paraîtra"
-    ]
-  },
-  {
-    "id": "Q083",
-    "question": "Citer exactement les paroles de Jésus dans l'Évangile de Jean mentionnées dans La Communion.",
-    "category": "citation_precise",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "65-1212"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-1212",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "\"Si vous ne mangez la chair du Fils de l'homme, et si vous ne buvez son sang, vous n'avez point la vie en vous-mêmes.\"",
-    "expected_answer": "« Si vous ne mangez la chair du Fils de l'homme, et si vous ne buvez son sang, vous n'avez point la vie en vous-mêmes. »",
-    "expected_answer_keywords": [
-      "chair du Fils de l'homme",
-      "buvez son sang",
-      "vie en vous-mêmes"
-    ]
-  },
-  {
-    "id": "Q084",
-    "question": "Citer textuellement la déclaration de foi et d'identification avec Christ lors de la Sainte Cène.",
-    "category": "citation_precise",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "65-1212"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-1212",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "\"Je suis crucifié avec Christ, je ne vis plus pour moi-même, mais c'est Christ qui vit en moi par Sa résurrection.\"",
-    "expected_answer": "« Je suis crucifié avec Christ, je ne vis plus pour moi-même, mais c'est Christ qui vit en moi par Sa résurrection. »",
-    "expected_answer_keywords": [
-      "crucifié avec Christ",
-      "ne vis plus pour moi-même",
-      "Christ qui vit en moi"
-    ]
-  },
-  {
-    "id": "Q085",
-    "question": "Citer le passage de Matthieu 24:24 textuellement consigné dans Les Oints du Temps de la Fin.",
-    "category": "citation_precise",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "65-0725M"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-0725M",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "\"Car il s'élèvera de faux Christs et de faux prophètes; ils feront de grands prodiges et des miracles, au point de séduire, s'il était possible, même les élus.\"",
-    "expected_answer": "« Car il s'élèvera de faux Christs et de faux prophètes; ils feront de grands prodiges et des miracles, au point de séduire, s'il était possible, même les élus. »",
-    "expected_answer_keywords": [
-      "faux Christs",
-      "faux prophètes",
-      "grands prodiges",
-      "séduire"
-    ]
-  },
-  {
-    "id": "Q086",
-    "question": "Citer la phrase exacte définissant ce que la communion n'est pas simplement.",
-    "category": "citation_precise",
-    "difficulty": "easy",
-    "answerable": true,
-    "expected_sermons": [
-      "65-1212"
-    ],
-    "expected_paragraphs": [
-      1
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-1212",
-        "paragraphIndex": 1
-      }
-    ],
-    "relevant_snippet": "La communion n'est pas simplement manger un morceau de pain sans levain et boire un peu de jus de cep.",
-    "expected_answer": "« La communion n'est pas simplement manger un morceau de pain sans levain et boire un peu de jus de cep. »",
-    "expected_answer_keywords": [
-      "manger un morceau de pain sans levain",
-      "boire un peu de jus de cep"
-    ]
-  },
-  {
-    "id": "Q087",
-    "question": "Citer la mise en garde textuelle concernant l'attachement au « pur Ainsi dit le Seigneur » face aux miracles.",
-    "category": "citation_precise",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "65-0725M"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-0725M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "L'Épouse de Christ ne se laisse pas éblouir par des miracles spectaculaires si ceux-ci dévient d'un seul iota du pur \"Ainsi dit le Seigneur\".",
-    "expected_answer": "« L'Épouse de Christ ne se laisse pas éblouir par des miracles spectaculaires si ceux-ci dévient d'un seul iota du pur \"Ainsi dit le Seigneur\". »",
-    "expected_answer_keywords": [
-      "ne se laisse pas éblouir",
-      "dévient d'un seul iota",
-      "Ainsi dit le Seigneur"
-    ]
-  },
-  {
-    "id": "Q088",
-    "question": "Citer la description exacte des signes visibles à Jérusalem prouvant que le figuier a reverdi.",
-    "category": "citation_precise",
-    "difficulty": "medium",
-    "answerable": true,
-    "expected_sermons": [
-      "64-0719M"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "64-0719M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "Le figuier a repoussé ses feuilles, la nation d'Israël est érigée, le drapeau à l'étoile de David flotte à Jérusalem, et la venue du Seigneur est plus proche que lorsque nous avons cru au commencement.",
-    "expected_answer": "« Le figuier a repoussé ses feuilles, la nation d'Israël est érigée, le drapeau à l'étoile de David flotte à Jérusalem, et la venue du Seigneur est plus proche que lorsque nous avons cru au commencement. »",
-    "expected_answer_keywords": [
-      "figuier a repoussé ses feuilles",
-      "nation d'Israël est érigée",
-      "drapeau à l'étoile de David"
-    ]
-  },
-  {
-    "id": "Q089",
-    "question": "Quelle utilité attribue-t-on aux interrogations matinales pour dissiper toute confusion vespérale ?",
-    "category": "paraphrase_semantique_zero_terme",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "63-0324M"
-    ],
-    "expected_paragraphs": [
-      1
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 1
-      }
-    ],
-    "relevant_snippet": "1. Maintenant, nous allons aborder une étude très profonde ce matin. Les questions et les réponses sont toujours une partie essentielle de l'enseignem",
-    "expected_answer": "Elles permettent de clarifier les points qui auraient pu être mal compris pendant les réunions du soir.",
-    "expected_answer_keywords": []
-  },
-  {
-    "id": "Q090",
-    "question": "De quel projectile l'usurpateur équestre immaculé se trouvait-il totalement dépourvu ?",
-    "category": "paraphrase_semantique_zero_terme",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "63-0324M"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "2. Le premier sceau a été ouvert, et nous avons clairement vu que le cavalier sur le cheval blanc n'était pas le Seigneur Jésus-Christ, mais bien l'an",
-    "expected_answer": "Il portait un arc mais n'avait aucune flèche.",
-    "expected_answer_keywords": []
-  },
-  {
-    "id": "Q091",
-    "question": "Vers quel éclat vespéral le Créateur extrait-Il Ses rachetés de l'anarchie mésopotamienne ?",
-    "category": "paraphrase_semantique_zero_terme",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "63-0324M"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "3. Remarquez bien la profondeur de cette révélation. Tout au long des âges de l'Église, le mystère de l'iniquité a agi sous des formes très subtiles. ",
-    "expected_answer": "Dieu rassemble Ses élus hors de la confusion babylonienne dans la lumière du soir.",
-    "expected_answer_keywords": []
-  },
-  {
-    "id": "Q092",
-    "question": "Face aux bâtisses fastueuses et à la rhétorique profane, à quel singulier texte scripturaire convient-il d'adhérer ?",
-    "category": "paraphrase_semantique_zero_terme",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "63-0324M"
-    ],
-    "expected_paragraphs": [
-      4
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "63-0324M",
-        "paragraphIndex": 4
-      }
-    ],
-    "relevant_snippet": "4. Frères et sœurs, nous vivons dans un temps solennel où le discernement spirituel est primordial pour chaque croyant. Ne vous laissez pas séduire pa",
-    "expected_answer": "À la Parole écrite et révélée par le Saint-Esprit comme seule Vérité infaillible.",
-    "expected_answer_keywords": []
-  },
-  {
-    "id": "Q093",
-    "question": "Pourquoi la Cène outrepasse-t-elle l'ingestion d'une galette azyme additionnée de liqueur de vigne ?",
-    "category": "paraphrase_semantique_zero_terme",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "65-1212"
-    ],
-    "expected_paragraphs": [
-      1
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-1212",
-        "paragraphIndex": 1
-      }
-    ],
-    "relevant_snippet": "1. C'est un immense privilège d'être assemblés ici ce soir pour ce précieux service de communion. La communion n'est pas simplement manger un morceau ",
-    "expected_answer": "Parce que la communion est une union spirituelle vivante entre le croyant racheté et son Seigneur.",
-    "expected_answer_keywords": []
-  },
-  {
-    "id": "Q094",
-    "question": "Quel accord absolu au supplice du Golgotha atteste qu'un disciple trépasse afin qu'un Autre surgisse en lui ?",
-    "category": "paraphrase_semantique_zero_terme",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "65-1212"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-1212",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "2. Comme l'Écriture le déclare si magnifiquement dans l'Évangile de Jean : \"Si vous ne mangez la chair du Fils de l'homme, et si vous ne buvez son san",
-    "expected_answer": "L'acte de foi témoignant être crucifié avec Christ pour que Christ vive en soi.",
-    "expected_answer_keywords": []
-  },
-  {
-    "id": "Q095",
-    "question": "Quelle subsistance dissimulée résidait jadis derrière l'épais rideau sanctuaire ?",
-    "category": "paraphrase_semantique_zero_terme",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "65-1212"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-1212",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "3. La manne cachée dans l'Ancien Testament était réservée à l'intérieur du Lieu Très Saint. Aujourd'hui, cette manne spirituelle, c'est la Parole révé",
-    "expected_answer": "La manne cachée réservée à l'intérieur du Lieu Très Saint.",
-    "expected_answer_keywords": []
-  },
-  {
-    "id": "Q096",
-    "question": "Quel instrument d'airain annonce le ralliement de la descendance d'Abraham sitôt l'élue ravie ?",
-    "category": "paraphrase_semantique_zero_terme",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "64-0719M"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "64-0719M",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "2. La Fête des Trompettes est l'une des révélations les plus saisissantes réservées pour l'Église du temps de la fin. Dans l'Ancien Testament, sous la",
-    "expected_answer": "La Fête des Trompettes sonnant le réveil d'Israël après l'enlèvement de l'Épouse des Nations.",
-    "expected_answer_keywords": []
-  },
-  {
-    "id": "Q097",
-    "question": "Quel emblème à six pointes ondoie sur Sion tandis que l'arbuste nourricier bourgeonne ?",
-    "category": "paraphrase_semantique_zero_terme",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "64-0719M"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "64-0719M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "3. Observez attentivement le parallèle extraordinaire : pendant que Dieu traite avec les Nations pour en tirer un peuple pour Son Nom, les trompettes ",
-    "expected_answer": "Le drapeau à l'étoile de David flottant à Jérusalem tandis que le figuier a repoussé ses feuilles.",
-    "expected_answer_keywords": []
-  },
-  {
-    "id": "Q098",
-    "question": "Quelle supplication ininterrompue importe avant le rapt céleste imminent ?",
-    "category": "paraphrase_semantique_zero_terme",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "64-0719M"
-    ],
-    "expected_paragraphs": [
-      4
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "64-0719M",
-        "paragraphIndex": 4
-      }
-    ],
-    "relevant_snippet": "4. Veillons et prions sans cesse, car la trompette de Dieu sonnera très bientôt pour l'Enlèvement.",
-    "expected_answer": "Veiller et prier sans cesse avant la sonnerie de la trompette de Dieu pour l'Enlèvement.",
-    "expected_answer_keywords": []
-  },
-  {
-    "id": "Q099",
-    "question": "Quelle gravité suprême caractérise cette ultime admonestation destinée aux fidèles contemporains ?",
-    "category": "paraphrase_semantique_zero_terme",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "65-0725M"
-    ],
-    "expected_paragraphs": [
-      1
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-0725M",
-        "paragraphIndex": 1
-      }
-    ],
-    "relevant_snippet": "1. Ce sujet est sans aucun doute l'un des avertissements les plus solennels que le Seigneur ait donnés à Son Église pour les derniers jours.",
-    "expected_answer": "Un avertissement solennel donné à l'Église pour les derniers jours.",
-    "expected_answer_keywords": []
-  },
-  {
-    "id": "Q100",
-    "question": "Pourquoi l'averse céleste humecte-t-elle pareillement l'épi nourricier et la mauvaise herbe toxique ?",
-    "category": "paraphrase_semantique_zero_terme",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "65-0725M"
-    ],
-    "expected_paragraphs": [
-      2
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-0725M",
-        "paragraphIndex": 2
-      }
-    ],
-    "relevant_snippet": "2. Dans Matthieu chapitre 24, verset 24, le Seigneur Jésus avertit expressément : \"Car il s'élèvera de faux Christs et de faux prophètes; ils feront d",
-    "expected_answer": "Tout comme la pluie tombe indifféremment sur le bon blé et l'ivraie dans le même champ.",
-    "expected_answer_keywords": []
-  },
-  {
-    "id": "Q101",
-    "question": "À quelle aune jauge-t-on l'authenticité surnaturelle lorsqu'un fait extraordinaire risque d'illusionner ?",
-    "category": "paraphrase_semantique_zero_terme",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "65-0725M"
-    ],
-    "expected_paragraphs": [
-      3
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-0725M",
-        "paragraphIndex": 3
-      }
-    ],
-    "relevant_snippet": "3. Comment donc faire la différence dans ce temps de grande séduction spirituelle ? Ce n'est pas par la manifestation des dons spirituels seuls, car l",
-    "expected_answer": "Par la comparaison stricte avec le Fruit et le pur Ainsi dit le Seigneur.",
-    "expected_answer_keywords": []
-  },
-  {
-    "id": "Q102",
-    "question": "Quel onguent ophtalmique mystique procure une perception accrue des mystères ?",
-    "category": "paraphrase_semantique_zero_terme",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "65-0725M"
-    ],
-    "expected_paragraphs": [
-      4
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "65-0725M",
-        "paragraphIndex": 4
-      }
-    ],
-    "relevant_snippet": "4. Que le Dieu de toute grâce nous accorde un cœur pur et des yeux spirituels oints du collyre divin pour reconnaître la Vérité et marcher dans Sa lum",
-    "expected_answer": "Des yeux spirituels oints du collyre divin pour reconnaître la Vérité.",
-    "expected_answer_keywords": []
-  },
-  {
-    "id": "Q103",
-    "question": "Sur quel récif maritime aride le disciple bien-aimé contempla-t-il l'ouverture des horizons futurs ?",
-    "category": "paraphrase_semantique_zero_terme",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "expose_ch1"
-    ],
-    "expected_paragraphs": [
-      1
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "expose_ch1",
-        "paragraphIndex": 1
-      }
-    ],
-    "relevant_snippet": "DE\n\n1 “Révélation de Jésus-Christ, que Dieu lui a donnée pour montrer à Ses serviteurs les choses qui doivent arriver bientôt, et qu’Il a fait connaît",
-    "expected_answer": "L'île de Patmos où Jean reçut la révélation de Jésus-Christ.",
-    "expected_answer_keywords": []
-  },
-  {
-    "id": "Q104",
-    "question": "Quel port antique d'Ionie accueillit l'émissaire paulinien inaugurant le cycle chronologique septénaire ?",
-    "category": "paraphrase_semantique_zero_terme",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "expose_ch2"
-    ],
-    "expected_paragraphs": [
-      1
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "expose_ch2",
-        "paragraphIndex": 1
-      }
-    ],
-    "relevant_snippet": "Apocalypse 1.9-20 Jean à Patmos\n\nApocalypse 1.9 : “Moi Jean, votre frère, et qui ai part avec vous à la tribulation et au royaume et à la persévérance",
-    "expected_answer": "L'Église d'Éphèse, première dispensation apostolique établie par l'apôtre Paul.",
-    "expected_answer_keywords": []
-  },
-  {
-    "id": "Q105",
-    "question": "Quelle cité martyre subit la fureur des geôles romaines sous l'arôme amer de la résine broyée ?",
-    "category": "paraphrase_semantique_zero_terme",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "expose_ch3"
-    ],
-    "expected_paragraphs": [
-      1
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "expose_ch3",
-        "paragraphIndex": 1
-      }
-    ],
-    "relevant_snippet": "Introduction aux Âges de l’Église\n\nPour que vous puissiez pleinement comprendre le message des Âges de l’Église, j’aimerais expliquer les différents p",
-    "expected_answer": "L'Église de Smyrne symbolisant la myrrhe et la persécution sanglante sous Rome.",
-    "expected_answer_keywords": []
-  },
-  {
-    "id": "Q106",
-    "question": "Où se dressait le trône satanique lorsque la piété capitula devant la pourpre césarienne ?",
-    "category": "paraphrase_semantique_zero_terme",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "expose_ch4"
-    ],
-    "expected_paragraphs": [
-      1
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "expose_ch4",
-        "paragraphIndex": 1
-      }
-    ],
-    "relevant_snippet": "Apocalypse 2.8-11\n\n“Écris à l’ange de l’Église de Smyrne : Voici ce que dit le Premier et le Dernier, Celui qui était mort, et qui est revenu à la vie",
-    "expected_answer": "Pergame, où le compromis avec l'empire païen a introduit le trône de Satan.",
-    "expected_answer_keywords": []
-  },
-  {
-    "id": "Q107",
-    "question": "Sous quel règne clérical ténébreux la reine usurpatrice tyrannisa-t-elle les humbles justes ?",
-    "category": "paraphrase_semantique_zero_terme",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "expose_ch5"
-    ],
-    "expected_paragraphs": [
-      1
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "expose_ch5",
-        "paragraphIndex": 1
-      }
-    ],
-    "relevant_snippet": "Apocalypse 2.12-17\n\n“Écris à l’ange de l’Église de Pergame : Voici ce que dit Celui qui a l’épée aiguë, à deux tranchants :\n\nJe connais tes œuvres, et",
-    "expected_answer": "L'âge médiéval de Thyatire dominé par l'esprit de Jézabel et la papauté.",
-    "expected_answer_keywords": []
-  },
-  {
-    "id": "Q108",
-    "question": "Quel éveil doctrinologique secoua la torpeur germanique lorsque le moine afficha ses thèses contestataires ?",
-    "category": "paraphrase_semantique_zero_terme",
-    "difficulty": "hard",
-    "answerable": true,
-    "expected_sermons": [
-      "expose_ch6"
-    ],
-    "expected_paragraphs": [
-      1
-    ],
-    "expected_sources": [
-      {
-        "sermonId": "expose_ch6",
-        "paragraphIndex": 1
-      }
-    ],
-    "relevant_snippet": "Apocalypse 2.18-29\n\nÉcris à l’ange de l’Église de Thyatire : Voici ce que dit le Fils de Dieu, celui qui a les yeux comme une flamme de feu, et dont l",
-    "expected_answer": "L'âge de Sardes avec Martin Luther et la redécouverte de la justification par la foi.",
-    "expected_answer_keywords": []
-  }
+ {
+  "id": "R001",
+  "question": "Un passager arrêté par la police a expliqué qu'il avait bousculé une femme hors du véhicule parce que ses propres fils étaient restés dehors",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "57-0421M-SHP"
+  ],
+  "expected_paragraphs": [
+   57
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "57-0421M-SHP",
+    "paragraphIndex": 57
+   }
+  ],
+  "relevant_snippet": "Un homme était à l'arrière… au milieu du bus, il a attrapé cette femme et il l'a presque projetée par la porte. Et quand la police a arrêté l'homme, il a dit : \" Ce qui m'a poussé à faire cela, a-t-il dit, c'est que cette femme n'avait personne là-bas dont le sort la préoccupait. Mais moi, j'ai deux",
+  "expected_answer": "Un homme était à l'arrière… au milieu du bus, il a attrapé cette femme et il l'a presque projetée par la porte. Et quand la police a arrêté l'homme, il a dit : \" Ce qui m'a poussé à faire cela, a-t-il dit, c'est que cette femme n'avait personne là-bas dont le sort la préoccupait. Mais moi, j'ai deux",
+  "expected_answer_keywords": [],
+  "sermon_title": "Le grand et puissant conquérant  (le puissant conquérant)"
+ },
+ {
+  "id": "R002",
+  "question": "Jean est ravi aux chapitres 4 et 5 de l'Apocalypse puis redescend au chapitre 6 pour voir les Sceaux et les Fléaux",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "61-0730M-VGR"
+  ],
+  "expected_paragraphs": [
+   31
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "61-0730M-VGR",
+    "paragraphIndex": 31
+   }
+  ],
+  "relevant_snippet": "Voilà maintenant des mois que nous étudions le Livre de l’Apocalypse, la Révélation de Jésus-Christ. Nous avons vu les âges de l’église. Les trois premiers chapitres de l’Apocalypse, c’étaient les âges de l’église. Ensuite Jean a été ravi, dans les chapitres 4 et 5, il lui a été montré des choses qu",
+  "expected_answer": "Voilà maintenant des mois que nous étudions le Livre de l’Apocalypse, la Révélation de Jésus-Christ. Nous avons vu les âges de l’église. Les trois premiers chapitres de l’Apocalypse, c’étaient les âges de l’église. Ensuite Jean a été ravi, dans les chapitres 4 et 5, il lui a été montré des choses qu",
+  "expected_answer_keywords": [],
+  "sermon_title": "Les instructions de gabriel à daniel"
+ },
+ {
+  "id": "R003",
+  "question": "Les disciples ont pris le Seigneur pour un fantôme, et aujourd'hui on traite Son signe messianique de télépathie",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "61-0212E-SHP"
+  ],
+  "expected_paragraphs": [
+   49
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "61-0212E-SHP",
+    "paragraphIndex": 49
+   }
+  ],
+  "relevant_snippet": "Frère, soeur, écoutez pour terminer. La même chose qui était arrivée jadis arrive maintenant. La chose qui pouvait les aider, rassurer leur sécurité, ils en avaient peur. Cela leur paraissait comme un fantôme. Ils ont pensé que c’était un esprit. Et aujourd’hui, quand Christ vient en marchant vers n",
+  "expected_answer": "Frère, soeur, écoutez pour terminer. La même chose qui était arrivée jadis arrive maintenant. La chose qui pouvait les aider, rassurer leur sécurité, ils en avaient peur. Cela leur paraissait comme un fantôme. Ils ont pensé que c’était un esprit. Et aujourd’hui, quand Christ vient en marchant vers n",
+  "expected_answer_keywords": [],
+  "sermon_title": "C’est moi, n’ayez pas peur"
+ },
+ {
+  "id": "R004",
+  "question": "Branham Tabernacle institution interdénominationnelle sans autre credo que Christ",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "58-0720M-SHP"
+  ],
+  "expected_paragraphs": [
+   24
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "58-0720M-SHP",
+    "paragraphIndex": 24
+   }
+  ],
+  "relevant_snippet": "Oh! Alors que je vais d’un pays à un autre, et d’une nation à une autre, prêchant depuis que j’ai quitté les portes de ce petit tabernacle (C’est une institution interdénominationnelle, sans autre loi si ce n’est l’amour, sans autre livre si ce n’est la Bible, et sans autre credo si ce n’est Christ)",
+  "expected_answer": "Oh! Alors que je vais d’un pays à un autre, et d’une nation à une autre, prêchant depuis que j’ai quitté les portes de ce petit tabernacle (C’est une institution interdénominationnelle, sans autre loi si ce n’est l’amour, sans autre livre si ce n’est la Bible, et sans autre credo si ce n’est Christ)",
+  "expected_answer_keywords": [],
+  "sermon_title": "C’est par la foi que moïse"
+ },
+ {
+  "id": "R005",
+  "question": "Les pionniers ont arraché les souches et les ronces et maintenant leurs enfants courent joyeusement sur la grand-route",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "55-0609-SHP"
+  ],
+  "expected_paragraphs": [
+   30
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "55-0609-SHP",
+    "paragraphIndex": 30
+   }
+  ],
+  "relevant_snippet": "Père céleste, à présent abaisse Ton regard sur nous, Seigneur, pour nous accorder Ta bénédiction. Nous Te demandons de nous pardonner nos péchés. A présent la grande scène est préparée, Seigneur. Et nous nous attendons à ce que Tu viennes. Seigneur Dieu, voici des chrétiens, voici des gens qui donne",
+  "expected_answer": "Père céleste, à présent abaisse Ton regard sur nous, Seigneur, pour nous accorder Ta bénédiction. Nous Te demandons de nous pardonner nos péchés. A présent la grande scène est préparée, Seigneur. Et nous nous attendons à ce que Tu viennes. Seigneur Dieu, voici des chrétiens, voici des gens qui donne",
+  "expected_answer_keywords": [],
+  "sermon_title": "Un temoignage plus grand que celui de jean"
+ },
+ {
+  "id": "R006",
+  "question": "La Rose de Saron a été écrasée pour en extraire le parfum",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "53-0403-SHP"
+  ],
+  "expected_paragraphs": [
+   208
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "53-0403-SHP",
+    "paragraphIndex": 208
+   }
+  ],
+  "relevant_snippet": "Ô Dieu, que chaque individu ici rentre chez lui ce soir avec ceci à l’esprit, en se disant: «Quel sacrifice! Quel prix cela a coûté pour faire le rachat! Qu’est-ce que cela a coûté à Dieu!» Cela ne nous a rien coûté du tout. Cela a coûté à Dieu Son Fils. Cela a coûté à Dieu le plus grand prix. Cela ",
+  "expected_answer": "Ô Dieu, que chaque individu ici rentre chez lui ce soir avec ceci à l’esprit, en se disant: «Quel sacrifice! Quel prix cela a coûté pour faire le rachat! Qu’est-ce que cela a coûté à Dieu!» Cela ne nous a rien coûté du tout. Cela a coûté à Dieu Son Fils. Cela a coûté à Dieu le plus grand prix. Cela ",
+  "expected_answer_keywords": [],
+  "sermon_title": "La cruauté du péché et la peine que cela a coutée pour delivrer nos vies du péché"
+ },
+ {
+  "id": "R007",
+  "question": "Les deux Babylones d'Hislop et le Livre des Martyrs de Foxe : chaque esprit tire son origine dans la Genèse",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "62-0630B-SHP"
+  ],
+  "expected_paragraphs": [
+   12
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "62-0630B-SHP",
+    "paragraphIndex": 12
+   }
+  ],
+  "relevant_snippet": "Et j'ai étudié beaucoup de livres sur l'histoire de l'église : Les deux Babylones d'Hislop (vous avez probablement étudié cela), et Le Livre des Martyrs de Foxe, et-et Les conciles Pré-Nicéens, les Pères Nicéens, et autres. Si vous les examinez, vous découvrirez que chaque esprit sur terre, chaque s",
+  "expected_answer": "Et j'ai étudié beaucoup de livres sur l'histoire de l'église : Les deux Babylones d'Hislop (vous avez probablement étudié cela), et Le Livre des Martyrs de Foxe, et-et Les conciles Pré-Nicéens, les Pères Nicéens, et autres. Si vous les examinez, vous découvrirez que chaque esprit sur terre, chaque s",
+  "expected_answer_keywords": [],
+  "sermon_title": "Au commencement, il n'en était pas ainsi"
+ },
+ {
+  "id": "R008",
+  "question": "L'animal aquatique instruit qui prétend ne plus avoir besoin de l'organe qui lui permet d'avancer dans l'eau",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "65-0919-SHP"
+  ],
+  "expected_paragraphs": [
+   211
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "65-0919-SHP",
+    "paragraphIndex": 211
+   }
+  ],
+  "relevant_snippet": "Regardez, j'ai souvent apporté ceci à titre d'exemple. S'il y a une nageoire sur le dos d'un poisson, forcément qu'elle a dû être posée là pour qu'il puisse nager avec. Il en a besoin. Or, qu'est-ce qui se passerait s'il disait: \"Moi, je vais être un poisson différent. Je vais être un poisson intell",
+  "expected_answer": "Regardez, j'ai souvent apporté ceci à titre d'exemple. S'il y a une nageoire sur le dos d'un poisson, forcément qu'elle a dû être posée là pour qu'il puisse nager avec. Il en a besoin. Or, qu'est-ce qui se passerait s'il disait: \"Moi, je vais être un poisson différent. Je vais être un poisson intell",
+  "expected_answer_keywords": [],
+  "sermon_title": "La soif"
+ },
+ {
+  "id": "R009",
+  "question": "Les femmes préfèrent un chien ou un chat plutôt que d'avoir des enfants, c'est l'opinion d'Hollywood",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "65-1125-SHP"
+  ],
+  "expected_paragraphs": [
+   92
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "65-1125-SHP",
+    "paragraphIndex": 92
+   }
+  ],
+  "relevant_snippet": "Il parle du jour où les femmes ne voudraient plus avoir d'enfants. Elles préfèrent un chien ou un chat, ou quelque chose de ce genre, et elles ne veulent plus d'enfants. Pourquoi? On les prendrait pour la vieille mère Michèle, si elles avaient un enfant. Voyez-vous? Elle ne veut pas... c'est le - c'",
+  "expected_answer": "Il parle du jour où les femmes ne voudraient plus avoir d'enfants. Elles préfèrent un chien ou un chat, ou quelque chose de ce genre, et elles ne veulent plus d'enfants. Pourquoi? On les prendrait pour la vieille mère Michèle, si elles avaient un enfant. Voyez-vous? Elle ne veut pas... c'est le - c'",
+  "expected_answer_keywords": [],
+  "sermon_title": "L'union invisible de l'epouse de christ"
+ },
+ {
+  "id": "R010",
+  "question": "Quand un croyant meurt c'est comme une feuille qui tombe de l'Arbre de Vie, elle attend la résurrection générale",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "62-0313-SHP"
+  ],
+  "expected_paragraphs": [
+   7
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "62-0313-SHP",
+    "paragraphIndex": 7
+   }
+  ],
+  "relevant_snippet": "Et nous qui sommes - qui nous disons chrétiens, qui sommes nés de l'Esprit de Dieu, nous avons été transférés par la grâce de Dieu de l'arbre de la mort à l'Arbre de Vie. Et lorsqu'une des feuilles tombe... C'est comme ce témoignage que j'ai reçu de la - de cette merveilleuse église - à l'église Bap",
+  "expected_answer": "Et nous qui sommes - qui nous disons chrétiens, qui sommes nés de l'Esprit de Dieu, nous avons été transférés par la grâce de Dieu de l'arbre de la mort à l'Arbre de Vie. Et lorsqu'une des feuilles tombe... C'est comme ce témoignage que j'ai reçu de la - de cette merveilleuse église - à l'église Bap",
+  "expected_answer_keywords": [],
+  "sermon_title": "Les expressions (funérailles de la soeur bell)"
+ },
+ {
+  "id": "R011",
+  "question": "Âge de Laodicée : voici l'Agneau, le Seigneur entrera soudain dans Son temple pour l'Enlèvement",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "62-0908-VGR"
+  ],
+  "expected_paragraphs": [
+   132
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "62-0908-VGR",
+    "paragraphIndex": 132
+   }
+  ],
+  "relevant_snippet": "Nous croyons que la fin est proche. Nous voyons, comme nous l’avons enseigné ici, que c’est maintenant l’âge de l’église de Laodicée, nous voyons qu’il ne peut plus rien arriver d’autre que la Venue du Seigneur. Et, Seigneur, ne serait-ce pas un grand couronnement pour la Parole que de voir venir Ce",
+  "expected_answer": "Nous croyons que la fin est proche. Nous voyons, comme nous l’avons enseigné ici, que c’est maintenant l’âge de l’église de Laodicée, nous voyons qu’il ne peut plus rien arriver d’autre que la Venue du Seigneur. Et, Seigneur, ne serait-ce pas un grand couronnement pour la Parole que de voir venir Ce",
+  "expected_answer_keywords": [],
+  "sermon_title": "L’étape actuelle de mon ministère"
+ },
+ {
+  "id": "R012",
+  "question": "Les œuvres plus grandes promises aux disciples portent-elles sur la qualité ou sur le nombre ?",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "53-0829-SHP"
+  ],
+  "expected_paragraphs": [
+   44
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "53-0829-SHP",
+    "paragraphIndex": 44
+   }
+  ],
+  "relevant_snippet": "Or, s’Il est ressuscité d’entre les morts, Il a promis à Sa résurrection que Ses disciples feraient les mêmes oeuvres qu’Il avait faites (Est-ce vrai?), et de plus grandes. Eh bien, le mot «de plus grandes», je dis, cela ne se rapporte pas à la qualité. Mais cela veut dire «la quantité.» Ça sera par",
+  "expected_answer": "Or, s’Il est ressuscité d’entre les morts, Il a promis à Sa résurrection que Ses disciples feraient les mêmes oeuvres qu’Il avait faites (Est-ce vrai?), et de plus grandes. Eh bien, le mot «de plus grandes», je dis, cela ne se rapporte pas à la qualité. Mais cela veut dire «la quantité.» Ça sera par",
+  "expected_answer_keywords": [],
+  "sermon_title": "Le témoignage de jésus-christ"
+ },
+ {
+  "id": "R013",
+  "question": "Dieu a changé Sara et Abraham en un jeune homme et une jeune femme, les rides ont disparu",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "55-1117-SHP"
+  ],
+  "expected_paragraphs": [
+   39
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "55-1117-SHP",
+    "paragraphIndex": 39
+   }
+  ],
+  "relevant_snippet": "Ils étaient là, et... Eh bien, savez-vous ce que Dieu a fait à Sara et à Abraham là-bas, lorsqu’Il est entré dans ce corps humain, lorsque Dieu l’a fait, Lui et les deux Anges? Il a simplement changé Sara et Abraham en un jeune homme et une jeune femme, Il les a transformés en un jeune homme et une ",
+  "expected_answer": "Ils étaient là, et... Eh bien, savez-vous ce que Dieu a fait à Sara et à Abraham là-bas, lorsqu’Il est entré dans ce corps humain, lorsque Dieu l’a fait, Lui et les deux Anges? Il a simplement changé Sara et Abraham en un jeune homme et une jeune femme, Il les a transformés en un jeune homme et une ",
+  "expected_answer_keywords": [],
+  "sermon_title": "Jéhovah-jiré"
+ },
+ {
+  "id": "R014",
+  "question": "Le prédicateur avoue ignorer encore ce que signifient les cavaliers et ne compte que sur le Seigneur pour la révélation de la semaine",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "63-0317E-SHP"
+  ],
+  "expected_paragraphs": [
+   19
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "63-0317E-SHP",
+    "paragraphIndex": 19
+   }
+  ],
+  "relevant_snippet": "En effet, je ne sais pas ce qu’il en est du premier cavalier. Je ne sais pas ce qu’il en est du Deuxième, du Troisième, du Quatrième, du Cinquième, du Sixième, ni du Septième Sceau. Je... Jusqu’ici, je ne sais pas. Voyez? Je ne compte que sur Lui. Voilà donc pourquoi... j’essayerai cette semaine, av",
+  "expected_answer": "En effet, je ne sais pas ce qu’il en est du premier cavalier. Je ne sais pas ce qu’il en est du Deuxième, du Troisième, du Quatrième, du Cinquième, du Sixième, ni du Septième Sceau. Je... Jusqu’ici, je ne sais pas. Voyez? Je ne compte que sur Lui. Voilà donc pourquoi... j’essayerai cette semaine, av",
+  "expected_answer_keywords": [],
+  "sermon_title": "La brèche entre les sept âges de l’église et les sept sceaux"
+ },
+ {
+  "id": "R015",
+  "question": "Dans Laodicée Jésus est dehors, frappant à la porte de Sa propre Église",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "63-1116B-SHP"
+  ],
+  "expected_paragraphs": [
+   87
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "63-1116B-SHP",
+    "paragraphIndex": 87
+   }
+  ],
+  "relevant_snippet": "Dans Apocalypse 3, nous lisons ceci, que l’Eglise de Laodicée… On nous décrit l’un des tableaux les plus tristes de toute la Bible, dans Apocalypse 3, à l’Eglise de Laodicée. Toutes les autres églises, jusqu’à l’âge de Luther, et les Sept Ages de l’Eglise, chacun d’eux, ça ne s’est pas fait, on parl",
+  "expected_answer": "Dans Apocalypse 3, nous lisons ceci, que l’Eglise de Laodicée… On nous décrit l’un des tableaux les plus tristes de toute la Bible, dans Apocalypse 3, à l’Eglise de Laodicée. Toutes les autres églises, jusqu’à l’âge de Luther, et les Sept Ages de l’Eglise, chacun d’eux, ça ne s’est pas fait, on parl",
+  "expected_answer_keywords": [],
+  "sermon_title": "Les investissements"
+ },
+ {
+  "id": "R016",
+  "question": "El-Shaddai signifie le Sein, la Poitrine, Celui qui donne la force",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "61-1001M-SHP"
+  ],
+  "expected_paragraphs": [
+   155
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "61-1001M-SHP",
+    "paragraphIndex": 155
+   }
+  ],
+  "relevant_snippet": "«Je suis le Dieu de tes pères. Je suis le Dieu de l’éternité. Je suis El-Shaddai; Je suis le Sein, Je suis la Poitrine, Je suis Celui qui donne la force. Peu m’importe combien tu es vieux, Abraham, qu’est ce que ça fait pour moi? Peu m’importe combien tu es stérile ou combien son sein est stérile, J",
+  "expected_answer": "«Je suis le Dieu de tes pères. Je suis le Dieu de l’éternité. Je suis El-Shaddai; Je suis le Sein, Je suis la Poitrine, Je suis Celui qui donne la force. Peu m’importe combien tu es vieux, Abraham, qu’est ce que ça fait pour moi? Peu m’importe combien tu es stérile ou combien son sein est stérile, J",
+  "expected_answer_keywords": [],
+  "sermon_title": "Il est convenable que nous accomplissions toute justice"
+ },
+ {
+  "id": "R017",
+  "question": "Le premier homme a cousu des feuilles pour se couvrir : une religion fabriquée par lui-même sans sacrifice pour la faute",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "61-0430-SHP"
+  ],
+  "expected_paragraphs": [
+   45
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "61-0430-SHP",
+    "paragraphIndex": 45
+   }
+  ],
+  "relevant_snippet": "Adam avait une super religion. Il avait une religion qu’il s’était fabriquée lui-même, essayant d’avoir une super religion sans expiation pour le péché. L’homme a la même chose, il essaie de faire cela aujourd’hui. Avoir une religion sans expiation. Vous devez avoir une expiation. Et quand l’expiati",
+  "expected_answer": "Adam avait une super religion. Il avait une religion qu’il s’était fabriquée lui-même, essayant d’avoir une super religion sans expiation pour le péché. L’homme a la même chose, il essaie de faire cela aujourd’hui. Avoir une religion sans expiation. Vous devez avoir une expiation. Et quand l’expiati",
+  "expected_answer_keywords": [],
+  "sermon_title": "Un super signe"
+ },
+ {
+  "id": "R018",
+  "question": "La biche qui n'a pas eu peur de mourir : fais de moi un chrétien autant que cette biche est une mère",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "58-0617-SHP"
+  ],
+  "expected_paragraphs": [
+   71
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "58-0617-SHP",
+    "paragraphIndex": 71
+   }
+  ],
+  "relevant_snippet": "Il a dit: «Billy, si Dieu a créé cette biche, et qu’Il a fait d’elle une mère, et qu’elle n’a pas eu peur de mourir pour la cause...» Il a dit: «Dis-Lui, Billy de faire de moi un chrétien comme cela, de faire de moi un chrétien, autant chrétien que cette biche est une mère.» Ô Dieu, c’est cela ma pr",
+  "expected_answer": "Il a dit: «Billy, si Dieu a créé cette biche, et qu’Il a fait d’elle une mère, et qu’elle n’a pas eu peur de mourir pour la cause...» Il a dit: «Dis-Lui, Billy de faire de moi un chrétien comme cela, de faire de moi un chrétien, autant chrétien que cette biche est une mère.» Ô Dieu, c’est cela ma pr",
+  "expected_answer_keywords": [],
+  "sermon_title": "Voici, je me tiens à la porte et je frappe"
+ },
+ {
+  "id": "R019",
+  "question": "Personne ne peut prétendre guérir ou pardonner car l'œuvre est déjà accomplie ; la photo de la Colonne de Feu prise au Texas",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "61-0118-SHP"
+  ],
+  "expected_paragraphs": [
+   71
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "61-0118-SHP",
+    "paragraphIndex": 71
+   }
+  ],
+  "relevant_snippet": "Maintenant, s’Il est le même hier, aujourd’hui et éternellement, alors, en ce qui concerne la guérison... Si quelqu’un vient et dit qu’il peut vous guérir, c’est faux. Ce n’est pas scripturaire. Il a déjà accompli cela. Si un homme dit qu’il peut vous pardonner les péchés, il est en erreur. Ils sont",
+  "expected_answer": "Maintenant, s’Il est le même hier, aujourd’hui et éternellement, alors, en ce qui concerne la guérison... Si quelqu’un vient et dit qu’il peut vous guérir, c’est faux. Ce n’est pas scripturaire. Il a déjà accompli cela. Si un homme dit qu’il peut vous pardonner les péchés, il est en erreur. Ils sont",
+  "expected_answer_keywords": [],
+  "sermon_title": "Jésus-christ est le même hier, aujourd’hui et éternellement"
+ },
+ {
+  "id": "R020",
+  "question": "L'apôtre sarcastique partait avec des lettres de recommandation pour emprisonner ceux qui parlaient en langues, mais sa rencontre avec Dieu l'a changé",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "61-0415B-SHP"
+  ],
+  "expected_paragraphs": [
+   69
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "61-0415B-SHP",
+    "paragraphIndex": 69
+   }
+  ],
+  "relevant_snippet": "Pierre, quand il a rencontré Dieu et que Jésus lui a révélé qui il était, dès ce moment, il était devenu un apôtre. Paul, le petit Juif au nez crochu, un sarcastique, il descendait là avec une lettre dans sa poche pour arrêter tous ces gens qui criaient et parlaient en langues. Il allait les jeter e",
+  "expected_answer": "Pierre, quand il a rencontré Dieu et que Jésus lui a révélé qui il était, dès ce moment, il était devenu un apôtre. Paul, le petit Juif au nez crochu, un sarcastique, il descendait là avec une lettre dans sa poche pour arrêter tous ces gens qui criaient et parlaient en langues. Il allait les jeter e",
+  "expected_answer_keywords": [],
+  "sermon_title": "Dès ce moment"
+ },
+ {
+  "id": "R021",
+  "question": "Dieu met à part, Il ne mélange pas : mettez-Moi à part Paul et Barnabas, séparez-vous du monde",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "64-0719M-SHP"
+  ],
+  "expected_paragraphs": [
+   161
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "64-0719M-SHP",
+    "paragraphIndex": 161
+   }
+  ],
+  "relevant_snippet": "Il y a une différence. Il existe même des différences entre les individus. Dieu a dit : \"Mettez-Moi à part, Paul et Barnabas, c'est exact, pour l'oeuvre…\" Mettez à part - Dieu est Quelqu'un qui met à part, pas quelqu'un qui mélange, quelqu'un... Pierre… L'église veut quelqu'un qui fait un bon mélang",
+  "expected_answer": "Il y a une différence. Il existe même des différences entre les individus. Dieu a dit : \"Mettez-Moi à part, Paul et Barnabas, c'est exact, pour l'oeuvre…\" Mettez à part - Dieu est Quelqu'un qui met à part, pas quelqu'un qui mélange, quelqu'un... Pierre… L'église veut quelqu'un qui fait un bon mélang",
+  "expected_answer_keywords": [],
+  "sermon_title": "La fête des trompettes"
+ },
+ {
+  "id": "R022",
+  "question": "La vieille prophétesse aveugle conduite par l'Esprit à travers la foule jusqu'au nouveau-né dans le temple",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "52-0727-SHP"
+  ],
+  "expected_paragraphs": [
+   21
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "52-0727-SHP",
+    "paragraphIndex": 21
+   }
+  ],
+  "relevant_snippet": "Et presque à ce moment-là, avons-nous appris, il y avait dans le temple une vieille prophétesse qui s’appelait Anne. Les théologiens croient, selon l’histoire, qu’elle était aveugle. Elle restait dans le temple jour et nuit, offrant constamment des prières, priant pour les péchés du peuple. Et elle ",
+  "expected_answer": "Et presque à ce moment-là, avons-nous appris, il y avait dans le temple une vieille prophétesse qui s’appelait Anne. Les théologiens croient, selon l’histoire, qu’elle était aveugle. Elle restait dans le temple jour et nuit, offrant constamment des prières, priant pour les péchés du peuple. Et elle ",
+  "expected_answer_keywords": [],
+  "sermon_title": "Être conduit par le saint-esprit"
+ },
+ {
+  "id": "R023",
+  "question": "Satan est religieux, il cite l'Écriture comme à Ève, il lui suffit d'en omettre une seule partie",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "65-0829-VGR"
+  ],
+  "expected_paragraphs": [
+   64
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "65-0829-VGR",
+    "paragraphIndex": 64
+   }
+  ],
+  "relevant_snippet": "Voilà le dieu de ce monde, dont je vous ai parlé dans ma prédication de dimanche passé. Le voici aujourd’hui, avec sa séduction, cette heure perfide, ce temps terrible où nous vivons. C’est le temps le plus glorieux de tous les âges, parce que nous avons de nouveau devant nous le grand Millénium, no",
+  "expected_answer": "Voilà le dieu de ce monde, dont je vous ai parlé dans ma prédication de dimanche passé. Le voici aujourd’hui, avec sa séduction, cette heure perfide, ce temps terrible où nous vivons. C’est le temps le plus glorieux de tous les âges, parce que nous avons de nouveau devant nous le grand Millénium, no",
+  "expected_answer_keywords": [],
+  "sermon_title": "L’eden de satan"
+ },
+ {
+  "id": "R024",
+  "question": "Méthodistes aspersion ou immersion, John Wesley, Whitefield et Asbury",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "65-0815-SHP"
+  ],
+  "expected_paragraphs": [
+   66
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "65-0815-SHP",
+    "paragraphIndex": 66
+   }
+  ],
+  "relevant_snippet": "Et si vous êtes méthodiste, et que le système, chez vous, c'est d'asperger, et qu'on vous dise que vous devez être immergé? Vous voyez ce que je veux dire? Vous allez voir le pasteur méthodiste, et lui, il va écrire à l'évêque pour lui demander: \"Untel a dit telle et telle chose à ce sujet-là.\" Mais",
+  "expected_answer": "Et si vous êtes méthodiste, et que le système, chez vous, c'est d'asperger, et qu'on vous dise que vous devez être immergé? Vous voyez ce que je veux dire? Vous allez voir le pasteur méthodiste, et lui, il va écrire à l'évêque pour lui demander: \"Untel a dit telle et telle chose à ce sujet-là.\" Mais",
+  "expected_answer_keywords": [],
+  "sermon_title": "Et tu ne le sais pas"
+ },
+ {
+  "id": "R025",
+  "question": "Le petit publicain perché dans un arbre se cachait derrière une grande feuille pour observer le Maître sans être vu",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "62-0726-SHP"
+  ],
+  "expected_paragraphs": [
+   58
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "62-0726-SHP",
+    "paragraphIndex": 58
+   }
+  ],
+  "relevant_snippet": "«Et alors, qu’arriva-t-il? Le petit Zachée était assis donc là-haut, il a dit: ‘Vous savez, Rebecca a dit qu’Il était un Prophète. Eh bien, quelqu’un risque de me voir ici en haut, et me signaler à Lui avant que j’aie une bonne occasion de Lui dire ce que je pense de Lui.’ Il a donc tendu la main, i",
+  "expected_answer": "«Et alors, qu’arriva-t-il? Le petit Zachée était assis donc là-haut, il a dit: ‘Vous savez, Rebecca a dit qu’Il était un Prophète. Eh bien, quelqu’un risque de me voir ici en haut, et me signaler à Lui avant que j’aie une bonne occasion de Lui dire ce que je pense de Lui.’ Il a donc tendu la main, i",
+  "expected_answer_keywords": [],
+  "sermon_title": "Un témoignage en mer"
+ },
+ {
+  "id": "R026",
+  "question": "Deux dans un champ, J'en prendrai un : un peuple pris ici et là à cause de Ton Nom, l'Épouse",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "64-0311-VGR"
+  ],
+  "expected_paragraphs": [
+   145
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "64-0311-VGR",
+    "paragraphIndex": 145
+   }
+  ],
+  "relevant_snippet": "Et, Père, Tu as promis que Tu L’identifierais. Je crois que Tu es ressuscité des morts il y a deux mille ans, et que Tu es vivant ce soir, en train d’appeler un peuple simple, comme Tu l’as toujours fait, un ici et un là; pas de groupes, pas d’organisations, pas de grandes réalisations à la manière ",
+  "expected_answer": "Et, Père, Tu as promis que Tu L’identifierais. Je crois que Tu es ressuscité des morts il y a deux mille ans, et que Tu es vivant ce soir, en train d’appeler un peuple simple, comme Tu l’as toujours fait, un ici et un là; pas de groupes, pas d’organisations, pas de grandes réalisations à la manière ",
+  "expected_answer_keywords": [],
+  "sermon_title": "Dieu est identifié par ses caractéristiques"
+ },
+ {
+  "id": "R027",
+  "question": "C'est toujours au moment le plus noir que le Seigneur se manifeste pour secourir les Siens",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "53-1205-SHP"
+  ],
+  "expected_paragraphs": [
+   70
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "53-1205-SHP",
+    "paragraphIndex": 70
+   }
+  ],
+  "relevant_snippet": "Alors, quel moment... quelle heure sombre! L’église les avait rejetés, parce qu’ils avaient cru en Jésus. Et apparemment, Il les avait abandonnés. Oh! la la! c’était une heure sombre. Mais juste à l’heure la plus sombre, alors Jésus vint. C’est d’habitude ce qu’Il fait, c’est juste à l’heure la plus",
+  "expected_answer": "Alors, quel moment... quelle heure sombre! L’église les avait rejetés, parce qu’ils avaient cru en Jésus. Et apparemment, Il les avait abandonnés. Oh! la la! c’était une heure sombre. Mais juste à l’heure la plus sombre, alors Jésus vint. C’est d’habitude ce qu’Il fait, c’est juste à l’heure la plus",
+  "expected_answer_keywords": [],
+  "sermon_title": "La résurrection"
+ },
+ {
+  "id": "R028",
+  "question": "Des campagnes de guérison tenues pour l'argent : Dieu tiendra cette personne pour responsable",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "57-0725-SHP"
+  ],
+  "expected_paragraphs": [
+   29
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "57-0725-SHP",
+    "paragraphIndex": 29
+   }
+  ],
+  "relevant_snippet": "Remarquez. L’homme a plus de considération pour un bon de repas. Les gens vont çà et là prêcher, ils tiennent ces campagnes de guérison rien que pour avoir de l’argent. Cela n’est pas agréable à Dieu. Dieu fera répondre à un homme pour une telle chose. Vous faites tourner un don à votre avantage. Di",
+  "expected_answer": "Remarquez. L’homme a plus de considération pour un bon de repas. Les gens vont çà et là prêcher, ils tiennent ces campagnes de guérison rien que pour avoir de l’argent. Cela n’est pas agréable à Dieu. Dieu fera répondre à un homme pour une telle chose. Vous faites tourner un don à votre avantage. Di",
+  "expected_answer_keywords": [],
+  "sermon_title": "Ecoutez-le"
+ },
+ {
+  "id": "R029",
+  "question": "Église anglicane : les ministres boivent, elle est hybridée avec le monde et ne peut retourner à sa forme originelle",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "60-1113-SHP"
+  ],
+  "expected_paragraphs": [
+   64
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "60-1113-SHP",
+    "paragraphIndex": 64
+   }
+  ],
+  "relevant_snippet": "L’Eglise anglicane, qui a été fondée par Calvin, a fait la même chose. Quand ils ont eu un réveil, c’était bien. Frère Simpson, qui est originaire du Canada, a ça dans sa poche en ce moment. L’Eglise anglicane, voilà que maintenant les ministres et tous, ils s’adonnent à la boisson. Ils mélangent le",
+  "expected_answer": "L’Eglise anglicane, qui a été fondée par Calvin, a fait la même chose. Quand ils ont eu un réveil, c’était bien. Frère Simpson, qui est originaire du Canada, a ça dans sa poche en ce moment. L’Eglise anglicane, voilà que maintenant les ministres et tous, ils s’adonnent à la boisson. Ils mélangent le",
+  "expected_answer_keywords": [],
+  "sermon_title": "La condamnation par représentation"
+ },
+ {
+  "id": "R030",
+  "question": "Une mourante criait qu'elle était damnée et le docteur l'a fait taire avec des piqûres successives",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "56-0213-SHP"
+  ],
+  "expected_paragraphs": [
+   41
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "56-0213-SHP",
+    "paragraphIndex": 41
+   }
+  ],
+  "relevant_snippet": "On est allé chercher le médecin, ce dernier a dit: « Elle est hors de ses sens; donnez-lui une injection hypodermique. » On lui a donné une injection hypodermique, elle a continué à crier, disant: « Je suis perdue. Je suis perdue. Je vais en enfer. Et ils ont dit: « Donne-lui une autre. » Et ils ont",
+  "expected_answer": "On est allé chercher le médecin, ce dernier a dit: « Elle est hors de ses sens; donnez-lui une injection hypodermique. » On lui a donné une injection hypodermique, elle a continué à crier, disant: « Je suis perdue. Je suis perdue. Je vais en enfer. Et ils ont dit: « Donne-lui une autre. » Et ils ont",
+  "expected_answer_keywords": [],
+  "sermon_title": "Une vie cachée avec christ"
+ },
+ {
+  "id": "R031",
+  "question": "Lazare enseveli, le troisième jour la corruption s'installa, il était mort depuis quatre jours",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "52-0810A-SHP"
+  ],
+  "expected_paragraphs": [
+   50
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "52-0810A-SHP",
+    "paragraphIndex": 50
+   }
+  ],
+  "relevant_snippet": "Je peux entendre certains de ces gens dire : \"Eh ! Ce saint exalté était juste ici, prêchant la guérison divine. Et, oh ! Il a vu que l'autre souffre de l'hémorragie, la tâche était trop ardue pour Lui. Il s'en est allé. Maintenant, nous allons voir ce qu'il en est. \" Très bien. Il a alors dit : \"Je",
+  "expected_answer": "Je peux entendre certains de ces gens dire : \"Eh ! Ce saint exalté était juste ici, prêchant la guérison divine. Et, oh ! Il a vu que l'autre souffre de l'hémorragie, la tâche était trop ardue pour Lui. Il s'en est allé. Maintenant, nous allons voir ce qu'il en est. \" Très bien. Il a alors dit : \"Je",
+  "expected_answer_keywords": [],
+  "sermon_title": "Je suis la résurrection et la vie"
+ },
+ {
+  "id": "R032",
+  "question": "Le jeune homme tombé d'une fenêtre pendant une prédication nocturne de l'apôtre et ramené à la vie",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "51-0718-SHP"
+  ],
+  "expected_paragraphs": [
+   53
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "51-0718-SHP",
+    "paragraphIndex": 53
+   }
+  ],
+  "relevant_snippet": "Ô Père, je ne voulais pas prendre tout ce temps, Seigneur. Quand je me mets à parler de Toi, je T’aime tellement que je... mon coeur brûle simplement en moi. Je–je pense à Paul qui avait prêché toute la nuit, un soir, sur Toi, et un jeune homme est tombé de la fenêtre et a été tué; et–et Paul est al",
+  "expected_answer": "Ô Père, je ne voulais pas prendre tout ce temps, Seigneur. Quand je me mets à parler de Toi, je T’aime tellement que je... mon coeur brûle simplement en moi. Je–je pense à Paul qui avait prêché toute la nuit, un soir, sur Toi, et un jeune homme est tombé de la fenêtre et a été tué; et–et Paul est al",
+  "expected_answer_keywords": [],
+  "sermon_title": "L’ange du seigneur"
+ },
+ {
+  "id": "R033",
+  "question": "Il n'est pas convenable de prendre le pain des enfants et de le jeter aux chiens, l'expression chien la plus vile de la Bible",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "61-1015E-SHP"
+  ],
+  "expected_paragraphs": [
+   169
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "61-1015E-SHP",
+    "paragraphIndex": 169
+   }
+  ],
+  "relevant_snippet": "Il se retourna vers elle et dit : «Il n’est pas convenable pour Moi de prendre le pain des enfants et de le jeter aux chiens.» Ouf! N’en était-ce pas une? Ça alors! C’en était une : Il ne la repoussa pas seulement dans sa requête, mais Il la traita de chien. Exactement. Et l’expression «chien» est l",
+  "expected_answer": "Il se retourna vers elle et dit : «Il n’est pas convenable pour Moi de prendre le pain des enfants et de le jeter aux chiens.» Ouf! N’en était-ce pas une? Ça alors! C’en était une : Il ne la repoussa pas seulement dans sa requête, mais Il la traita de chien. Exactement. Et l’expression «chien» est l",
+  "expected_answer_keywords": [],
+  "sermon_title": "Le respect"
+ },
+ {
+  "id": "R034",
+  "question": "Les prétendus païens d'Afrique pourraient enseigner la morale à l'Amérique, la nation qui se dit chrétienne",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "54-0509-VGR"
+  ],
+  "expected_paragraphs": [
+   157
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "54-0509-VGR",
+    "paragraphIndex": 157
+   }
+  ],
+  "relevant_snippet": "Nous affirmons être la nation religieuse, la nation chrétienne. Eh bien, ces “païens” de l’Afrique pourraient nous apprendre la moralité, comment vivre. L’endroit le plus pourri des États-Unis, ou, du monde, pratiquement, c’est ce pays, au point où il en est. Je suis Américain, certainement. Mais, f",
+  "expected_answer": "Nous affirmons être la nation religieuse, la nation chrétienne. Eh bien, ces “païens” de l’Afrique pourraient nous apprendre la moralité, comment vivre. L’endroit le plus pourri des États-Unis, ou, du monde, pratiquement, c’est ce pays, au point où il en est. Je suis Américain, certainement. Mais, f",
+  "expected_answer_keywords": [],
+  "sermon_title": "L’invasion des etats-unis"
+ },
+ {
+  "id": "R035",
+  "question": "Nos noms écrits dans le Livre de Vie de l'Agneau avant la fondation du monde, c'est l'assurance",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "56-0826-SHP"
+  ],
+  "expected_paragraphs": [
+   13
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "56-0826-SHP",
+    "paragraphIndex": 13
+   }
+  ],
+  "relevant_snippet": "Dimanche dernier, il y a une semaine, nous avions ici... je crois que j’ai prêché sur l’assurance, la puissance que Dieu a promise, et Il vous a ordonné, et Il vous a appelé avant la fondation du monde et a inscrit votre nom dans Son Livre. Vous n’aviez rien à voir avec cela. C’est Dieu qui l’a fait",
+  "expected_answer": "Dimanche dernier, il y a une semaine, nous avions ici... je crois que j’ai prêché sur l’assurance, la puissance que Dieu a promise, et Il vous a ordonné, et Il vous a appelé avant la fondation du monde et a inscrit votre nom dans Son Livre. Vous n’aviez rien à voir avec cela. C’est Dieu qui l’a fait",
+  "expected_answer_keywords": [],
+  "sermon_title": "Amour divin"
+ },
+ {
+  "id": "R036",
+  "question": "Le corps humain formé de poussière ressemblait aux animaux, mais ce qui le distingue de la bête c'est un esprit qui ne meurt pas",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "49-1225-SHP"
+  ],
+  "expected_paragraphs": [
+   47
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "49-1225-SHP",
+    "paragraphIndex": 47
+   }
+  ],
+  "relevant_snippet": "Mais il n'y avait pas d'homme pour cultiver la terre, aussi Dieu forma-t-Il l'homme de la poussière de la terre. Et cet homme, il est possible qu'Il lui ait donné des mains comme celles d'un singe, qu'Il lui ait donné des pieds comme ceux d'un ours. Quel que soit ce qu'Il fit, il rassembla simplemen",
+  "expected_answer": "Mais il n'y avait pas d'homme pour cultiver la terre, aussi Dieu forma-t-Il l'homme de la poussière de la terre. Et cet homme, il est possible qu'Il lui ait donné des mains comme celles d'un singe, qu'Il lui ait donné des pieds comme ceux d'un ours. Quel que soit ce qu'Il fit, il rassembla simplemen",
+  "expected_answer_keywords": [],
+  "sermon_title": "La divinité de jésus-christ"
+ },
+ {
+  "id": "R037",
+  "question": "N'importe qui pouvait mourir, mais il fallait être Dieu pour ressusciter le matin de Pâques",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "53-0405S-SHP"
+  ],
+  "expected_paragraphs": [
+   2
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "53-0405S-SHP",
+    "paragraphIndex": 2
+   }
+  ],
+  "relevant_snippet": "Comme frère Thom venait de le dire, aujourd’hui c’est le jour où Il a prouvé ce qu’Il était. N’importe qui pouvait mourir, mais il fallait être Dieu pour ressusciter. Dans Sa vie, Il ressemblait à Dieu, Il a prêché comme Dieu; Il a guéri comme Dieu; Il agissait comme Dieu. Il était Dieu. Et le matin",
+  "expected_answer": "Comme frère Thom venait de le dire, aujourd’hui c’est le jour où Il a prouvé ce qu’Il était. N’importe qui pouvait mourir, mais il fallait être Dieu pour ressusciter. Dans Sa vie, Il ressemblait à Dieu, Il a prêché comme Dieu; Il a guéri comme Dieu; Il agissait comme Dieu. Il était Dieu. Et le matin",
+  "expected_answer_keywords": [],
+  "sermon_title": "Allez dire à mes disciples"
+ },
+ {
+  "id": "R038",
+  "question": "Comme on reconnaît une main à son ombre, les récits de l'Ancien Testament préfigurent notre temps, notamment la ville détruite au temps de Lot",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "65-0125-SHP"
+  ],
+  "expected_paragraphs": [
+   32
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "65-0125-SHP",
+    "paragraphIndex": 32
+   }
+  ],
+  "relevant_snippet": "Je dois donner les Ecritures en types, parce que je n'ai pas assez d'instruction pour faire ressortir les mots et tout. Je fais un type, mais si je vois dans les ombres... Si je n'avais jamais vu ma main et que je voie l'ombre, je saurai que j'ai cinq doigts. Et c'est de cette manière qu'il vous fau",
+  "expected_answer": "Je dois donner les Ecritures en types, parce que je n'ai pas assez d'instruction pour faire ressortir les mots et tout. Je fais un type, mais si je vois dans les ombres... Si je n'avais jamais vu ma main et que je voie l'ombre, je saurai que j'ai cinq doigts. Et c'est de cette manière qu'il vous fau",
+  "expected_answer_keywords": [],
+  "sermon_title": "Aujourd'hui cette écriture est accomplie"
+ },
+ {
+  "id": "R039",
+  "question": "Une fiancée qui se découvre enceinte d'un autre avant le mariage : voilà ce que le premier homme a trouvé",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "62-0318E-SHP"
+  ],
+  "expected_paragraphs": [
+   58
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "62-0318E-SHP",
+    "paragraphIndex": 58
+   }
+  ],
+  "relevant_snippet": "Une femme qui serait fiancée à un brave jeune homme, pur, et avant qu’ils s’unissent, que fait-elle ? Elle se trouve enceinte de quelqu’un d’autre. Alors, sa propre semence, qui avait été promise... Son propre corps –– qui avait été promis à son petit ami, à son mari par une promesse de mariage –– s",
+  "expected_answer": "Une femme qui serait fiancée à un brave jeune homme, pur, et avant qu’ils s’unissent, que fait-elle ? Elle se trouve enceinte de quelqu’un d’autre. Alors, sa propre semence, qui avait été promise... Son propre corps –– qui avait été promis à son petit ami, à son mari par une promesse de mariage –– s",
+  "expected_answer_keywords": [],
+  "sermon_title": "La parole parlée est la semence originelle #2"
+ },
+ {
+  "id": "R040",
+  "question": "Abraham a servi la nourriture aux Hommes, deux sont allés à Sodome et la prédication les a aveuglés",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "61-0211-SHP"
+  ],
+  "expected_paragraphs": [
+   40
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "61-0211-SHP",
+    "paragraphIndex": 40
+   }
+  ],
+  "relevant_snippet": "Eh bien, nous voyons qu’Abraham a apporté cette nourriture là dehors et l’a déposé devant ces Hommes, et ceux-ci s’en sont servis. Abraham tenait vraiment à savoir le but de Leur voyage, car il savait que l’Un d’eux là, le Principal, c’était Dieu. Il savait que c’était Dieu; Il L’avait appelé Elohim",
+  "expected_answer": "Eh bien, nous voyons qu’Abraham a apporté cette nourriture là dehors et l’a déposé devant ces Hommes, et ceux-ci s’en sont servis. Abraham tenait vraiment à savoir le but de Leur voyage, car il savait que l’Un d’eux là, le Principal, c’était Dieu. Il savait que c’était Dieu; Il L’avait appelé Elohim",
+  "expected_answer_keywords": [],
+  "sermon_title": "Abraham"
+ },
+ {
+  "id": "R041",
+  "question": "Le diable s'est emparé de l'intelligence humaine et les églises raisonnent que l'époque des prodiges est révolue",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "58-1221E-SHP"
+  ],
+  "expected_paragraphs": [
+   69
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "58-1221E-SHP",
+    "paragraphIndex": 69
+   }
+  ],
+  "relevant_snippet": "Et là, nous remarquons donc que Satan, en choisissant la tête de l'homme, il a pris son intellect. Et maintenant, l'église s'est mise à oeuvrer sur l'intellect de l'homme. «Oh, c'est une grande église. Nous avons une grande dénomination. Nous sommes les plus anciens du pays.» Mais, frère, tant que c",
+  "expected_answer": "Et là, nous remarquons donc que Satan, en choisissant la tête de l'homme, il a pris son intellect. Et maintenant, l'église s'est mise à oeuvrer sur l'intellect de l'homme. «Oh, c'est une grande église. Nous avons une grande dénomination. Nous sommes les plus anciens du pays.» Mais, frère, tant que c",
+  "expected_answer_keywords": [],
+  "sermon_title": "L'unité d'un seul dieu dans une seule eglise"
+ },
+ {
+  "id": "R042",
+  "question": "Rempli du Saint-Esprit on dit et on écrit des choses sans même en être conscient, c'est l'inspiration",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "59-0404-SHP"
+  ],
+  "expected_paragraphs": [
+   21
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "59-0404-SHP",
+    "paragraphIndex": 21
+   }
+  ],
+  "relevant_snippet": "Il en est de même de vous, si vous êtes rempli du Saint-Esprit. Tout homme qui est rempli du Saint-Esprit dit des choses qu’il comprend difficilement parfois, ce que signifie ce qu’il dit, s’il est vraiment transporté dans l’Esprit. Qu’en est-il de vous qui avez les dons de langues ? C’est quoi une ",
+  "expected_answer": "Il en est de même de vous, si vous êtes rempli du Saint-Esprit. Tout homme qui est rempli du Saint-Esprit dit des choses qu’il comprend difficilement parfois, ce que signifie ce qu’il dit, s’il est vraiment transporté dans l’Esprit. Qu’en est-il de vous qui avez les dons de langues ? C’est quoi une ",
+  "expected_answer_keywords": [],
+  "sermon_title": "Quelles sont les œuvres de dieu ?"
+ },
+ {
+  "id": "R043",
+  "question": "La seule chose que Dieu ne peut pas faire, c'est faillir",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "57-0407M-SHP"
+  ],
+  "expected_paragraphs": [
+   15
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "57-0407M-SHP",
+    "paragraphIndex": 15
+   }
+  ],
+  "relevant_snippet": "Maintenant... nous pouvons vraiment rester là-dessus pendant des semaines, avoir un réveil pendant une année, et à la fin ce sera tout aussi nouveau qu’au début, sur ce sujet de Dieu tient Sa Parole. Il y a une seule chose que Dieu ne peut pas faire. Y avez-vous déjà pensé? Il y a une seule chose qu",
+  "expected_answer": "Maintenant... nous pouvons vraiment rester là-dessus pendant des semaines, avoir un réveil pendant une année, et à la fin ce sera tout aussi nouveau qu’au début, sur ce sujet de Dieu tient Sa Parole. Il y a une seule chose que Dieu ne peut pas faire. Y avez-vous déjà pensé? Il y a une seule chose qu",
+  "expected_answer_keywords": [],
+  "sermon_title": "Dieu tient sa parole"
+ },
+ {
+  "id": "R044",
+  "question": "Chacun de nous tient un rôle dans la grande peinture du Royaume, et c'est l'amour qui produit l'œuvre",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "61-0305-SHP"
+  ],
+  "expected_paragraphs": [
+   40
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "61-0305-SHP",
+    "paragraphIndex": 40
+   }
+  ],
+  "relevant_snippet": "Il n'y a rien de faux en Dieu. Dieu ne fait pas une chose comme ceci, juste pour la déchirer et la jeter. C'est pour Son Royaume. C'est pour Sa gloire. Chacun de nous joue un rôle dans ce tableau et dans ce chant. Nous faisons partie du Royaume de Dieu, et c'est afin que nous puissions jouer nos rôl",
+  "expected_answer": "Il n'y a rien de faux en Dieu. Dieu ne fait pas une chose comme ceci, juste pour la déchirer et la jeter. C'est pour Son Royaume. C'est pour Sa gloire. Chacun de nous joue un rôle dans ce tableau et dans ce chant. Nous faisons partie du Royaume de Dieu, et c'est afin que nous puissions jouer nos rôl",
+  "expected_answer_keywords": [],
+  "sermon_title": "Au-delà du rideau du temps"
+ },
+ {
+  "id": "R045",
+  "question": "Babylone avec des murailles de soixante et un mètres de largeur et de grandes portes d'airain",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "58-0309M-VGR"
+  ],
+  "expected_paragraphs": [
+   43
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "58-0309M-VGR",
+    "paragraphIndex": 43
+   }
+  ],
+  "relevant_snippet": "Ramenons maintenant nos pensées à Babylone pour poursuivre notre Message. Nous voyons que dans cette grande ville, quand ils se sont tous retrouvés en sûreté, aucune nation ne pouvait les atteindre. Eh bien, ils auraient eu à percer des murailles de soixante et un mètres de largeur et de dizaines de",
+  "expected_answer": "Ramenons maintenant nos pensées à Babylone pour poursuivre notre Message. Nous voyons que dans cette grande ville, quand ils se sont tous retrouvés en sûreté, aucune nation ne pouvait les atteindre. Eh bien, ils auraient eu à percer des murailles de soixante et un mètres de largeur et de dizaines de",
+  "expected_answer_keywords": [],
+  "sermon_title": "L'écriture sur la muraille"
+ },
+ {
+  "id": "R046",
+  "question": "Il faudra quitter le campement des organisations qui affirment que l'époque des prodiges est terminée, pour aller là où tout est possible",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "64-0719E-VGR"
+  ],
+  "expected_paragraphs": [
+   68
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "64-0719E-VGR",
+    "paragraphIndex": 68
+   }
+  ],
+  "relevant_snippet": "Et les gens d’aujourd’hui aussi, ils seront obligés de changer de camp, de sortir de ces dénominations, qui disent : “Les jours des miracles sont passés. Le baptême du Saint-Esprit, ça n’existe pas. Et tous ces passages de l’Écriture, là, c’est faux; c’est bon pour un autre âge.” Vous serez obligés ",
+  "expected_answer": "Et les gens d’aujourd’hui aussi, ils seront obligés de changer de camp, de sortir de ces dénominations, qui disent : “Les jours des miracles sont passés. Le baptême du Saint-Esprit, ça n’existe pas. Et tous ces passages de l’Écriture, là, c’est faux; c’est bon pour un autre âge.” Vous serez obligés ",
+  "expected_answer_keywords": [],
+  "sermon_title": "Sortir du camp"
+ },
+ {
+  "id": "R047",
+  "question": "En redescendant une colline après la chasse, il s'est demandé s'il accepterait de revivre sa vie malgré la perte de sa première épouse et de sa fillette",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "60-0924-SHP"
+  ],
+  "expected_paragraphs": [
+   4
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "60-0924-SHP",
+    "paragraphIndex": 4
+   }
+  ],
+  "relevant_snippet": "Il y a quelques semaines, je descendais le flanc d'une coline où j'étais allé, un après-midi, chasser dans le bois. Et je me tenais là-haut sur le coteau en train de penser au temps où j'étais un petit garçon et où j'avais l'habitude de chasser l'écureuil. Et je pensai : ''Bien, les choses ont beauc",
+  "expected_answer": "Il y a quelques semaines, je descendais le flanc d'une coline où j'étais allé, un après-midi, chasser dans le bois. Et je me tenais là-haut sur le coteau en train de penser au temps où j'étais un petit garçon et où j'avais l'habitude de chasser l'écureuil. Et je pensai : ''Bien, les choses ont beauc",
+  "expected_answer_keywords": [],
+  "sermon_title": "Les condoléances à la famille stadsklev"
+ },
+ {
+  "id": "R048",
+  "question": "L'Amérique devait être un flambeau pour les nations mais elle a accepté Hollywood et a été livrée à Jannès et Jambrès",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "56-0115-SHP"
+  ],
+  "expected_paragraphs": [
+   60
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "56-0115-SHP",
+    "paragraphIndex": 60
+   }
+  ],
+  "relevant_snippet": "Et il en est de même de l’Amérique aujourd’hui, alors que le Saint-Esprit crie dans mon cœur : « Combien de fois ai-je voulu faire de toi un flambeau pour les nations et pour le monde, mais tu as accepté Hollywood ! Tu as accepté les modes du monde. Et maintenant, tu as été livré à un Jannès et un J",
+  "expected_answer": "Et il en est de même de l’Amérique aujourd’hui, alors que le Saint-Esprit crie dans mon cœur : « Combien de fois ai-je voulu faire de toi un flambeau pour les nations et pour le monde, mais tu as accepté Hollywood ! Tu as accepté les modes du monde. Et maintenant, tu as été livré à un Jannès et un J",
+  "expected_answer_keywords": [],
+  "sermon_title": "La jonction du temps"
+ },
+ {
+  "id": "R049",
+  "question": "Ce qui empêche l'assemblée de progresser comme elle le devrait, c'est son comportement",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "64-0629-VGR"
+  ],
+  "expected_paragraphs": [
+   118
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "64-0629-VGR",
+    "paragraphIndex": 118
+   }
+  ],
+  "relevant_snippet": "Et ainsi en est-il aujourd’hui. Si l’église n’est pas aussi avancée qu’elle le devrait, c’est à cause de sa conduite, de sa vie. Nous devons nous consacrer davantage. Nous devons croire chaque Parole de Dieu. Il nous faut chercher jusqu’à ce que cette Parole devienne réelle pour nous. Voyez-vous? No",
+  "expected_answer": "Et ainsi en est-il aujourd’hui. Si l’église n’est pas aussi avancée qu’elle le devrait, c’est à cause de sa conduite, de sa vie. Nous devons nous consacrer davantage. Nous devons croire chaque Parole de Dieu. Il nous faut chercher jusqu’à ce que cette Parole devienne réelle pour nous. Voyez-vous? No",
+  "expected_answer_keywords": [],
+  "sermon_title": "Le dieu puissant dévoilé devant nous"
+ },
+ {
+  "id": "R050",
+  "question": "Il arrête sa machine à couper l'herbe et court au garage pour prier ; il ne sait jamais à l'avance sur quoi il va prêcher",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "60-0610-SHP"
+  ],
+  "expected_paragraphs": [
+   19
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "60-0610-SHP",
+    "paragraphIndex": 19
+   }
+  ],
+  "relevant_snippet": "Quand je sors dans le jardin pour tondre la pelouse, je dois tout simplement m'arrêter, arrêter des fois ma vieille tondeuse et courir au garage et dire : \"Seigneur, aide-moi. Je ne veux pas me comporter comme cela là dans la cour. Les gens penseront que j'ai perdu la tête. \" Mais alors, quand je mo",
+  "expected_answer": "Quand je sors dans le jardin pour tondre la pelouse, je dois tout simplement m'arrêter, arrêter des fois ma vieille tondeuse et courir au garage et dire : \"Seigneur, aide-moi. Je ne veux pas me comporter comme cela là dans la cour. Les gens penseront que j'ai perdu la tête. \" Mais alors, quand je mo",
+  "expected_answer_keywords": [],
+  "sermon_title": "Le roi rejeté"
+ },
+ {
+  "id": "R051",
+  "question": "Genèse 15 : Dieu a confirmé l'alliance seulement après qu'Abraham eut complètement obéi, Amish et mennonites",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "61-0317-SHP"
+  ],
+  "expected_paragraphs": [
+   41
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "61-0317-SHP",
+    "paragraphIndex": 41
+   }
+  ],
+  "relevant_snippet": "Il a confirmé l'alliance dans Genèse au chapitre 15. Maintenant, est-ce que vous comprenez cela, vous tous là-bas? Dans Genèse au chapitre 15, Il a confirmé la Parole. Et souvenez-vous, écoutez maintenant, Il ne La lui a pas confirmée avant qu'il ait complètement obéi à Dieu. Et Il ne vous La confir",
+  "expected_answer": "Il a confirmé l'alliance dans Genèse au chapitre 15. Maintenant, est-ce que vous comprenez cela, vous tous là-bas? Dans Genèse au chapitre 15, Il a confirmé la Parole. Et souvenez-vous, écoutez maintenant, Il ne La lui a pas confirmée avant qu'il ait complètement obéi à Dieu. Et Il ne vous La confir",
+  "expected_answer_keywords": [],
+  "sermon_title": "L'alliance de grâce d'abraham"
+ },
+ {
+  "id": "R052",
+  "question": "André expliquait à son frère que le Messie attendu depuis Malachie serait un prophète et plus qu'un prophète",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "61-0208-SHP"
+  ],
+  "expected_paragraphs": [
+   42
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "61-0208-SHP",
+    "paragraphIndex": 42
+   }
+  ],
+  "relevant_snippet": "«Eh bien, il a dit: ‘Maintenant, souviens-toi, Simon, il se lèvera peut-être de très puissants orateurs. Il se lèvera peut-être de grands hommes. Mais souviens-toi, en tant que Juifs, nous savons que Dieu nous enverra un prophète, un Messie-Prophète. Et la raison... Or, cela fait maintenant quatre c",
+  "expected_answer": "«Eh bien, il a dit: ‘Maintenant, souviens-toi, Simon, il se lèvera peut-être de très puissants orateurs. Il se lèvera peut-être de grands hommes. Mais souviens-toi, en tant que Juifs, nous savons que Dieu nous enverra un prophète, un Messie-Prophète. Et la raison... Or, cela fait maintenant quatre c",
+  "expected_answer_keywords": [],
+  "sermon_title": "Messieurs, nous voudrions voir jésus"
+ },
+ {
+  "id": "R053",
+  "question": "J'avais besoin d'un absolu : Apocalypse 22.19, si quelqu'un retranche ou ajoute une parole",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "63-1201M-SHP"
+  ],
+  "expected_paragraphs": [
+   95
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "63-1201M-SHP",
+    "paragraphIndex": 95
+   }
+  ],
+  "relevant_snippet": "J’avais donc besoin d’un absolu, aussi en ai-je trouvé Un, la Parole de Dieu. J’ai donc lu dans la Parole qu’Il est la Parole, Saint Jean 1 : « Et sur cet Absolu, Je bâtirai Mon Eglise. » C’est vrai, je L’ai donc pris au Mot. Apocalypse 22.19 dit : « Si quelqu’un retranche une Parole de Ceci, ou Y a",
+  "expected_answer": "J’avais donc besoin d’un absolu, aussi en ai-je trouvé Un, la Parole de Dieu. J’ai donc lu dans la Parole qu’Il est la Parole, Saint Jean 1 : « Et sur cet Absolu, Je bâtirai Mon Eglise. » C’est vrai, je L’ai donc pris au Mot. Apocalypse 22.19 dit : « Si quelqu’un retranche une Parole de Ceci, ou Y a",
+  "expected_answer_keywords": [],
+  "sermon_title": "Un absolu"
+ },
+ {
+  "id": "R054",
+  "question": "Pour connaître l'état de l'assemblée, il suffit de regarder le comportement des femmes",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "65-0829-SHP"
+  ],
+  "expected_paragraphs": [
+   78
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "65-0829-SHP",
+    "paragraphIndex": 78
+   }
+  ],
+  "relevant_snippet": "Observez, considérez nos femmes . Bon, si vous voulez connaître l'état de l'église, observez la conduite des femmes. Elle représente toujours l'église. Dans l'Eden de Satan, du péché et de l'incrédulité: une perversion religieuse, un royaume perverti... Au lieu d'opter pour la Parole de Dieu, ils on",
+  "expected_answer": "Observez, considérez nos femmes . Bon, si vous voulez connaître l'état de l'église, observez la conduite des femmes. Elle représente toujours l'église. Dans l'Eden de Satan, du péché et de l'incrédulité: une perversion religieuse, un royaume perverti... Au lieu d'opter pour la Parole de Dieu, ils on",
+  "expected_answer_keywords": [],
+  "sermon_title": "L'eden de satan"
+ },
+ {
+  "id": "R055",
+  "question": "Au commencement Dieu habitait seul avec Ses attributs, Ses pensées, comme un architecte dessine dans son esprit",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "65-0221E-VGR"
+  ],
+  "expected_paragraphs": [
+   46
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "65-0221E-VGR",
+    "paragraphIndex": 46
+   }
+  ],
+  "relevant_snippet": "Au commencement, Dieu habitait seul avec Ses attributs, comme j’en ai parlé ce matin. Ce sont Ses pensées. Il n’y avait rien, sinon Dieu seul. Mais Il avait des pensées. De même un grand architecte peut réfléchir et dessiner dans son esprit ce qu’il pense construire ou créer. Or, il ne peut pas crée",
+  "expected_answer": "Au commencement, Dieu habitait seul avec Ses attributs, comme j’en ai parlé ce matin. Ce sont Ses pensées. Il n’y avait rien, sinon Dieu seul. Mais Il avait des pensées. De même un grand architecte peut réfléchir et dessiner dans son esprit ce qu’il pense construire ou créer. Or, il ne peut pas crée",
+  "expected_answer_keywords": [],
+  "sermon_title": "Qui est ce melchisédek?"
+ },
+ {
+  "id": "R056",
+  "question": "Belschatsar petit-fils de Nebucadnetsar fit une fête avec les vases sacrés de Dieu pour boire du vin",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "55-0109E-SHP"
+  ],
+  "expected_paragraphs": [
+   43
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "55-0109E-SHP",
+    "paragraphIndex": 43
+   }
+  ],
+  "relevant_snippet": "Après sa mort, son petit-fils Belschatsar lui succéda. Et alors, il était plus méchant que le roi Nebucadnetsar. Et là au cours d'une soirée, ils avaient organisé une très grande fête. Ils avaient invité tous leurs - leurs juges et officiers à prendre part à une très grande fête. Et pendant qu'ils f",
+  "expected_answer": "Après sa mort, son petit-fils Belschatsar lui succéda. Et alors, il était plus méchant que le roi Nebucadnetsar. Et là au cours d'une soirée, ils avaient organisé une très grande fête. Ils avaient invité tous leurs - leurs juges et officiers à prendre part à une très grande fête. Et pendant qu'ils f",
+  "expected_answer_keywords": [],
+  "sermon_title": "Le début et la fin de la dispensation des gentils"
+ },
+ {
+  "id": "R057",
+  "question": "Les foules posaient sur les malades des tissus qui avaient touché le corps de l'apôtre",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "63-0606-SHP"
+  ],
+  "expected_paragraphs": [
+   88
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "63-0606-SHP",
+    "paragraphIndex": 88
+   }
+  ],
+  "relevant_snippet": "Ils virent Paul se tenir là et donner des prophéties. Et chacune d’elles s’accomplissait à la lettre : prédire des choses et faire tout ce que Jésus-Christ faisait quand Il était ici sur terre. Les gens virent qu’il avait été avec Christ ; ils étaient tellement sûrs que Christ était avec lui qu’ils ",
+  "expected_answer": "Ils virent Paul se tenir là et donner des prophéties. Et chacune d’elles s’accomplissait à la lettre : prédire des choses et faire tout ce que Jésus-Christ faisait quand Il était ici sur terre. Les gens virent qu’il avait été avec Christ ; ils étaient tellement sûrs que Christ était avec lui qu’ils ",
+  "expected_answer_keywords": [],
+  "sermon_title": "Montre-nous le père (dieu rendu manifeste)"
+ },
+ {
+  "id": "R058",
+  "question": "Cinq cents millions de chrétiens : si cinq cents personnes étaient enlevées on ne le saurait jamais, c'est une venue secrète",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "65-0424-VGR"
+  ],
+  "expected_paragraphs": [
+   57
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "65-0424-VGR",
+    "paragraphIndex": 57
+   }
+  ],
+  "relevant_snippet": "Il y a environ cinq cents millions de soi-disant Chrétiens dans le monde, aujourd’hui, et chaque jour voit la fin d’une génération. Et maintenant, qu’en serait-il si l’Enlèvement avait lieu aujourd’hui, et que cinq cents personnes, à l’échelle mondiale, étaient prises dans l’Enlèvement? On ne le sau",
+  "expected_answer": "Il y a environ cinq cents millions de soi-disant Chrétiens dans le monde, aujourd’hui, et chaque jour voit la fin d’une génération. Et maintenant, qu’en serait-il si l’Enlèvement avait lieu aujourd’hui, et que cinq cents personnes, à l’échelle mondiale, étaient prises dans l’Enlèvement? On ne le sau",
+  "expected_answer_keywords": [],
+  "sermon_title": "Un sur un million"
+ },
+ {
+  "id": "R059",
+  "question": "La photo du studio Douglas de Houston lors du débat avec un prédicateur baptiste, M. Bosworth a relevé le défi",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "54-0720A-SHP"
+  ],
+  "expected_paragraphs": [
+   7
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "54-0720A-SHP",
+    "paragraphIndex": 7
+   }
+  ],
+  "relevant_snippet": "Et c’est là que ça a eu lieu ; vous pouvez voir ça. C’est… Je sais que ça se trouve ici parce que j’ai vu Cela plusieurs fois. Mais Cela n’a jamais–jamais été photographié par… de manière à être si authentique que cela est ici dans cette photo. Et cette photo ne m’appartient pas. Elle est... elle ap",
+  "expected_answer": "Et c’est là que ça a eu lieu ; vous pouvez voir ça. C’est… Je sais que ça se trouve ici parce que j’ai vu Cela plusieurs fois. Mais Cela n’a jamais–jamais été photographié par… de manière à être si authentique que cela est ici dans cette photo. Et cette photo ne m’appartient pas. Elle est... elle ap",
+  "expected_answer_keywords": [],
+  "sermon_title": "Le fou de gadara"
+ },
+ {
+  "id": "R060",
+  "question": "Ézéchiel 9 : faire une marque sur le front de ceux qui soupirent et gémissent, passez à travers Los Angeles",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "59-0403-SHP"
+  ],
+  "expected_paragraphs": [
+   16
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "59-0403-SHP",
+    "paragraphIndex": 16
+   }
+  ],
+  "relevant_snippet": "Oh! combien le monde a besoin de quelque chose aujourd’hui. Je vais vous dire un petit quelque chose pour éclaircir cela. Dans Ezéchiel, chapitre 9, je crois que c’est cela, lorsque le Saint-Esprit a été envoyé afin de sceller les gens qui entreraient en ce jour-là, Il a dit: «Passe au milieu de la ",
+  "expected_answer": "Oh! combien le monde a besoin de quelque chose aujourd’hui. Je vais vous dire un petit quelque chose pour éclaircir cela. Dans Ezéchiel, chapitre 9, je crois que c’est cela, lorsque le Saint-Esprit a été envoyé afin de sceller les gens qui entreraient en ce jour-là, Il a dit: «Passe au milieu de la ",
+  "expected_answer_keywords": [],
+  "sermon_title": "Vivant, mourant, enseveli, ressuscitant, revenant"
+ },
+ {
+  "id": "R061",
+  "question": "Le héros aux orbites vides pleurait et se repentait pendant que ses ennemis étaient trop ivres pour s'en apercevoir",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "63-0628M-SHP"
+  ],
+  "expected_paragraphs": [
+   198
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "63-0628M-SHP",
+    "paragraphIndex": 198
+   }
+  ],
+  "relevant_snippet": "Il a palpé cela. Il savait qu’il y avait quelque chose. Il a levé la tête. Il n’avait pas d’yeux. Ils n’ont pas remarqué les larmes couler de ces orbites vides, d’où les glandes faisaient tomber les larmes. Sa tête relevée, ses lèvres bougeant lentement, les larmes tombant de ces orbites sans yeux, ",
+  "expected_answer": "Il a palpé cela. Il savait qu’il y avait quelque chose. Il a levé la tête. Il n’avait pas d’yeux. Ils n’ont pas remarqué les larmes couler de ces orbites vides, d’où les glandes faisaient tomber les larmes. Sa tête relevée, ses lèvres bougeant lentement, les larmes tombant de ces orbites sans yeux, ",
+  "expected_answer_keywords": [],
+  "sermon_title": "Ô seigneur, encore une fois  (l’état présent de l’église)"
+ },
+ {
+  "id": "R062",
+  "question": "Sur Ta parole je jetterai le filet : même si le médecin dit que vous ne pouvez pas guérir, Dieu peut placer de nouvelles cellules",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "48-0305-SHP"
+  ],
+  "expected_paragraphs": [
+   21
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "48-0305-SHP",
+    "paragraphIndex": 21
+   }
+  ],
+  "relevant_snippet": "Eh bien, écoutez. Vous avez probablement été chez le médecin. Vous avez subi une opération. Vous avez tout essayé. Vous êtes peut-être passé dans des lignes de prière auparavant. Mais \" Sur Ta Parole, Seigneur, ce soir je vais jeter mon filet. Je viens ce soir jeter mon filet. Je vais... \" Eh bien, ",
+  "expected_answer": "Eh bien, écoutez. Vous avez probablement été chez le médecin. Vous avez subi une opération. Vous avez tout essayé. Vous êtes peut-être passé dans des lignes de prière auparavant. Mais \" Sur Ta Parole, Seigneur, ce soir je vais jeter mon filet. Je viens ce soir jeter mon filet. Je vais... \" Eh bien, ",
+  "expected_answer_keywords": [],
+  "sermon_title": "Sur ta parole, seigneur"
+ },
+ {
+  "id": "R063",
+  "question": "Moïse était attaché à un Absolu, la voix dans la Colonne de Feu a confirmé la Parole",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "63-0127-SHP"
+  ],
+  "expected_paragraphs": [
+   72
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "63-0127-SHP",
+    "paragraphIndex": 72
+   }
+  ],
+  "relevant_snippet": "Eh bien, il avait alors un Absolu. Il y était attaché aussi longtemps qu’il vivait, et cela l’a amené au Ciel. Il était attaché à cet Absolu. Peu importe ce que disait n’importe quel théologien, il n’avait pas besoin que quelqu’un le lui explique. Il était sûr de cela. Il avait rencontré Dieu, et la",
+  "expected_answer": "Eh bien, il avait alors un Absolu. Il y était attaché aussi longtemps qu’il vivait, et cela l’a amené au Ciel. Il était attaché à cet Absolu. Peu importe ce que disait n’importe quel théologien, il n’avait pas besoin que quelqu’un le lui explique. Il était sûr de cela. Il avait rencontré Dieu, et la",
+  "expected_answer_keywords": [],
+  "sermon_title": "Un absolu"
+ },
+ {
+  "id": "R064",
+  "question": "La femme s'est glissée parmi la foule et les critiques pour toucher l'habit ample du Seigneur, qui a demandé qui L'avait touché",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "59-1129-SHP"
+  ],
+  "expected_paragraphs": [
+   188
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "59-1129-SHP",
+    "paragraphIndex": 188
+   }
+  ],
+  "relevant_snippet": "Et maintenant, elle s’est faufilée à travers la foule, et elle s’est faufilée et a passé tous les critiqueurs, et elle a touché Son vêtement. Or, le vêtement palestinien était ample et pendait, et il comporte un vêtement en dessous. Eh bien, Il n’a pas senti cela physiquement, mais Il a dit: «Qui M’",
+  "expected_answer": "Et maintenant, elle s’est faufilée à travers la foule, et elle s’est faufilée et a passé tous les critiqueurs, et elle a touché Son vêtement. Or, le vêtement palestinien était ample et pendait, et il comporte un vêtement en dessous. Eh bien, Il n’a pas senti cela physiquement, mais Il a dit: «Qui M’",
+  "expected_answer_keywords": [],
+  "sermon_title": "Voir dieu"
+ },
+ {
+  "id": "R065",
+  "question": "Job : l'homme se couche, il expire, mais où est-il ? La fleur meurt et ressuscite",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "63-1118-SHP"
+  ],
+  "expected_paragraphs": [
+   12
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "63-1118-SHP",
+    "paragraphIndex": 12
+   }
+  ],
+  "relevant_snippet": "Job savait donc que le Créateur avait fait toute Sa création, il remarqua que dans cette création il y avait la résurrection de la vie végétale et ainsi de suite. Mais il a dit: \" L'homme se couche, il rend l'âme, il expire, mais où est-il? \" Que lui est-il arrivé? Et alors, il vit par une vision la",
+  "expected_answer": "Job savait donc que le Créateur avait fait toute Sa création, il remarqua que dans cette création il y avait la résurrection de la vie végétale et ainsi de suite. Mais il a dit: \" L'homme se couche, il rend l'âme, il expire, mais où est-il? \" Que lui est-il arrivé? Et alors, il vit par une vision la",
+  "expected_answer_keywords": [],
+  "sermon_title": "Les funérailles de garnett peake"
+ },
+ {
+  "id": "R066",
+  "question": "Frère Kidd guéri d'un cancer de la prostate à quatre-vingts ans",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "63-0623M-SHP"
+  ],
+  "expected_paragraphs": [
+   30
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "63-0623M-SHP",
+    "paragraphIndex": 30
+   }
+  ],
+  "relevant_snippet": "Et alors, de penser qu’il était étendu là, tandis que les meilleurs médecins disaient : «Il se meurt. Il s’agit d’un cancer de la prostate qui s’est généralisé. Il n’en a plus que pour quelques heures, un jour ou deux tout au plus.» Et il y a deux ou trois ans de cela. Ça fait trois ans! Et le voici",
+  "expected_answer": "Et alors, de penser qu’il était étendu là, tandis que les meilleurs médecins disaient : «Il se meurt. Il s’agit d’un cancer de la prostate qui s’est généralisé. Il n’en a plus que pour quelques heures, un jour ou deux tout au plus.» Et il y a deux ou trois ans de cela. Ça fait trois ans! Et le voici",
+  "expected_answer_keywords": [],
+  "sermon_title": "Se tenir à la brèche"
+ },
+ {
+  "id": "R067",
+  "question": "Comme pour les semailles et la moisson, il y a un moment où les peuples commencent et un moment où ils doivent finir",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "56-0408E-SHP"
+  ],
+  "expected_paragraphs": [
+   16
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "56-0408E-SHP",
+    "paragraphIndex": 16
+   }
+  ],
+  "relevant_snippet": "Et comme nous avons lu ce merveilleux livre de l’Apocalypse, il y a eu… Dans mon église, chez nous, j’ai une fois mis presque un an et demi à étudier cela minutieusement, chaque soir enseignant rien que sur le livre de l’Apocalypse, Le comparant avec le reste de la Bible et les âges ainsi que les au",
+  "expected_answer": "Et comme nous avons lu ce merveilleux livre de l’Apocalypse, il y a eu… Dans mon église, chez nous, j’ai une fois mis presque un an et demi à étudier cela minutieusement, chaque soir enseignant rien que sur le livre de l’Apocalypse, Le comparant avec le reste de la Bible et les âges ainsi que les au",
+  "expected_answer_keywords": [],
+  "sermon_title": "Le temps est proche"
+ },
+ {
+  "id": "R068",
+  "question": "Mon ministère ne consiste pas à imposer les mains, frère Bosworth prêche la Parole et moi j'ai reçu un don",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "55-0818-SHP"
+  ],
+  "expected_paragraphs": [
+   3
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "55-0818-SHP",
+    "paragraphIndex": 3
+   }
+  ],
+  "relevant_snippet": "Mon ministère ne consiste - consiste pas à imposer les mains aux gens. Il consiste à faire voir aux gens que Jésus est ressuscité des morts. Et Il est ici, et Il vous aime. Eh bien, frère Bosworth et beaucoup d'autres ministres, ils prêchent la Parole. Et par la Parole, vous croyez. Et alors, en ven",
+  "expected_answer": "Mon ministère ne consiste - consiste pas à imposer les mains aux gens. Il consiste à faire voir aux gens que Jésus est ressuscité des morts. Et Il est ici, et Il vous aime. Eh bien, frère Bosworth et beaucoup d'autres ministres, ils prêchent la Parole. Et par la Parole, vous croyez. Et alors, en ven",
+  "expected_answer_keywords": [],
+  "sermon_title": "L'aveugle bartimée"
+ },
+ {
+  "id": "R069",
+  "question": "David blond en manteau de peau de brebis avec une fronde contre le Philistin incirconcis : cela réside dans l'expérience, pas dans la formation",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "58-0325-SHP"
+  ],
+  "expected_paragraphs": [
+   18
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "58-0325-SHP",
+    "paragraphIndex": 18
+   }
+  ],
+  "relevant_snippet": "Mais un jour, là loin derrière le désert, est venu David, le fils d’Isaï, blond, chignon redressé, en petit manteau de peau de brebis, tenant une fronde en main. Ce géant s’est vanté au mauvais moment. David a regardé et a dit: «Voulez-vous me dire que vous laisserez ce Philistin incirconcis se teni",
+  "expected_answer": "Mais un jour, là loin derrière le désert, est venu David, le fils d’Isaï, blond, chignon redressé, en petit manteau de peau de brebis, tenant une fronde en main. Ce géant s’est vanté au mauvais moment. David a regardé et a dit: «Voulez-vous me dire que vous laisserez ce Philistin incirconcis se teni",
+  "expected_answer_keywords": [],
+  "sermon_title": "La foi par l’expérience"
+ },
+ {
+  "id": "R070",
+  "question": "Le libérateur d'Israël était obstiné face au roi d'Égypte car il savait que ce qu'il avait vu ne pouvait pas échouer",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "62-0218-SHP"
+  ],
+  "expected_paragraphs": [
+   118
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "62-0218-SHP",
+    "paragraphIndex": 118
+   }
+  ],
+  "relevant_snippet": "Moïse était persévérant. Alors, la chose suivante, vous savez, Il l’a envoyé là, il a dit: «Fais ça, Pharaon.» Et il a dit: «Sinon, nous ferons telle et telle choses.» Et il a invoqué Dieu, Il a envoyé des mouches, des poux, tout le reste sur la terre. Qu’était-il? Il était déterminé. Dieu lui avait",
+  "expected_answer": "Moïse était persévérant. Alors, la chose suivante, vous savez, Il l’a envoyé là, il a dit: «Fais ça, Pharaon.» Et il a dit: «Sinon, nous ferons telle et telle choses.» Et il a invoqué Dieu, Il a envoyé des mouches, des poux, tout le reste sur la terre. Qu’était-il? Il était déterminé. Dieu lui avait",
+  "expected_answer_keywords": [],
+  "sermon_title": "La persévérance"
+ },
+ {
+  "id": "R071",
+  "question": "Je ne suis membre d'aucune dénomination, j'étais membre de l'Église baptiste missionnaire",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "60-0109-SHP"
+  ],
+  "expected_paragraphs": [
+   8
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "60-0109-SHP",
+    "paragraphIndex": 8
+   }
+  ],
+  "relevant_snippet": "Maintenant, avant que nous nous approchions de Lui et des Ecritures... Je–je ne suis membre d’aucune église dénominationnelle. J’étais bien membre de l’Eglise baptiste missionnaire, la seule église à laquelle j’aie jamais adhéré. Et ensuite, lorsque je suis entré dans ce ministère, lorsque cela m’a ",
+  "expected_answer": "Maintenant, avant que nous nous approchions de Lui et des Ecritures... Je–je ne suis membre d’aucune église dénominationnelle. J’étais bien membre de l’Eglise baptiste missionnaire, la seule église à laquelle j’aie jamais adhéré. Et ensuite, lorsque je suis entré dans ce ministère, lorsque cela m’a ",
+  "expected_answer_keywords": [],
+  "sermon_title": "Messieurs, nous voudrions voir jésus"
+ },
+ {
+  "id": "R072",
+  "question": "L'enseignant reconnu par le Seigneur comme Israélite sans fraude a confessé qu'Il était le Roi d'Israël, et Pierre a su le nom de son père",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "62-1123-SHP"
+  ],
+  "expected_paragraphs": [
+   86
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "62-1123-SHP",
+    "paragraphIndex": 86
+   }
+  ],
+  "relevant_snippet": "Et maintenant, quand Jésus a paru et qu’Il a commencé Son ministère et que Simon s’est approché, Pierre, Il lui a dit que Son nom était Simon, et Il lui a dit que son nom était Simon et que le nom de son père était Jonas. Est-ce vrai? Cela a fait de lui un croyant. Philippe est allé et a trouvé... O",
+  "expected_answer": "Et maintenant, quand Jésus a paru et qu’Il a commencé Son ministère et que Simon s’est approché, Pierre, Il lui a dit que Son nom était Simon, et Il lui a dit que son nom était Simon et que le nom de son père était Jonas. Est-ce vrai? Cela a fait de lui un croyant. Philippe est allé et a trouvé... O",
+  "expected_answer_keywords": [],
+  "sermon_title": "Le chemin du retour"
+ },
+ {
+  "id": "R073",
+  "question": "Prends la verge et tiens-toi devant le rocher, Je te rencontrerai sur le rocher",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "55-0224-SHP"
+  ],
+  "expected_paragraphs": [
+   47
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "55-0224-SHP",
+    "paragraphIndex": 47
+   }
+  ],
+  "relevant_snippet": "Alors, nous nous mettons à nous disputer au sujet de l'église dont nous sommes membres. Il continue à envoyer les pluies malgré tout, Il continue à bénir nos âmes, Il nous envoie des réveils, Il nous suscite des évangélistes, des pasteurs, des docteurs, Il établit dans l'église des dons de guérison,",
+  "expected_answer": "Alors, nous nous mettons à nous disputer au sujet de l'église dont nous sommes membres. Il continue à envoyer les pluies malgré tout, Il continue à bénir nos âmes, Il nous envoie des réveils, Il nous suscite des évangélistes, des pasteurs, des docteurs, Il établit dans l'église des dons de guérison,",
+  "expected_answer_keywords": [],
+  "sermon_title": "L'eau du rocher"
+ },
+ {
+  "id": "R074",
+  "question": "Occupez-vous de votre propre position sans attendre votre voisin, car les brebis entendent la voix du berger",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "62-0408-SHP"
+  ],
+  "expected_paragraphs": [
+   9
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "62-0408-SHP",
+    "paragraphIndex": 9
+   }
+  ],
+  "relevant_snippet": "Mais, voyez-vous, nous devenons si différents et nous voulons que la chose soit comme ceci, et nous ne voulons pas y aller à moins que ce soit de telle façon, et celui-ci… Oh, vous savez ce qu'il en est. Nous… nous… c'est ce que… Dieu nous ramène à ce trône du jugement, voyez-vous, afin que nous soy",
+  "expected_answer": "Mais, voyez-vous, nous devenons si différents et nous voulons que la chose soit comme ceci, et nous ne voulons pas y aller à moins que ce soit de telle façon, et celui-ci… Oh, vous savez ce qu'il en est. Nous… nous… c'est ce que… Dieu nous ramène à ce trône du jugement, voyez-vous, afin que nous soy",
+  "expected_answer_keywords": [],
+  "sermon_title": "Présumer"
+ },
+ {
+  "id": "R075",
+  "question": "En lavant sa voiture, découragé, il se demandait pourquoi il ne pouvait pas rassembler les enfants comme le petit pasteur luthérien",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "57-0818-SHP"
+  ],
+  "expected_paragraphs": [
+   24
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "57-0818-SHP",
+    "paragraphIndex": 24
+   }
+  ],
+  "relevant_snippet": "Et à mon retour, je me mis à réfléchir : ''Tu sais, c'est vrai. Ce -c'est un - c'est un merveilleux petit gars.'' Et je crois, Frère Fleeman ici, je crois que son garçon va... Dans l'église de Foi Luthérienne ici, un admirable petit homme et son épouse sont en train d'accomplir une grande oeuvre pou",
+  "expected_answer": "Et à mon retour, je me mis à réfléchir : ''Tu sais, c'est vrai. Ce -c'est un - c'est un merveilleux petit gars.'' Et je crois, Frère Fleeman ici, je crois que son garçon va... Dans l'église de Foi Luthérienne ici, un admirable petit homme et son épouse sont en train d'accomplir une grande oeuvre pou",
+  "expected_answer_keywords": [],
+  "sermon_title": "Les mémoriaux de dieu éprouvés au fil du temps"
+ },
+ {
+  "id": "R076",
+  "question": "La vision du petit garçon tué dans un accident d'automobile accomplie en Finlande, Helsinki et Kuopio",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "55-0612-SHP"
+  ],
+  "expected_paragraphs": [
+   10
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "55-0612-SHP",
+    "paragraphIndex": 10
+   }
+  ],
+  "relevant_snippet": "Vous rappelez-vous ce que j’avais dit? Il avait décrit l’aspect du petit garçon. Il serait tué dans un accident d’automobile. Il y aurait des strates rocheuses comme cela et des arbres verts, hauts. Le petit garçon aurait ce qu’on appelle les cheveux coupés courts, des yeux bruns. Son pied transperc",
+  "expected_answer": "Vous rappelez-vous ce que j’avais dit? Il avait décrit l’aspect du petit garçon. Il serait tué dans un accident d’automobile. Il y aurait des strates rocheuses comme cela et des arbres verts, hauts. Le petit garçon aurait ce qu’on appelle les cheveux coupés courts, des yeux bruns. Son pied transperc",
+  "expected_answer_keywords": [],
+  "sermon_title": "La présence du seigneur jésus"
+ },
+ {
+  "id": "R077",
+  "question": "Vous êtes resté trop longtemps dans le nid, vous êtes un aigle, accrochez-vous à la promesse même si le vent souffle fort",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "57-0714-SHP"
+  ],
+  "expected_paragraphs": [
+   162
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "57-0714-SHP",
+    "paragraphIndex": 162
+   }
+  ],
+  "relevant_snippet": "Maintenant, que la grâce du Seigneur soit avec vous, qu’elle repose abondamment sur vous. A vous qui avez levé la main, à vous qui auriez dû le faire, voyez, acceptez cela maintenant même, non pas sur la base d’une émotion, mais sur la base selon laquelle Dieu a fait la promesse et que l’Esprit vous",
+  "expected_answer": "Maintenant, que la grâce du Seigneur soit avec vous, qu’elle repose abondamment sur vous. A vous qui avez levé la main, à vous qui auriez dû le faire, voyez, acceptez cela maintenant même, non pas sur la base d’une émotion, mais sur la base selon laquelle Dieu a fait la promesse et que l’Esprit vous",
+  "expected_answer_keywords": [],
+  "sermon_title": "Pareil à l’aigle qui éveille sa couvée"
+ },
+ {
+  "id": "R078",
+  "question": "Télépathie mentale : hier soir tu étais à table avec un homme en costume gris et cravate rouge",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "51-0729A-SHP"
+  ],
+  "expected_paragraphs": [
+   22
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "51-0729A-SHP",
+    "paragraphIndex": 22
+   }
+  ],
+  "relevant_snippet": "Alors, je me suis retourné. Juste en ce moment-là, j’ai vu quelque chose de blanc passer devant moi. La chose était là. J’ai dit: «Toi enfant du diable, pourquoi es-tu venu ici à l’estrade pour essayer de séduire Dieu? Tu es exposé. Hier soir, tu étais assis à table avec un homme en costume gris et ",
+  "expected_answer": "Alors, je me suis retourné. Juste en ce moment-là, j’ai vu quelque chose de blanc passer devant moi. La chose était là. J’ai dit: «Toi enfant du diable, pourquoi es-tu venu ici à l’estrade pour essayer de séduire Dieu? Tu es exposé. Hier soir, tu étais assis à table avec un homme en costume gris et ",
+  "expected_answer_keywords": [],
+  "sermon_title": "La résurrection de lazare"
+ },
+ {
+  "id": "R079",
+  "question": "Une femme s'était moquée en disant qu'elle ne laisserait pas sa bête pratiquer cette religion ; peu après une jeune catholique mourante le réclamait à l'hôpital",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "61-0730E-VGR"
+  ],
+  "expected_paragraphs": [
+   147
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "61-0730E-VGR",
+    "paragraphIndex": 147
+   }
+  ],
+  "relevant_snippet": "Je me souviens d’une femme qui était à la porte de cette église, un soir, et qui s’est moquée de moi. Elle disait : “Je ne laisserais pas ma vache pratiquer le genre de religion qu’il a, lui!” Moins d’une heure après, on m’a fait venir à l’hôpital. Une femme ravissante, d’environ vingt-deux ans, ell",
+  "expected_answer": "Je me souviens d’une femme qui était à la porte de cette église, un soir, et qui s’est moquée de moi. Elle disait : “Je ne laisserais pas ma vache pratiquer le genre de religion qu’il a, lui!” Moins d’une heure après, on m’a fait venir à l’hôpital. Une femme ravissante, d’environ vingt-deux ans, ell",
+  "expected_answer_keywords": [],
+  "sermon_title": "Les six buts de la visite de gabriel à daniel"
+ },
+ {
+  "id": "R080",
+  "question": "Comment voit-on Jésus ? Par la Parole de Dieu manifestée, pas comme un fondateur ou un homme de dénomination",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "63-1229E-VGR"
+  ],
+  "expected_paragraphs": [
+   311
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "63-1229E-VGR",
+    "paragraphIndex": 311
+   }
+  ],
+  "relevant_snippet": "Ce qu’Il était quand Il marchait en Galilée, c’est exactement ce qu’Il est ce soir, à Jeffersonville, c’est exactement ce qu’Il est, au Branham Tabernacle. Quand vous regardez, qu’est-ce que vous vous attendez à voir? Un fondateur? Un homme de dénomination? Vous ne verrez jamais ça en Jésus. Est-ce ",
+  "expected_answer": "Ce qu’Il était quand Il marchait en Galilée, c’est exactement ce qu’Il est ce soir, à Jeffersonville, c’est exactement ce qu’Il est, au Branham Tabernacle. Quand vous regardez, qu’est-ce que vous vous attendez à voir? Un fondateur? Un homme de dénomination? Vous ne verrez jamais ça en Jésus. Est-ce ",
+  "expected_answer_keywords": [],
+  "sermon_title": "Tournez les regards vers jésus"
+ },
+ {
+  "id": "R081",
+  "question": "Dans Son discours sur la fin, le Seigneur a décrit précisément six des sceaux mais a omis le dernier",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "63-0324E-SHP"
+  ],
+  "expected_paragraphs": [
+   52
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "63-0324E-SHP",
+    "paragraphIndex": 52
+   }
+  ],
+  "relevant_snippet": "Le Seigneur a permis que nous prenions les Ecritures, les Saintes Ecritures, ce que Jésus avait annoncé. Et comment aurions-nous pu donc découvrir cela? Et ici, Il vient le révéler, et l’apporter avec une grande précision. Son sermon, là, quand Il a répondu à ce sujet, fait ressortir de façon très p",
+  "expected_answer": "Le Seigneur a permis que nous prenions les Ecritures, les Saintes Ecritures, ce que Jésus avait annoncé. Et comment aurions-nous pu donc découvrir cela? Et ici, Il vient le révéler, et l’apporter avec une grande précision. Son sermon, là, quand Il a répondu à ce sujet, fait ressortir de façon très p",
+  "expected_answer_keywords": [],
+  "sermon_title": "Le septième sceau"
+ },
+ {
+  "id": "R082",
+  "question": "En voyant nos cheveux grisonner et le monde chanceler, nous savons que la promesse est sur le point de s'accomplir",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "63-0714M-VGR"
+  ],
+  "expected_paragraphs": [
+   59
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "63-0714M-VGR",
+    "paragraphIndex": 59
+   }
+  ],
+  "relevant_snippet": "Oh! combien ce tabernacle, ce matin... combien nous, gens de cette heure... Frère Neville, alors que nous voyons nos cheveux qui deviennent gris et nos épaules qui s’arrondissent, et quand nous voyons le monde tituber et vaciller... Combien nous pouvons regarder autour de nous et voir que la promess",
+  "expected_answer": "Oh! combien ce tabernacle, ce matin... combien nous, gens de cette heure... Frère Neville, alors que nous voyons nos cheveux qui deviennent gris et nos épaules qui s’arrondissent, et quand nous voyons le monde tituber et vaciller... Combien nous pouvons regarder autour de nous et voir que la promess",
+  "expected_answer_keywords": [],
+  "sermon_title": "Pourquoi crier? parle!"
+ },
+ {
+  "id": "R083",
+  "question": "Satan est descendu dans un tourbillon et a détruit les granges de Job, qui offrait l'holocauste pour ses fils et ses filles",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "55-0223-SHP"
+  ],
+  "expected_paragraphs": [
+   38
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "55-0223-SHP",
+    "paragraphIndex": 38
+   }
+  ],
+  "relevant_snippet": "«Je ne crois pas cela.» Il a dit : «Il est entre tes mains, mais ne touche pas à sa vie.» Satan est descendu dans un tourbillon et il a détruit toutes les granges, il a consumé tout le bétail et les chevaux, et tout. Et Job, quand il… étant un homme de bien, un croyant en Dieu, la seule voie qu’il a",
+  "expected_answer": "«Je ne crois pas cela.» Il a dit : «Il est entre tes mains, mais ne touche pas à sa vie.» Satan est descendu dans un tourbillon et il a détruit toutes les granges, il a consumé tout le bétail et les chevaux, et tout. Et Job, quand il… étant un homme de bien, un croyant en Dieu, la seule voie qu’il a",
+  "expected_answer_keywords": [],
+  "sermon_title": "Job, serviteur de dieu"
+ },
+ {
+  "id": "R084",
+  "question": "Le Père a dû dire au Fils de quitter la maison pour qu'on ne Lui demande pas de guérir Son ami malade",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "60-0402-VGR"
+  ],
+  "expected_paragraphs": [
+   65
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "60-0402-VGR",
+    "paragraphIndex": 65
+   }
+  ],
+  "relevant_snippet": "Alors, pour que cette histoire soit vraiment véridique, le Père, Dieu, doit avoir parlé à Son Fils Jésus et dit : “Ton ami Lazare va mourir, mais il va en ressortir du bien, alors Toi quitte la maison. Pars, parce qu’on Te demandera de prier pour lui, ou de le guérir, et—et Je ne veux pas que Tu fas",
+  "expected_answer": "Alors, pour que cette histoire soit vraiment véridique, le Père, Dieu, doit avoir parlé à Son Fils Jésus et dit : “Ton ami Lazare va mourir, mais il va en ressortir du bien, alors Toi quitte la maison. Pars, parce qu’on Te demandera de prier pour lui, ou de le guérir, et—et Je ne veux pas que Tu fas",
+  "expected_answer_keywords": [],
+  "sermon_title": "Crois-tu cela?"
+ },
+ {
+  "id": "R085",
+  "question": "Le prophète qui doit venir avant le jour du Seigneur : la seconde fois il y aura la prédication et les miracles",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "60-1211E-SHP"
+  ],
+  "expected_paragraphs": [
+   89
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "60-1211E-SHP",
+    "paragraphIndex": 89
+   }
+  ],
+  "relevant_snippet": "Maintenant, remarquez une autre chose qui arrivera dans cet ordre d'idées : il viendra juste avant le jour du Seigneur. Or, la terre n'a pas été consumée du temps de Jean; cela est donc à venir. Quand il est venu la première fois, il n'a fait que prêcher; la seconde fois, il - il y aura à la fois la",
+  "expected_answer": "Maintenant, remarquez une autre chose qui arrivera dans cet ordre d'idées : il viendra juste avant le jour du Seigneur. Or, la terre n'a pas été consumée du temps de Jean; cela est donc à venir. Quand il est venu la première fois, il n'a fait que prêcher; la seconde fois, il - il y aura à la fois la",
+  "expected_answer_keywords": [],
+  "sermon_title": "L'age de l'eglise de laodicée"
+ },
+ {
+  "id": "R086",
+  "question": "L'épouse d'un dignitaire, couverte de boue, s'était agrippée à son pantalon pour qu'il aille prier pour son mari",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "50-0100-SHP"
+  ],
+  "expected_paragraphs": [
+   172
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "50-0100-SHP",
+    "paragraphIndex": 172
+   }
+  ],
+  "relevant_snippet": "Je leur ai demandé de fermer les portes. Et nous étions fatigués ; ayant passé le samedi soir, quatre heures, là dans une maison de club nous occuper des malades. J’ai demandé à frère Brown et frère Moore de fermer la porte et de disperser les gens. Sa femme était couverte de boue pour être tombée e",
+  "expected_answer": "Je leur ai demandé de fermer les portes. Et nous étions fatigués ; ayant passé le samedi soir, quatre heures, là dans une maison de club nous occuper des malades. J’ai demandé à frère Brown et frère Moore de fermer la porte et de disperser les gens. Sa femme était couverte de boue pour être tombée e",
+  "expected_answer_keywords": [],
+  "sermon_title": "Les maladies et les afflictions"
+ },
+ {
+  "id": "R087",
+  "question": "Une vision pour l'Afrique : hautes herbes, fourmilières et le vent qui souffle",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "56-0621-SHP"
+  ],
+  "expected_paragraphs": [
+   15
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "56-0621-SHP",
+    "paragraphIndex": 15
+   }
+  ],
+  "relevant_snippet": "Ainsi, pendant qu’elle venait, j’ai regardé par-dessus la tête de cette fille; aucune vision ne vint; ces hautes herbes apparurent, de petits monticules de fourmilières et des choses typiques de l’Afrique du Sud. L’herbe bougeait, je pouvais même entendre le vent souffler. J’ai compris que quelque c",
+  "expected_answer": "Ainsi, pendant qu’elle venait, j’ai regardé par-dessus la tête de cette fille; aucune vision ne vint; ces hautes herbes apparurent, de petits monticules de fourmilières et des choses typiques de l’Afrique du Sud. L’herbe bougeait, je pouvais même entendre le vent souffler. J’ai compris que quelque c",
+  "expected_answer_keywords": [],
+  "sermon_title": "La loi qui possède une ombre"
+ },
+ {
+  "id": "R088",
+  "question": "Le président Dwight Eisenhower frappant à la porte d'un bon démocrate de Chicago",
+  "category": "mots_cles",
+  "difficulty": "medium",
+  "answerable": true,
+  "expected_sermons": [
+   "58-0112E-SHP"
+  ],
+  "expected_paragraphs": [
+   9
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "58-0112E-SHP",
+    "paragraphIndex": 9
+   }
+  ],
+  "relevant_snippet": "Vous savez, la raison, c’est l’importance de la personne à votre porte. Quand une personne importante vient vous visiter... Il n’y a pas de bon démocrate dans tout Chicago ce soir qui ne se sentirait pas hautement honoré si le président Dwight Eisenhower frappait à sa porte. Quand bien même il serai",
+  "expected_answer": "Vous savez, la raison, c’est l’importance de la personne à votre porte. Quand une personne importante vient vous visiter... Il n’y a pas de bon démocrate dans tout Chicago ce soir qui ne se sentirait pas hautement honoré si le président Dwight Eisenhower frappait à sa porte. Quand bien même il serai",
+  "expected_answer_keywords": [],
+  "sermon_title": "La porte du coeur"
+ },
+ {
+  "id": "R089",
+  "question": "On ne peut pas transformer une tige de céréale en mauvaise herbe : celui qui est né d'en haut porte forcément le fruit qui correspond",
+  "category": "paraphrase_semantique",
+  "difficulty": "hard",
+  "answerable": true,
+  "expected_sermons": [
+   "53-1212-SHP"
+  ],
+  "expected_paragraphs": [
+   37
+  ],
+  "expected_sources": [
+   {
+    "sermonId": "53-1212-SHP",
+    "paragraphIndex": 37
+   }
+  ],
+  "relevant_snippet": "Maintenant, si vous croyez, vous n’allez pas... Jésus a dit: «Celui qui écoute Mes Paroles, et qui croit à Celui qui M’a envoyé, a la Vie Eternelle, car il a cru.» Eh bien, si vous croyez, vous ne ferez pas ces choses. Vous ne pouvez pas faire qu’un–un grain... Vous ne pouvez pas faire qu’une tige d",
+  "expected_answer": "Maintenant, si vous croyez, vous n’allez pas... Jésus a dit: «Celui qui écoute Mes Paroles, et qui croit à Celui qui M’a envoyé, a la Vie Eternelle, car il a cru.» Eh bien, si vous croyez, vous ne ferez pas ces choses. Vous ne pouvez pas faire qu’un–un grain... Vous ne pouvez pas faire qu’une tige d",
+  "expected_answer_keywords": [],
+  "sermon_title": "L’homme intérieur"
+ },
+ {
+  "id": "Q073",
+  "question": "Que dit William Branham sur la construction de la Tour Eiffel à Paris ?",
+  "category": "hors_corpus",
+  "difficulty": "hard",
+  "answerable": false,
+  "expected_sermons": [],
+  "expected_paragraphs": [],
+  "expected_sources": [],
+  "relevant_snippet": "",
+  "expected_answer": "Information absente du corpus documentaire King's Sword.",
+  "expected_answer_keywords": [
+   "absente",
+   "non mentionné"
+  ]
+ },
+ {
+  "id": "Q074",
+  "question": "Quelle est la date exacte de l'invention d'Internet selon les sermons disponibles ?",
+  "category": "hors_corpus",
+  "difficulty": "hard",
+  "answerable": false,
+  "expected_sermons": [],
+  "expected_paragraphs": [],
+  "expected_sources": [],
+  "relevant_snippet": "",
+  "expected_answer": "Information absente du corpus documentaire King's Sword.",
+  "expected_answer_keywords": [
+   "absente",
+   "non mentionné"
+  ]
+ },
+ {
+  "id": "Q075",
+  "question": "Comment réparer une pompe à injection diesel sur un tracteur agricole ?",
+  "category": "hors_corpus",
+  "difficulty": "hard",
+  "answerable": false,
+  "expected_sermons": [],
+  "expected_paragraphs": [],
+  "expected_sources": [],
+  "relevant_snippet": "",
+  "expected_answer": "Information absente du corpus documentaire King's Sword.",
+  "expected_answer_keywords": [
+   "absente",
+   "non mentionné"
+  ]
+ },
+ {
+  "id": "Q076",
+  "question": "Dans quel sermon Branham affirme-t-il que le cavalier noir maniait une épée laser ?",
+  "category": "hors_corpus",
+  "difficulty": "hard",
+  "answerable": false,
+  "expected_sermons": [],
+  "expected_paragraphs": [],
+  "expected_sources": [],
+  "relevant_snippet": "",
+  "expected_answer": "Information absente du corpus documentaire King's Sword.",
+  "expected_answer_keywords": [
+   "absente",
+   "non mentionné"
+  ]
+ },
+ {
+  "id": "Q077",
+  "question": "Quel est le résultat de la finale de la coupe du monde de football de 1998 ?",
+  "category": "hors_corpus",
+  "difficulty": "hard",
+  "answerable": false,
+  "expected_sermons": [],
+  "expected_paragraphs": [],
+  "expected_sources": [],
+  "relevant_snippet": "",
+  "expected_answer": "Information absente du corpus documentaire King's Sword.",
+  "expected_answer_keywords": [
+   "absente",
+   "non mentionné"
+  ]
+ },
+ {
+  "id": "Q078",
+  "question": "Quelle est la formule mathématique de la relativité générale énoncée par Einstein selon les textes ?",
+  "category": "hors_corpus",
+  "difficulty": "hard",
+  "answerable": false,
+  "expected_sermons": [],
+  "expected_paragraphs": [],
+  "expected_sources": [],
+  "relevant_snippet": "",
+  "expected_answer": "Information absente du corpus documentaire King's Sword.",
+  "expected_answer_keywords": [
+   "absente",
+   "non mentionné"
+  ]
+ },
+ {
+  "id": "Q079",
+  "question": "Combien de chapitres compte la sourate Al-Baqara selon William Branham ?",
+  "category": "hors_corpus",
+  "difficulty": "hard",
+  "answerable": false,
+  "expected_sermons": [],
+  "expected_paragraphs": [],
+  "expected_sources": [],
+  "relevant_snippet": "",
+  "expected_answer": "Information absente du corpus documentaire King's Sword.",
+  "expected_answer_keywords": [
+   "absente",
+   "non mentionné"
+  ]
+ },
+ {
+  "id": "Q080",
+  "question": "Quelle est la température d'ébullition de l'azote liquide selon les sermons de Jeffersonville ?",
+  "category": "hors_corpus",
+  "difficulty": "hard",
+  "answerable": false,
+  "expected_sermons": [],
+  "expected_paragraphs": [],
+  "expected_sources": [],
+  "relevant_snippet": "",
+  "expected_answer": "Information absente du corpus documentaire King's Sword.",
+  "expected_answer_keywords": [
+   "absente",
+   "non mentionné"
+  ]
+ }
 ]

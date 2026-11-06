@@ -55,5 +55,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getSermonsPrecalculatedIndex: () => ipcRenderer.invoke('system:getSermonsPrecalculatedIndex'),
     readLocalJson: (filename) => ipcRenderer.invoke('system:readLocalJson', filename),
     getLibraryData: () => ipcRenderer.invoke('system:getLibraryData')
+  },
+  ai: {
+    crossEncoderScore: (payload) => ipcRenderer.invoke('ai:crossEncoderScore', payload)
   }
 });

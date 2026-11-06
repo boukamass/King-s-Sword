@@ -34,6 +34,7 @@ import { loadExposeAsCanonicalDocuments, createExposeDocumentChunks, hydrateExpo
 import { createSermonChunks } from './chunkingService';
 import { getSermonById } from './db';
 import { mapParagraphsToChunkHits, fuseRankings, computeAdaptiveHybridWeights } from './hybridRetrievalService';
+import { rankBm25Led } from './bm25LedRankingService';
 import { rerankHybridResults, assessAnswerability, extractSignificantQueryTerms, extractSubstantiveQueryTerms, isOverviewOrSummaryQuery, isBroadOrExhaustiveContextQuery, selectDiverseEvidenceWithMMR } from './rerankingService';
 import { expandTheologicalQuery } from './theologicalQueryService';
 import { searchByVector, embedQueryText, matchesMetadataFilter } from './vectorSearchService';
@@ -162,6 +163,12 @@ export interface UnifiedRagOptions {
   metadataFilter?: MetadataFilter;
   enableParentChild?: boolean;
   parentChildOptions?: ParentChildOptions;
+  /** Ancien classement (reranking pondéré) au lieu du classement BM25 en tête */
+  legacyRanking?: boolean;
+  /** false : classement BM25 en tête sans cross-encoder */
+  useCrossEncoder?: boolean;
+  /** Lambda MMR du classement BM25 en tête (banc d'essai) */
+  mmrLambda?: number;
 }
 
 /**
@@ -1113,13 +1120,18 @@ export async function executeUnifiedRagPipeline(
     : maxEvidenceCount;
   const effectiveTopK = Math.max(topK, effectiveMaxEvidenceCount);
 
+  // Classement BM25 en tête (+ E5, + cross-encoder) : hors aperçu / contexte long, sauf ancien classement demandé
+  const useBm25Led = aiConfig.featureFlags.useBm25LedRanking && !options.legacyRanking && !isOverview && !isLongContextBypassEligible;
+  const rankingCfg = aiConfig.retrievalRankingConfig;
+
   let hybridResults = fuseRankings({
     lexicalHits,
     vectorHits,
     allChunks: allowedChunks,
     options: {
       k: options.k || 60,
-      topK: Math.max(20, effectiveTopK),
+      // Classement BM25 en tête : tous les candidats BM25 et E5 sont conservés, l'ordre est fixé ensuite
+      topK: useBm25Led ? Math.max(20, effectiveTopK, lexicalHits.length + vectorHits.length) : Math.max(20, effectiveTopK),
       lexicalWeight: options.lexicalWeight ?? adaptiveWeights.lexicalWeight,
       vectorWeight: options.vectorWeight ?? adaptiveWeights.vectorWeight
     }
@@ -1158,11 +1170,39 @@ export async function executeUnifiedRagPipeline(
     }
   }
 
+  // 4b. Classement BM25 en tête, puis reranking cross-encoder local (repli sur l'ordre BM25 en tête si indisponible)
+  let crossEncoderUsed = false;
+  let crossEncoderLatencyMs = 0;
+  if (useBm25Led && hybridResults.length > 1) {
+    const ranking = await rankBm25Led(
+      cleanQuery,
+      hybridResults,
+      lexicalHits.map(h => h.chunkId),
+      vectorHits.map(h => h.chunk.chunkId),
+      {
+        headCount: rankingCfg.bm25HeadCount,
+        k: rankingCfg.rrfK,
+        useCrossEncoder: aiConfig.featureFlags.useCrossEncoderRerank && options.useCrossEncoder !== false,
+        crossEncoder: {
+          poolSize: rankingCfg.crossEncoderPoolSize,
+          maxLength: rankingCfg.crossEncoderMaxLength,
+          timeoutMs: rankingCfg.crossEncoderTimeoutMs,
+          weight: rankingCfg.crossEncoderWeight
+        }
+      }
+    );
+    hybridResults = ranking.ordered;
+    crossEncoderUsed = ranking.usedCrossEncoder;
+    crossEncoderLatencyMs = ranking.crossEncoderLatencyMs;
+  }
+
   // 5. Reranking local multi-signaux avec fenêtrage contextuel ±1 paragraphe
+  // (classement BM25 en tête : l'ordre est conservé, seuls les détails sont calculés)
   const rerankedResults = rerankHybridResults({
     query: cleanQuery,
     hybridResults,
     allChunks: searchPool,
+    preserveOrder: useBm25Led,
     options: {
       topK: effectiveTopK,
       vectorWeight: options.vectorWeight,
@@ -1193,6 +1233,7 @@ export async function executeUnifiedRagPipeline(
   console.log(`LEXICAL CANDIDATES: ${lexicalHits.length}`);
   console.log(`RRF CANDIDATES: ${hybridResults.length}`);
   console.log(`RERANKED RESULTS: ${rerankedResults.length}`);
+  console.log(`RANKING: ${useBm25Led ? (crossEncoderUsed ? `BM25_LED + CROSS_ENCODER (${crossEncoderLatencyMs} ms)` : 'BM25_LED') : 'LEGACY_WEIGHTED'}`);
   console.log(`ANSWERABILITY: ${assessment.answerable ? 'TRUE' : 'FALSE'}`);
   console.log(`GEMINI GENERATION: ${assessment.answerable ? 'YES' : 'NO'}`);
   console.log('======================================');
@@ -1209,7 +1250,7 @@ export async function executeUnifiedRagPipeline(
       rerankedResults,
       effectiveMaxEvidenceCount,
       {
-        lambda: 0.75,
+        lambda: useBm25Led ? (options.mmrLambda ?? rankingCfg.mmrLambda) : 0.75,
         maxPerDoc,
         isMultiHop: queryExpansion.isMultiHop || isFacetedQuery
       }

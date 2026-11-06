@@ -130,8 +130,13 @@ export function rerankHybridResults(params: {
   hybridResults: HybridSearchResult[];
   allChunks?: SermonChunk[];
   options?: RerankOptions;
+  /**
+   * Conserve l'ordre reçu (classement BM25 en tête / cross-encoder) : les détails sont calculés, mais le score
+   * de reranking devient un score de rang décroissant, lu tel quel par la diversification MMR.
+   */
+  preserveOrder?: boolean;
 }): RerankedSearchResult[] {
-  const { query, hybridResults = [], allChunks = [], options } = params;
+  const { query, hybridResults = [], allChunks = [], options, preserveOrder = false } = params;
 
   if (!Array.isArray(hybridResults) || hybridResults.length === 0) {
     return [];
@@ -230,6 +235,15 @@ export function rerankHybridResults(params: {
         queryTermCoverage
       }
     });
+  }
+
+  if (preserveOrder) {
+    const topKPreserved = Math.max(1, opts.topK);
+    return reranked.slice(0, topKPreserved).map((item, idx) => ({
+      ...item,
+      rerankScore: Math.round((1 / (1 + 0.1 * idx)) * 10000) / 10000,
+      rank: idx + 1
+    }));
   }
 
   // Tri décroissant par rerankScore
