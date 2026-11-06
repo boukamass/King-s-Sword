@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useModalActive } from '../utils/modalUtils';
 import { Key, Lightbulb, Check, ExternalLink, X, CheckCircle2, AlertCircle, Loader2, Wifi, WifiOff, Lock } from 'lucide-react';
-import { getGeminiApiKey, setGeminiApiKey, cleanApiKey } from '../utils/apiKeyHelper';
+import { cleanApiKey, AiProviderId, getActiveAiProvider, setActiveAiProvider, getProviderApiKey, setProviderApiKey } from '../utils/apiKeyHelper';
 import { testGeminiApiKey } from '../services/geminiChatService';
+import { AI_PROVIDERS, AI_PROVIDER_ORDER, testProviderApiKey } from '../services/aiProviderService';
 
 interface ApiKeyModalProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
   useModalActive(isOpen);
 
   const [apiKeyInput, setApiKeyInput] = useState('');
+  const [provider, setProvider] = useState<AiProviderId>('gemini');
   const [isSaved, setIsSaved] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isTesting, setIsTesting] = useState(false);
@@ -33,7 +35,9 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
 
   useEffect(() => {
     if (isOpen) {
-      const existing = getGeminiApiKey() || '';
+      const active = getActiveAiProvider();
+      setProvider(active);
+      const existing = getProviderApiKey(active) || '';
       setApiKeyInput(existing);
       setIsSaved(false);
       setTestResult(null);
@@ -42,6 +46,17 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
   }, [isOpen]);
 
   if (!isOpen) return null;
+
+  const providerInfo = AI_PROVIDERS[provider];
+
+  // Changement de fournisseur : affiche la clé déjà enregistrée pour celui-ci (rien n'est enregistré avant « Enregistrer »)
+  const handleSelectProvider = (id: AiProviderId) => {
+    if (id === provider) return;
+    setProvider(id);
+    setApiKeyInput(getProviderApiKey(id) || '');
+    setTestResult(null);
+    setIsSaved(false);
+  };
 
   // Déclenché STRICTEMENT sur clic utilisateur : aucun appel automatique
   const handleTestConnection = async () => {
@@ -59,7 +74,9 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
     setTestResult(null);
 
     try {
-      const result = await testGeminiApiKey(cleaned);
+      const result = provider === 'gemini'
+        ? await testGeminiApiKey(cleaned)
+        : await testProviderApiKey(provider, cleaned);
       setTestResult(result);
     } catch (e: any) {
       setTestResult({
@@ -74,7 +91,8 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
 
   const handleSave = async () => {
     const cleaned = cleanApiKey(apiKeyInput);
-    await setGeminiApiKey(cleaned);
+    await setProviderApiKey(provider, cleaned);
+    await setActiveAiProvider(provider);
     setIsSaved(true);
     if (onSaved) onSaved();
     setTimeout(() => {
@@ -84,7 +102,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
 
   const handleClear = async () => {
     setApiKeyInput('');
-    await setGeminiApiKey('');
+    await setProviderApiKey(provider, '');
     setTestResult(null);
     setIsSaved(true);
     if (onSaved) onSaved();
@@ -121,20 +139,67 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
           <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
             Pour activer la recherche intelligente et l'analyse approfondie de vos sermons :
           </p>
 
-          <a 
-            href="https://aistudio.google.com/app/apikey" 
+          {/* Choix du fournisseur d'IA */}
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">
+              Choisissez votre service d'IA
+            </label>
+            <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Service d'IA">
+              {AI_PROVIDER_ORDER.map(id => {
+                const info = AI_PROVIDERS[id];
+                const selected = id === provider;
+                const configured = Boolean(getProviderApiKey(id));
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => handleSelectProvider(id)}
+                    className={`text-left px-3 py-2.5 rounded-2xl border transition-all cursor-pointer ${
+                      selected
+                        ? 'bg-teal-50 dark:bg-teal-950/40 border-teal-500 ring-2 ring-teal-500/20'
+                        : 'bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 hover:border-teal-300 dark:hover:border-teal-800'
+                    }`}
+                  >
+                    <span className="flex items-center justify-between gap-2">
+                      <span className={`text-xs font-bold ${selected ? 'text-teal-800 dark:text-teal-200' : 'text-zinc-800 dark:text-zinc-200'}`}>
+                        {info.label}
+                      </span>
+                      {configured && (
+                        <span className="text-[9px] font-bold text-teal-600 dark:text-teal-400 flex items-center gap-0.5 shrink-0">
+                          <Check className="w-3 h-3" /> Clé
+                        </span>
+                      )}
+                    </span>
+                    <span className="block mt-0.5 text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
+                      {info.tagline}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            {provider !== 'gemini' && (
+              <p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-snug">
+                Les réponses de l'Assistant IA seront rédigées par {providerInfo.label}. Les fonctions annexes (définitions du dictionnaire, contexte Strong, analyse d'une sélection) utilisent toujours une clé Gemini si elle est enregistrée.
+              </p>
+            )}
+          </div>
+
+          <a
+            href={providerInfo.keyUrl}
             target="_blank" 
             rel="noopener noreferrer"
             className="flex items-center justify-between px-4 py-3 bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800/60 rounded-2xl text-teal-800 dark:text-teal-200 hover:bg-teal-100/70 transition-all group cursor-pointer"
           >
             <div className="flex items-center gap-2.5">
               <Key className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-              <span className="text-xs font-bold">1. Obtenir une clé d'accès gratuite</span>
+              <span className="text-xs font-bold">1. Obtenir une clé d'accès gratuite ({providerInfo.label})</span>
             </div>
             <ExternalLink className="w-4 h-4 text-teal-600 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
           </a>
@@ -143,12 +208,12 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
           <div className="p-3 bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-900/40 rounded-2xl text-[11px] space-y-1.5 text-amber-900 dark:text-amber-200">
             <p className="font-bold flex items-center gap-1.5 text-amber-800 dark:text-amber-300">
               <Lightbulb className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-              <span>Astuce pour un accès continu :</span>
+              <span>{provider === 'gemini' ? 'Astuce pour un accès continu :' : 'Comment obtenir la clé :'}</span>
             </p>
             <ol className="list-decimal list-inside space-y-1 text-[10.5px] leading-relaxed opacity-90 pl-0.5">
-              <li>Cliquez sur le lien ci-dessus pour générer une clé d'accès.</li>
-              <li>Collez la clé obtenue dans la zone ci-dessous.</li>
-              <li>Vous pouvez coller plusieurs clés (une par ligne) pour une bascule automatique.</li>
+              {providerInfo.keySteps.map((step, idx) => (
+                <li key={idx}>{step}</li>
+              ))}
             </ol>
           </div>
 
@@ -166,7 +231,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
             <div className="relative">
               <textarea 
                 rows={2}
-                placeholder="AIzaSy... (Collez une ou plusieurs clés séparées par un retour à la ligne)"
+                placeholder={providerInfo.keyPlaceholder}
                 value={apiKeyInput}
                 onChange={(e) => {
                   setApiKeyInput(e.target.value);

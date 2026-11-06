@@ -16,7 +16,7 @@ import { translations } from '../translations';
 import { marked } from 'marked';
 import NoteSelectorModal from './NoteSelectorModal';
 import { ApiKeyModal } from './ApiKeyModal';
-import { hasValidGeminiApiKey } from '../utils/apiKeyHelper';
+import { hasActiveAiKey } from '../utils/apiKeyHelper';
 import { 
   loadPersistedProgressState, 
   subscribeIndexProgress, 
@@ -144,7 +144,7 @@ function buildLocalFallbackFromEvidence(
   } else if (code === 'SERVICE_UNAVAILABLE') {
     reasonNotice = "Le service d'analyse est momentanément surchargé. Réessayez dans quelques instants ; en attendant, voici les passages trouvés localement.";
   } else if (code === 'API_KEY_MISSING' || rawErr.toLowerCase().includes('clé') || rawErr.toLowerCase().includes('api key') || rawErr.includes('MISSING_API_KEY')) {
-    reasonNotice = 'Clé Gemini absente ou inactive — bascule automatique sur les résultats du modèle local.';
+    reasonNotice = 'Clé IA absente ou inactive — bascule automatique sur les résultats du modèle local.';
   }
 
   const lines: string[] = [
@@ -371,7 +371,7 @@ const AIAssistant: React.FC = () => {
   const [noteSelectorData, setNoteSelectorData] = useState<{ text: string; sermon: Sermon } | null>(null);
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [hasKey, setHasKey] = useState(hasValidGeminiApiKey());
+  const [hasKey, setHasKey] = useState(hasActiveAiKey());
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingText, setEditingText] = useState<string>('');
   const [localOnlyMode, setLocalOnlyMode] = useState<boolean>(() => isLocalOnlyModeEnabled());
@@ -492,7 +492,7 @@ const AIAssistant: React.FC = () => {
   }, []);
 
   const refreshKeyState = () => {
-    setHasKey(hasValidGeminiApiKey());
+    setHasKey(hasActiveAiKey());
   };
 
   // Gestion des conversations multiples

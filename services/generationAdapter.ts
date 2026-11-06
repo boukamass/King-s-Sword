@@ -23,6 +23,7 @@ import { aiConfig } from '../config/aiConfig';
 import { LONG_CONTEXT_VECTOR_METHOD, LONG_CONTEXT_DIRECTIVES, formatLongContextSources } from './longContextRagService';
 import { buildHistoryForPrompt } from './followUpContextService';
 import { renderPartialStructuredAnswer } from './streamingAnswerService';
+import { createActiveProviderCaller, getAiProviderInfo } from './aiProviderService';
 
 export interface GeminiCaller {
   generateContent(params: {
@@ -66,7 +67,7 @@ export interface MeasuredUsageMetadata {
 
 export interface GenerationResult {
   status: 'success' | 'error' | 'not_answerable';
-  provider: 'google-gemini' | 'none';
+  provider: 'google-gemini' | 'mistral' | 'groq' | 'openrouter' | 'none';
   model: string | null;
   responseOrigin: 'gemini' | 'none';
   answerText: string | null;
@@ -377,6 +378,26 @@ M. Ne répète pas la réponse précédente : approfondis, précise ou complète
 /** Réponse du modèle (texte seul) qui ouvre la conversation après le bloc de sources */
 const SOURCES_ACKNOWLEDGEMENT = "Sources reçues. Je répondrai exclusivement à partir de ces passages, en citant leurs références exactes.";
 
+/**
+ * Fournisseurs compatibles OpenAI : retire un éventuel bloc de code Markdown (```json … ```) ou un texte
+ * entourant l'objet JSON, pour que la réponse structurée soit lue comme avec Gemini.
+ */
+export function stripJsonCodeFence(text: string | null | undefined): string | null | undefined {
+  if (!text) return text;
+  let t = text.trim();
+  const fence = t.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  if (fence) t = fence[1].trim();
+  if (!t.startsWith('{')) {
+    const start = t.indexOf('{');
+    const end = t.lastIndexOf('}');
+    if (start >= 0 && end > start) {
+      const candidate = t.slice(start, end + 1);
+      try { JSON.parse(candidate); return candidate; } catch {}
+    }
+  }
+  return t;
+}
+
 const SUPERSCRIPT_DIGITS = ['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
 /** Appel de note en exposant (¹, ², ¹²…) : sans crochets, pour ne pas être confondu avec une référence de sermon */
 export function toSuperscriptNumber(n: number): string {
@@ -516,9 +537,19 @@ export async function generateNewRagResponse(
     onPartialAnswer
   } = options;
 
-  // Plafond strict du contexte transmis (préserve le quota Gemini de l'utilisateur, quelle que soit la sélection)
+  // Fournisseur d'IA choisi par l'utilisateur (Gemini par défaut) : uniquement si aucun client n'est imposé
+  let activeModelUsed = model;
+  const activeProvider = geminiClient
+    ? { providerId: 'gemini' as const, caller: null, maxPromptChars: undefined }
+    : createActiveProviderCaller({ onModelUsed: m => { activeModelUsed = m; }, onProgress });
+  const providerName: GenerationResult['provider'] = activeProvider.providerId === 'gemini' ? 'google-gemini' : activeProvider.providerId;
+  const effectiveMaxPromptChars = activeProvider.maxPromptChars
+    ? Math.min(maxPromptChars, activeProvider.maxPromptChars)
+    : maxPromptChars;
+
+  // Plafond strict du contexte transmis (préserve le quota de l'utilisateur, quelle que soit la sélection)
   const evidencePackage = inputEvidencePackage
-    ? enforcePromptBudget(inputEvidencePackage, query, useLegacyExtrapolativeDirective6, maxPromptChars)
+    ? enforcePromptBudget(inputEvidencePackage, query, useLegacyExtrapolativeDirective6, effectiveMaxPromptChars)
     : inputEvidencePackage;
 
   // RÈGLE : Cas answerable === false
@@ -550,7 +581,26 @@ export async function generateNewRagResponse(
 
   // Résolution du client Gemini (avec bascule automatique multi-clés et multi-modèles pour les appels réels)
   let client = geminiClient;
-  let activeModelUsed = model;
+  if (!client && activeProvider.providerId !== 'gemini') {
+    if (!activeProvider.caller) {
+      return {
+        status: 'error',
+        provider: 'none',
+        model: null,
+        responseOrigin: 'none',
+        answerText: null,
+        structuredResponse: null,
+        errorCode: 'API_KEY_MISSING',
+        errorMessage: `Clé API ${getAiProviderInfo(activeProvider.providerId).label} introuvable.`,
+        latencyMs: 0,
+        citationsValidation: null,
+        chunkIdExposure: false,
+        technicalIdentifiersDetected: [],
+        sources: []
+      };
+    }
+    client = activeProvider.caller;
+  }
   if (!client) {
     const candidateKeys = apiKey ? [apiKey, ...getAllGeminiApiKeys().filter(k => k !== apiKey)] : getAllGeminiApiKeys();
     const fallbackSingleKey = apiKey || getGeminiApiKey();
@@ -699,7 +749,7 @@ RÈGLES STRICTES ET MANDATOIRES (Étape 8 - Sortie Structurée JSON) :
       : await client.generateContent(requestParams);
 
     const finishReason = response?.candidates?.[0]?.finishReason;
-    const responseText = response?.text;
+    const responseText = activeProvider.providerId === 'gemini' ? response?.text : stripJsonCodeFence(response?.text);
     let promptTok = Number(response?.usageMetadata?.promptTokenCount ?? 0);
     let candTok = Number(response?.usageMetadata?.candidatesTokenCount ?? 0);
     let totTok = Number(response?.usageMetadata?.totalTokenCount ?? (promptTok + candTok));
@@ -764,7 +814,7 @@ RÈGLES STRICTES ET MANDATOIRES (Étape 8 - Sortie Structurée JSON) :
           hasMeasuredUsage = true;
         }
 
-        const retryText = retryResponse?.text;
+        const retryText = activeProvider.providerId === 'gemini' ? retryResponse?.text : stripJsonCodeFence(retryResponse?.text);
         if (retryText) {
           const retryCandidate = JSON.parse(retryText);
           if (typeof retryCandidate?.answerability === 'boolean' && typeof retryCandidate?.summary === 'string' && Array.isArray(retryCandidate?.arguments)) {
@@ -811,7 +861,7 @@ RÈGLES STRICTES ET MANDATOIRES (Étape 8 - Sortie Structurée JSON) :
         }
         return {
           status: 'success',
-          provider: 'google-gemini',
+          provider: providerName,
           model: activeModelUsed,
           responseOrigin: 'gemini',
           answerText,
@@ -850,7 +900,7 @@ RÈGLES STRICTES ET MANDATOIRES (Étape 8 - Sortie Structurée JSON) :
     if (!parsedJson.answerability) {
       return {
         status: 'not_answerable',
-        provider: 'google-gemini',
+        provider: providerName,
         model,
         responseOrigin: 'gemini',
         answerText: "Les documents disponibles dans la base documentaire de l'application ne contiennent pas d'informations suffisantes pour répondre à cette question.",
@@ -919,7 +969,7 @@ RÈGLES STRICTES ET MANDATOIRES (Étape 8 - Sortie Structurée JSON) :
 
     return {
       status: 'success',
-      provider: 'google-gemini',
+      provider: providerName,
       model: activeModelUsed,
       responseOrigin: 'gemini',
       answerText,

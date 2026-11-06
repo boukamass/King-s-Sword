@@ -21,6 +21,13 @@ export const cleanApiKey = (raw: string | undefined | null): string => {
  * 4. Fallback : variables d'environnement (GEMINI_API_KEY / API_KEY)
  */
 export const initGeminiApiKey = async (): Promise<string | undefined> => {
+  // 0. Fournisseur d'IA choisi et clés des autres fournisseurs (Mistral, Groq, OpenRouter)
+  try {
+    await initAiProviderSettings();
+  } catch (e) {
+    console.warn("[Security] Échec de lecture des réglages du fournisseur d'IA:", e);
+  }
+
   // 1. Cache mémoire déjà présent
   if (inMemoryApiKey && inMemoryApiKey.length > 5) {
     return inMemoryApiKey;
@@ -165,4 +172,144 @@ export const getAllGeminiApiKeys = (): string[] => {
 export const hasValidGeminiApiKey = (): boolean => {
   const keys = getAllGeminiApiKeys();
   return keys.length > 0;
+};
+
+// ---------------------------------------------------------------------------
+// Fournisseur d'IA (Gemini par défaut) et clés des fournisseurs compatibles OpenAI
+// ---------------------------------------------------------------------------
+
+export type AiProviderId = 'gemini' | 'mistral' | 'groq' | 'openrouter';
+
+const AI_PROVIDER_IDS: AiProviderId[] = ['gemini', 'mistral', 'groq', 'openrouter'];
+const AI_PROVIDER_STORAGE_KEY = 'kings_sword_ai_provider';
+const AI_PROVIDER_KV_KEY = 'ai_provider';
+
+let activeAiProvider: AiProviderId | undefined = undefined;
+const inMemoryProviderKeys = new Map<AiProviderId, string>();
+
+const isAiProviderId = (v: any): v is AiProviderId => AI_PROVIDER_IDS.includes(v);
+const providerKvKey = (id: AiProviderId) => `${id}_api_key_enc`;
+const providerLocalKey = (id: AiProviderId) => `kings_sword_user_${id}_key`;
+
+/**
+ * Lecture au démarrage du fournisseur choisi et des clés Mistral / Groq / OpenRouter
+ * (Electron : SQLite chiffré ; navigateur : localStorage).
+ */
+export const initAiProviderSettings = async (): Promise<void> => {
+  const hasElectronKV = typeof window !== 'undefined' && window.electronAPI?.db?.getKV;
+  if (hasElectronKV) {
+    try {
+      const stored = await window.electronAPI.db.getKV(AI_PROVIDER_KV_KEY);
+      if (isAiProviderId(stored)) activeAiProvider = stored;
+    } catch {}
+    if (window.electronAPI?.security?.decryptSecureData) {
+      for (const id of AI_PROVIDER_IDS) {
+        if (id === 'gemini') continue;
+        try {
+          const encrypted = await window.electronAPI.db.getKV(providerKvKey(id));
+          if (encrypted && typeof encrypted === 'string' && encrypted.length > 5) {
+            const cleaned = cleanApiKey(await window.electronAPI.security.decryptSecureData(encrypted));
+            if (cleaned && cleaned.length > 5) inMemoryProviderKeys.set(id, cleaned);
+          }
+        } catch {}
+      }
+    }
+  }
+  try {
+    if (typeof localStorage !== 'undefined') {
+      if (!activeAiProvider) {
+        const stored = localStorage.getItem(AI_PROVIDER_STORAGE_KEY);
+        if (isAiProviderId(stored)) activeAiProvider = stored;
+      }
+      if (!hasElectronKV) {
+        for (const id of AI_PROVIDER_IDS) {
+          if (id === 'gemini' || inMemoryProviderKeys.has(id)) continue;
+          const cleaned = cleanApiKey(localStorage.getItem(providerLocalKey(id)));
+          if (cleaned && cleaned.length > 5) inMemoryProviderKeys.set(id, cleaned);
+        }
+      }
+    }
+  } catch {}
+};
+
+/** Fournisseur d'IA actif pour la rédaction des réponses (Gemini si rien n'a été choisi) */
+export const getActiveAiProvider = (): AiProviderId => {
+  if (activeAiProvider) return activeAiProvider;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const stored = localStorage.getItem(AI_PROVIDER_STORAGE_KEY);
+      if (isAiProviderId(stored)) {
+        activeAiProvider = stored;
+        return stored;
+      }
+    }
+  } catch {}
+  return 'gemini';
+};
+
+export const setActiveAiProvider = async (id: AiProviderId): Promise<void> => {
+  if (!isAiProviderId(id)) return;
+  activeAiProvider = id;
+  try {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(AI_PROVIDER_STORAGE_KEY, id);
+  } catch {}
+  try {
+    if (typeof window !== 'undefined' && window.electronAPI?.db?.setKV) {
+      await window.electronAPI.db.setKV(AI_PROVIDER_KV_KEY, id);
+    }
+  } catch (e) {
+    console.error("Erreur lors de la sauvegarde du fournisseur d'IA:", e);
+  }
+};
+
+/** Clé(s) brute(s) d'un fournisseur (plusieurs clés possibles, une par ligne) */
+export const getProviderApiKey = (id: AiProviderId): string | undefined => {
+  if (id === 'gemini') return getGeminiApiKey();
+  const inMemory = inMemoryProviderKeys.get(id);
+  if (inMemory && inMemory.length > 5) return inMemory;
+  // Navigateur : la clé est persistée dans localStorage (sous Electron, elle est chiffrée dans SQLite)
+  const isElectron = Boolean(typeof window !== 'undefined' && window.electronAPI?.db?.getKV);
+  if (!isElectron) {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const cleaned = cleanApiKey(localStorage.getItem(providerLocalKey(id)));
+        if (cleaned && cleaned.length > 5) {
+          inMemoryProviderKeys.set(id, cleaned);
+          return cleaned;
+        }
+      }
+    } catch {}
+  }
+  return undefined;
+};
+
+export const setProviderApiKey = async (id: AiProviderId, key: string): Promise<void> => {
+  if (id === 'gemini') return setGeminiApiKey(key);
+  try {
+    const cleaned = cleanApiKey(key);
+    if (cleaned) inMemoryProviderKeys.set(id, cleaned);
+    else inMemoryProviderKeys.delete(id);
+
+    const isElectron = Boolean(typeof window !== 'undefined' && window.electronAPI?.db?.setKV);
+    if (isElectron && window.electronAPI?.security?.encryptSecureData) {
+      if (!cleaned) {
+        await window.electronAPI.db.setKV(providerKvKey(id), '');
+      } else {
+        const encrypted = await window.electronAPI.security.encryptSecureData(cleaned);
+        if (encrypted) await window.electronAPI.db.setKV(providerKvKey(id), encrypted);
+      }
+    } else if (typeof localStorage !== 'undefined') {
+      if (!cleaned) localStorage.removeItem(providerLocalKey(id));
+      else localStorage.setItem(providerLocalKey(id), cleaned);
+    }
+  } catch (e) {
+    console.error("Erreur lors de la sauvegarde de la clé API:", e);
+  }
+};
+
+/** Vrai si le fournisseur actif dispose d'au moins une clé */
+export const hasActiveAiKey = (): boolean => {
+  const id = getActiveAiProvider();
+  if (id === 'gemini') return hasValidGeminiApiKey();
+  return extractAllApiKeys(getProviderApiKey(id)).length > 0;
 };
