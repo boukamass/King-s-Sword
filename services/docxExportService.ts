@@ -57,8 +57,7 @@ export function createIconRun(bytes: Uint8Array | null, size = 15): ImageRun | n
   if (!bytes || bytes.length === 0) return null;
   return new ImageRun({
     data: bytes,
-    transformation: { width: size, height: size },
-    type: 'png'
+    transformation: { width: size, height: size }
   });
 }
 
@@ -973,8 +972,7 @@ export async function exportNoteToDocx(note: Note, sermons?: Array<Partial<Sermo
                   transformation: {
                     width: targetW,
                     height: targetH
-                  },
-                  type: 'png'
+                  }
                 })
               ],
               spacing: { before: 100, after: 60 }

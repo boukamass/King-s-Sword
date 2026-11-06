@@ -18,6 +18,8 @@ release
 *.dmg
 *.blockmap
 models/**/*.onnx
+# Copie générée de public/models (scripts/fetch-model.mjs, exécuté avant chaque build)
+/models/
 
 # OS files
 .DS_Store
