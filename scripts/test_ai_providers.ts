@@ -7,8 +7,8 @@ const store: Record<string, string> = {};
 };
 
 import { generateNewRagResponse, stripJsonCodeFence } from '../services/generationAdapter';
-import { buildChatMessages, pickPreferredModels, AI_PROVIDERS, testProviderApiKey } from '../services/aiProviderService';
-import { setActiveAiProvider, setProviderApiKey, getActiveAiProvider, hasActiveAiKey } from '../utils/apiKeyHelper';
+import { buildChatMessages, pickPreferredModels, AI_PROVIDERS, testProviderApiKey, getAiFeatureKeys, getAiFeatureKey, createAiClient } from '../services/aiProviderService';
+import { setActiveAiProvider, setProviderApiKey, getActiveAiProvider, hasActiveAiKey, setGeminiApiKey, getGeminiApiKey } from '../utils/apiKeyHelper';
 
 let failures = 0;
 const check = (name: string, cond: any, extra?: any) => {
@@ -127,6 +127,20 @@ const fakeGemini: any = { generateContent: async () => ({ text: JSON.stringify(a
 r = await generateNewRagResponse({ query: 'Q', evidencePackage, geminiClient: fakeGemini });
 check('Gemini inchangé (provider google-gemini)', r.status === 'success' && r.provider === 'google-gemini');
 check('aucun fetch vers un autre fournisseur', calls.length === 0, calls);
+
+console.log('11. Fonctions annexes (dictionnaire, Strong, analyse de sélection)');
+await setGeminiApiKey('AIzaFakeGeminiKey123');
+check("Gemini actif : clé Gemini d'origine", getAiFeatureKey() === getGeminiApiKey() && getAiFeatureKeys()[0] === 'AIzaFakeGeminiKey123');
+await setProviderApiKey('mistral', 'good-key');
+await setActiveAiProvider('mistral');
+const fk = getAiFeatureKey()!;
+check("Mistral actif : la clé Gemini n'est pas utilisée", !fk.includes('AIza') && getAiFeatureKeys().length === 1);
+scenario = 'ok'; calls = [];
+const resp = await createAiClient(fk).models.generateContent({ model: 'gemini-3.8-flash', contents: 'Définis : grâce', config: { responseMimeType: 'application/json' } });
+check('réponse lue via .text', typeof resp.text === 'string' && resp.text.includes('answerability'));
+check('appel envoyé à Mistral', calls.some(c => c.includes('api.mistral.ai')), calls);
+await setProviderApiKey('mistral', '');
+check('Mistral sans clé : repli sur Gemini', getAiFeatureKey() === getGeminiApiKey());
 
 console.log(failures === 0 ? '\nTOUS LES TESTS RÉUSSIS' : `\n${failures} ÉCHEC(S)`);
 process.exit(failures === 0 ? 0 : 1);

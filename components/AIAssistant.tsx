@@ -17,6 +17,7 @@ import { marked } from 'marked';
 import NoteSelectorModal from './NoteSelectorModal';
 import { ApiKeyModal } from './ApiKeyModal';
 import { hasActiveAiKey } from '../utils/apiKeyHelper';
+import { getAiProviderInfo } from '../services/aiProviderService';
 import { 
   loadPersistedProgressState, 
   subscribeIndexProgress, 
@@ -1304,7 +1305,7 @@ const AIAssistant: React.FC = () => {
               } else {
                 const errorMsg: ChatMessageWithSources = {
                   role: 'assistant',
-                  content: `**Erreur de génération Gemini** : ${unifiedResult.errorMessage || 'Impossible de joindre le modèle de génération.'}`,
+                  content: `**Erreur de génération ${getAiProviderInfo().label}** : ${unifiedResult.errorMessage || 'Impossible de joindre le modèle de génération.'}`,
                   timestamp: new Date().toISOString(),
                 };
                 addChatMessage(chatKey, errorMsg);
@@ -1455,7 +1456,7 @@ const AIAssistant: React.FC = () => {
               } else {
                 const errorMsg: ChatMessageWithSources = {
                   role: 'assistant',
-                  content: `**Erreur de génération Gemini** : ${unifiedResult.errorMessage || 'Impossible de joindre le modèle de génération.'}`,
+                  content: `**Erreur de génération ${getAiProviderInfo().label}** : ${unifiedResult.errorMessage || 'Impossible de joindre le modèle de génération.'}`,
                   timestamp: new Date().toISOString(),
                 };
                 addChatMessage(chatKey, errorMsg);

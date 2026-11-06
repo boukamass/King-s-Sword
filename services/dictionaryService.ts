@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { getAllGeminiApiKeys } from "../utils/apiKeyHelper";
+import { getAiFeatureKeys, createAiClient } from "./aiProviderService";
 import { fetchJsonSafe } from "../utils/fetchHelper";
 import { get as idbGet, set as idbSet } from "idb-keyval";
 
@@ -345,13 +346,13 @@ export const getDefinition = async (word: string): Promise<WordDefinition> => {
   }
 
   // 3. Si en ligne et qu'une clé API Gemini est disponible, interroger Gemini
-  const availableKeys = getAllGeminiApiKeys();
+  const availableKeys = getAiFeatureKeys();
   const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
   if (availableKeys.length > 0 && isOnline) {
     for (const currentKey of availableKeys) {
       try {
-        const ai = new GoogleGenAI({ apiKey: currentKey });
+        const ai = createAiClient(currentKey);
         const prompt = `Tu es un dictionnaire de référence de langue française (style Webster 1828 et Littré) et un lexique d'autorité biblique et théologique.
 Fournis la définition rigoureuse, noble et complète du terme suivant : "${displayWord}".
 

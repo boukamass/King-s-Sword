@@ -186,7 +186,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
             </div>
             {provider !== 'gemini' && (
               <p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-snug">
-                Les réponses de l'Assistant IA seront rédigées par {providerInfo.label}. Les fonctions annexes (définitions du dictionnaire, contexte Strong, analyse d'une sélection) utilisent toujours une clé Gemini si elle est enregistrée.
+                Les réponses de l'Assistant IA, les définitions du dictionnaire, le contexte Strong et l'analyse d'une sélection seront rédigés par {providerInfo.label}.
               </p>
             )}
           </div>

@@ -3,6 +3,7 @@ import { Sermon } from '../types';
 import { isOllamaAvailable, askOllamaChat } from './ollamaService';
 import { getGeminiApiKey } from '../utils/apiKeyHelper';
 import { classifyGeminiError } from './geminiChatService';
+import { getAiFeatureKey, createAiClient } from './aiProviderService';
 
 const callWithRetry = async (fn: () => Promise<any>, maxRetries = 1, delay = 1500) => {
   for (let i = 0; i <= maxRetries; i++) {
@@ -28,7 +29,7 @@ export const analyzeSelectionContext = async (
   currentSermon: Sermon,
   allContextSermons: Sermon[]
 ): Promise<string> => {
-  const apiKey = getGeminiApiKey();
+  const apiKey = getAiFeatureKey();
   const currentText = currentSermon?.text || '';
 
   const otherSermonsContext = allContextSermons
@@ -70,7 +71,7 @@ Chaque citation ou argument textuel DOIT obligatoirement être référencé sous
   // 1. Tenter Gemini Cloud si disponible
   if (apiKey && navigator.onLine) {
     try {
-      const ai = new GoogleGenAI({ apiKey });
+      const ai = createAiClient(apiKey);
       const response = await callWithRetry(() => ai.models.generateContent({
         model: "gemini-3.8-flash",
         contents: prompt,

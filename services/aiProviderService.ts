@@ -7,8 +7,9 @@
  * progressif, la validation des citations et le repli local restent strictement identiques.
  */
 
+import { GoogleGenAI } from '@google/genai';
 import type { GeminiCaller } from './generationAdapter';
-import { AiProviderId, extractAllApiKeys, getActiveAiProvider, getProviderApiKey } from '../utils/apiKeyHelper';
+import { AiProviderId, extractAllApiKeys, getActiveAiProvider, getProviderApiKey, getAllGeminiApiKeys, getGeminiApiKey } from '../utils/apiKeyHelper';
 
 export interface AiProviderInfo {
   id: AiProviderId;
@@ -483,4 +484,58 @@ export async function testProviderApiKey(providerId: AiProviderId, rawKey: strin
     return { success: true, message: `Connexion réussie avec ${provider.label}${multi}. Modèle utilisé : ${modelUsed}.` };
   }
   return { success: false, message: lastMessage || `Échec du test avec ${provider.label}.`, errorType: lastType };
+}
+
+// ---------------------------------------------------------------------------
+// Fonctions annexes (dictionnaire, contexte Strong, analyse d'une sélection) : même service que l'Assistant IA
+// ---------------------------------------------------------------------------
+
+/** Préfixe interne désignant le fournisseur actif à la place d'une clé Gemini (jamais transmis à un service) */
+const PROVIDER_KEY_PREFIX = 'ks-provider:';
+
+/**
+ * Clés à essayer pour une fonction annexe : le fournisseur actif s'il a une clé, sinon les clés Gemini
+ * (comportement d'origine). Chaque élément se passe tel quel à createAiClient.
+ */
+export function getAiFeatureKeys(): string[] {
+  const id = getActiveAiProvider();
+  if (id !== 'gemini' && extractAllApiKeys(getProviderApiKey(id)).length > 0) {
+    return [`${PROVIDER_KEY_PREFIX}${id}`];
+  }
+  return getAllGeminiApiKeys();
+}
+
+export interface AiModelsClient {
+  models: {
+    generateContent(params: { model: string; contents: any; config?: any }): Promise<any>;
+    generateContentStream(params: { model: string; contents: any; config?: any }): Promise<AsyncIterable<any>>;
+  };
+}
+
+/**
+ * Remplaçant de `new GoogleGenAI({ apiKey })` : une clé Gemini donne le client Google d'origine,
+ * une entrée de getAiFeatureKeys() désignant un autre fournisseur donne un client de même forme
+ * (`models.generateContent` / `models.generateContentStream`, réponse avec `.text`).
+ */
+export function createAiClient(key: string): AiModelsClient {
+  if (key && key.startsWith(PROVIDER_KEY_PREFIX)) {
+    const id = key.slice(PROVIDER_KEY_PREFIX.length) as AiProviderId;
+    const caller = createOpenAICompatibleCaller(id, extractAllApiKeys(getProviderApiKey(id)));
+    return {
+      models: {
+        generateContent: (p) => caller.generateContent({ model: p.model, contents: p.contents, config: p.config || {} }),
+        generateContentStream: (p) => caller.generateContentStream!({ model: p.model, contents: p.contents, config: p.config || {} })
+      }
+    };
+  }
+  return new GoogleGenAI({ apiKey: key }) as unknown as AiModelsClient;
+}
+
+/** Variante à clé unique : clé Gemini d'origine (getGeminiApiKey) si Gemini est actif, sinon le fournisseur actif */
+export function getAiFeatureKey(): string | undefined {
+  const id = getActiveAiProvider();
+  if (id !== 'gemini' && extractAllApiKeys(getProviderApiKey(id)).length > 0) {
+    return `${PROVIDER_KEY_PREFIX}${id}`;
+  }
+  return getGeminiApiKey();
 }

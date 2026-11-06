@@ -7,6 +7,7 @@
 
 import { getGeminiApiKey } from '../utils/apiKeyHelper';
 import { GoogleGenAI, Type } from '@google/genai';
+import { getAiFeatureKey, createAiClient } from './aiProviderService';
 import { fetchJsonSafe } from '../utils/fetchHelper';
 
 export interface OpenScripturesEntry {
@@ -515,7 +516,7 @@ export async function translateStrongBaseWithGemini(
   // 2. Base déterministe immédiate
   const deterministicCard = buildDeterministicFrenchCard(normId, baseData, frenchWordHint);
 
-  const apiKey = getGeminiApiKey();
+  const apiKey = getAiFeatureKey();
   if (!apiKey) {
     setCachedFrenchCard(normId, deterministicCard);
     return deterministicCard;
@@ -523,7 +524,7 @@ export async function translateStrongBaseWithGemini(
 
   // 3. Enrichissement via Gemini pour une traduction lexicographique française de haute volée
   try {
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = createAiClient(apiKey);
     const prompt = `Tu es lexicographe et exégète biblique de référence dans le Message du Temps de la Fin de William Branham. À partir des données fournies, rédige en français une fiche exacte pour le Strong ${normId}.
 Données : ${JSON.stringify(baseData)}
 Mot français dans le verset : "${frenchWordHint || ''}"
@@ -738,10 +739,10 @@ export async function getOrGenerateStrongMessageContext(
   } catch (e) {}
 
   // 4. Si clé Gemini disponible : synthèse théologique basée sur le corpus complet
-  const apiKey = getGeminiApiKey();
+  const apiKey = getAiFeatureKey();
   if (apiKey) {
     try {
-      const ai = new GoogleGenAI({ apiKey });
+      const ai = createAiClient(apiKey);
       const prompt = `Tu es un théologien et exégète expert du Message du Temps de la Fin prêché par William Marrion Branham.
 Examine le mot biblique suivant dans le contexte des sermons et de l'Exposé des Sept Âges de l'Église :
 - Mot : "${word}"
