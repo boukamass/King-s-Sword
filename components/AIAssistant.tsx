@@ -6,7 +6,7 @@ import { retrieveRelevantSermonPassages, formatRagContextForGemini, RetrievedPar
 import { executeAutoRagPipeline, formatEvidenceContextForGemini } from '../services/autoRagRetrievalService';
 import { generateNewRagResponse } from '../services/generationAdapter';
 import { executeUnifiedRagAssistantFlow, executeShadowUnifiedRag } from '../services/unifiedRagIntegrationService';
-import { aiConfig, isDeepStudentModeEnabled, setDeepStudentModeEnabled, isLocalOnlyModeEnabled, setLocalOnlyModeEnabled } from '../config/aiConfig';
+import { aiConfig, isLocalOnlyModeEnabled, setLocalOnlyModeEnabled } from '../config/aiConfig';
 import { getSermonById } from '../services/db';
 import { getBibleChapterSermon, getBibleBookSermon } from '../services/bibleService';
 import { BIBLE_BOOKS_META } from '../services/bibleMetadata';
@@ -374,7 +374,6 @@ const AIAssistant: React.FC = () => {
   const [hasKey, setHasKey] = useState(hasValidGeminiApiKey());
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingText, setEditingText] = useState<string>('');
-  const [deepStudentMode, setDeepStudentMode] = useState<boolean>(() => isDeepStudentModeEnabled());
   const [localOnlyMode, setLocalOnlyMode] = useState<boolean>(() => isLocalOnlyModeEnabled());
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -410,18 +409,6 @@ const AIAssistant: React.FC = () => {
       nextVal
         ? 'Mode local activé : les réponses sont composées des passages trouvés localement, sans appel à Gemini (0 token).'
         : 'Mode local désactivé : les réponses sont rédigées par Gemini à partir des passages trouvés.',
-      'info'
-    );
-  };
-
-  const handleToggleDeepStudentMode = () => {
-    const nextVal = !deepStudentMode;
-    setDeepStudentMode(nextVal);
-    setDeepStudentModeEnabled(nextVal);
-    addNotification(
-      nextVal
-        ? 'Mode Étudiant Profond activé (Expansion LLM + Rerank 0-3 + Génération 4a/4b)'
-        : 'Mode Étudiant Profond désactivé (Pipeline standard actif)',
       'info'
     );
   };
@@ -658,7 +645,7 @@ const AIAssistant: React.FC = () => {
         forceGenerate: true,
         maxEvidenceCount: 8,
         topK: 15,
-        useDeepStudentMode: deepStudentMode,
+        useDeepStudentMode: false,
         onProgress: (stepMsg) => setTypingStatus(stepMsg)
       });
 
@@ -1220,11 +1207,7 @@ const AIAssistant: React.FC = () => {
           const sermonIds = Array.from(new Set([...Array.from(sermonsMap.keys()), ...sermons.map(s => s.id)]));
           const autoRagContext = Array.from(new Set([...exposeChapters, ...sermonIds]));
 
-          setTypingStatus(
-            deepStudentMode
-              ? `[Mode Étudiant Profond 1/5] Initialisation sur ${autoRagContext.length} ressource(s)...`
-              : `Recherche unifiée dans ${autoRagContext.length} ressource(s)...`
-          );
+          setTypingStatus(`Recherche unifiée dans ${autoRagContext.length} ressource(s)...`);
 
           const unifiedResult = await executeUnifiedRagAssistantFlow(msg, autoRagContext, {
             loadedSermonsMap: sermonsMap,
@@ -1232,7 +1215,7 @@ const AIAssistant: React.FC = () => {
             maxEvidenceCount: 16,
             topK: 25,
             history: historyToUse,
-            useDeepStudentMode: deepStudentMode,
+            useDeepStudentMode: false,
             onProgress: (stepMsg) => setTypingStatus(stepMsg),
             onPartialAnswer: (markdown) => { if (!abortController.signal.aborted) handlePartialAnswer(markdown); },
             localOnly: localOnlyMode
@@ -1382,11 +1365,7 @@ const AIAssistant: React.FC = () => {
           // ==============================================================
           // PIPELINE UNIFIED RAG : AI CONTEXT -> UNIFIED RAG -> EVIDENCE -> GEMINI -> CITATION VALIDATION
           // ==============================================================
-          setTypingStatus(
-            deepStudentMode
-              ? `[Mode Étudiant Profond 1/5] Initialisation dans les ${contextSermonIds.length} ressource(s) du Dock...`
-              : `Recherche ciblée Unified RAG dans les ${contextSermonIds.length} ressource(s)...`
-          );
+          setTypingStatus(`Recherche ciblée Unified RAG dans les ${contextSermonIds.length} ressource(s)...`);
 
           const unifiedResult = await executeUnifiedRagAssistantFlow(msg, contextSermonIds, {
             loadedSermonsMap: sermonsMap,
@@ -1394,7 +1373,7 @@ const AIAssistant: React.FC = () => {
             maxEvidenceCount: 16,
             topK: 25,
             history: historyToUse,
-            useDeepStudentMode: deepStudentMode,
+            useDeepStudentMode: false,
             onProgress: (stepMsg) => setTypingStatus(stepMsg),
             onPartialAnswer: (markdown) => { if (!abortController.signal.aborted) handlePartialAnswer(markdown); },
             localOnly: localOnlyMode
@@ -1919,20 +1898,6 @@ const AIAssistant: React.FC = () => {
           >
             <Layers className="w-3.5 h-3.5 text-amber-600" />
             <span>Dock IA ({contextSermonIds.length})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleToggleDeepStudentMode}
-            className={`flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer border ${
-              deepStudentMode
-                ? 'bg-teal-600 text-white border-teal-500 shadow-sm'
-                : 'bg-white/60 dark:bg-zinc-900/60 text-zinc-500 dark:text-zinc-400 border-transparent hover:text-zinc-800 dark:hover:text-zinc-200'
-            }`}
-            data-tooltip="Mode Étudiant Profond (Expansion LLM 5-8 sous-requêtes + Rerank 0-3 + Génération en 2 temps 4a/4b). Désactivé par défaut."
-          >
-            <BookOpen className="w-3.5 h-3.5" />
-            <span>Étude Profonde {deepStudentMode ? 'ON' : 'OFF'}</span>
           </button>
 
           <button
