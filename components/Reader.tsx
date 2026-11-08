@@ -82,7 +82,7 @@ import {
 import SongModal from './SongModal';
 import { useModalActive } from '../utils/modalUtils';
 import { BIBLE_VERSIONS_META } from '../types/bible';
-import { STRONG_LEXICON, findBibleOccurrences, getOrGenerateStrongEntry, asyncGetOrGenerateStrongEntry, lookupStrongNumber, getChapterVerseStrongs, getVersionChapterStrongs } from '../services/bibleExegesisService';
+import { STRONG_LEXICON, findBibleOccurrences, getOrGenerateStrongEntry, asyncGetOrGenerateStrongEntry, lookupStrongNumber, getChapterVerseStrongs, getVersionChapterStrongs, getStrongLsgTranslations, findBibleOccurrencesByTranslation, StrongLsgTranslation } from '../services/bibleExegesisService';
 import { alignVerseStrongs } from '../utils/strongAlignment';
 import { findSermonOccurrencesForStrong, getOrGenerateStrongMessageContext } from '../services/strongLexiconService';
 import { 
@@ -602,6 +602,38 @@ const Reader: React.FC = () => {
   const [activeDefinition, setActiveDefinition] = useState<WordDefinition | null>(null);
   const [showStrongs, setShowStrongs] = useState(false);
   const [selectedStrongInfo, setSelectedStrongInfo] = useState<{ strongNum: string; wordText: string } | null>(null);
+  // Strong actuellement ouvert (évite d'afficher le résultat d'une recherche lancée pour un Strong précédent)
+  const selectedStrongInfoRef = useRef(selectedStrongInfo);
+  selectedStrongInfoRef.current = selectedStrongInfo;
+  const activeStrongTranslationRef = useRef<string | null>(null);
+
+  // Clic sur une traduction LSG : filtre « Occurrences dans l'Écriture » sur cette traduction (nouveau clic = toutes)
+  const handleSelectStrongTranslation = useCallback((translation: StrongLsgTranslation | null) => {
+    const strongNum = selectedStrongInfoRef.current?.strongNum;
+    if (!translation || !strongNum || activeStrongTranslationRef.current === translation.key) {
+      activeStrongTranslationRef.current = null;
+      setActiveStrongTranslation(null);
+      setFilteredStrongOccurrences([]);
+      setIsLoadingFilteredOccurrences(false);
+      return;
+    }
+    activeStrongTranslationRef.current = translation.key;
+    setActiveStrongTranslation(translation);
+    setFilteredStrongOccurrences([]);
+    setIsLoadingFilteredOccurrences(true);
+    findBibleOccurrencesByTranslation(strongNum, translation.key, useAppStore.getState().bibleVersion)
+      .then(results => {
+        if (activeStrongTranslationRef.current === translation.key && selectedStrongInfoRef.current?.strongNum === strongNum) {
+          setFilteredStrongOccurrences(results);
+        }
+      })
+      .catch(() => {
+        if (activeStrongTranslationRef.current === translation.key) setFilteredStrongOccurrences([]);
+      })
+      .finally(() => {
+        if (activeStrongTranslationRef.current === translation.key) setIsLoadingFilteredOccurrences(false);
+      });
+  }, []);
   const selectedStrongNumber = selectedStrongInfo?.strongNum || null;
 
   const setSelectedStrongNumber = useCallback((val: string | { strongNum: string; wordText: string } | null, maybeWordText?: string) => {
@@ -616,6 +648,11 @@ const Reader: React.FC = () => {
 
   const [strongOccurrences, setStrongOccurrences] = useState<Array<{ bookId: string; bookName: string; chapter: number; verse: number; text: string }>>([]);
   const [isLoadingOccurrences, setIsLoadingOccurrences] = useState(false);
+  // Traductions LSG réelles du Strong (cliquables) et filtre actif des occurrences
+  const [strongTranslations, setStrongTranslations] = useState<StrongLsgTranslation[]>([]);
+  const [activeStrongTranslation, setActiveStrongTranslation] = useState<StrongLsgTranslation | null>(null);
+  const [filteredStrongOccurrences, setFilteredStrongOccurrences] = useState<Array<{ bookId: string; bookName: string; chapter: number; verse: number; text: string; matchedWord?: string }>>([]);
+  const [isLoadingFilteredOccurrences, setIsLoadingFilteredOccurrences] = useState(false);
   const [strongSermonOccurrences, setStrongSermonOccurrences] = useState<Array<{ sermonId: string; title: string; date: string; snippet: string; isExpose: boolean }>>([]);
   const [isLoadingSermonOccurrences, setIsLoadingSermonOccurrences] = useState(false);
   const [isSelectingNoteForStrong, setIsSelectingNoteForStrong] = useState(false);
@@ -687,6 +724,19 @@ const Reader: React.FC = () => {
       setCurrentStrongEntry(null);
       setIsSelectingNoteForStrong(false);
       setStrongNoteSearch('');
+      setStrongTranslations([]);
+      activeStrongTranslationRef.current = null;
+      setActiveStrongTranslation(null);
+      setFilteredStrongOccurrences([]);
+      setIsLoadingFilteredOccurrences(false);
+
+      // Traductions réelles dans la LSG (calculées hors ligne depuis l'index Strong)
+      const translationsFor = selectedStrongInfo.strongNum;
+      getStrongLsgTranslations(translationsFor)
+        .then(list => {
+          if (selectedStrongInfoRef.current?.strongNum === translationsFor) setStrongTranslations(list);
+        })
+        .catch(() => {});
 
       const parts = sermon?.id?.split('-');
       const bookId = parts?.[1]?.toUpperCase() || '';
@@ -2829,7 +2879,7 @@ const Reader: React.FC = () => {
               ) : (
                 <div className="flex-1 px-5 sm:px-6 py-5 overflow-y-auto custom-scrollbar space-y-4 bg-white dark:bg-zinc-900">
                 {/* Grammatical & Etymological Strong Details */}
-                {(entry.partOfSpeech || entry.etymology || entry.translationsLSG || entry.occurrencesCount) && (
+                {(entry.partOfSpeech || entry.etymology || entry.translationsLSG || strongTranslations.length > 0 || entry.occurrencesCount) && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs bg-slate-50/90 dark:bg-zinc-950/70 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-3.5 shadow-2xs">
                     {entry.partOfSpeech && (
                       <div className="flex flex-col">
@@ -2843,12 +2893,38 @@ const Reader: React.FC = () => {
                         <span className="text-zinc-800 dark:text-zinc-200 font-medium leading-normal mt-0.5">{entry.etymology}</span>
                       </div>
                     )}
-                    {entry.translationsLSG && (
+                    {strongTranslations.length > 0 ? (
+                      <div className="flex flex-col sm:col-span-2 border-t border-slate-200/60 dark:border-zinc-800/60 pt-2 mt-0.5">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400">Traductions Bibliques (LSG)</span>
+                        <span className="text-zinc-800 dark:text-zinc-200 font-medium leading-relaxed mt-0.5">
+                          {strongTranslations.map((t, i) => {
+                            const isActive = activeStrongTranslation?.key === t.key;
+                            return (
+                              <React.Fragment key={t.key}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSelectStrongTranslation(t)}
+                                  className={`inline cursor-pointer rounded px-0.5 underline underline-offset-2 transition-colors ${
+                                    isActive
+                                      ? 'bg-teal-600 text-white no-underline font-semibold'
+                                      : 'text-teal-700 dark:text-teal-300 decoration-teal-500/40 hover:text-teal-900 dark:hover:text-teal-100 hover:decoration-teal-600'
+                                  }`}
+                                  title={isActive ? "Afficher toutes les occurrences" : `Afficher les versets où ce mot est traduit « ${t.term} »`}
+                                >
+                                  {t.term} ({t.count}x)
+                                </button>
+                                {i < strongTranslations.length - 1 && <span className="text-zinc-400">, </span>}
+                              </React.Fragment>
+                            );
+                          })}
+                        </span>
+                      </div>
+                    ) : entry.translationsLSG ? (
                       <div className="flex flex-col sm:col-span-2 border-t border-slate-200/60 dark:border-zinc-800/60 pt-2 mt-0.5">
                         <span className="text-xs font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400">Traductions Bibliques (LSG)</span>
                         <span className="text-zinc-800 dark:text-zinc-200 font-medium leading-normal mt-0.5">{entry.translationsLSG}</span>
                       </div>
-                    )}
+                    ) : null}
                     {entry.occurrencesCount && (
                       <div className="flex flex-col sm:col-span-2 border-t border-slate-200/60 dark:border-zinc-800/60 pt-2 mt-0.5">
                         <span className="text-xs font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400">Fréquence d'apparition</span>
@@ -2966,18 +3042,32 @@ const Reader: React.FC = () => {
                   <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                     <div className="flex items-center gap-1.5">
                       <BookOpen className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
-                      <span>Occurrences dans l'Écriture ({strongOccurrences.length})</span>
+                      <span>
+                        Occurrences dans l'Écriture
+                        {activeStrongTranslation && <span className="normal-case text-teal-700 dark:text-teal-300"> — « {activeStrongTranslation.term} »</span>}
+                        {' '}({activeStrongTranslation ? filteredStrongOccurrences.length : strongOccurrences.length})
+                      </span>
                     </div>
+                    {activeStrongTranslation && (
+                      <button
+                        type="button"
+                        onClick={() => handleSelectStrongTranslation(null)}
+                        className="text-xs font-semibold normal-case text-teal-600 dark:text-teal-400 hover:underline cursor-pointer"
+                        title="Afficher toutes les occurrences"
+                      >
+                        Toutes
+                      </button>
+                    )}
                   </div>
-                  
-                  {isLoadingOccurrences ? (
+
+                  {(activeStrongTranslation ? isLoadingFilteredOccurrences : isLoadingOccurrences) ? (
                     <div className="flex items-center justify-center py-8 gap-2 text-zinc-400 bg-slate-50/50 dark:bg-zinc-950/20 border border-dashed border-slate-200 dark:border-zinc-800 rounded-2xl">
                       <Loader2 className="w-4 h-4 animate-spin text-teal-600" />
                       <span className="text-xs font-medium">Recherche des occurrences en cours...</span>
                     </div>
-                  ) : strongOccurrences.length > 0 ? (
+                  ) : (activeStrongTranslation ? filteredStrongOccurrences : strongOccurrences).length > 0 ? (
                     <div className="max-h-60 overflow-y-auto custom-scrollbar border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl divide-y divide-slate-100 dark:divide-zinc-850 bg-slate-50/30 dark:bg-zinc-950/40">
-                      {strongOccurrences.map((occ, idx) => {
+                      {(activeStrongTranslation ? filteredStrongOccurrences : strongOccurrences).map((occ, idx) => {
                         // Highlighting logic for target word in orange
                         const highlightOccText = (text: string, searchWord: string) => {
                           if (!searchWord) return text;
@@ -3035,7 +3125,7 @@ const Reader: React.FC = () => {
                               </span>
                             </div>
                             <p className="text-xs sm:text-sm leading-relaxed text-zinc-600 dark:text-zinc-300 font-normal italic">
-                              {highlightOccText(occ.text, entry.word)}
+                              {highlightOccText(occ.text, activeStrongTranslation ? activeStrongTranslation.term : entry.word)}
                             </p>
                           </div>
                         );

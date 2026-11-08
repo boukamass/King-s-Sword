@@ -1419,6 +1419,125 @@ export async function getVersionChapterStrongs(
   return verses ? { verses, forms } : null;
 }
 
+// --- Traductions LSG réelles d'un Strong (calculées depuis l'index certifié Louis Segond, hors ligne) ---
+export interface StrongLsgTranslation {
+  term: string;   // forme affichée (ex. « foi »)
+  key: string;    // clé normalisée (minuscules, sans élision)
+  count: number;  // nombre d'emplois dans la LSG
+}
+interface StrongTranslationRefs {
+  translations: StrongLsgTranslation[];
+  refs: Map<string, Array<{ bookId: string; chapter: number; verse: number; word: string }>>;
+}
+const strongTranslationCache = new Map<string, StrongTranslationRefs>();
+
+/** Normalise un mot LSG pour regrouper ses emplois : minuscules, sans article élidé ni ponctuation */
+const translationKey = (word: string): string =>
+  (word || '')
+    .trim()
+    .replace(/^(?:l|d|qu|s|n|j|m|t|c|jusqu|lorsqu|puisqu)['’]/i, '')
+    .replace(/[^\p{L}\p{N}\- ]/gu, '')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase();
+
+async function getStrongTranslationRefs(strongNum: string): Promise<StrongTranslationRefs | null> {
+  const normStrong = normalizeStrongId(strongNum);
+  if (!normStrong) return null;
+  const cached = strongTranslationCache.get(normStrong);
+  if (cached) return cached;
+
+  const index = await loadBibleStrongIndex();
+  if (!index) return null;
+
+  const counts = new Map<string, number>();
+  const displayForms = new Map<string, Map<string, number>>();
+  const refs = new Map<string, Array<{ bookId: string; chapter: number; verse: number; word: string }>>();
+
+  for (const [bookId, chapters] of Object.entries(index)) {
+    for (const [chStr, verses] of Object.entries(chapters)) {
+      for (const [vsStr, pairs] of Object.entries(verses)) {
+        const seenInVerse = new Set<string>();
+        for (const [word, strong] of pairs) {
+          if (strong !== normStrong) continue;
+          const key = translationKey(word);
+          if (!key) continue;
+          counts.set(key, (counts.get(key) || 0) + 1);
+          // Forme affichée : la graphie la plus fréquente (ex. « Esprit » / « esprit » regroupés)
+          const display = word.trim().replace(/^(?:l|d|qu|s|n|j|m|t|c|jusqu|lorsqu|puisqu)['’]/i, '').replace(/[^\p{L}\p{N}\- ]/gu, '');
+          let forms = displayForms.get(key);
+          if (!forms) displayForms.set(key, (forms = new Map()));
+          forms.set(display, (forms.get(display) || 0) + 1);
+          if (!seenInVerse.has(key)) {
+            seenInVerse.add(key);
+            let list = refs.get(key);
+            if (!list) refs.set(key, (list = []));
+            list.push({ bookId, chapter: parseInt(chStr, 10), verse: parseInt(vsStr, 10), word: word.trim() });
+          }
+        }
+      }
+    }
+  }
+
+  const translations: StrongLsgTranslation[] = [...counts.entries()]
+    .map(([key, count]) => {
+      const forms = displayForms.get(key)!;
+      const term = [...forms.entries()].sort((a, b) => b[1] - a[1])[0][0];
+      return { term, key, count };
+    })
+    .sort((a, b) => b.count - a.count || a.term.localeCompare(b.term, 'fr'));
+
+  const result = { translations, refs };
+  strongTranslationCache.set(normStrong, result);
+  return result;
+}
+
+/**
+ * Retourne les traductions réelles d'un numéro Strong dans la Bible Louis Segond 1910
+ * (mots français et nombre d'emplois), triées de la plus fréquente à la moins fréquente.
+ */
+export async function getStrongLsgTranslations(strongNum: string): Promise<StrongLsgTranslation[]> {
+  try {
+    const data = await getStrongTranslationRefs(strongNum);
+    return data ? data.translations : [];
+  } catch (e) {
+    console.warn('[BibleExegesis] Erreur calcul des traductions LSG :', e);
+    return [];
+  }
+}
+
+/**
+ * Retourne tous les versets où le numéro Strong est traduit par `translationKeyOrTerm` dans la LSG
+ * (sans limite de nombre). Le texte affiché est celui de la version consultée.
+ */
+export async function findBibleOccurrencesByTranslation(
+  strongNum: string,
+  translationKeyOrTerm: string,
+  version: string = 'lsg1910'
+): Promise<Array<{ bookId: string; bookName: string; chapter: number; verse: number; text: string; matchedWord?: string }>> {
+  try {
+    const data = await getStrongTranslationRefs(strongNum);
+    if (!data) return [];
+    const list = data.refs.get(translationKey(translationKeyOrTerm)) || [];
+    const { ensureFullBibleLoaded } = await import('./bibleService');
+    const bibleData = await ensureFullBibleLoaded(version as any);
+    return list.map(ref => {
+      const bookMeta = BIBLE_BOOKS_META.find(b => b.id.toUpperCase() === ref.bookId.toUpperCase());
+      const verseObj = bibleData?.[ref.bookId]?.[ref.chapter]?.find((v: { verse: number; text: string }) => v.verse === ref.verse);
+      return {
+        bookId: ref.bookId,
+        bookName: bookMeta ? bookMeta.name : ref.bookId,
+        chapter: ref.chapter,
+        verse: ref.verse,
+        text: verseObj ? verseObj.text : '',
+        matchedWord: ref.word
+      };
+    });
+  } catch (err) {
+    console.warn('Erreur recherche occurrences par traduction :', err);
+    return [];
+  }
+}
+
 /**
  * Recherche toutes les occurrences bibliques authentiques du mot ou Strong étudié à travers la Bible.
  */
