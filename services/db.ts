@@ -232,6 +232,65 @@ const webSearchFallback = async (params: {
   return results.slice(params.offset, params.offset + params.limit);
 };
 
+/**
+ * Construit les extraits surlignés des résultats SQLite (même présentation que la recherche web :
+ * fenêtre autour du premier terme trouvé, surlignage du terme et des synonymes).
+ */
+const createSermonSnippetBuilder = (params: {
+  query: string;
+  mode: SearchMode;
+  synonyms?: string[];
+  selectedSynonym?: string | null;
+  showOnlySynonyms?: boolean;
+  showOnlyQuery?: boolean;
+}) => {
+  const markBase = "font-black px-1 rounded-sm underline decoration-[3.5px] underline-offset-4 shadow-sm";
+  const markClass = `${markBase} bg-amber-500 text-white dark:bg-amber-600 decoration-amber-200`;
+  const synonymMarkClass = `${markBase} bg-teal-600 text-white dark:bg-teal-700 decoration-teal-200`;
+  let termsForHighlight: string[];
+  if (params.selectedSynonym) termsForHighlight = [params.selectedSynonym];
+  else if (params.synonyms && params.synonyms.length > 0) {
+    if (params.showOnlySynonyms) termsForHighlight = params.synonyms;
+    else if (params.showOnlyQuery) termsForHighlight = [params.query];
+    else termsForHighlight = [params.query, ...params.synonyms];
+  } else termsForHighlight = [params.query];
+  const isExactPhrase = params.mode === SearchMode.EXACT_PHRASE && (!params.synonyms || params.synonyms.length === 0 || params.showOnlyQuery);
+  const highlightRegex = getSearchHighlightRegex(termsForHighlight, isExactPhrase);
+  const synonymWords = (params.synonyms && !params.showOnlyQuery) ? params.synonyms.map(s => normalizeText(s)).filter(w => w.length > 0) : [];
+  const normalizedSelected = params.selectedSynonym ? normalizeText(params.selectedSynonym) : '';
+
+  return (rawContent: string): string => {
+    const content = (rawContent || '').trim();
+    if (!content) return '';
+    let snippetContent = content;
+    highlightRegex.lastIndex = 0;
+    const matchExec = highlightRegex.exec(content);
+    if (matchExec) {
+      const matchPos = matchExec.index;
+      const windowStart = Math.max(0, matchPos - 60);
+      const windowEnd = Math.min(content.length, matchPos + 380);
+      snippetContent = content.substring(windowStart, windowEnd);
+      if (windowStart > 0) snippetContent = '...' + snippetContent;
+      if (windowEnd < content.length) snippetContent = snippetContent + '...';
+    } else if (content.length > 440) {
+      snippetContent = content.substring(0, 440) + '...';
+    }
+    highlightRegex.lastIndex = 0;
+    return mergeAdjacentMarks(
+      snippetContent.replace(highlightRegex, (m) => {
+        if (!normalizedSelected && synonymWords.length === 0) return `<mark class="${markClass}">${m}</mark>`;
+        const normalizedMatch = normalizeText(m);
+        const isSpecificSynonymMatch = normalizedSelected && normalizedMatch.includes(normalizedSelected);
+        const isGeneralSynonymMatch = synonymWords.some(sw => normalizedMatch.includes(sw));
+        if (isSpecificSynonymMatch || (isGeneralSynonymMatch && !params.showOnlyQuery)) {
+          return `<mark class="${synonymMarkClass}">${m}</mark>`;
+        }
+        return `<mark class="${markClass}">${m}</mark>`;
+      })
+    );
+  };
+};
+
 export const searchSermons = async (params: { query: string; mode: SearchMode; limit: number; offset: number }): Promise<any[]> => {
   const store = useAppStore.getState();
   const isSqliteAvailable = store.isSqliteAvailable;
@@ -271,9 +330,10 @@ export const searchSermons = async (params: { query: string; mode: SearchMode; l
     try {
       const results = await window.electronAPI.db.search(searchParams);
       if (results) {
+        const buildSnippet = createSermonSnippetBuilder(searchParams);
         return results.map((r: any) => ({
           ...r,
-          snippet: mergeAdjacentMarks(r.snippet || '')
+          snippet: r.snippet ? mergeAdjacentMarks(r.snippet) : buildSnippet(r.content || '')
         }));
       }
     } catch (error) {

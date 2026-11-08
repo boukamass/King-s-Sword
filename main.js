@@ -97,6 +97,70 @@ function decryptSecret(cipherText) {
   return cipherText;
 }
 
+// Vrai lorsque l'index plein texte des sermons est rangé par date (rowid croissant = date croissante) :
+// la recherche lit alors directement les plus récents sans trier tous les résultats.
+let ftsDateOrdered = false;
+
+let ftsRebuildGeneration = 0; // incrémenté pour interrompre une reconstruction en cours (ex. nouvel import)
+
+const FTS_CREATE_SQL = (name) => `CREATE VIRTUAL TABLE ${name} USING fts5(
+        content,
+        sermon_id UNINDEXED,
+        paragraph_index UNINDEXED,
+        tokenize = 'unicode61 remove_diacritics 1'
+      )`;
+
+const markFtsDateOrdered = () => {
+  db.prepare("INSERT OR REPLACE INTO key_value_store (key, value, updated_at) VALUES ('fts_date_ordered', '1', ?)").run(new Date().toISOString());
+};
+
+/**
+ * Reconstruit en tâche de fond, sur une base existante, l'index plein texte des paragraphes dans l'ordre
+ * des dates (sermons les plus anciens d'abord, paragraphes en ordre inverse au sein d'un sermon) : lu par
+ * rowid décroissant, il donne les sermons du plus récent au plus ancien, chacun dans l'ordre de ses
+ * paragraphes. Les textes (table paragraphs) ne sont pas touchés. Construction dans une nouvelle table,
+ * par petits lots (l'application reste utilisable), puis échange ; l'ancien index est supprimé à la fermeture.
+ */
+async function rebuildParagraphsFtsInDateOrder() {
+  if (!db) return;
+  const generation = ++ftsRebuildGeneration;
+  const startedAt = Date.now();
+  db.exec('DROP TABLE IF EXISTS paragraphs_fts_new');
+  db.exec(FTS_CREATE_SQL('paragraphs_fts_new'));
+  const sermonIds = db.prepare('SELECT id FROM sermons ORDER BY date ASC, id ASC').pluck().all();
+  const selectParagraphs = db.prepare('SELECT content, paragraph_index FROM paragraphs WHERE sermon_id = ? ORDER BY paragraph_index DESC');
+  const insertNew = db.prepare('INSERT INTO paragraphs_fts_new (content, sermon_id, paragraph_index) VALUES (?, ?, ?)');
+  const insertBatch = db.transaction((ids) => {
+    for (const sid of ids) for (const p of selectParagraphs.all(sid)) insertNew.run(p.content, sid, p.paragraph_index);
+  });
+  for (let i = 0; i < sermonIds.length; i += 25) {
+    if (generation !== ftsRebuildGeneration || !db) return; // interrompue (import, fermeture)
+    insertBatch(sermonIds.slice(i, i + 25));
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  if (generation !== ftsRebuildGeneration || !db) return;
+  db.transaction(() => {
+    db.exec('DROP TABLE IF EXISTS paragraphs_fts_old');
+    db.exec('ALTER TABLE paragraphs_fts RENAME TO paragraphs_fts_old');
+    db.exec('ALTER TABLE paragraphs_fts_new RENAME TO paragraphs_fts');
+    markFtsDateOrdered();
+  })();
+  ftsDateOrdered = true;
+  console.log(`[DB] Index de recherche des sermons rangé par date en ${Date.now() - startedAt} ms (${sermonIds.length} sermons)`);
+}
+
+/** Suppression de l'ancien index de recherche laissé par la reconstruction (appelée à la fermeture) */
+function dropOldParagraphsFts() {
+  if (!db) return;
+  try {
+    const exists = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'paragraphs_fts_old'").get();
+    if (exists) db.exec('DROP TABLE paragraphs_fts_old');
+    db.exec('DROP TABLE IF EXISTS paragraphs_fts_new'); // reconstruction interrompue
+  } catch (e) {
+    console.warn('[DB] Suppression de l\'ancien index de recherche impossible :', e.message);
+  }
+}
+
 function initDatabase() {
   if (!Database) {
     console.error('[DB] Initialisation avortée: Le module better-sqlite3 n\'est pas disponible.');
@@ -223,6 +287,23 @@ function initDatabase() {
       db.exec('ALTER TABLE citations ADD COLUMN sermon_version_snapshot TEXT');
     }
 
+    // Index de recherche des sermons rangé par date : reconstruit une seule fois sur une base existante
+    // (les textes des paragraphes ne sont pas touchés, seul l'index de recherche dérivé est refait)
+    try {
+      const marker = db.prepare("SELECT value FROM key_value_store WHERE key = 'fts_date_ordered'").get();
+      ftsDateOrdered = Boolean(marker && marker.value === '1');
+      const hasParagraphs = db.prepare('SELECT 1 FROM paragraphs LIMIT 1').get();
+      if (!ftsDateOrdered && hasParagraphs) {
+        setTimeout(() => {
+          rebuildParagraphsFtsInDateOrder().catch(rebuildErr => {
+            console.error('[DB] Reconstruction de l\'index de recherche impossible :', rebuildErr.message);
+          });
+        }, 5000);
+      }
+    } catch (markerErr) {
+      console.warn('[DB] Lecture du repère d\'index de recherche impossible :', markerErr.message);
+    }
+
   } catch (err) {
     console.error(`[DB] Erreur fatale initialisation base de données: ${err.message}`);
     db = null;
@@ -312,13 +393,10 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0, synon
   const safeOffset = Number(offset) || 0;
 
   try {
-    // Classes CSS unifiées pour l'élégance et la visibilité (Style Ultra-Black)
-    const markBase = "font-black px-1 rounded-sm underline decoration-[3.5px] underline-offset-4 shadow-sm";
-    const highlightOpen = `<mark class="${markBase} bg-amber-500 text-white dark:bg-amber-600 decoration-amber-200">`;
-    const highlightClose = '</mark>';
-    
+    // Les extraits surlignés sont construits par l'interface pour les seuls résultats affichés
+    // (les calculer ici pour tous les paragraphes trouvés prenait plusieurs secondes sur les mots fréquents)
     let filterClauses = '';
-    const queryParams = [highlightOpen, highlightClose, ftsQuery];
+    const queryParams = [ftsQuery];
 
     const toArr = (v) => Array.isArray(v) ? v.filter(Boolean) : (v ? [v] : []);
 
@@ -353,34 +431,28 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0, synon
 
     queryParams.push(safeLimit, safeOffset);
 
+    // Index rangé par date : lecture directe des plus récents (rowid décroissant), arrêt à la limite.
+    // Sinon (reconstruction pas encore faite) : tri par date comme auparavant.
+    const orderClause = ftsDateOrdered ? 'ORDER BY f.rowid DESC' : 'ORDER BY s.date DESC';
     const sql = `
-      SELECT 
-        f.rowid as paragraphId, 
-        f.sermon_id as sermonId, 
-        f.paragraph_index as paragraphIndex, 
+      SELECT
+        f.rowid as paragraphId,
+        f.sermon_id as sermonId,
+        f.paragraph_index as paragraphIndex,
         f.content as content,
-        snippet(paragraphs_fts, 0, ?, ?, '...', 64) as snippet,
         s.title, s.date, s.city, s.audio_url
       FROM paragraphs_fts f
       INNER JOIN sermons s ON f.sermon_id = s.id
-      WHERE paragraphs_fts MATCH ? 
+      WHERE paragraphs_fts MATCH ?
       ${filterClauses}
-      ORDER BY s.date DESC
+      ${orderClause}
       LIMIT ? OFFSET ?
     `;
-    
+
     const searchStartedAt = Date.now();
     const rows = db.prepare(sql).all(...queryParams);
-    console.log(`[DB] Recherche « ${ftsQuery} » : ${rows.length} résultat(s) en ${Date.now() - searchStartedAt} ms`);
-    return rows.map(r => {
-      let snippet = r.snippet || '';
-      let prev = '';
-      while (snippet !== prev) {
-        prev = snippet;
-        snippet = snippet.replace(/<\/mark>([\s.,;:!–?\"“”'()\n\r]*?)<mark[^>]*>/gi, '$1');
-      }
-      return { ...r, snippet };
-    });
+    console.log(`[DB] Recherche « ${ftsQuery} » (${safeOffset}+${safeLimit}) : ${rows.length} résultat(s) en ${Date.now() - searchStartedAt} ms`);
+    return rows.map(r => ({ ...r, snippet: '' }));
   } catch (e) {
     console.error("[DB] Erreur SQL lors de la recherche intégrale:", e.message);
     return [];
@@ -391,6 +463,8 @@ ipcMain.handle('db:importSermons', (event, sermons) => {
   if (!db) return { success: false, error: "Base de données non initialisée (Problème de bindings SQLite)" };
   
   try {
+    // Un éventuel rangement de l'index en tâche de fond est interrompu : l'import le refait directement
+    ftsRebuildGeneration++;
     const transaction = db.transaction((data) => {
       db.prepare('DELETE FROM paragraphs_fts').run();
       db.prepare('DELETE FROM paragraphs').run();
@@ -399,12 +473,19 @@ ipcMain.handle('db:importSermons', (event, sermons) => {
       const insS = db.prepare('INSERT OR REPLACE INTO sermons (id, title, date, city, version, time, audio_url) VALUES (?, ?, ?, ?, ?, ?, ?)');
       const insP = db.prepare('INSERT INTO paragraphs (sermon_id, paragraph_index, content) VALUES (?, ?, ?)');
       const insFTS = db.prepare('INSERT INTO paragraphs_fts (content, sermon_id, paragraph_index) VALUES (?, ?, ?)');
-      
+
+      // Sermons rangés par date (puis identifiant) : l'index de recherche est écrit dans l'ordre des dates,
+      // ce qui permet de lire directement les résultats les plus récents (tri stable : l'ordre du fichier
+      // est conservé à date et identifiant égaux, donc le même doublon est retenu qu'auparavant)
+      const prepared = data.map(s => {
+        const baseId = s.id || `gen-${Math.random().toString(36).substr(2, 9)}`;
+        return { s, sId: s.version ? `${baseId}-${s.version}` : baseId, date: s.date || '0000-00-00' };
+      });
+      prepared.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (a.sId < b.sId ? -1 : a.sId > b.sId ? 1 : 0)));
+
       // Ignore les doublons id+version de library.json (sinon leurs paragraphes seraient insérés deux fois)
       const seenIds = new Set();
-      for (const s of data) {
-        const baseId = s.id || `gen-${Math.random().toString(36).substr(2, 9)}`;
-        const sId = s.version ? `${baseId}-${s.version}` : baseId;
+      for (const { s, sId } of prepared) {
         if (seenIds.has(sId)) continue;
         seenIds.add(sId);
         const sText = s.text || "...";
@@ -420,17 +501,22 @@ ipcMain.handle('db:importSermons', (event, sermons) => {
         );
         
         const segments = sText.split(/\n\s*\n/);
+        const kept = [];
         segments.forEach((p, i) => {
           const content = p.trim();
           if (content) {
             insP.run(sId, i + 1, content);
-            insFTS.run(content, sId, i + 1);
+            kept.push([content, i + 1]);
           }
         });
+        // Paragraphes indexés en ordre inverse : lus par rowid décroissant, ils reviennent dans l'ordre
+        for (let k = kept.length - 1; k >= 0; k--) insFTS.run(kept[k][0], sId, kept[k][1]);
       }
+      markFtsDateOrdered();
     });
 
     transaction(sermons);
+    ftsDateOrdered = true;
     return { success: true, count: sermons.length };
   } catch (e) {
     console.error(`[DB] Erreur fatale importation: ${e.message}`);
@@ -1354,6 +1440,9 @@ app.on('ready', () => {
 
 app.on('before-quit', () => {
   if (db) {
+    // Interrompt un rangement d'index en cours et supprime l'ancien index laissé par la reconstruction
+    ftsRebuildGeneration++;
+    dropOldParagraphsFts();
     try {
       db.pragma('wal_checkpoint(TRUNCATE)');
       db.close();

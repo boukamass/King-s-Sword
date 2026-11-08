@@ -269,6 +269,9 @@ interface AppState {
 
 const SESSION_STORAGE_KEY = 'kings_sword_app_session_v2';
 
+// Recherche dans les sermons (base SQLite) : nombre de résultats affichés immédiatement, la suite arrive ensuite
+const FIRST_SERMON_RESULTS_PAGE = 500;
+
 interface SavedAppSession {
   libraryMode?: LibraryMode;
   selectedSermonId?: string | null;
@@ -1025,10 +1028,12 @@ export const useAppStore = create<AppState>((set, get) => ({
         const results = await searchSermons({
           query: searchQuery,
           mode: searchMode,
-          limit: 10000,
+          // Base SQLite (application installée) : les 500 premiers résultats s'affichent tout de suite,
+          // la suite (jusqu'à 10 000) est chargée juste après en arrière-plan
+          limit: (typeof window !== 'undefined' && (window as any).electronAPI && get().isSqliteAvailable) ? FIRST_SERMON_RESULTS_PAGE : 10000,
           offset: 0
         });
-        
+
         set(state => ({
           searchResults: results,
           isSearching: false,
@@ -1040,7 +1045,32 @@ export const useAppStore = create<AppState>((set, get) => ({
             }
           }
         }));
-        
+
+        // Suite des résultats, ajoutée si la recherche affichée est toujours la même
+        if (results.length === FIRST_SERMON_RESULTS_PAGE && (window as any).electronAPI && get().isSqliteAvailable) {
+          const launchedQuery = searchQuery;
+          const launchedMode = searchMode;
+          const launchedFirst = results;
+          searchSermons({ query: launchedQuery, mode: launchedMode, limit: 10000 - FIRST_SERMON_RESULTS_PAGE, offset: FIRST_SERMON_RESULTS_PAGE })
+            .then(more => {
+              const s = get();
+              if (!more || more.length === 0) return;
+              if (s.libraryMode !== 'sermons' || s.searchQuery !== launchedQuery || s.searchMode !== launchedMode || s.searchResults !== launchedFirst) return;
+              const all = [...launchedFirst, ...more];
+              set(state => ({
+                searchResults: all,
+                sourceSearchStates: {
+                  ...state.sourceSearchStates,
+                  sermons: {
+                    ...(state.sourceSearchStates?.sermons as any),
+                    searchResults: all
+                  }
+                }
+              }));
+            })
+            .catch(err => console.warn('[Recherche] Suite des résultats indisponible :', err));
+        }
+
         if (results.length > 0) {
           const first = results[0];
           get().setSelectedSearchParagraphId(first.paragraphId);
