@@ -301,7 +301,7 @@ const resolveEntry = (
   return null;
 };
 
-// --- Recherche strictement hors ligne (fenêtre Dictionnaire Webster) : jamais d'IA ni d'internet ---
+// --- Recherche strictement hors ligne (fenêtre Dictionnaire français) : jamais d'IA ni d'internet ---
 let sortedOfflineKeys: string[] | null = null;
 
 /**
@@ -347,7 +347,7 @@ export const getOfflineDefinition = async (word: string): Promise<WordDefinition
     definition: resolved.entry.d,
     synonyms: resolved.entry.s && resolved.entry.s.length > 0 ? resolved.entry.s : [],
     etymology: resolved.entry.e || undefined,
-    source: "Dictionnaire Webster & Français (hors ligne)",
+    source: "Dictionnaire français (hors ligne)",
     grammarNote: resolved.grammarNote
   };
 };
@@ -388,7 +388,7 @@ export const getDefinition = async (word: string): Promise<WordDefinition> => {
         definition: resolved.entry.d,
         synonyms: resolved.entry.s && resolved.entry.s.length > 0 ? resolved.entry.s : [displayWord],
         etymology: resolved.entry.e || undefined,
-        source: "Dictionnaire Webster & Français",
+        source: "Dictionnaire français",
         grammarNote: resolved.grammarNote
       };
       setCache(lookupKey, wordResult);

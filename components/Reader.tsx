@@ -76,8 +76,7 @@ import {
   Library,
   BookText,
   ListOrdered,
-  Star,
-  Bookmark
+  Star
 } from 'lucide-react';
 import SongModal from './SongModal';
 import { useModalActive } from '../utils/modalUtils';
@@ -2023,7 +2022,7 @@ const Reader: React.FC = () => {
         id: `definition-${activeDefinition.word.toLowerCase()}`,
         title: `Dictionnaire : ${activeDefinition.word}`,
         date: 'Lexique',
-        city: activeDefinition.source || 'Dictionnaire Webster & Français',
+        city: activeDefinition.source || 'Dictionnaire français',
         text: ''
       }
     });
@@ -2525,7 +2524,7 @@ const Reader: React.FC = () => {
                   <BookOpenCheck className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-[10px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-widest">{activeDefinition?.source || "Dictionnaire Webster & Français"}</div>
+                  <div className="text-[10px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-widest">{activeDefinition?.source || "Dictionnaire français"}</div>
                   <h3 className="text-xl sm:text-2xl font-black text-zinc-900 dark:text-white leading-tight truncate">{activeDefinition?.word}</h3>
                   {activeDefinition?.grammarNote && (
                     <div className="text-[11px] font-semibold text-teal-700 dark:text-teal-300 mt-0.5">{activeDefinition.grammarNote}</div>
@@ -2606,7 +2605,7 @@ const Reader: React.FC = () => {
             <div className="px-5 sm:px-6 py-3 border-t border-slate-200 dark:border-zinc-800/80 bg-slate-50/70 dark:bg-zinc-950/50 flex items-center justify-between shrink-0">
               <p className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest flex items-center gap-1.5">
                 <Milestone className="w-3 h-3 text-teal-600 dark:text-teal-400" />
-                <span>{activeDefinition?.source || "Dictionnaire Webster & Français"}</span>
+                <span>{activeDefinition?.source || "Dictionnaire français"}</span>
               </p>
               <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -3302,14 +3301,6 @@ const Reader: React.FC = () => {
               tooltip={isDocFav ? "Retirer ce document des favoris" : "Ajouter ce document aux favoris"} 
               active={isDocFav}
               variant="amber"
-              isFullscreen={isOSFullscreen} 
-              baseFontSize={fontSize} 
-            />
-            {/* Bouton Accès Rapide (Favoris & Récents) */}
-            <ActionButton 
-              onClick={() => useAppStore.getState().toggleQuickAccessModal('favorites')} 
-              icon={Bookmark} 
-              tooltip="Accès Rapide : Favoris et Récents" 
               isFullscreen={isOSFullscreen} 
               baseFontSize={fontSize} 
             />

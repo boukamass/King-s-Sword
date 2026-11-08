@@ -11,7 +11,7 @@ import {
 } from '../services/dictionaryService';
 
 /**
- * Fenêtre « Dictionnaire Webster (français) » : recherche d'un mot et de sa définition,
+ * Fenêtre « Dictionnaire français » : recherche d'un mot et de sa définition,
  * entièrement hors ligne (dictionnaire local public/dictionary-fr.json, jamais d'IA ni d'internet).
  */
 export const DictionaryModal: React.FC = () => {
@@ -138,10 +138,10 @@ export const DictionaryModal: React.FC = () => {
             </div>
             <div className="min-w-0">
               <h2 className="text-sm sm:text-base font-black tracking-tight text-zinc-900 dark:text-zinc-50 uppercase">
-                Dictionnaire Webster
+                Dictionnaire français
               </h2>
               <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate">
-                Version française — consultation hors ligne
+                Recherche de mots et définitions
               </p>
             </div>
           </div>

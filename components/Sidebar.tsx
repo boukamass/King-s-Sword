@@ -33,8 +33,6 @@ import {
   Plus,
   Pencil,
   Trash2,
-  Image as ImageIcon,
-  Megaphone,
   SlidersHorizontal,
   Star,
   Bookmark,
@@ -1434,24 +1432,10 @@ const Sidebar: React.FC = () => {
               </span>
             )}
           </button>
-          <button 
-            onClick={() => useAppStore.getState().toggleAnnouncementModal()} 
-            className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-teal-600 transition-all active:scale-95" 
-            data-tooltip="Écrire et Projeter des Annonces"
-          >
-            <Megaphone className="w-3.5 h-3.5" />
-          </button>
-          <button 
-            onClick={() => useAppStore.getState().toggleImageModal()} 
-            className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-teal-600 transition-all active:scale-95" 
-            data-tooltip="Projection d'images (Détection auto Paysage/Portrait)"
-          >
-            <ImageIcon className="w-3.5 h-3.5" />
-          </button>
           <button
             onClick={() => useAppStore.getState().toggleDictionaryModal()}
             className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-teal-600 transition-all active:scale-95"
-            data-tooltip="Dictionnaire Webster (français) — hors ligne"
+            data-tooltip="Dictionnaire français"
           >
             <BookA className="w-3.5 h-3.5" />
           </button>
