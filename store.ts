@@ -152,6 +152,7 @@ interface AppState {
   isExternalMaskOpen: boolean;
   isBibleModalOpen: boolean;
   isImageModalOpen: boolean;
+  isDictionaryModalOpen: boolean;
   isAnnouncementModalOpen: boolean;
   isQuickAccessModalOpen: boolean;
   isDonationModalOpen: boolean;
@@ -204,6 +205,8 @@ interface AppState {
   setBibleModalOpen: (v: boolean) => void;
   toggleImageModal: () => void;
   setIsImageModalOpen: (v: boolean) => void;
+  toggleDictionaryModal: () => void;
+  setIsDictionaryModalOpen: (v: boolean) => void;
   toggleAnnouncementModal: () => void;
   setIsAnnouncementModalOpen: (v: boolean) => void;
   toggleQuickAccessModal: (tab?: 'favorites' | 'recents') => void;
@@ -390,6 +393,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isExternalMaskOpen: false,
   isBibleModalOpen: false,
   isImageModalOpen: false,
+  isDictionaryModalOpen: false,
   isAnnouncementModalOpen: false,
   isQuickAccessModalOpen: false,
   isDonationModalOpen: false,
@@ -1494,6 +1498,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   setExternalMaskOpen: (v) => set({ isExternalMaskOpen: v }),
   toggleImageModal: () => set(s => ({ isImageModalOpen: !s.isImageModalOpen })),
   setIsImageModalOpen: (v) => set({ isImageModalOpen: v }),
+  toggleDictionaryModal: () => set(s => ({ isDictionaryModalOpen: !s.isDictionaryModalOpen })),
+  setIsDictionaryModalOpen: (v) => set({ isDictionaryModalOpen: v }),
   toggleAnnouncementModal: () => set(s => ({ isAnnouncementModalOpen: !s.isAnnouncementModalOpen })),
   setIsAnnouncementModalOpen: (v) => set({ isAnnouncementModalOpen: v }),
   toggleQuickAccessModal: (tab) => set(s => ({ 

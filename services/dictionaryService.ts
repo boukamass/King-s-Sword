@@ -301,6 +301,57 @@ const resolveEntry = (
   return null;
 };
 
+// --- Recherche strictement hors ligne (fenêtre Dictionnaire Webster) : jamais d'IA ni d'internet ---
+let sortedOfflineKeys: string[] | null = null;
+
+/**
+ * Suggestions de mots commençant par la saisie (accents et casse ignorés), dans l'ordre alphabétique.
+ */
+export const searchOfflineDictionarySuggestions = async (query: string, limit = 30): Promise<Array<{ key: string; word: string }>> => {
+  const prefix = toLookupKey(query);
+  if (!prefix) return [];
+  const dict = await ensureOfflineDictionaryLoaded();
+  if (!dict) return [];
+  if (!sortedOfflineKeys) sortedOfflineKeys = Object.keys(dict).sort();
+  const keys = sortedOfflineKeys;
+  // Recherche dichotomique du premier mot ≥ préfixe
+  let lo = 0;
+  let hi = keys.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (keys[mid] < prefix) lo = mid + 1; else hi = mid;
+  }
+  const out: Array<{ key: string; word: string }> = [];
+  for (let i = lo; i < keys.length && out.length < limit; i++) {
+    if (!keys[i].startsWith(prefix)) break;
+    const e = dict[keys[i]];
+    if (e && e.d) out.push({ key: keys[i], word: e.w || keys[i] });
+  }
+  return out;
+};
+
+/**
+ * Définition d'un mot uniquement depuis le dictionnaire hors ligne (avec lemmatisation :
+ * pluriels, féminins, formes conjuguées). Retourne null si le mot est introuvable.
+ */
+export const getOfflineDefinition = async (word: string): Promise<WordDefinition | null> => {
+  const lookupKey = toLookupKey(word);
+  if (!lookupKey) return null;
+  const dict = await ensureOfflineDictionaryLoaded();
+  if (!dict) return null;
+  const resolved = resolveEntry(lookupKey, dict);
+  if (!resolved || !resolved.entry || !resolved.entry.d) return null;
+  const displayWord = normalizeWord(word) || word.trim();
+  return {
+    word: resolved.entry.w || (displayWord.charAt(0).toUpperCase() + displayWord.slice(1)),
+    definition: resolved.entry.d,
+    synonyms: resolved.entry.s && resolved.entry.s.length > 0 ? resolved.entry.s : [],
+    etymology: resolved.entry.e || undefined,
+    source: "Dictionnaire Webster & Français (hors ligne)",
+    grammarNote: resolved.grammarNote
+  };
+};
+
 /**
  * Récupère la définition d'un mot ou d'une expression
  * 1. Vérifie le cache local nettoyé

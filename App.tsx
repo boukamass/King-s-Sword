@@ -10,6 +10,7 @@ import NoteEditor from './components/NoteEditor';
 import { Lightbulb, NotebookPen, Info, Trash2, HelpCircle, BookOpen, Star, Clock, Pencil, Bookmark } from 'lucide-react';
 import { ProjectionView, MaskView } from './components/ProjectionView';
 import { ImageProjectionModal } from './components/ImageProjectionModal';
+import { DictionaryModal } from './components/DictionaryModal';
 import { AnnouncementModal } from './components/AnnouncementModal';
 import { QuickAccessModal } from './components/QuickAccessModal';
 import { DonationModal } from './components/DonationModal';
@@ -374,6 +375,7 @@ const App: React.FC = () => {
       <GlobalContextMenu />
       <GlobalTooltip />
       <ImageProjectionModal />
+      <DictionaryModal />
       <AnnouncementModal />
       <QuickAccessModal 
         isOpen={isQuickAccessModalOpen} 

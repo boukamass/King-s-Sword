@@ -40,7 +40,8 @@ import {
   Bookmark,
   Heart,
   ArrowDown,
-  ArrowUp
+  ArrowUp,
+  BookA
 } from 'lucide-react';
 
 import { Song } from '../types';
@@ -1446,6 +1447,13 @@ const Sidebar: React.FC = () => {
             data-tooltip="Projection d'images (Détection auto Paysage/Portrait)"
           >
             <ImageIcon className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => useAppStore.getState().toggleDictionaryModal()}
+            className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-teal-600 transition-all active:scale-95"
+            data-tooltip="Dictionnaire Webster (français) — hors ligne"
+          >
+            <BookA className="w-3.5 h-3.5" />
           </button>
           <button onClick={(e) => { e.stopPropagation(); if (confirm("Actualiser l'application ?")) resetLibrary(); }} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-teal-600 transition-all active:scale-95" data-tooltip="Actualiser"><RefreshCw className={`w-3 h-3 ${isSearching ? 'animate-spin' : ''}`} /></button>
           <button onClick={toggleSidebar} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-red-500 transition-all active:scale-95" data-tooltip="Fermer le panneau"><X className="w-3.5 h-3.5" /></button>
