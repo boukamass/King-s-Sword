@@ -32,6 +32,7 @@ export interface StrongWord {
   original: string; // Ex: "Elohim", "Logos"
   definition: string;
   pronunciation: string;
+  transliteration?: string; // Translittération du lexique (ex. « yêtser », « pisteúō »)
   type: 'hebrew' | 'greek';
   partOfSpeech?: string; // Ex: "Nom collectif féminin"
   etymology?: string; // Ex: "Racine inutilisée signifiant paître/migrer"
@@ -1029,6 +1030,12 @@ export async function asyncGetOrGenerateStrongEntry(
   const normId = normalizeStrongId(strongNum);
   if (!normId) return null;
 
+  // Translittération et prononciation du lexique OpenScriptures local (ex. יֵצֶר → yêtser, [yay'-tser])
+  await loadLexicon();
+  const lexBase = getStrongBase(normId);
+  const lexiconTranslit = (lexBase?.translit || lexBase?.xlit || '').trim() || undefined;
+  const lexiconPron = (lexBase?.pron || '').trim();
+
   // 1. Recherche dans le lexique manuel de référence théologique (STRONG_LEXICON)
   const manual = STRONG_LEXICON[normId];
   if (manual) {
@@ -1036,6 +1043,8 @@ export async function asyncGetOrGenerateStrongEntry(
     return {
       ...manual,
       strong: normId,
+      pronunciation: manual.pronunciation || lexiconPron,
+      transliteration: lexiconTranslit,
       occurrencesCount: realOcc ? `${realOcc} occurrences dans les versets bibliques` : manual.occurrencesCount
     };
   }
@@ -1049,7 +1058,8 @@ export async function asyncGetOrGenerateStrongEntry(
         word: displayWord,
         strong: normId,
         original: val.original,
-        pronunciation: val.pronunciation,
+        pronunciation: val.pronunciation || lexiconPron,
+        transliteration: lexiconTranslit,
         type: val.type,
         partOfSpeech: val.partOfSpeech,
         etymology: val.etymology,
@@ -1073,7 +1083,8 @@ export async function asyncGetOrGenerateStrongEntry(
     word: frenchCard.word,
     strong: normId,
     original: frenchCard.original,
-    pronunciation: frenchCard.pronunciation || frenchCard.translitteration || '',
+    pronunciation: frenchCard.pronunciation || '',
+    transliteration: frenchCard.translitteration || lexiconTranslit,
     type: frenchCard.type,
     partOfSpeech: frenchCard.partOfSpeech || undefined,
     etymology: frenchCard.etymology || undefined,

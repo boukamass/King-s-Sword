@@ -2695,11 +2695,27 @@ const Reader: React.FC = () => {
                     <h3 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white tracking-tight leading-snug truncate">
                       {entry.word}
                     </h3>
-                    {entry.original && entry.original !== "Non disponible" && (
-                      <div className="text-xs font-medium text-teal-700 dark:text-teal-300 mt-0.5">
-                        {entry.original} {entry.pronunciation ? `• [${entry.pronunciation}]` : ''}
-                      </div>
-                    )}
+                    {entry.original && entry.original !== "Non disponible" && (() => {
+                      // Mot original · Translittération simplifiée · [prononciation] (ex. יֵצֶר  Yetser  [yay'-tser])
+                      const rawOriginal = String(entry.original);
+                      const parenthetical = rawOriginal.match(/\(([^)]+)\)\s*$/)?.[1]?.trim() || '';
+                      const lemma = rawOriginal.replace(/\s*\([^)]*\)\s*$/, '').trim() || rawOriginal;
+                      const scholarly = String((entry as { transliteration?: string }).transliteration || parenthetical || '').trim();
+                      const simplified = scholarly
+                        .normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[ʼʻ’'`]/g, '')
+                        .replace(/^./, c => c.toUpperCase());
+                      const pron = String(entry.pronunciation || '').trim();
+                      const showPron = pron && pron.toLowerCase() !== scholarly.toLowerCase() && pron.toLowerCase() !== simplified.toLowerCase();
+                      return (
+                        <div className="text-xs font-medium text-teal-700 dark:text-teal-300 mt-0.5 flex items-baseline flex-wrap gap-x-2">
+                          <span className="text-sm" dir="auto">{lemma}</span>
+                          {simplified && (
+                            <span className="font-semibold" title={scholarly && scholarly !== simplified ? `Translittération savante : ${scholarly}` : undefined}>{simplified}</span>
+                          )}
+                          {showPron && <span className="text-teal-600/90 dark:text-teal-400/90">[{pron}]</span>}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
