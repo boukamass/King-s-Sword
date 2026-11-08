@@ -1019,6 +1019,15 @@ function buildPhoneticTransliteration(cleanWord: string, isHebrew: boolean): str
 }
 
 /**
+ * Vrai si la liste de numéros d'une fiche (ex. « H6041 / G4434 ») contient exactement ce numéro.
+ * (Une simple recherche de texte faisait correspondre « G443 » à « G4434 », « G25 » à « G2590 »…)
+ */
+function strongListHas(list: string | undefined, normId: string): boolean {
+  if (!list || !normId) return false;
+  return list.split(/[^HG0-9]+/i).filter(Boolean).some(tok => normalizeStrongId(tok) === normId);
+}
+
+/**
  * Génère ou récupère la fiche Strong exacte et authentique depuis les sources officielles.
  * Ne génère AUCUN texte fictif ou générique.
  */
@@ -1051,7 +1060,7 @@ export async function asyncGetOrGenerateStrongEntry(
 
   // 2. Recherche dans le dictionnaire manuel d'équivalence français (FRENCH_BIBLE_STRONG_MAP)
   for (const [key, val] of Object.entries(FRENCH_BIBLE_STRONG_MAP)) {
-    if (val.strong && val.strong.includes(normId)) {
+    if (strongListHas(val.strong, normId)) {
       const displayWord = wordText ? wordText.trim().replace(/[,.;:!?()'[\]»«’]+$/g, '').trim() : (key.charAt(0).toUpperCase() + key.slice(1));
       const realOcc = getStrongOccurrenceCount(normId);
       return {
@@ -1107,7 +1116,7 @@ export async function enrichStrongEntryWithAi(
   const normId = normalizeStrongId(strongNum);
   if (!normId || STRONG_LEXICON[normId]) return null;
   for (const val of Object.values(FRENCH_BIBLE_STRONG_MAP)) {
-    if (val.strong && val.strong.includes(normId)) return null;
+    if (strongListHas(val.strong, normId)) return null;
   }
   const card = await enrichStrongFrenchCardWithAi(normId, wordText);
   if (!card) return null;
@@ -1145,7 +1154,7 @@ export function getOrGenerateStrongEntry(
 
   // 2. Recherche synchrone dans FRENCH_BIBLE_STRONG_MAP
   for (const [key, val] of Object.entries(FRENCH_BIBLE_STRONG_MAP)) {
-    if (val.strong && val.strong.includes(normId)) {
+    if (strongListHas(val.strong, normId)) {
       const displayWord = wordText ? wordText.trim().replace(/[,.;:!?()'[\]»«’]+$/g, '').trim() : (key.charAt(0).toUpperCase() + key.slice(1));
       const realOcc = getStrongOccurrenceCount(normId);
       return {
