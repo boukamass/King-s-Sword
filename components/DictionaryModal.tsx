@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useModalActive } from '../utils/modalUtils';
 import { useAppStore } from '../store';
-import { X, BookA, Search, Copy, Check, Loader2, WifiOff, SearchX } from 'lucide-react';
+import { X, BookA, Search, Copy, Check, Loader2, SearchX } from 'lucide-react';
 import {
   ensureOfflineDictionaryLoaded,
   searchOfflineDictionarySuggestions,
@@ -186,19 +186,12 @@ export const DictionaryModal: React.FC = () => {
               Définir
             </button>
           </div>
-          <div className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-            {isDictReady ? (
-              <>
-                <WifiOff className="w-3 h-3" />
-                <span>Dictionnaire hors ligne actif — aucune connexion requise</span>
-              </>
-            ) : (
-              <>
-                <Loader2 className="w-3 h-3 animate-spin text-teal-600" />
-                <span className="text-zinc-500 dark:text-zinc-400">Chargement du dictionnaire local…</span>
-              </>
-            )}
-          </div>
+          {!isDictReady && (
+            <div className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold">
+              <Loader2 className="w-3 h-3 animate-spin text-teal-600" />
+              <span className="text-zinc-500 dark:text-zinc-400">Chargement du dictionnaire…</span>
+            </div>
+          )}
         </div>
 
         {/* Corps : suggestions + définition */}
