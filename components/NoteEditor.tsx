@@ -3395,7 +3395,7 @@ const NoteEditor: React.FC = () => {
                                           <button
                                             type="button"
                                             onClick={() => {
-                                              const copyText = `Strong ${item.strongNumber} — ${item.word} (${item.original}) [${item.pronunciation}]\n\nDéfinition : ${item.definition}${item.messageContext ? `\n\nÉclairage dans le Message : ${item.messageContext}` : ''}${item.originVerseRef ? `\n\nVerset d'origine (${item.originVerseRef}) : « ${item.originVerseText} »` : ''}`;
+                                              const copyText = `Strong ${item.strongNumber} — ${item.word} (${item.original}) [${item.pronunciation}]\n\nDéfinition : ${item.definition}${item.messageContext ? `\n\nÉclairage dans le Message : ${item.messageContext}` : ''}${item.originVerseRef ? `\n\nVerset d'origine (${item.originVerseRef}) : ${item.originVerseText}` : ''}`;
                                               navigator.clipboard.writeText(copyText);
                                               addNotification("Exégèse Strong copiée dans le presse-papiers.", "success");
                                             }}

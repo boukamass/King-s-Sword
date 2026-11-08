@@ -45,7 +45,7 @@ export const StrongOccurrencesModal: React.FC<StrongOccurrencesModalProps> = ({
   if (!isOpen) return null;
 
   const handleCopyVerse = (occ: StrongOccurrence, idx: number) => {
-    const textToCopy = `${occ.bookName} ${occ.chapter}:${occ.verse} — « ${occ.text.trim()} »`;
+    const textToCopy = `${occ.bookName} ${occ.chapter}:${occ.verse} — ${occ.text.trim()}`;
     navigator.clipboard.writeText(textToCopy);
     setCopiedIndex(idx);
     setTimeout(() => {

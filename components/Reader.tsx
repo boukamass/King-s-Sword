@@ -1804,19 +1804,19 @@ const Reader: React.FC = () => {
       htmlQuoteText = escapeHtml(plainQuoteText);
     }
 
-    // Le texte copié commence par son numéro de paragraphe avec le symbole § (ex: § 45. « ... » pour sermons et exposé)
+    // Le texte copié commence par son numéro de paragraphe avec le symbole § (ex: § 45. ... pour sermons et exposé), sans guillemets
     const prefix = (isBible || isBibleChapter) ? `${paraNum}. ` : isSong ? `${paraNum}. ` : `§ ${paraNum}. `;
-    const formattedQuote = `${prefix}« ${plainQuoteText} »`;
-    const htmlFormattedQuote = `<strong style="color: #0f766e;">${escapeHtml(prefix)}</strong>«&nbsp;${htmlQuoteText}&nbsp;»`;
+    const formattedQuote = `${prefix}${plainQuoteText}`;
+    const htmlFormattedQuote = `<strong style="color: #0f766e;">${escapeHtml(prefix)}</strong>${htmlQuoteText}`;
 
     // 3. Construction de la référence complète selon le type de document (sans répéter le numéro de paragraphe en bas)
     let referenceBlock = '';
     let htmlReferenceBlock = '';
 
     if (isBible || isBibleChapter) {
-      // Cas de la Sainte Bible : spécifier la version
-      const verMeta = BIBLE_VERSIONS_META[bibleVersion];
-      const versionLabel = verMeta?.label ? `Version ${verMeta.label}` : (sermon.version ? `Version ${sermon.version}` : 'Version Louis Segond 1910');
+      // Cas de la Sainte Bible : spécifier la version sous forme abrégée (LSG, DARBY, KJV, AMP)
+      const COPY_VERSION_ABBREV: Record<string, string> = { lsg1910: 'LSG', darby: 'DARBY', kjv: 'KJV', amp: 'AMP' };
+      const versionLabel = COPY_VERSION_ABBREV[bibleVersion] || (sermon.version ? String(sermon.version).toUpperCase() : 'LSG');
 
       let verseRef = '';
       if (sermon.title) {
