@@ -57,6 +57,7 @@ import { StrongOccurrencesModal } from './StrongOccurrencesModal';
 import { Citation, NoteSeparator } from '../types';
 import { exportNoteToDocx } from '../services/docxExportService';
 import { processNoteData, cleanTextArtifacts, stripMarkdown, NoteSectionItem, ProcessedStrongItem } from '../utils/noteFormatter';
+import { getStrongHeadline, formatStrongHeadline } from '../utils/strongDisplay';
 import { detectImageMeta } from '../services/imageMediaService';
 import { HighlightedQuote } from './HighlightedQuote';
 import { splitQuoteIntoHighlightedSegments, HIGHLIGHT_HEX_MAP } from '../utils/highlightUtils';
@@ -3336,17 +3337,26 @@ const NoteEditor: React.FC = () => {
                                                 <span className="text-zinc-500 font-bold ml-1">[{item.sourceIndex}]</span>
                                               )}
                                             </div>
-                                            <h5 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight truncate flex items-center gap-2">
-                                              <span>{stripMarkdown(item.word)}</span>
-                                              {item.original && (
-                                                <span className="font-mono text-sm text-teal-700 dark:text-teal-300 font-medium">({stripMarkdown(item.original)})</span>
-                                              )}
-                                            </h5>
-                                            {item.pronunciation && (
-                                              <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 font-mono">
-                                                [{stripMarkdown(item.pronunciation)}]
-                                              </div>
-                                            )}
+                                            {(() => {
+                                              // Mot original · Translittération · [prononciation] (ex. יֵצֶר  Yetser  [yay'-tser])
+                                              const h = getStrongHeadline({ original: stripMarkdown(item.original || ''), transliteration: item.transliteration, pronunciation: stripMarkdown(item.pronunciation || '') });
+                                              return (
+                                                <>
+                                                  <h5 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight truncate flex items-center gap-2">
+                                                    <span>{stripMarkdown(item.word)}</span>
+                                                    {h.lemma && (
+                                                      <span className="font-mono text-sm text-teal-700 dark:text-teal-300 font-medium" dir="auto">({h.lemma})</span>
+                                                    )}
+                                                  </h5>
+                                                  {(h.simplified || h.pronunciation) && (
+                                                    <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 flex items-baseline gap-2 flex-wrap">
+                                                      {h.simplified && <span className="font-bold text-teal-700 dark:text-teal-300" title={h.scholarly && h.scholarly !== h.simplified ? `Translittération savante : ${h.scholarly}` : undefined}>{h.simplified}</span>}
+                                                      {h.pronunciation && <span className="font-mono">[{h.pronunciation}]</span>}
+                                                    </div>
+                                                  )}
+                                                </>
+                                              );
+                                            })()}
                                           </div>
                                         </div>
 
@@ -3395,7 +3405,7 @@ const NoteEditor: React.FC = () => {
                                           <button
                                             type="button"
                                             onClick={() => {
-                                              const copyText = `Strong ${item.strongNumber} — ${item.word} (${item.original}) [${item.pronunciation}]\n\nDéfinition : ${item.definition}${item.messageContext ? `\n\nÉclairage dans le Message : ${item.messageContext}` : ''}${item.originVerseRef ? `\n\nVerset d'origine (${item.originVerseRef}) : ${item.originVerseText}` : ''}`;
+                                              const copyText = `Strong ${item.strongNumber} — ${item.word} : ${formatStrongHeadline({ original: item.original, transliteration: item.transliteration, pronunciation: item.pronunciation })}\n\nDéfinition : ${item.definition}${item.messageContext ? `\n\nÉclairage dans le Message : ${item.messageContext}` : ''}${item.originVerseRef ? `\n\nVerset d'origine (${item.originVerseRef}) : ${item.originVerseText}` : ''}`;
                                               navigator.clipboard.writeText(copyText);
                                               addNotification("Exégèse Strong copiée dans le presse-papiers.", "success");
                                             }}
@@ -4196,17 +4206,26 @@ const NoteEditor: React.FC = () => {
                                                 <span className="text-zinc-500 font-bold ml-1">[{item.sourceIndex}]</span>
                                             )}
                                         </div>
-                                        <h5 className="text-base font-black text-zinc-900 tracking-tight m-0 break-words flex items-center gap-2 flex-wrap">
-                                            <span>{cleanTextArtifacts(item.word)}</span>
-                                            {item.original && (
-                                                <span className="font-mono text-sm text-teal-700 font-medium">({cleanTextArtifacts(item.original)})</span>
-                                            )}
-                                        </h5>
-                                        {item.pronunciation && (
-                                            <div className="text-[11px] font-semibold text-zinc-500 font-mono">
-                                                [{cleanTextArtifacts(item.pronunciation)}]
-                                            </div>
-                                        )}
+                                        {(() => {
+                                            // Mot original · Translittération · [prononciation] (ex. יֵצֶר  Yetser  [yay'-tser])
+                                            const h = getStrongHeadline({ original: cleanTextArtifacts(item.original || ''), transliteration: item.transliteration, pronunciation: cleanTextArtifacts(item.pronunciation || '') });
+                                            return (
+                                                <>
+                                                    <h5 className="text-base font-black text-zinc-900 tracking-tight m-0 break-words flex items-center gap-2 flex-wrap">
+                                                        <span>{cleanTextArtifacts(item.word)}</span>
+                                                        {h.lemma && (
+                                                            <span className="font-mono text-sm text-teal-700 font-medium" dir="auto">({h.lemma})</span>
+                                                        )}
+                                                    </h5>
+                                                    {(h.simplified || h.pronunciation) && (
+                                                        <div className="text-[11px] font-semibold text-zinc-500 flex items-baseline gap-2 flex-wrap">
+                                                            {h.simplified && <span className="font-bold text-teal-700">{h.simplified}</span>}
+                                                            {h.pronunciation && <span className="font-mono">[{h.pronunciation}]</span>}
+                                                        </div>
+                                                    )}
+                                                </>
+                                            );
+                                        })()}
                                     </div>
                                 </div>
 

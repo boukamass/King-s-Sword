@@ -20,6 +20,7 @@ import {
 import saveAs from 'file-saver';
 import { Note, CitationHighlight, Sermon } from '../types';
 import { processNoteData, stripMarkdown, cleanTextArtifacts } from '../utils/noteFormatter';
+import { getStrongHeadline } from '../utils/strongDisplay';
 import { splitQuoteIntoHighlightedSegments, HIGHLIGHT_HEX_MAP } from '../utils/highlightUtils';
 import iconPngMap from './iconPngBase64.json';
 
@@ -1457,16 +1458,17 @@ export async function exportNoteToDocx(note: Note, sermons?: Array<Partial<Sermo
               }),
               ...(item.original ? [
                 new TextRun({
-                  text: `  (${stripMarkdown(item.original)})`,
+                  text: `  (${getStrongHeadline({ original: stripMarkdown(item.original), transliteration: item.transliteration, pronunciation: stripMarkdown(item.pronunciation || '') }).lemma})`,
                   bold: true,
                   size: 21,
                   color: primaryColor,
                   font: "Calibri"
                 })
               ] : []),
-              ...(item.pronunciation ? [
+              // Translittération · [prononciation] (ex. Yetser  [yay'-tser])
+              ...((() => { const h = getStrongHeadline({ original: stripMarkdown(item.original || ''), transliteration: item.transliteration, pronunciation: stripMarkdown(item.pronunciation || '') }); return h.simplified || h.pronunciation; })() ? [
                 new TextRun({
-                  text: `   [${stripMarkdown(item.pronunciation)}]`,
+                  text: `   ${(() => { const h = getStrongHeadline({ original: stripMarkdown(item.original || ''), transliteration: item.transliteration, pronunciation: stripMarkdown(item.pronunciation || '') }); return [h.simplified, h.pronunciation ? `[${h.pronunciation}]` : ''].filter(Boolean).join('  '); })()}`,
                   size: 19,
                   color: mutedColor,
                   font: "Consolas"

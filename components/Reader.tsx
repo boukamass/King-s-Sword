@@ -83,6 +83,7 @@ import { useModalActive } from '../utils/modalUtils';
 import { BIBLE_VERSIONS_META } from '../types/bible';
 import { STRONG_LEXICON, findBibleOccurrences, getOrGenerateStrongEntry, asyncGetOrGenerateStrongEntry, lookupStrongNumber, getChapterVerseStrongs, getVersionChapterStrongs, getStrongLsgTranslations, findBibleOccurrencesByTranslation, StrongLsgTranslation, enrichStrongEntryWithAi, loadBibleStrongIndex } from '../services/bibleExegesisService';
 import { alignVerseStrongsMulti } from '../utils/strongAlignment';
+import { getStrongHeadline } from '../utils/strongDisplay';
 import { findSermonOccurrencesForStrong, getOrGenerateStrongMessageContext } from '../services/strongLexiconService';
 import { 
   getFavorites, 
@@ -2708,15 +2709,12 @@ const Reader: React.FC = () => {
                     </h3>
                     {entry.original && entry.original !== "Non disponible" && (() => {
                       // Mot original · Translittération simplifiée · [prononciation] (ex. יֵצֶר  Yetser  [yay'-tser])
-                      const rawOriginal = String(entry.original);
-                      const parenthetical = rawOriginal.match(/\(([^)]+)\)\s*$/)?.[1]?.trim() || '';
-                      const lemma = rawOriginal.replace(/\s*\([^)]*\)\s*$/, '').trim() || rawOriginal;
-                      const scholarly = String((entry as { transliteration?: string }).transliteration || parenthetical || '').trim();
-                      const simplified = scholarly
-                        .normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[ʼʻ’'`]/g, '')
-                        .replace(/^./, c => c.toUpperCase());
-                      const pron = String(entry.pronunciation || '').trim();
-                      const showPron = pron && pron.toLowerCase() !== scholarly.toLowerCase() && pron.toLowerCase() !== simplified.toLowerCase();
+                      const { lemma, simplified, scholarly, pronunciation: pron } = getStrongHeadline({
+                        original: String(entry.original),
+                        transliteration: (entry as { transliteration?: string }).transliteration,
+                        pronunciation: entry.pronunciation
+                      });
+                      const showPron = Boolean(pron);
                       return (
                         <div className="text-xs font-medium text-teal-700 dark:text-teal-300 mt-0.5 flex items-baseline flex-wrap gap-x-2">
                           <span className="text-sm" dir="auto">{lemma}</span>
@@ -2795,6 +2793,7 @@ const Reader: React.FC = () => {
                         word: entry.word,
                         original: entry.original || '',
                         pronunciation: entry.pronunciation || '',
+                        transliteration: (entry as { transliteration?: string }).transliteration || '',
                         type: entry.type === 'hebrew' ? 'hebrew' : 'greek',
                         partOfSpeech: entry.partOfSpeech || '',
                         etymology: entry.etymology || '',
@@ -2871,6 +2870,7 @@ const Reader: React.FC = () => {
                                   word: entry.word,
                                   original: entry.original || '',
                                   pronunciation: entry.pronunciation || '',
+                                  transliteration: (entry as { transliteration?: string }).transliteration || '',
                                   type: entry.type === 'hebrew' ? 'hebrew' : 'greek',
                                   partOfSpeech: entry.partOfSpeech || '',
                                   etymology: entry.etymology || '',

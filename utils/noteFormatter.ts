@@ -58,6 +58,7 @@ export interface ProcessedStrongItem {
   word: string;
   original: string;
   pronunciation: string;
+  transliteration?: string;
   type: 'hebrew' | 'greek';
   partOfSpeech?: string;
   etymology?: string;
@@ -229,6 +230,7 @@ export function parseStrongText(rawQuote: string, title?: string, dateOrType?: s
   word: string;
   original: string;
   pronunciation: string;
+  transliteration?: string;
   type: 'hebrew' | 'greek';
   partOfSpeech?: string;
   etymology?: string;
@@ -257,6 +259,7 @@ export function parseStrongText(rawQuote: string, title?: string, dateOrType?: s
         word: stripMarkdown(cleanTextArtifacts(data.word || 'Terme')),
         original: stripMarkdown(cleanTextArtifacts(data.original || '')),
         pronunciation: stripMarkdown(cleanTextArtifacts(data.pronunciation || '')),
+        transliteration: data.transliteration ? stripMarkdown(cleanTextArtifacts(data.transliteration)) : undefined,
         type: data.type === 'greek' ? 'greek' : 'hebrew',
         partOfSpeech: data.partOfSpeech ? stripMarkdown(cleanTextArtifacts(data.partOfSpeech)) : undefined,
         etymology: data.etymology ? stripMarkdown(cleanTextArtifacts(data.etymology)) : undefined,
@@ -634,6 +637,7 @@ export function processNoteData(note: Note, sermons?: Array<Partial<Sermon>>): P
           word: parsed.word,
           original: parsed.original,
           pronunciation: parsed.pronunciation,
+          transliteration: parsed.transliteration,
           type: parsed.type,
           partOfSpeech: parsed.partOfSpeech,
           etymology: parsed.etymology,

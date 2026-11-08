@@ -1083,7 +1083,7 @@ export async function asyncGetOrGenerateStrongEntry(
     word: frenchCard.word,
     strong: normId,
     original: frenchCard.original,
-    pronunciation: frenchCard.pronunciation || '',
+    pronunciation: frenchCard.pronunciation || lexiconPron,
     transliteration: frenchCard.translitteration || lexiconTranslit,
     type: frenchCard.type,
     partOfSpeech: frenchCard.partOfSpeech || undefined,

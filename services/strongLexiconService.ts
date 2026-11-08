@@ -38,6 +38,9 @@ export interface FrenchStrongCard {
 let hebrewLexicon: Record<string, OpenScripturesEntry> | null = null;
 let greekLexicon: Record<string, OpenScripturesEntry> | null = null;
 let strongVerseCounts: Record<string, number> | null = null;
+// Prononciation des numéros grecs (absente du lexique OpenScriptures) : Strong's Greek Dictionary in XML,
+// U. Sandborg-Petersen, CC0 — public/strongs-greek-pronunciations.json (scripts/build_strong_greek_pron.mjs)
+let greekPronunciations: Record<string, string> | null = null;
 let isLoadingLexicon = false;
 let loadPromise: Promise<boolean> | null = null;
 
@@ -118,6 +121,10 @@ export async function loadLexicon(): Promise<boolean> {
             if (fs.existsSync(countsPath)) {
               strongVerseCounts = JSON.parse(fs.readFileSync(countsPath, 'utf8'));
             }
+            const pronPath = path.resolve('./public/strongs-greek-pronunciations.json');
+            if (fs.existsSync(pronPath)) {
+              greekPronunciations = JSON.parse(fs.readFileSync(pronPath, 'utf8'));
+            }
             isLoadingLexicon = false;
             return true;
           }
@@ -127,16 +134,18 @@ export async function loadLexicon(): Promise<boolean> {
       }
 
       // 2. Environnement Navigateur : fetch local depuis /public
-      const [hebData, gkData, countsData] = await Promise.all([
+      const [hebData, gkData, countsData, gkPronData] = await Promise.all([
         fetchJsonSafe<Record<string, OpenScripturesEntry>>('strongs-hebrew-dictionary.json', ['./strongs-hebrew-dictionary.json']),
         fetchJsonSafe<Record<string, OpenScripturesEntry>>('strongs-greek-dictionary.json', ['./strongs-greek-dictionary.json']),
-        fetchJsonSafe<Record<string, number>>('strong-verse-counts.json', ['./strong-verse-counts.json'])
+        fetchJsonSafe<Record<string, number>>('strong-verse-counts.json', ['./strong-verse-counts.json']),
+        fetchJsonSafe<Record<string, string>>('strongs-greek-pronunciations.json', ['./strongs-greek-pronunciations.json'])
       ]);
 
       if (hebData && gkData) {
         hebrewLexicon = hebData;
         greekLexicon = gkData;
         if (countsData) strongVerseCounts = countsData;
+        if (gkPronData) greekPronunciations = gkPronData;
         isLoadingLexicon = false;
         return true;
       }
@@ -186,6 +195,7 @@ export function getStrongBase(strongId: string): (OpenScripturesEntry & { type: 
   if (isGreek && greekLexicon && greekLexicon[normId]) {
     return {
       ...greekLexicon[normId],
+      pron: greekLexicon[normId].pron || greekPronunciations?.[normId],
       type: 'greek',
       normId
     };
@@ -198,7 +208,7 @@ export function getStrongBase(strongId: string): (OpenScripturesEntry & { type: 
     }
     const gKey = `G${normId}`;
     if (greekLexicon && greekLexicon[gKey]) {
-      return { ...greekLexicon[gKey], type: 'greek', normId: gKey };
+      return { ...greekLexicon[gKey], pron: greekLexicon[gKey].pron || greekPronunciations?.[gKey], type: 'greek', normId: gKey };
     }
   }
 
