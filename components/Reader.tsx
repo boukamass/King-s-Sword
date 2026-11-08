@@ -82,7 +82,8 @@ import {
 import SongModal from './SongModal';
 import { useModalActive } from '../utils/modalUtils';
 import { BIBLE_VERSIONS_META } from '../types/bible';
-import { STRONG_LEXICON, findBibleOccurrences, getOrGenerateStrongEntry, asyncGetOrGenerateStrongEntry, lookupStrongNumber, getChapterVerseStrongs } from '../services/bibleExegesisService';
+import { STRONG_LEXICON, findBibleOccurrences, getOrGenerateStrongEntry, asyncGetOrGenerateStrongEntry, lookupStrongNumber, getChapterVerseStrongs, getVersionChapterStrongs } from '../services/bibleExegesisService';
+import { alignVerseStrongs } from '../utils/strongAlignment';
 import { findSermonOccurrencesForStrong, getOrGenerateStrongMessageContext } from '../services/strongLexiconService';
 import { 
   getFavorites, 
@@ -624,23 +625,31 @@ const Reader: React.FC = () => {
 
   const bibleVersion = useAppStore(s => s.bibleVersion);
 
-  // Index certifié des Strongs pour le chapitre biblique affiché
+  // Index certifié des Strongs pour le chapitre biblique affiché (index propre à la version : LSG, Darby, KJV)
   const [chapterVerseStrongsMap, setChapterVerseStrongsMap] = useState<Record<string, Array<[string, string]>> | null>(null);
+  const [strongFormsDict, setStrongFormsDict] = useState<Map<string, Set<string>> | null>(null);
 
   useEffect(() => {
     if (isBibleChapter && showStrongs && sermon?.id) {
       const parts = sermon.id.split('-');
       const bId = parts[1]?.toUpperCase() || '';
       const ch = parts[2] || '1';
-      getChapterVerseStrongs(bId, ch).then(data => {
-        setChapterVerseStrongsMap(data);
+      let cancelled = false;
+      getVersionChapterStrongs(bId, ch, bibleVersion).then(data => {
+        if (cancelled) return;
+        setChapterVerseStrongsMap(data?.verses || null);
+        setStrongFormsDict(data?.forms || null);
       }).catch(() => {
+        if (cancelled) return;
         setChapterVerseStrongsMap(null);
+        setStrongFormsDict(null);
       });
+      return () => { cancelled = true; };
     } else {
       setChapterVerseStrongsMap(null);
+      setStrongFormsDict(null);
     }
-  }, [isBibleChapter, showStrongs, sermon?.id]);
+  }, [isBibleChapter, showStrongs, sermon?.id, bibleVersion]);
 
   // Alignement séquentiel certifié des mots du verset avec leurs numéros Strong officiels
   const wordStrongMap = useMemo(() => {
@@ -657,30 +666,16 @@ const Reader: React.FC = () => {
       const taggedPairs = chapterVerseStrongsMap[verseNum];
       if (!taggedPairs || taggedPairs.length === 0) return;
 
-      let pairIdx = 0;
-      for (let i = 0; i < segment.words.length; i++) {
-        const w = segment.words[i];
-        const cleanWord = w.text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/gi, "");
-        if (!cleanWord || cleanWord.length < 2) continue;
-
-        let foundPairIdx = -1;
-        for (let p = pairIdx; p < Math.min(pairIdx + 4, taggedPairs.length); p++) {
-          const cleanTagged = taggedPairs[p][0].toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/gi, "");
-          if (cleanWord === cleanTagged || cleanWord.endsWith(cleanTagged) || cleanTagged.endsWith(cleanWord) || cleanWord.includes(cleanTagged)) {
-            foundPairIdx = p;
-            break;
-          }
-        }
-
-        if (foundPairIdx !== -1) {
-          map.set(w.globalIndex, taggedPairs[foundPairIdx][1]);
-          pairIdx = foundPairIdx + 1;
-        }
-      }
+      // Alignement ordonn\u00e9 + second passage (mots r\u00e9p\u00e9t\u00e9s / m\u00eame racine), sans num\u00e9ro du verset lui-m\u00eame
+      const verseWords = segment.words.filter((w, idx) => !(idx === 0 && vMatch) && w.text.trim() !== '');
+      const aligned = alignVerseStrongs(verseWords.map(w => w.text), taggedPairs, strongFormsDict || undefined);
+      aligned.forEach((strong, idx) => {
+        if (strong) map.set(verseWords[idx].globalIndex, strong);
+      });
     });
 
     return map;
-  }, [isBibleChapter, showStrongs, chapterVerseStrongsMap, structuredSegments]);
+  }, [isBibleChapter, showStrongs, chapterVerseStrongsMap, strongFormsDict, structuredSegments]);
 
   useEffect(() => {
     if (selectedStrongInfo) {

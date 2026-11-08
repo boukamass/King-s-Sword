@@ -22,6 +22,7 @@ import {
   VERIFIED_WORD_STRONG_MAP 
 } from './strongIndexData';
 import { fetchJsonSafe } from '../utils/fetchHelper';
+import { buildStrongFormsDictionary } from '../utils/strongAlignment';
 
 export interface StrongWord {
   word: string;
@@ -1358,6 +1359,64 @@ export async function getChapterVerseStrongs(bookId: string, chapter: number | s
   const b = bookId.toUpperCase();
   const ch = String(chapter);
   return index[b]?.[ch] || null;
+}
+
+// --- Index Strong par version (hors ligne : fichiers locaux de public/, jamais d'accès internet) ---
+type StrongIndexData = Record<string, Record<string, Record<string, Array<[string, string]>>>>;
+const VERSION_STRONG_INDEX_FILES: Record<string, string> = {
+  darby: 'bible-strong-darby.json',
+  kjv: 'bible-strong-kjv.json'
+};
+const versionStrongIndexPromises = new Map<string, Promise<StrongIndexData | null>>();
+const versionStrongFormsCache = new Map<string, Map<string, Set<string>>>();
+
+/**
+ * Charge l'index Strong propre à une version (LSG, Darby, KJV).
+ * Les autres versions utilisent l'index Louis Segond, comme auparavant.
+ */
+export async function loadVersionStrongIndex(version: string): Promise<StrongIndexData | null> {
+  const file = VERSION_STRONG_INDEX_FILES[version];
+  if (!file) return loadBibleStrongIndex();
+  let promise = versionStrongIndexPromises.get(version);
+  if (!promise) {
+    promise = (async () => {
+      try {
+        if (typeof window === 'undefined') {
+          const fs = await import('fs');
+          const path = await import('path');
+          const p = path.resolve(`./public/${file}`);
+          if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, 'utf8')) as StrongIndexData;
+        }
+        return await fetchJsonSafe<StrongIndexData>(file, [`./${file}`]);
+      } catch (e) {
+        console.warn(`[BibleExegesis] Erreur chargement index Strong (${version}) :`, e);
+        return null;
+      }
+    })();
+    versionStrongIndexPromises.set(version, promise);
+  }
+  return promise;
+}
+
+/**
+ * Récupère, pour la version consultée, les paires [mot, strong] du chapitre et le dictionnaire
+ * des formes de cette version (utilisé pour l'alignement des mots du verset).
+ */
+export async function getVersionChapterStrongs(
+  bookId: string,
+  chapter: number | string,
+  version: string
+): Promise<{ verses: Record<string, Array<[string, string]>>; forms: Map<string, Set<string>> } | null> {
+  const key = VERSION_STRONG_INDEX_FILES[version] ? version : 'lsg1910';
+  const index = await loadVersionStrongIndex(key);
+  if (!index) return null;
+  let forms = versionStrongFormsCache.get(key);
+  if (!forms) {
+    forms = buildStrongFormsDictionary(index);
+    versionStrongFormsCache.set(key, forms);
+  }
+  const verses = index[bookId.toUpperCase()]?.[String(chapter)];
+  return verses ? { verses, forms } : null;
 }
 
 /**
