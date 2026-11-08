@@ -1731,22 +1731,43 @@ export async function findBibleOccurrencesByTranslation(
     const list = data.refs.get(familyKey) || data.refs.get(stripAccents(translationKey(familyKey))) || [];
     const { ensureFullBibleLoaded } = await import('./bibleService');
     const bibleData = await ensureFullBibleLoaded(version as any);
+    const displayIndex = await loadVersionStrongIndex(version);
+    const normStrong = normalizeStrongId(strongNum);
     return list.map(ref => {
       const bookMeta = BIBLE_BOOKS_META.find(b => b.id.toUpperCase() === ref.bookId.toUpperCase());
       const verseObj = bibleData?.[ref.bookId]?.[ref.chapter]?.find((v: { verse: number; text: string }) => v.verse === ref.verse);
+      const words = strongWordsInVerse(displayIndex, ref.bookId, ref.chapter, ref.verse, normStrong);
       return {
         bookId: ref.bookId,
         bookName: bookMeta ? bookMeta.name : ref.bookId,
         chapter: ref.chapter,
         verse: ref.verse,
         text: verseObj ? verseObj.text : '',
-        matchedWord: ref.word
-      };
+        matchedWord: ref.word,
+        matchedWords: words.length > 0 ? words : [ref.word]
+      } as any;
     });
   } catch (err) {
     console.warn('Erreur recherche occurrences par traduction :', err);
     return [];
   }
+}
+
+/**
+ * Mots du verset qui traduisent ce Strong dans la version affichée (à surligner), d'après l'index
+ * de cette version ; à défaut, les mots de l'index LSG (`fallbackPairs`).
+ */
+function strongWordsInVerse(
+  displayIndex: Record<string, Record<string, Record<string, Array<[string, string]>>>> | null,
+  bookId: string,
+  chapter: string | number,
+  verse: string | number,
+  strong: string,
+  fallbackPairs?: Array<[string, string]>
+): string[] {
+  const pairs = displayIndex?.[bookId]?.[String(chapter)]?.[String(verse)] || fallbackPairs || [];
+  const words = pairs.filter(p => p[1] === strong).map(p => (p[0] || '').trim()).filter(Boolean);
+  return [...new Set(words)];
 }
 
 /**
@@ -1768,6 +1789,8 @@ export async function findBibleOccurrences(
     // 1. Recherche par identifiant Strong certifié dans l'index complet
     if (normStrong) {
       const strongIndex = await loadBibleStrongIndex();
+      // Index de la version affichée : donne, verset par verset, le mot réellement employé pour ce Strong
+      const displayIndex = await loadVersionStrongIndex(version);
       if (strongIndex) {
         for (const [bookId, chapters] of Object.entries(strongIndex)) {
           const bookMeta = BIBLE_BOOKS_META.find(b => b.id.toUpperCase() === bookId.toUpperCase());
@@ -1786,8 +1809,9 @@ export async function findBibleOccurrences(
                   chapter: chNum,
                   verse: vsNum,
                   text: verseObj ? verseObj.text : '',
-                  matchedWord: match[0]
-                });
+                  matchedWord: match[0],
+                  matchedWords: strongWordsInVerse(displayIndex, bookId, chStr, vsStr, normStrong, pairs)
+                } as any);
                 if (results.length >= 80) return results;
               }
             }

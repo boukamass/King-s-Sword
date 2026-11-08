@@ -3121,17 +3121,22 @@ const Reader: React.FC = () => {
                   ) : (activeStrongTranslation ? filteredStrongOccurrences : strongOccurrences).length > 0 ? (
                     <div className="max-h-60 overflow-y-auto custom-scrollbar border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl divide-y divide-slate-100 dark:divide-zinc-850 bg-slate-50/30 dark:bg-zinc-950/40">
                       {(activeStrongTranslation ? filteredStrongOccurrences : strongOccurrences).map((occ, idx) => {
-                        // Highlighting logic for target word in orange
-                        const highlightOccText = (text: string, searchWord: string) => {
-                          if (!searchWord) return text;
-                          const clean = searchWord.trim().replace(/[,.;:!?()'[\]»«’]+/g, '');
-                          if (!clean) return text;
-                          const escaped = clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                          const regex = new RegExp(`(${escaped})`, 'gi');
+                        // Surlignage du (des) mot(s) qui traduisent ce Strong dans CE verset (« pensées », « dessein »…),
+                        // d'après l'index Strong de la version affichée, et non seulement le mot du verset consulté
+                        const highlightOccText = (text: string, searchWords: string | string[]) => {
+                          const list = (Array.isArray(searchWords) ? searchWords : [searchWords])
+                            .map(w => (w || '').trim()
+                              .replace(/^(?:l|d|qu|s|n|j|m|t|c|jusqu|lorsqu|puisqu)['’]/i, '')
+                              .replace(/^[«"“(\[]+|[,.;:!?()'[\]»«’"”]+$/g, ''))
+                            .filter(w => w.length > 0);
+                          if (list.length === 0) return text;
+                          const escaped = [...new Set(list)].sort((a, b) => b.length - a.length).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+                          const regex = new RegExp(`(${escaped.join('|')})`, 'gi');
                           const parts = text.split(regex);
 
+                          // Avec une parenthèse capturante, les indices impairs sont les mots trouvés
                           return parts.map((part, i) =>
-                            regex.test(part) ? (
+                            i % 2 === 1 && part ? (
                               <mark key={i} className="bg-amber-200 dark:bg-amber-950/80 text-amber-950 dark:text-amber-100 font-semibold px-1 py-0.5 rounded-md not-italic border border-amber-400/80 dark:border-amber-500/60 shadow-2xs">
                                 {part}
                               </mark>
@@ -3178,7 +3183,12 @@ const Reader: React.FC = () => {
                               </span>
                             </div>
                             <p className="text-xs sm:text-sm leading-relaxed text-zinc-600 dark:text-zinc-300 font-normal italic">
-                              {highlightOccText(occ.text, activeStrongTranslation ? ((occ as { matchedWord?: string }).matchedWord || activeStrongTranslation.term).replace(/^(?:l|d|qu|s|n|j|m|t|c|jusqu|lorsqu|puisqu)['’]/i, '') : entry.word)}
+                              {highlightOccText(occ.text, (() => {
+                                const o = occ as { matchedWord?: string; matchedWords?: string[] };
+                                if (o.matchedWords && o.matchedWords.length > 0) return o.matchedWords;
+                                if (o.matchedWord) return [o.matchedWord];
+                                return activeStrongTranslation ? [activeStrongTranslation.term] : [entry.word];
+                              })())}
                             </p>
                           </div>
                         );
