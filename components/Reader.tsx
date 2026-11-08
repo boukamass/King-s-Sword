@@ -84,6 +84,7 @@ import { BIBLE_VERSIONS_META } from '../types/bible';
 import { STRONG_LEXICON, findBibleOccurrences, getOrGenerateStrongEntry, asyncGetOrGenerateStrongEntry, lookupStrongNumber, getChapterVerseStrongs, getVersionChapterStrongs, getStrongLsgTranslations, findBibleOccurrencesByTranslation, StrongLsgTranslation, enrichStrongEntryWithAi, loadBibleStrongIndex } from '../services/bibleExegesisService';
 import { alignVerseStrongsMulti } from '../utils/strongAlignment';
 import { getStrongHeadline } from '../utils/strongDisplay';
+import { buildWordRangeIndex, forEachWordInRange } from '../utils/wordRangeIndex';
 import { findSermonOccurrencesForStrong, getOrGenerateStrongMessageContext } from '../services/strongLexiconService';
 import { 
   getFavorites, 
@@ -138,7 +139,67 @@ const getStrongNumber = (text: string, isNT: boolean = false) => {
   return lookupStrongNumber(text, isNT);
 };
 
-const WordComponent = memo(({ 
+/**
+ * Champ de la recherche interne : garde sa propre saisie et ne transmet la requête au lecteur qu'après
+ * une courte pause de frappe (150 ms). Ainsi chaque touche ne redessine que ce champ, pas tout le sermon.
+ * Entrée transmet immédiatement la saisie en cours avant la navigation entre les résultats.
+ */
+const ReaderSearchInput = memo(({ value, onDebouncedChange, onKeyDown, placeholder, className }: {
+  value: string;
+  onDebouncedChange: (v: string) => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  placeholder?: string;
+  className?: string;
+}) => {
+  const [local, setLocal] = useState(value);
+  const timerRef = useRef<number | null>(null);
+  const lastSentRef = useRef(value);
+
+  // Réinitialisation venue du lecteur (fermeture de la barre, changement de document)
+  useEffect(() => {
+    if (value !== lastSentRef.current) {
+      lastSentRef.current = value;
+      setLocal(value);
+    }
+  }, [value]);
+
+  useEffect(() => () => { if (timerRef.current) window.clearTimeout(timerRef.current); }, []);
+
+  const send = (v: string) => {
+    if (timerRef.current) { window.clearTimeout(timerRef.current); timerRef.current = null; }
+    if (v !== lastSentRef.current) {
+      lastSentRef.current = v;
+      onDebouncedChange(v);
+    }
+  };
+
+  return (
+    <input
+      autoFocus
+      type="text"
+      placeholder={placeholder}
+      value={local}
+      onChange={e => {
+        const v = e.target.value;
+        setLocal(v);
+        if (timerRef.current) window.clearTimeout(timerRef.current);
+        if (!v) { send(''); return; }
+        timerRef.current = window.setTimeout(() => send(v), 150);
+      }}
+      onKeyDown={e => {
+        if (e.key === 'Enter' && local !== lastSentRef.current) {
+          e.preventDefault();
+          send(local);
+          return; // la nouvelle recherche se positionne d'elle-même sur le premier résultat
+        }
+        onKeyDown(e);
+      }}
+      className={className}
+    />
+  );
+});
+
+const WordComponent = memo(({
   word, 
   isSearchResult, 
   isCurrentResult, 
@@ -462,6 +523,10 @@ const Reader: React.FC = () => {
     if (words.length === 0) return '';
     return words.map(w => w.text).join('');
   }, [words]);
+
+  // Positions des mots dans le texte complet, calculées une fois : retrouver les mots d'une correspondance
+  // (recherche interne, citations, saut vers un passage) ne reparcourt plus le texte depuis le début
+  const wordRangeIndex = useMemo(() => buildWordRangeIndex(words), [words]);
 
   const highlightMap = useMemo(() => {
     const map = new Map<number, Highlight>();
@@ -1598,15 +1663,10 @@ const Reader: React.FC = () => {
             const startChar = match.index;
             const endChar = match.index + match[0].length;
             let firstWordIndex = -1;
-            let currentChar = 0;
-            for (let i = 0; i < words.length; i++) {
-                const wordLen = words[i].text.length;
-                if (currentChar + wordLen > startChar && currentChar < endChar) {
-                    matchIndices.push(words[i].globalIndex);
-                    if (firstWordIndex === -1) firstWordIndex = words[i].globalIndex;
-                }
-                currentChar += wordLen;
-            }
+            forEachWordInRange(wordRangeIndex, startChar, endChar, (i) => {
+                matchIndices.push(words[i].globalIndex);
+                if (firstWordIndex === -1) firstWordIndex = words[i].globalIndex;
+            });
             if (firstWordIndex !== -1) {
                 setJumpHighlightIndices(matchIndices);
                 setTimeout(() => {
@@ -1616,7 +1676,7 @@ const Reader: React.FC = () => {
         }
         setJumpToText(null);
     }
-  }, [jumpToText, sermon, words, fullSermonText, setJumpToText]);
+  }, [jumpToText, sermon, words, fullSermonText, wordRangeIndex, setJumpToText]);
   
   const citationHighlightMap = useMemo(() => {
     const map = new Map<number, { colorClass: string }>();
@@ -1637,13 +1697,9 @@ const Reader: React.FC = () => {
           let match;
           while ((match = regex.exec(fullSermonText)) !== null) {
             const colorClass = PALETTE_HIGHLIGHT_COLORS[h.color || 'amber'] || PALETTE_HIGHLIGHT_COLORS['amber'];
-            let currentChar = 0;
-            for (let i = 0; i < words.length; i++) {
-              if (currentChar + words[i].text.length > match.index && currentChar < match.index + match[0].length) {
-                map.set(words[i].globalIndex, { colorClass });
-              }
-              currentChar += words[i].text.length;
-            }
+            forEachWordInRange(wordRangeIndex, match.index, match.index + match[0].length, (i) => {
+              map.set(words[i].globalIndex, { colorClass });
+            });
             if (regex.lastIndex === match.index) regex.lastIndex++;
           }
         }
@@ -1653,60 +1709,48 @@ const Reader: React.FC = () => {
         let match;
         while ((match = regex.exec(fullSermonText)) !== null) {
           const colorClass = PALETTE_HIGHLIGHT_COLORS[currentNote.color || 'amber'] || PALETTE_HIGHLIGHT_COLORS['amber'];
-          let currentChar = 0;
-          for (let i = 0; i < words.length; i++) {
-            if (currentChar + words[i].text.length > match.index && currentChar < match.index + match[0].length) {
-              map.set(words[i].globalIndex, { colorClass });
-            }
-            currentChar += words[i].text.length;
-          }
+          forEachWordInRange(wordRangeIndex, match.index, match.index + match[0].length, (i) => {
+            map.set(words[i].globalIndex, { colorClass });
+          });
           if (regex.lastIndex === match.index) regex.lastIndex++;
         }
       }
     }
     return map;
-  }, [activeNoteId, navigatedFromNoteId, notes, sermon?.id, words, fullSermonText]);
+  }, [activeNoteId, navigatedFromNoteId, notes, sermon?.id, words, fullSermonText, wordRangeIndex]);
+
+  // readerSearchQuery n'est mis à jour qu'après une courte pause de frappe (voir ReaderSearchInput) :
+  // « eau » = une seule recherche, et la frappe ne redessine pas tout le sermon à chaque touche
+  const debouncedReaderSearchQuery = readerSearchQuery;
 
   useEffect(() => {
-    if (readerSearchQuery.length >= 1) {
+    if (debouncedReaderSearchQuery.length >= 1) {
       startTransition(() => {
-        const regex = getAccentInsensitiveRegex(readerSearchQuery, false);
+        const regex = getAccentInsensitiveRegex(debouncedReaderSearchQuery, false);
         const matchStarts: number[] = [];
         const matchWords = new Set<number>();
         let match;
         while ((match = regex.exec(fullSermonText)) !== null) {
-            const matchStartChar = match.index;
-            const matchEndChar = match.index + match[0].length;
-            let currentChar = 0;
             let isFirstWordInMatch = true;
-
-            for (let i = 0; i < words.length; i++) {
-                const wordLen = words[i].text.length;
-                const wordStart = currentChar;
-                const wordEnd = currentChar + wordLen;
-
-                if (wordEnd > matchStartChar && wordStart < matchEndChar) {
-                  matchWords.add(words[i].globalIndex);
-                  if (isFirstWordInMatch) {
-                    matchStarts.push(words[i].globalIndex);
-                    isFirstWordInMatch = false;
-                  }
+            forEachWordInRange(wordRangeIndex, match.index, match.index + match[0].length, (i) => {
+                matchWords.add(words[i].globalIndex);
+                if (isFirstWordInMatch) {
+                  matchStarts.push(words[i].globalIndex);
+                  isFirstWordInMatch = false;
                 }
-                currentChar += wordLen;
-                if (wordStart >= matchEndChar) break;
-            }
+            });
             if (regex.lastIndex === match.index) regex.lastIndex++;
         }
         setSearchResults(matchStarts);
         setSearchMatchWordIndices(matchWords);
         setCurrentResultIndex(matchStarts.length > 0 ? 0 : -1);
       });
-    } else { 
-      setSearchResults([]); 
+    } else {
+      setSearchResults([]);
       setSearchMatchWordIndices(new Set());
-      setCurrentResultIndex(-1); 
+      setCurrentResultIndex(-1);
     }
-  }, [readerSearchQuery, words, fullSermonText]);
+  }, [debouncedReaderSearchQuery, words, fullSermonText, wordRangeIndex]);
 
   useEffect(() => {
       if (currentResultIndex !== -1 && searchResults.length > 0) {
@@ -3679,12 +3723,10 @@ const Reader: React.FC = () => {
           <div className="max-w-4xl mx-auto w-full flex items-center gap-4">
             <div className="relative flex-1 group">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 group-focus-within:text-teal-600 transition-colors" />
-              <input 
-                autoFocus
-                type="text" 
+              <ReaderSearchInput
                 placeholder={t.reader_search_placeholder}
                 value={readerSearchQuery}
-                onChange={e => setReaderSearchQuery(e.target.value)}
+                onDebouncedChange={setReaderSearchQuery}
                 onKeyDown={handleSearchKeyDown}
                 className="w-full bg-zinc-100 dark:bg-zinc-800 border-none rounded-xl py-2.5 pl-10 pr-4 text-sm font-bold text-zinc-900 dark:text-white outline-none ring-2 ring-transparent focus:ring-teal-600/20 transition-all"
               />
@@ -3937,7 +3979,7 @@ const Reader: React.FC = () => {
                     }
                     handleProjectSegment(segIdx, true);
                   }}
-                  className={`group/seg relative mb-2.5 py-3 px-4 sm:px-5 rounded-2xl transition-all select-text ${
+                  className={`group/seg relative mb-2.5 py-3 px-4 sm:px-5 rounded-2xl transition-all select-text ${structuredSegments.length > 150 ? 'ks-seg-cv' : ''} ${
                     isProjectionOpen ? 'cursor-pointer' : 'cursor-text'
                   } ${
                     isProjected 

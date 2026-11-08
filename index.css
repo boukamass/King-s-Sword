@@ -188,3 +188,15 @@
   }
 }
 
+
+/* Longs documents (plus de 150 paragraphes) : le navigateur ne met pas en page les paragraphes hors de
+   l'écran tant qu'ils ne sont pas visibles (ouverture et défilement plus rapides, sans changement visible) */
+.ks-seg-cv {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 140px;
+}
+@media print {
+  .ks-seg-cv {
+    content-visibility: visible;
+  }
+}
