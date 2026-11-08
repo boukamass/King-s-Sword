@@ -787,6 +787,43 @@ N'invente aucune fausse citation. Réponds uniquement par le texte du paragraphe
 }
 
 /**
+ * Fiche française immédiate, construite uniquement depuis les lexiques locaux (aucun appel IA ni internet).
+ * Retourne la fiche déjà enrichie si elle est en cache.
+ */
+export async function getStrongFrenchCardLocal(
+  strongId: string,
+  frenchWordHint?: string
+): Promise<FrenchStrongCard | null> {
+  const normId = normalizeStrongId(strongId);
+  if (!normId) return null;
+  const cached = getCachedFrenchCard(normId);
+  if (cached) return cached;
+  await loadLexicon();
+  const baseData = getStrongBase(normId);
+  if (!baseData) return null;
+  return buildDeterministicFrenchCard(normId, baseData, frenchWordHint);
+}
+
+/**
+ * Enrichissement IA de la fiche, à lancer en arrière-plan après l'affichage de la fiche locale.
+ * Retourne null s'il n'y a rien à enrichir (fiche déjà en cache, pas de clé API ou hors connexion).
+ */
+export async function enrichStrongFrenchCardWithAi(
+  strongId: string,
+  frenchWordHint?: string
+): Promise<FrenchStrongCard | null> {
+  const normId = normalizeStrongId(strongId);
+  if (!normId) return null;
+  if (getCachedFrenchCard(normId)) return null;
+  if (!getAiFeatureKey()) return null;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return null;
+  await loadLexicon();
+  const baseData = getStrongBase(normId);
+  if (!baseData) return null;
+  return translateStrongBaseWithGemini(normId, baseData, frenchWordHint);
+}
+
+/**
  * Récupère ou génère la fiche française complète pour un Strong donné
  */
 export async function getStrongFrenchCard(

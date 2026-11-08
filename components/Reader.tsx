@@ -81,7 +81,7 @@ import {
 import SongModal from './SongModal';
 import { useModalActive } from '../utils/modalUtils';
 import { BIBLE_VERSIONS_META } from '../types/bible';
-import { STRONG_LEXICON, findBibleOccurrences, getOrGenerateStrongEntry, asyncGetOrGenerateStrongEntry, lookupStrongNumber, getChapterVerseStrongs, getVersionChapterStrongs, getStrongLsgTranslations, findBibleOccurrencesByTranslation, StrongLsgTranslation } from '../services/bibleExegesisService';
+import { STRONG_LEXICON, findBibleOccurrences, getOrGenerateStrongEntry, asyncGetOrGenerateStrongEntry, lookupStrongNumber, getChapterVerseStrongs, getVersionChapterStrongs, getStrongLsgTranslations, findBibleOccurrencesByTranslation, StrongLsgTranslation, enrichStrongEntryWithAi, loadBibleStrongIndex } from '../services/bibleExegesisService';
 import { alignVerseStrongs } from '../utils/strongAlignment';
 import { findSermonOccurrencesForStrong, getOrGenerateStrongMessageContext } from '../services/strongLexiconService';
 import { 
@@ -687,6 +687,32 @@ const Reader: React.FC = () => {
     }
   }, [isBibleChapter, showStrongs, sermon?.id, bibleVersion]);
 
+  // Préchargement en tâche de fond des données Strong locales dès l'ouverture d'un chapitre biblique
+  // (lexiques, index et dictionnaire des formes de la version, index LSG des traductions) :
+  // le premier clic sur STRONG ou sur un numéro devient instantané.
+  useEffect(() => {
+    if (!isBibleChapter || !sermon?.id) return;
+    const parts = sermon.id.split('-');
+    const bId = parts[1]?.toUpperCase() || '';
+    const ch = parts[2] || '1';
+    let cancelled = false;
+    const run = () => {
+      if (cancelled) return;
+      import('../services/strongLexiconService').then(m => m.loadLexicon()).catch(() => {});
+      loadBibleStrongIndex().catch(() => {});
+      getVersionChapterStrongs(bId, ch, bibleVersion).catch(() => {});
+      import('../services/dictionaryService').then(m => m.createDictionaryLemmatizer()).catch(() => {});
+    };
+    const w = window as any;
+    const handle = typeof w.requestIdleCallback === 'function'
+      ? w.requestIdleCallback(run, { timeout: 2000 })
+      : window.setTimeout(run, 600);
+    return () => {
+      cancelled = true;
+      if (typeof w.cancelIdleCallback === 'function') w.cancelIdleCallback(handle); else window.clearTimeout(handle);
+    };
+  }, [isBibleChapter, sermon?.id, bibleVersion]);
+
   // Alignement séquentiel certifié des mots du verset avec leurs numéros Strong officiels
   const wordStrongMap = useMemo(() => {
     const map = new Map<number, string>();
@@ -747,23 +773,36 @@ const Reader: React.FC = () => {
         if (found) targetWord = found.text;
       }
 
+      const openedStrong = selectedStrongInfo.strongNum;
+      const isStillOpen = () => selectedStrongInfoRef.current?.strongNum === openedStrong;
+
+      // 1. Occurrences bibliques : lancées dès l'ouverture, en parallèle de la fiche (recherche par numéro Strong)
+      findBibleOccurrences(targetWord || '', bibleVersion, openedStrong)
+        .then(results => {
+          if (isStillOpen()) setStrongOccurrences(results);
+        })
+        .catch(() => {
+          if (isStillOpen()) setStrongOccurrences([]);
+        })
+        .finally(() => {
+          if (isStillOpen()) setIsLoadingOccurrences(false);
+        });
+
       asyncGetOrGenerateStrongEntry(selectedStrongInfo.strongNum, targetWord, isNT)
         .then(entry => {
+          if (!isStillOpen()) return;
           setCurrentStrongEntry(entry);
           setIsLoadingStrongEntry(false);
-          
+
           if (entry) {
-            // 1. Occurrences bibliques
-            findBibleOccurrences(entry.word, bibleVersion, selectedStrongInfo.strongNum)
-              .then(results => {
-                setStrongOccurrences(results);
+            // Enrichissement IA en arrière-plan (si une clé API est configurée) : la fiche locale est déjà affichée
+            enrichStrongEntryWithAi(openedStrong, targetWord)
+              .then(patch => {
+                if (patch && isStillOpen()) {
+                  setCurrentStrongEntry((prev: any) => prev ? { ...prev, ...patch, messageContext: patch.messageContext || prev.messageContext } : prev);
+                }
               })
-              .catch(() => {
-                setStrongOccurrences([]);
-              })
-              .finally(() => {
-                setIsLoadingOccurrences(false);
-              });
+              .catch(() => {});
 
             // 2. Extraits et mentions dans les sermons & l'Exposé complet
             findSermonOccurrencesForStrong(entry.word, selectedStrongInfo.strongNum)
@@ -788,7 +827,6 @@ const Reader: React.FC = () => {
                 .catch(() => {});
             }
           } else {
-            setIsLoadingOccurrences(false);
             setIsLoadingSermonOccurrences(false);
           }
         })
@@ -2908,7 +2946,7 @@ const Reader: React.FC = () => {
                                       ? 'bg-teal-600 text-white no-underline font-semibold'
                                       : 'text-teal-700 dark:text-teal-300 decoration-teal-500/40 hover:text-teal-900 dark:hover:text-teal-100 hover:decoration-teal-600'
                                   }`}
-                                  title={isActive ? "Afficher toutes les occurrences" : `Afficher les versets où ce mot est traduit « ${t.term} »`}
+                                  title={isActive ? "Afficher toutes les occurrences" : `Afficher les versets traduits par « ${t.term} »${t.forms && t.forms.length > 1 ? ` (formes : ${t.forms.join(', ')})` : ''}`}
                                 >
                                   {t.term} ({t.count}x)
                                 </button>
@@ -3124,7 +3162,7 @@ const Reader: React.FC = () => {
                               </span>
                             </div>
                             <p className="text-xs sm:text-sm leading-relaxed text-zinc-600 dark:text-zinc-300 font-normal italic">
-                              {highlightOccText(occ.text, activeStrongTranslation ? activeStrongTranslation.term : entry.word)}
+                              {highlightOccText(occ.text, activeStrongTranslation ? ((occ as { matchedWord?: string }).matchedWord || activeStrongTranslation.term).replace(/^(?:l|d|qu|s|n|j|m|t|c|jusqu|lorsqu|puisqu)['’]/i, '') : entry.word)}
                             </p>
                           </div>
                         );

@@ -330,6 +330,78 @@ export const searchOfflineDictionarySuggestions = async (query: string, limit = 
   return out;
 };
 
+/** Renvois grammaticaux du dictionnaire : « Du verbe croire. », « Masculin pluriel de croyant. », « Féminin de saint »… */
+const LEMMA_REDIRECT_RE = /^\s*(?:du verbe\s+|(?:masculin|féminin)(?:\s+(?:singulier|pluriel))?\s+(?:de\s+|d['’]\s*)|(?:singulier|pluriel)\s+(?:de\s+|d['’]\s*))([a-zà-ÿœæ-]+)/i;
+
+/**
+ * Prépare une fonction (synchrone) qui ramène un mot à son mot de base d'après le dictionnaire
+ * hors ligne : verbe conjugué → infinitif, pluriel / féminin → masculin singulier.
+ * Retourne null si le dictionnaire n'est pas disponible.
+ */
+/** Description grammaticale d'une forme : « Troisième personne du singulier … du verbe aller », « Impératif singulier de venir » */
+const GRAMMAR_FORM_RE = /^\s*(?:archaïque\s+)?(?:(?:première|deuxième|troisième)\s+personne|impératif|participe|infinitif|subjonctif|indicatif|gérondif)/i;
+const GRAMMAR_TARGET_RE = /(?:verbe\s+|\bde\s+|\bd['’]\s*)([a-zà-ÿœæ-]{2,})/gi;
+const ALT_VERB_RE = /du verbe\s+([a-zà-ÿœæ-]+)/gi;
+
+export interface DictionaryLemma {
+  key: string;        // clé du mot de base (sans accents)
+  word: string;       // mot de base tel qu'écrit dans le dictionnaire
+  resolved: boolean;  // vrai si la forme a été ramenée à un autre mot
+  alt: string[];      // autres verbes possibles cités dans la définition (« vit » : … Du verbe vivre)
+}
+
+export const createDictionaryLemmatizer = async (): Promise<((word: string) => DictionaryLemma) | null> => {
+  const dict = await ensureOfflineDictionaryLoaded();
+  if (!dict) return null;
+  const cache = new Map<string, DictionaryLemma>();
+  const redirectTarget = (definition: string): string => {
+    const d = definition || '';
+    const m = d.match(LEMMA_REDIRECT_RE);
+    if (m) return toLookupKey(m[1]);
+    if (GRAMMAR_FORM_RE.test(d)) {
+      const firstSentence = d.split(/\.\s/)[0];
+      let last = '';
+      for (const g of firstSentence.matchAll(GRAMMAR_TARGET_RE)) {
+        const k = toLookupKey(g[1]);
+        if (k && dict[k]) last = k;
+      }
+      return last;
+    }
+    return '';
+  };
+  return (word: string) => {
+    const startKey = toLookupKey(word);
+    if (!startKey) return { key: '', word: word, resolved: false, alt: [] };
+    const cached = cache.get(startKey);
+    if (cached) return cached;
+    let key = startKey;
+    let resolved = false;
+    const alt: string[] = [];
+    for (let depth = 0; depth < 3; depth++) {
+      const entry = dict[key];
+      if (!entry) {
+        // Forme absente du dictionnaire : règles de lemmatisation existantes (pluriels, féminins, conjugaisons)
+        const r = resolveEntry(key, dict);
+        const baseKey = r?.entry?.w ? toLookupKey(r.entry.w) : '';
+        if (baseKey && baseKey !== key && dict[baseKey]) { key = baseKey; resolved = true; continue; }
+        break;
+      }
+      const targetKey = redirectTarget(entry.d);
+      if (targetKey && targetKey !== key && dict[targetKey]) { key = targetKey; resolved = true; continue; }
+      if (depth === 0) {
+        for (const g of (entry.d || '').matchAll(ALT_VERB_RE)) {
+          const k = toLookupKey(g[1]);
+          if (k && dict[k] && !alt.includes(k)) alt.push(k);
+        }
+      }
+      break;
+    }
+    const out = { key, word: dict[key]?.w || normalizeWord(word), resolved, alt };
+    cache.set(startKey, out);
+    return out;
+  };
+};
+
 /**
  * Définition d'un mot uniquement depuis le dictionnaire hors ligne (avec lemmatisation :
  * pluriels, féminins, formes conjuguées). Retourne null si le mot est introuvable.

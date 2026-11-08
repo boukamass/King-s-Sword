@@ -16,7 +16,9 @@ import {
   getStrongFrenchCard,
   buildDeterministicFrenchCard,
   getStrongOccurrenceCount,
-  getOrGenerateStrongMessageContext
+  getOrGenerateStrongMessageContext,
+  getStrongFrenchCardLocal,
+  enrichStrongFrenchCardWithAi
 } from './strongLexiconService';
 import { 
   VERIFIED_WORD_STRONG_MAP 
@@ -1059,12 +1061,13 @@ export async function asyncGetOrGenerateStrongEntry(
     }
   }
 
-  // 3. Consultation du lexique officiel OpenScriptures & traduction française complète
-  const frenchCard = await getStrongFrenchCard(normId, wordText);
+  // 3. Consultation du lexique officiel OpenScriptures (local, immédiat). L'enrichissement IA et
+  //    l'éclairage dans le Message sont chargés en arrière-plan par la fenêtre, après l'affichage.
+  const frenchCard = await getStrongFrenchCardLocal(normId, wordText);
   if (!frenchCard) return null;
 
   const realOcc = getStrongOccurrenceCount(normId);
-  const messageCtx = frenchCard.messageContext || await getOrGenerateStrongMessageContext(normId, frenchCard.word, frenchCard.definition, frenchCard.original);
+  const messageCtx = frenchCard.messageContext || null;
 
   return {
     word: frenchCard.word,
@@ -1078,6 +1081,32 @@ export async function asyncGetOrGenerateStrongEntry(
     translationsLSG: frenchCard.translationsLSG || undefined,
     definition: frenchCard.definition,
     messageContext: messageCtx || undefined
+  };
+}
+
+/**
+ * Enrichissement IA d'une fiche Strong issue du lexique OpenScriptures, en arrière-plan.
+ * Retourne les champs enrichis, ou null si rien n'est à enrichir (fiche manuelle, fiche déjà
+ * enrichie en cache, pas de clé API ou hors connexion).
+ */
+export async function enrichStrongEntryWithAi(
+  strongNum: string,
+  wordText?: string
+): Promise<Partial<StrongWord> | null> {
+  const normId = normalizeStrongId(strongNum);
+  if (!normId || STRONG_LEXICON[normId]) return null;
+  for (const val of Object.values(FRENCH_BIBLE_STRONG_MAP)) {
+    if (val.strong && val.strong.includes(normId)) return null;
+  }
+  const card = await enrichStrongFrenchCardWithAi(normId, wordText);
+  if (!card) return null;
+  return {
+    word: card.word,
+    partOfSpeech: card.partOfSpeech || undefined,
+    etymology: card.etymology || undefined,
+    translationsLSG: card.translationsLSG || undefined,
+    definition: card.definition,
+    ...(card.messageContext ? { messageContext: card.messageContext } : {})
   };
 }
 
@@ -1421,9 +1450,10 @@ export async function getVersionChapterStrongs(
 
 // --- Traductions LSG réelles d'un Strong (calculées depuis l'index certifié Louis Segond, hors ligne) ---
 export interface StrongLsgTranslation {
-  term: string;   // forme affichée (ex. « foi »)
-  key: string;    // clé normalisée (minuscules, sans élision)
-  count: number;  // nombre d'emplois dans la LSG
+  term: string;     // mot de base affiché (ex. « croire »)
+  key: string;      // clé de la famille de mots
+  count: number;    // nombre d'emplois dans la LSG (toutes formes confondues)
+  forms: string[];  // formes rencontrées (ex. « cru, croit, crurent… »), de la plus fréquente à la moins fréquente
 }
 interface StrongTranslationRefs {
   translations: StrongLsgTranslation[];
@@ -1440,6 +1470,50 @@ const translationKey = (word: string): string =>
     .replace(/^-+|-+$/g, '')
     .toLowerCase();
 
+const stripAccents = (s: string): string =>
+  (s || '').toLowerCase().replace(/œ/g, 'oe').replace(/æ/g, 'ae').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
+
+/** Distance d'édition ≤ 1 (substitution, insertion ou suppression d'une seule lettre) */
+const isOneEditApart = (a: string, b: string): boolean => {
+  if (a === b) return true;
+  if (Math.abs(a.length - b.length) > 1) return false;
+  let i = 0;
+  let j = 0;
+  let edits = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) { i++; j++; continue; }
+    if (++edits > 1) return false;
+    if (a.length > b.length) i++;
+    else if (a.length < b.length) j++;
+    else { i++; j++; }
+  }
+  return edits + (a.length - i) + (b.length - j) <= 1;
+};
+
+const VERB_INFINITIVE_RE = /(?:er|ir|re|oir)$/;
+
+/**
+ * Formes irrégulières courantes que le dictionnaire décrit comme un autre mot (homographes) :
+ * forme (sans accents) → verbes possibles. Utilisé uniquement si le verbe figure parmi les
+ * traductions du même Strong (ex. « fut » n'est rattaché à « être » que si « être » y figure).
+ */
+const IRREGULAR_VERB_FORMS: Record<string, string[]> = {
+  est: ['etre'], es: ['etre'], fut: ['etre'], fus: ['etre'], soit: ['etre'], ete: ['etre'], sommes: ['etre'],
+  a: ['avoir'], as: ['avoir'], ai: ['avoir'], eu: ['avoir'], eus: ['avoir'], aura: ['avoir'], auras: ['avoir'],
+  virent: ['voir'], vimes: ['voir'],
+  va: ['aller'], vas: ['aller'], vais: ['aller'],
+  vienne: ['venir'], viennes: ['venir'], vint: ['venir'],
+  fait: ['faire'], fais: ['faire'], faits: ['faire'], faite: ['faire'],
+  dit: ['dire'], dis: ['dire'], dite: ['dire'], dits: ['dire'],
+  doit: ['devoir'], dois: ['devoir'], du: ['devoir'],
+  vit: ['vivre', 'voir'], vis: ['vivre', 'voir'], vu: ['voir'], vue: ['voir'],
+  put: ['pouvoir'], pu: ['pouvoir'], sut: ['savoir'], su: ['savoir'],
+  mis: ['mettre'], mise: ['mettre'], pris: ['prendre'], prise: ['prendre'],
+  tint: ['tenir'], tenu: ['tenir'], cru: ['croire'], crut: ['croire'], croit: ['croire'], crois: ['croire'],
+  mort: ['mourir'], morte: ['mourir'], ne: ['naitre'], nee: ['naitre'],
+  couvert: ['couvrir'], ouvert: ['ouvrir'], offert: ['offrir'], souffert: ['souffrir']
+};
+
 async function getStrongTranslationRefs(strongNum: string): Promise<StrongTranslationRefs | null> {
   const normStrong = normalizeStrongId(strongNum);
   if (!normStrong) return null;
@@ -1449,9 +1523,10 @@ async function getStrongTranslationRefs(strongNum: string): Promise<StrongTransl
   const index = await loadBibleStrongIndex();
   if (!index) return null;
 
-  const counts = new Map<string, number>();
+  // 1. Emplois par forme (graphie exacte du texte LSG)
+  const formCounts = new Map<string, number>();
   const displayForms = new Map<string, Map<string, number>>();
-  const refs = new Map<string, Array<{ bookId: string; chapter: number; verse: number; word: string }>>();
+  const formRefs = new Map<string, Array<{ bookId: string; chapter: number; verse: number; word: string }>>();
 
   for (const [bookId, chapters] of Object.entries(index)) {
     for (const [chStr, verses] of Object.entries(chapters)) {
@@ -1461,7 +1536,7 @@ async function getStrongTranslationRefs(strongNum: string): Promise<StrongTransl
           if (strong !== normStrong) continue;
           const key = translationKey(word);
           if (!key) continue;
-          counts.set(key, (counts.get(key) || 0) + 1);
+          formCounts.set(key, (formCounts.get(key) || 0) + 1);
           // Forme affichée : la graphie la plus fréquente (ex. « Esprit » / « esprit » regroupés)
           const display = word.trim().replace(/^(?:l|d|qu|s|n|j|m|t|c|jusqu|lorsqu|puisqu)['’]/i, '').replace(/[^\p{L}\p{N}\- ]/gu, '');
           let forms = displayForms.get(key);
@@ -1469,20 +1544,145 @@ async function getStrongTranslationRefs(strongNum: string): Promise<StrongTransl
           forms.set(display, (forms.get(display) || 0) + 1);
           if (!seenInVerse.has(key)) {
             seenInVerse.add(key);
-            let list = refs.get(key);
-            if (!list) refs.set(key, (list = []));
+            let list = formRefs.get(key);
+            if (!list) formRefs.set(key, (list = []));
             list.push({ bookId, chapter: parseInt(chStr, 10), verse: parseInt(vsStr, 10), word: word.trim() });
           }
         }
       }
     }
   }
+  const bestDisplay = (formKey: string): string =>
+    [...(displayForms.get(formKey) || new Map<string, number>()).entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || formKey;
 
-  const translations: StrongLsgTranslation[] = [...counts.entries()]
+  // 2. Regroupement par famille de mots (conjugaisons, pluriels, féminins) via le dictionnaire hors ligne
+  let lemmatize: ((w: string) => { key: string; word: string; resolved: boolean; alt: string[] }) | null = null;
+  try {
+    const { createDictionaryLemmatizer } = await import('./dictionaryService');
+    lemmatize = await createDictionaryLemmatizer();
+  } catch (e) {
+    lemmatize = null;
+  }
+
+  const familyOf = new Map<string, string>();               // forme → clé de famille
+  const familyWord = new Map<string, string>();             // clé de famille → mot de base du dictionnaire
+  const familyMembers = new Map<string, Set<string>>();     // clé de famille → formes (sans accents)
+  const familyAlt = new Map<string, string[]>();            // clé de famille → verbes possibles (homographes)
+  const lemmaOf = new Map<string, { key: string; word: string; resolved: boolean; alt: string[] } | null>();
+  for (const formKey of formCounts.keys()) lemmaOf.set(formKey, lemmatize ? lemmatize(bestDisplay(formKey)) : null);
+  const plannedFamilies = new Set([...lemmaOf.entries()].map(([fk, l]) => (l && l.key) || stripAccents(fk) || fk));
+  for (const formKey of formCounts.keys()) {
+    const lem = lemmaOf.get(formKey) || null;
+    let famKey = lem && lem.key ? lem.key : (stripAccents(formKey) || formKey);
+    let famWord = lem && lem.key ? lem.word : bestDisplay(formKey);
+    // Forme irrégulière connue (« fut », « virent », « sommes »…) : rattachée à son verbe s'il figure
+    // parmi les traductions de ce Strong et n'est pas déjà son mot de base
+    const irregular = (IRREGULAR_VERB_FORMS[stripAccents(formKey)] || []).find(v => v !== famKey && plannedFamilies.has(v));
+    if (irregular) {
+      famKey = irregular;
+      famWord = familyWord.get(irregular) || (lemmatize ? lemmatize(irregular).word : irregular);
+    }
+    familyOf.set(formKey, famKey);
+    if (!familyWord.has(famKey)) familyWord.set(famKey, famWord);
+    let members = familyMembers.get(famKey);
+    if (!members) familyMembers.set(famKey, (members = new Set()));
+    members.add(stripAccents(formKey));
+    // Verbes possibles cités par le dictionnaire, seulement pour une forme non ramenée à un autre mot
+    if (!irregular && lem && !lem.resolved && lem.alt.length > 0) familyAlt.set(famKey, [...(familyAlt.get(famKey) || []), ...lem.alt]);
+  }
+
+  // 2 bis. Homographes (« fut », « est », « vit », « fait »…) : rattachés au verbe possible
+  //        seulement si ce verbe figure déjà parmi les traductions du même Strong
+  for (const [famKey, alts] of familyAlt.entries()) {
+    if (!familyMembers.has(famKey)) continue;
+    const target = alts.find(a => a !== famKey && familyMembers.has(a));
+    if (!target) continue;
+    familyMembers.get(famKey)!.forEach(m => familyMembers.get(target)!.add(m));
+    familyMembers.delete(famKey);
+    for (const [formKey, fk] of familyOf.entries()) if (fk === famKey) familyOf.set(formKey, target);
+  }
+
+  // 3. Formes homographes d'un autre mot (« cru », « croit ») : rattachées au verbe de la même traduction
+  //    lorsqu'elles n'en diffèrent que d'une lettre (crut, crois) ou en sont le participe présent (croyant ← croyons)
+  if (lemmatize) {
+    const verbFamilies = [...familyMembers.entries()].filter(([k, m]) => VERB_INFINITIVE_RE.test(k) && m.size >= 2);
+    for (const [famKey, members] of [...familyMembers.entries()]) {
+      if (VERB_INFINITIVE_RE.test(famKey)) continue;
+      const target = verbFamilies.find(([vKey, vMembers]) => {
+        if (vKey === famKey) return false;
+        for (const vm of vMembers) {
+          if (vm.slice(0, 3) === famKey.slice(0, 3) && isOneEditApart(vm, famKey)) return true;
+        }
+        if (famKey.endsWith('ant')) {
+          const stem = famKey.slice(0, -3);
+          if (vMembers.has(stem + 'ons') || vMembers.has(stem + 'ez')) return true;
+        }
+        return false;
+      });
+      if (!target) continue;
+      const [vKey, vMembers] = target;
+      members.forEach(m => vMembers.add(m));
+      familyMembers.delete(famKey);
+      for (const [formKey, fk] of familyOf.entries()) if (fk === famKey) familyOf.set(formKey, vKey);
+    }
+  }
+
+  // 3 bis. Pluriels et féminins restés seuls (« vents » → « vent », « première » → « premier ») :
+  //        rattachés à leur forme simple lorsqu'elle figure parmi les traductions du même Strong
+  for (const famKey of [...familyMembers.keys()]) {
+    const candidates = [famKey.replace(/(?:es|s|x)$/, ''), famKey.replace(/e$/, ''), famKey.replace(/es$/, 'e')]
+      .filter(c => c && c !== famKey && c.length >= 3);
+    const target = candidates.find(c => familyMembers.has(c));
+    if (!target || !familyMembers.has(famKey)) continue;
+    familyMembers.get(famKey)!.forEach(m => familyMembers.get(target)!.add(m));
+    familyMembers.delete(famKey);
+    for (const [formKey, fk] of familyOf.entries()) if (fk === famKey) familyOf.set(formKey, target);
+  }
+
+  // 4. Totaux, formes et versets par famille
+  const famCounts = new Map<string, number>();
+  const famForms = new Map<string, Array<[string, number]>>();
+  const refs = new Map<string, Array<{ bookId: string; chapter: number; verse: number; word: string }>>();
+  for (const [formKey, count] of formCounts.entries()) {
+    const famKey = familyOf.get(formKey) || formKey;
+    famCounts.set(famKey, (famCounts.get(famKey) || 0) + count);
+    let fl = famForms.get(famKey);
+    if (!fl) famForms.set(famKey, (fl = []));
+    fl.push([bestDisplay(formKey), count]);
+  }
+  for (const [formKey, list] of formRefs.entries()) {
+    const famKey = familyOf.get(formKey) || formKey;
+    let fr = refs.get(famKey);
+    if (!fr) refs.set(famKey, (fr = []));
+    fr.push(...list);
+  }
+  // Un verset n'apparaît qu'une fois par famille, dans l'ordre biblique de l'index
+  const bookOrder = new Map(Object.keys(index).map((b, i) => [b, i] as [string, number]));
+  for (const [famKey, list] of refs.entries()) {
+    const seen = new Set<string>();
+    const unique = list.filter(r => {
+      const k = `${r.bookId}|${r.chapter}|${r.verse}`;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+    unique.sort((a, b) => ((bookOrder.get(a.bookId) ?? 0) - (bookOrder.get(b.bookId) ?? 0)) || a.chapter - b.chapter || a.verse - b.verse);
+    refs.set(famKey, unique);
+  }
+
+  const translations: StrongLsgTranslation[] = [...famCounts.entries()]
     .map(([key, count]) => {
-      const forms = displayForms.get(key)!;
-      const term = [...forms.entries()].sort((a, b) => b[1] - a[1])[0][0];
-      return { term, key, count };
+      const forms = (famForms.get(key) || []).sort((a, b) => b[1] - a[1]);
+      // Mot affiché : le mot de base en minuscules ; la majuscule n'est gardée que pour un mot toujours
+      // écrit ainsi dans le texte (« Éternel », « Esprit »), pas pour une simple majuscule de début de phrase
+      const baseKey = stripAccents(key);
+      const variants = [...(displayForms.get([...formCounts.keys()].find(fk => stripAccents(fk) === baseKey) || '') || new Map<string, number>()).entries()];
+      variants.sort((a, b) => b[1] - a[1]);
+      const top = variants[0];
+      const term = top
+        ? (top[0].charAt(0) !== top[0].charAt(0).toLowerCase() && top[1] < 3 ? top[0].toLowerCase() : top[0])
+        : (familyWord.get(key) || forms[0]?.[0] || key).toLowerCase();
+      return { term, key, count, forms: forms.map(([f]) => f) };
     })
     .sort((a, b) => b.count - a.count || a.term.localeCompare(b.term, 'fr'));
 
@@ -1492,8 +1692,8 @@ async function getStrongTranslationRefs(strongNum: string): Promise<StrongTransl
 }
 
 /**
- * Retourne les traductions réelles d'un numéro Strong dans la Bible Louis Segond 1910
- * (mots français et nombre d'emplois), triées de la plus fréquente à la moins fréquente.
+ * Retourne les traductions réelles d'un numéro Strong dans la Bible Louis Segond 1910, regroupées
+ * par famille de mots (conjugaisons, pluriels, féminins), triées de la plus fréquente à la moins fréquente.
  */
 export async function getStrongLsgTranslations(strongNum: string): Promise<StrongLsgTranslation[]> {
   try {
@@ -1506,18 +1706,18 @@ export async function getStrongLsgTranslations(strongNum: string): Promise<Stron
 }
 
 /**
- * Retourne tous les versets où le numéro Strong est traduit par `translationKeyOrTerm` dans la LSG
- * (sans limite de nombre). Le texte affiché est celui de la version consultée.
+ * Retourne tous les versets où le numéro Strong est traduit par un mot de la famille `familyKey`
+ * dans la LSG (sans limite de nombre). Le texte affiché est celui de la version consultée.
  */
 export async function findBibleOccurrencesByTranslation(
   strongNum: string,
-  translationKeyOrTerm: string,
+  familyKey: string,
   version: string = 'lsg1910'
 ): Promise<Array<{ bookId: string; bookName: string; chapter: number; verse: number; text: string; matchedWord?: string }>> {
   try {
     const data = await getStrongTranslationRefs(strongNum);
     if (!data) return [];
-    const list = data.refs.get(translationKey(translationKeyOrTerm)) || [];
+    const list = data.refs.get(familyKey) || data.refs.get(stripAccents(translationKey(familyKey))) || [];
     const { ensureFullBibleLoaded } = await import('./bibleService');
     const bibleData = await ensureFullBibleLoaded(version as any);
     return list.map(ref => {
