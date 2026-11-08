@@ -213,6 +213,29 @@ export const getExposePage = async (pageNumber: number): Promise<Sermon | null> 
   };
 };
 
+// --- Cache des textes normalisés pour la recherche (calculés une seule fois par paragraphe) ---
+const normalizedExposeCache: WeakMap<object, { text: string; normalized: string }> = new WeakMap();
+
+const getNormalizedExposeText = (p: { text: string }): string => {
+  const cached = normalizedExposeCache.get(p);
+  if (cached && cached.text === p.text) return cached.normalized;
+  const normalized = normalizeText(p.text);
+  normalizedExposeCache.set(p, { text: p.text, normalized });
+  return normalized;
+};
+
+/** Prépare en tâche de fond les textes normalisés de l'Exposé (première recherche aussi rapide que les suivantes). */
+export const warmExposeSearchIndex = async (): Promise<void> => {
+  const data = await loadExposeData();
+  if (!data?.pages) return;
+  let n = 0;
+  for (const pageNumber in data.pages) {
+    const page = data.pages[pageNumber];
+    for (const p of page?.paragraphs || []) if (p?.text) getNormalizedExposeText(p);
+    if (++n % 40 === 0) await new Promise(r => setTimeout(r, 0));
+  }
+};
+
 export const searchExpose = async (
   query: string, 
   mode: SearchMode = SearchMode.EXACT_WORDS,
@@ -249,7 +272,7 @@ export const searchExpose = async (
             if (!p.text) continue;
             if (sectionFilter && p.section_title !== sectionFilter) continue;
             
-            const normalizedText = normalizeText(p.text);
+            const normalizedText = getNormalizedExposeText(p);
             let matchFound = false;
 
             if (mode === SearchMode.EXACT_PHRASE) {

@@ -417,7 +417,40 @@ export const getBibleChapterVerses = async (
 /**
  * Recherche avancée dans les versets de la Bible avec surlignage et compatibilité SearchResult
  */
-export const searchBibleVersesAdvanced = async (params: { 
+// --- Cache des textes normalisés pour la recherche (calculés une seule fois par chapitre) ---
+// Clé : le tableau de versets lui-même ; un chapitre rechargé ou modifié obtient un nouveau calcul.
+const normalizedVersesCache: WeakMap<BibleVerse[], { texts: string[]; normalized: string[] }> = new WeakMap();
+let normalizedVersesCacheMisses = 0;
+
+const getNormalizedVerses = (verses: BibleVerse[]): string[] => {
+  const cached = normalizedVersesCache.get(verses);
+  if (cached && cached.texts.length === verses.length && cached.texts.every((t, i) => t === (verses[i]?.text || ''))) {
+    return cached.normalized;
+  }
+  normalizedVersesCacheMisses++;
+  const texts = verses.map(v => v?.text || '');
+  const normalized = verses.map(v => (v && v.text ? normalizeText(`${v.verse}. ${v.text}`) : ''));
+  normalizedVersesCache.set(verses, { texts, normalized });
+  return normalized;
+};
+
+/**
+ * Prépare en tâche de fond les textes normalisés d'une version biblique : la première recherche
+ * devient aussi rapide que les suivantes.
+ */
+export const warmBibleSearchIndex = async (version: BibleVersion = 'lsg1910'): Promise<void> => {
+  const fullData = await ensureFullBibleLoaded(version);
+  if (!fullData) return;
+  let n = 0;
+  for (const chapters of Object.values(fullData)) {
+    for (const verses of Object.values(chapters)) {
+      if (Array.isArray(verses)) getNormalizedVerses(verses);
+    }
+    if (++n % 10 === 0) await new Promise(r => setTimeout(r, 0));
+  }
+};
+
+export const searchBibleVersesAdvanced = async (params: {
   query: string; 
   mode?: SearchMode; 
   limit?: number;
@@ -480,7 +513,9 @@ export const searchBibleVersesAdvanced = async (params: {
   let bookIdx = 0;
   for (const meta of targetBooks) {
     bookIdx++;
-    if (bookIdx % 15 === 0) {
+    // Pause pour laisser respirer l'interface, seulement pendant la première préparation des textes normalisés
+    if (bookIdx % 15 === 0 && normalizedVersesCacheMisses > 0) {
+      normalizedVersesCacheMisses = 0;
       await new Promise(r => setTimeout(r, 0));
     }
 
@@ -502,12 +537,13 @@ export const searchBibleVersesAdvanced = async (params: {
     for (const [chNumStr, verses] of Object.entries(chapters)) {
       const chNum = parseInt(chNumStr, 10);
       if (!Array.isArray(verses)) continue;
-      
+      const normalizedVerses = getNormalizedVerses(verses);
+
       for (let i = 0; i < verses.length; i++) {
         const v = verses[i];
         if (!v || !v.text) continue;
         const content = `${v.verse}. ${v.text}`;
-        const normalizedContent = normalizeText(content);
+        const normalizedContent = normalizedVerses[i];
         let matchFound = false;
 
         if (normalizedSelectedSynonym) {
@@ -531,6 +567,8 @@ export const searchBibleVersesAdvanced = async (params: {
           highlightRegex.lastIndex = 0;
           const snippetHighlighted = mergeAdjacentMarks(
             content.replace(highlightRegex, (m) => {
+              // Sans synonymes actifs, le surlignage est toujours celui du terme recherché
+              if (!params.selectedSynonym && synonymWords.length === 0) return `<mark class="${markClass}">${m}</mark>`;
               const normalizedMatch = normalizeText(m);
               const isSpecificSynonymMatch = params.selectedSynonym && normalizedMatch.includes(normalizeText(params.selectedSynonym));
               const isGeneralSynonymMatch = synonymWords.some(sw => normalizedMatch.includes(sw));

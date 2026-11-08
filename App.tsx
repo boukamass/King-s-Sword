@@ -181,6 +181,27 @@ const App: React.FC = () => {
 
   useEffect(() => { initializeDB(); }, [initializeDB]);
 
+  // Préparation en tâche de fond des index de recherche locaux (Bible de la version choisie, Exposé,
+  // cantiques) : la première recherche est aussi rapide que les suivantes. Pas dans les fenêtres de projection.
+  const warmBibleVersion = useAppStore(s => s.bibleVersion);
+  useEffect(() => {
+    if (isProjectionWindow || isMaskWindow) return;
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      try {
+        const { warmBibleSearchIndex } = await import('./services/bibleService');
+        if (!cancelled) await warmBibleSearchIndex(warmBibleVersion);
+        const { warmExposeSearchIndex } = await import('./services/exposeService');
+        if (!cancelled) await warmExposeSearchIndex();
+        const { warmSongsSearchIndex } = await import('./services/songService');
+        if (!cancelled) await warmSongsSearchIndex();
+      } catch (e) {
+        console.warn('[Recherche] Préparation des index locaux interrompue :', e);
+      }
+    }, 3000);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [warmBibleVersion, isProjectionWindow, isMaskWindow]);
+
   useEffect(() => {
     if (window.electronAPI) {
       window.electronAPI.onUpdateAvailable(() => {

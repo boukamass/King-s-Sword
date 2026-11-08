@@ -369,7 +369,9 @@ ipcMain.handle('db:search', (event, { query, mode, limit = 50, offset = 0, synon
       LIMIT ? OFFSET ?
     `;
     
+    const searchStartedAt = Date.now();
     const rows = db.prepare(sql).all(...queryParams);
+    console.log(`[DB] Recherche « ${ftsQuery} » : ${rows.length} résultat(s) en ${Date.now() - searchStartedAt} ms`);
     return rows.map(r => {
       let snippet = r.snippet || '';
       let prev = '';

@@ -758,6 +758,45 @@ export const resetSongsToDefault = async (): Promise<Song[]> => {
   }
 };
 
+// --- Cache de préparation des cantiques pour la recherche (titre et strophes normalisés, calculés une fois) ---
+interface PreparedSongForSearch {
+  title: string;
+  content: string;
+  cleanTitle: string;
+  normalizedTitle: string;
+  stanzas: string[];
+  normalizedStanzas: string[];
+}
+const preparedSongsCache: WeakMap<object, PreparedSongForSearch> = new WeakMap();
+
+const getPreparedSongForSearch = (song: { title: string; content?: string }): PreparedSongForSearch => {
+  const content = song.content || '';
+  const cached = preparedSongsCache.get(song);
+  if (cached && cached.title === song.title && cached.content === content) return cached;
+  const cleanTitle = formatSongTitle(song.title);
+  const stanzas = formatSongContent(content, cleanTitle).split(/\n\s*\n/);
+  const prepared: PreparedSongForSearch = {
+    title: song.title,
+    content,
+    cleanTitle,
+    normalizedTitle: normalizeText(song.title),
+    stanzas,
+    normalizedStanzas: stanzas.map(s => (s.trim() ? normalizeText(s.trim()) : ''))
+  };
+  preparedSongsCache.set(song, prepared);
+  return prepared;
+};
+
+/** Prépare en tâche de fond les cantiques pour la recherche (première recherche aussi rapide que les suivantes). */
+export const warmSongsSearchIndex = async (): Promise<void> => {
+  const songs = await loadAllSongs();
+  let n = 0;
+  for (const song of songs) {
+    if (song.content) getPreparedSongForSearch(song);
+    if (++n % 100 === 0) await new Promise(r => setTimeout(r, 0));
+  }
+};
+
 export const searchSongs = async (
   query: string,
   mode: SearchMode = SearchMode.DIVERSE,
@@ -792,11 +831,11 @@ export const searchSongs = async (
       if (normSongLang !== normFilter && songLang !== normFilter) continue;
     }
 
-    const cleanTitle = formatSongTitle(song.title);
-    const normalizedTitle = normalizeText(song.title);
+    const prepared = getPreparedSongForSearch(song);
+    const cleanTitle = prepared.cleanTitle;
+    const normalizedTitle = prepared.normalizedTitle;
     const songIdStr = String(song.id);
-    const formattedContent = formatSongContent(song.content || '', cleanTitle);
-    const stanzas = formattedContent.split(/\n\s*\n/);
+    const stanzas = prepared.stanzas;
 
     // Vérifier si le numéro de chant ou le titre correspond directement
     const isSongNumberMatch = songIdStr === trimmed || songIdStr === normalizedQuery;
@@ -810,7 +849,7 @@ export const searchSongs = async (
       const trimmedStanza = stanza.trim();
       if (!trimmedStanza) return;
 
-      const normalizedStanza = normalizeText(trimmedStanza);
+      const normalizedStanza = prepared.normalizedStanzas[stanzaIdx];
       let isMatch = false;
 
       if (isSongNumberMatch || (isTitleMatch && stanzaIdx === 0)) {
