@@ -1,6 +1,6 @@
 {
   "name": "kings-sword",
-  "version": "2.9.33",
+  "version": "2.9.34",
   "description": "Logiciel d'étude des sermons de W.M. Branham",
   "main": "main.js",
   "author": "Bienvenu Massamba & Gastin Ngakosso",
@@ -13,7 +13,7 @@
     "lint": "tsc --noEmit",
     "eval:deep-student": "npx tsx scripts/run_deep_student_ab_harness.ts",
     "test:nonregression": "npx tsx scripts/test_non_regression_top10.ts",
-    "test": "node scripts/run-ts.mjs scripts/test_smart_rag.ts && node scripts/run-ts.mjs scripts/test_long_context_rag.ts && node scripts/run-ts.mjs scripts/test_notebooklm_features.ts && node scripts/run-ts.mjs scripts/test_gemini_resilience.ts && node scripts/run-ts.mjs scripts/test_ai_providers.ts && node scripts/run-ts.mjs scripts/test_bm25_led_ranking.ts && node scripts/run-ts.mjs scripts/test_search_speed.ts",
+    "test": "node scripts/run-ts.mjs scripts/test_smart_rag.ts && node scripts/run-ts.mjs scripts/test_long_context_rag.ts && node scripts/run-ts.mjs scripts/test_notebooklm_features.ts && node scripts/run-ts.mjs scripts/test_gemini_resilience.ts && node scripts/run-ts.mjs scripts/test_ai_providers.ts && node scripts/run-ts.mjs scripts/test_bm25_led_ranking.ts && node scripts/run-ts.mjs scripts/test_search_speed.ts && node scripts/run-ts.mjs scripts/test_strong_restored.ts",
     "test:ranking": "node scripts/run-ts.mjs scripts/test_bm25_led_ranking.ts",
     "test:providers": "node scripts/run-ts.mjs scripts/test_ai_providers.ts",
     "eval:corpus": "node scripts/run-ts.mjs scripts/eval_full_corpus.ts",

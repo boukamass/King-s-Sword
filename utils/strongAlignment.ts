@@ -14,7 +14,7 @@
  * Un numéro n'est jamais inventé : il provient toujours des paires du verset.
  */
 
-export type StrongPair = [string, string];
+export type StrongPair = [string, string] | [string, string, string];
 
 /** Mots grammaticaux (articles, liaisons, prépositions…) exclus du second passage */
 const FUNCTION_WORDS = new Set([
@@ -139,7 +139,59 @@ export function alignVerseStrongs(
   pairs: StrongPair[],
   forms?: Map<string, Set<string>>
 ): (string | null)[] {
-  const result: (string | null)[] = new Array(words.length).fill(null);
+  return alignVerseStrongsDetailed(words, pairs, forms).map(p => (p >= 0 ? pairs[p][1] : null));
+}
+
+/**
+ * Numéros rétablis d'après la KJV et rattachés au mot d'un autre numéro (3e élément de la paire :
+ * « avant:H4284 » = placé avant H4284 sur le même mot, « apres:H3605 » = placé après H3605).
+ */
+const parseAnchor = (tag?: string): { side: 'avant' | 'apres'; strong: string } | null => {
+  const m = (tag || '').match(/^(avant|apres):([HG]\d+)$/);
+  return m ? { side: m[1] as 'avant' | 'apres', strong: m[2] } : null;
+};
+
+/**
+ * Comme alignVerseStrongs, mais un mot peut porter plusieurs numéros (numéros rétablis rattachés
+ * au mot d'un numéro voisin, ex. « pensées » → H3336 + H4284). Retourne la liste par mot.
+ */
+export function alignVerseStrongsMulti(
+  words: string[],
+  pairs: StrongPair[],
+  forms?: Map<string, Set<string>>
+): (string[] | null)[] {
+  const ownPairs: StrongPair[] = [];
+  const anchored: Array<{ word: string; strong: string; side: 'avant' | 'apres'; anchor: string }> = [];
+  for (const p of pairs || []) {
+    const a = parseAnchor(p[2]);
+    if (a) anchored.push({ word: p[0], strong: p[1], side: a.side, anchor: a.strong });
+    else ownPairs.push(p);
+  }
+  const base = alignVerseStrongs(words, ownPairs, forms);
+  const result: (string[] | null)[] = base.map(s => (s ? [s] : null));
+  for (const a of anchored) {
+    const target = normalizeStrongWord(a.word);
+    let idx = base.findIndex((s, k) => s === a.anchor && normalizeStrongWord(words[k]) === target);
+    if (idx < 0) idx = base.findIndex(s => s === a.anchor);
+    if (idx < 0) continue;
+    const list = result[idx] || [];
+    if (list.includes(a.strong)) continue;
+    const at = list.indexOf(a.anchor);
+    if (a.side === 'avant') list.splice(Math.max(0, at), 0, a.strong); else list.splice(at + 1, 0, a.strong);
+    result[idx] = list;
+  }
+  return result;
+}
+
+/**
+ * Version détaillée : pour chaque mot, l'indice de la paire qui lui est associée (ou -1).
+ */
+export function alignVerseStrongsDetailed(
+  words: string[],
+  pairs: StrongPair[],
+  forms?: Map<string, Set<string>>
+): number[] {
+  const result: number[] = new Array(words.length).fill(-1);
   if (!pairs || pairs.length === 0 || words.length === 0) return result;
 
   const variants = words.map(w => wordVariants(w));
@@ -167,7 +219,7 @@ export function alignVerseStrongs(
   while (i < n && j < m) {
     const s = scores[i][j];
     if (s > 0 && dp[i][j] === s + dp[i + 1][j + 1]) {
-      result[i] = pairs[j][1];
+      result[i] = j;
       i++;
       j++;
     } else if (dp[i][j] === dp[i + 1][j]) {
@@ -179,19 +231,19 @@ export function alignVerseStrongs(
 
   // 2. Second passage : mots porteurs de sens restés sans numéro
   for (let k = 0; k < n; k++) {
-    if (result[k]) continue;
+    if (result[k] >= 0) continue;
     const full = variants[k][0];
     if (!full || full.length < 2 || /^\d+$/.test(full) || FUNCTION_WORDS.has(full)) continue;
     let bestScore = 0;
-    let bestStrong: string | null = null;
+    let bestPair = -1;
     for (let p = 0; p < m; p++) {
       const s = scores[k][p];
       if (s > bestScore) {
         bestScore = s;
-        bestStrong = pairs[p][1];
+        bestPair = p;
       }
     }
-    if (bestStrong && bestScore >= 2) result[k] = bestStrong;
+    if (bestPair >= 0 && bestScore >= 2) result[k] = bestPair;
   }
 
   return result;

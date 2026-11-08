@@ -82,7 +82,7 @@ import SongModal from './SongModal';
 import { useModalActive } from '../utils/modalUtils';
 import { BIBLE_VERSIONS_META } from '../types/bible';
 import { STRONG_LEXICON, findBibleOccurrences, getOrGenerateStrongEntry, asyncGetOrGenerateStrongEntry, lookupStrongNumber, getChapterVerseStrongs, getVersionChapterStrongs, getStrongLsgTranslations, findBibleOccurrencesByTranslation, StrongLsgTranslation, enrichStrongEntryWithAi, loadBibleStrongIndex } from '../services/bibleExegesisService';
-import { alignVerseStrongs } from '../utils/strongAlignment';
+import { alignVerseStrongsMulti } from '../utils/strongAlignment';
 import { findSermonOccurrencesForStrong, getOrGenerateStrongMessageContext } from '../services/strongLexiconService';
 import { 
   getFavorites, 
@@ -185,16 +185,26 @@ const WordComponent = memo(({
       onClick={(e) => {
         if (strongNum && onStrongClick) {
           e.stopPropagation();
-          onStrongClick(strongNum, word.text);
+          onStrongClick(String(strongNum).split(' ')[0], word.text);
         }
       }}
     >
       {word.text}
-      {strongNum && (
-        <span className="inline-block text-[8px] font-black text-teal-900 dark:text-teal-200 bg-amber-200/90 dark:bg-zinc-800 border border-amber-400/80 dark:border-teal-500/50 px-1 py-0.2 rounded-md font-mono ml-0.5 align-baseline select-none pointer-events-none shadow-2xs">
-          {strongNum}
+      {/* Un ou plusieurs numéros (ex. « pensées » H3336 H4284) : chacun ouvre sa propre fiche */}
+      {strongNum && String(strongNum).split(' ').filter(Boolean).map((num: string) => (
+        <span
+          key={num}
+          onClick={(e) => {
+            if (onStrongClick) {
+              e.stopPropagation();
+              onStrongClick(num, word.text);
+            }
+          }}
+          className="inline-block text-[8px] font-black text-teal-900 dark:text-teal-200 bg-amber-200/90 dark:bg-zinc-800 border border-amber-400/80 dark:border-teal-500/50 px-1 py-0.2 rounded-md font-mono ml-0.5 align-baseline select-none cursor-pointer hover:bg-amber-300 dark:hover:bg-zinc-700 shadow-2xs"
+        >
+          {num}
         </span>
-      )}
+      ))}
     </span>
   );
 
@@ -728,11 +738,12 @@ const Reader: React.FC = () => {
       const taggedPairs = chapterVerseStrongsMap[verseNum];
       if (!taggedPairs || taggedPairs.length === 0) return;
 
-      // Alignement ordonn\u00e9 + second passage (mots r\u00e9p\u00e9t\u00e9s / m\u00eame racine), sans num\u00e9ro du verset lui-m\u00eame
+      // Alignement ordonné + second passage (mots répétés / même racine), sans numéro du verset lui-même
       const verseWords = segment.words.filter((w, idx) => !(idx === 0 && vMatch) && w.text.trim() !== '');
-      const aligned = alignVerseStrongs(verseWords.map(w => w.text), taggedPairs, strongFormsDict || undefined);
-      aligned.forEach((strong, idx) => {
-        if (strong) map.set(verseWords[idx].globalIndex, strong);
+      // Un mot peut porter plusieurs numéros (numéros rétablis d'après la KJV, ex. « pensées » H3336 H4284)
+      const aligned = alignVerseStrongsMulti(verseWords.map(w => w.text), taggedPairs, strongFormsDict || undefined);
+      aligned.forEach((strongs, idx) => {
+        if (strongs && strongs.length > 0) map.set(verseWords[idx].globalIndex, strongs.join(' '));
       });
     });
 
@@ -769,7 +780,7 @@ const Reader: React.FC = () => {
 
       let targetWord = selectedStrongInfo.wordText;
       if (!targetWord && words && words.length > 0) {
-        const found = words.find(w => wordStrongMap.get(w.globalIndex) === selectedStrongInfo.strongNum);
+        const found = words.find(w => (wordStrongMap.get(w.globalIndex) || '').split(' ').includes(selectedStrongInfo.strongNum));
         if (found) targetWord = found.text;
       }
 
@@ -2662,7 +2673,7 @@ const Reader: React.FC = () => {
 
         let targetWord = selectedStrongInfo.wordText;
         if (!targetWord && words && words.length > 0) {
-          const found = words.find(w => wordStrongMap.get(w.globalIndex) === selectedStrongInfo.strongNum);
+          const found = words.find(w => (wordStrongMap.get(w.globalIndex) || '').split(' ').includes(selectedStrongInfo.strongNum));
           if (found) targetWord = found.text;
         }
 

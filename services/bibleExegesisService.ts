@@ -1355,6 +1355,44 @@ export function getStrongNumbersForVerse(bookId: string, chapter: number, verse:
 }
 
 let bibleStrongIndexCache: Record<string, Record<string, Record<string, Array<[string, string]>>>> | null = null;
+
+// --- Numéros Strong rétablis d'après la KJV (public/bible-strong-restored.json, scripts/build_strong_restored.ts) ---
+// Versets complétés de la LSG et de la Darby : remplacent les versets correspondants de l'index au chargement.
+type RestoredStrongs = Record<string, Record<string, Record<string, Record<string, Array<[string, string]>>>>>;
+let restoredStrongsPromise: Promise<RestoredStrongs | null> | null = null;
+function loadRestoredStrongs(): Promise<RestoredStrongs | null> {
+  if (!restoredStrongsPromise) {
+    restoredStrongsPromise = (async () => {
+      try {
+        if (typeof window === 'undefined') {
+          const fs = await import('fs');
+          const path = await import('path');
+          const p = path.resolve('./public/bible-strong-restored.json');
+          return fs.existsSync(p) ? (JSON.parse(fs.readFileSync(p, 'utf8')) as RestoredStrongs) : null;
+        }
+        return await fetchJsonSafe<RestoredStrongs>('bible-strong-restored.json', ['./bible-strong-restored.json']);
+      } catch (e) {
+        console.warn('[BibleExegesis] Numéros Strong rétablis indisponibles :', e);
+        return null;
+      }
+    })();
+  }
+  return restoredStrongsPromise;
+}
+async function applyRestoredStrongs<T extends Record<string, Record<string, Record<string, Array<[string, string]>>>>>(index: T, version: string): Promise<T> {
+  const restored = (await loadRestoredStrongs())?.[version];
+  if (!restored) return index;
+  for (const [b, chapters] of Object.entries(restored)) {
+    for (const [ch, verses] of Object.entries(chapters)) {
+      for (const [v, pairs] of Object.entries(verses)) {
+        if (!index[b]) (index as any)[b] = {};
+        if (!index[b][ch]) (index[b] as any)[ch] = {};
+        (index[b][ch] as any)[v] = pairs;
+      }
+    }
+  }
+  return index;
+}
 let loadStrongIndexPromise: Promise<Record<string, Record<string, Record<string, Array<[string, string]>>>> | null> | null = null;
 
 /**
@@ -1371,15 +1409,15 @@ export async function loadBibleStrongIndex(): Promise<Record<string, Record<stri
         const path = await import('path');
         const p = path.resolve('./public/bible-strong-lsg1910.json');
         if (fs.existsSync(p)) {
-          bibleStrongIndexCache = JSON.parse(fs.readFileSync(p, 'utf8'));
+          bibleStrongIndexCache = await applyRestoredStrongs(JSON.parse(fs.readFileSync(p, 'utf8')), 'lsg1910');
           return bibleStrongIndexCache;
         }
       }
 
       const data = await fetchJsonSafe<Record<string, Record<string, Record<string, Array<[string, string]>>>>>('bible-strong-lsg1910.json', ['./bible-strong-lsg1910.json']);
       if (data) {
-        bibleStrongIndexCache = data;
-        return data;
+        bibleStrongIndexCache = await applyRestoredStrongs(data, 'lsg1910');
+        return bibleStrongIndexCache;
       }
     } catch (e) {
       console.warn('[BibleExegesis] Erreur chargement index Strongs bibliques:', e);
@@ -1425,9 +1463,10 @@ export async function loadVersionStrongIndex(version: string): Promise<StrongInd
           const fs = await import('fs');
           const path = await import('path');
           const p = path.resolve(`./public/${file}`);
-          if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, 'utf8')) as StrongIndexData;
+          if (fs.existsSync(p)) return await applyRestoredStrongs(JSON.parse(fs.readFileSync(p, 'utf8')) as StrongIndexData, version);
         }
-        return await fetchJsonSafe<StrongIndexData>(file, [`./${file}`]);
+        const data = await fetchJsonSafe<StrongIndexData>(file, [`./${file}`]);
+        return data ? await applyRestoredStrongs(data, version) : null;
       } catch (e) {
         console.warn(`[BibleExegesis] Erreur chargement index Strong (${version}) :`, e);
         return null;
