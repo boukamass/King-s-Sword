@@ -1447,10 +1447,11 @@ const Reader: React.FC = () => {
     if (structuredSegments[activeIdx]) {
       const seg = structuredSegments[activeIdx];
       const selectionSet = new Set(selectionIndices);
+      const searchResultSet = new Set(searchResults); // recherche en ensemble : instantanée même avec des milliers de résultats
       projectedWordsData = seg.words.map(w => {
         const h = highlightMap.get(w.globalIndex);
         const isJump = jumpHighlightIndices.includes(w.globalIndex);
-        const isSearch = searchResults.includes(w.globalIndex);
+        const isSearch = searchResultSet.has(w.globalIndex);
         
         return {
           text: w.text,
@@ -2574,6 +2575,188 @@ const Reader: React.FC = () => {
     currentResultStore.set(currentResultIndex >= 0 ? (searchResults[currentResultIndex] ?? -1) : -1);
   }, [searchResults, currentResultIndex]);
   useEffect(() => () => currentResultStore.set(-1), []);
+
+  // Liste des paragraphes affichés, gardée en mémoire : elle n'est reconstruite que si le texte, un surlignage,
+  // la projection, la sélection ou un favori change — et non à chaque mise à jour du lecteur (résultats de
+  // recherche dans la barre latérale, saisie, ouverture d'une fenêtre…), ce qui figeait la fenêtre sur les longs sermons
+  const renderedSegments = useMemo(() => structuredSegments.map((seg, segIdx) => {
+              if (seg.text.trim() === '') return null;
+              const isProjected = projectedSegmentIndex === segIdx;
+              const content = segmentContents[segIdx];
+              const isChorus = isSong && /^(ch[oœ]eur|refrain|chorus)\s*:/i.test(seg.text.trim());
+              const isSelectedParagraph = (isBibleChapter && selectedBibleVerse === (segIdx + 1)) || (targetActiveParagraph === (segIdx + 1));
+
+              return (
+                <div 
+                  key={segIdx} 
+                  ref={(el: any) => { if (el) segmentRefs.current.set(segIdx, el); }} 
+                  data-seg-idx={segIdx}
+                  onClick={(e) => {
+                    // Only trigger projection on whole paragraph click if projection mode is currently active
+                    if (!isProjectionOpen && projectedSegmentIndex === null) {
+                      return;
+                    }
+                    // If user is selecting text, do not trigger projection
+                    const sel = window.getSelection();
+                    if (sel && sel.toString().trim().length > 0) {
+                      return;
+                    }
+                    handleProjectSegment(segIdx, true);
+                  }}
+                  className={`group/seg relative mb-2.5 py-3 px-4 sm:px-5 rounded-2xl transition-all select-text ${structuredSegments.length > 150 ? 'ks-seg-cv' : ''} ${
+                    isProjectionOpen ? 'cursor-pointer' : 'cursor-text'
+                  } ${
+                    isProjected 
+                      ? 'bg-amber-500/10 border-l-[5px] border-amber-500 ring-2 ring-amber-500/40 shadow-md' 
+                      : isSelectedParagraph
+                        ? 'bg-teal-500/10 dark:bg-teal-500/15 border-l-[5px] border-teal-600 ring-2 ring-teal-500/30 shadow-md'
+                        : isChorus
+                          ? 'bg-teal-500/5 dark:bg-teal-500/10 border-l-[5px] border-teal-600 dark:border-teal-500 hover:bg-teal-500/10 shadow-xs'
+                          : seg.isNumbered
+                            ? 'bg-slate-50 dark:bg-zinc-900/50 border-l-[5px] border-teal-600/20 dark:border-zinc-800 hover:border-teal-600/50 hover:bg-teal-500/5'
+                            : 'bg-slate-50/60 dark:bg-zinc-900/30 border-l-[3px] border-zinc-200 dark:border-zinc-800 hover:border-teal-600/40 hover:bg-teal-500/5'
+                  } ${
+                    isProjectionOpen && !isProjected ? 'hover:ring-1 hover:ring-teal-500/30' : ''
+                  }`}
+                >
+                  {/* Ligne d'en-tête et d'actions du paragraphe - positionnée au-dessus du texte pour ne JAMAIS le masquer */}
+                  <div className="flex items-center justify-between gap-2 mb-1.5 no-print select-none min-h-[26px]">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {isProjected ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-300 font-extrabold text-[10.5px] uppercase tracking-wider shadow-xs border border-amber-500/40">
+                          <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                          <MonitorPlay className="w-3.5 h-3.5" />
+                          <span>EN PROJECTION (ÉCRAN 2)</span>
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-mono font-bold text-zinc-400/80 dark:text-zinc-500/80 group-hover/seg:text-teal-600 dark:group-hover/seg:text-teal-400 transition-colors">
+                          {isBibleChapter ? `Verset ${segIdx + 1}` : isSong ? (isChorus ? `Refrain` : `Strophe ${segIdx + 1}`) : `§ ${segIdx + 1}`}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Boutons d'action (Projeter, Note, Dock IA) - restent strictement au-dessus du texte */}
+                    <div className={`flex items-center gap-1.5 shrink-0 transition-opacity duration-150 ${
+                      isProjected ? 'opacity-100' : 'opacity-0 group-hover/seg:opacity-100 focus-within:opacity-100'
+                    }`}>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleProjectSegment(segIdx, true); }}
+                        className={`inline-flex items-center gap-1 border text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer ${
+                          isProjected 
+                            ? 'bg-amber-500 hover:bg-amber-600 text-black border-amber-500 font-extrabold'
+                            : 'bg-white dark:bg-zinc-900 hover:bg-teal-600 text-teal-700 dark:text-teal-300 hover:text-white border-teal-600/40 dark:border-teal-500/40'
+                        }`}
+                        data-tooltip={isProjected ? "Cliquer pour arrêter la projection de ce paragraphe" : "Projeter ce paragraphe sur grand écran"}
+                      >
+                        <MonitorPlay className="w-3 h-3" />
+                        <span>{isProjected ? "En projection" : "Projeter"}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          const segHighlights = extractHighlightsFromParagraph(seg, highlightMap);
+                          setNoteSelectorPayload({ 
+                            text: seg.text.trim(), 
+                            sermon, 
+                            paragraphIndex: segIdx + 1,
+                            highlights: segHighlights 
+                          }); 
+                        }}
+                        className="inline-flex items-center gap-1 bg-white dark:bg-zinc-900 hover:bg-emerald-600 text-emerald-700 dark:text-emerald-300 hover:text-white border border-emerald-600/40 dark:border-emerald-500/40 text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer"
+                        data-tooltip="Ajouter ce paragraphe au journal d'étude"
+                        data-tooltip-icon="notes"
+                      >
+                        <NotebookPen className="w-3 h-3" />
+                        <span>Note</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCopyParagraph(segIdx, seg.text);
+                        }}
+                        className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer border ${
+                          copiedSegIdx === segIdx
+                            ? 'bg-sky-600 text-white border-sky-600 ring-2 ring-sky-500/30 font-extrabold'
+                            : 'bg-white dark:bg-zinc-900 hover:bg-sky-600 text-sky-700 dark:text-sky-300 hover:text-white border-sky-600/40 dark:border-sky-500/40'
+                        }`}
+                        data-tooltip={
+                          isBibleChapter 
+                            ? "Copier ce verset avec sa référence complète" 
+                            : isSong 
+                              ? "Copier avec sa référence complète" 
+                              : "Copier ce paragraphe avec sa référence complète"
+                        }
+                      >
+                        {copiedSegIdx === segIdx ? <Check className="w-3 h-3 stroke-[2.5]" /> : <Copy className="w-3 h-3" />}
+                        <span>{copiedSegIdx === segIdx ? "Copié !" : "Copier"}</span>
+                      </button>
+                      {(() => {
+                        const paraNum = segIdx + 1;
+                        const targetDocId = sermon?.id || activeSermon?.id || '';
+                        const paraDockId = `${targetDocId}-p-${paraNum}`;
+                        const isSegInDock = manualContextIds.includes(paraDockId);
+                        const paraLabel = isBibleChapter 
+                          ? `Verset ${paraNum}` 
+                          : isSong 
+                            ? (isChorus ? `Refrain` : `Strophe ${paraNum}`) 
+                            : isExpose 
+                              ? `§ ${paraNum} (Exposé)` 
+                              : `§ ${paraNum}`;
+
+                        return (
+                          <button
+                            type="button"
+                            onClick={(e) => { 
+                              e.stopPropagation(); 
+                              if (targetDocId) {
+                                toggleContextSermon(paraDockId, true);
+                                if (isSegInDock) {
+                                  addNotification(`${paraLabel} retiré du dock IA`, "info");
+                                } else {
+                                  addNotification(`${paraLabel} ajouté au dock IA (Assistant ouvert)`, "success");
+                                }
+                              }
+                            }}
+                            className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer border ${
+                              isSegInDock
+                                ? 'bg-teal-600 text-white border-teal-600'
+                                : 'bg-white dark:bg-zinc-900 hover:bg-teal-600 text-teal-700 dark:text-teal-300 hover:text-white border-teal-600/40 dark:border-teal-500/40'
+                            }`}
+                            data-tooltip={isSegInDock ? `Retirer ce ${isBibleChapter ? 'verset' : isSong ? 'strophe' : 'paragraphe'} (${paraLabel}) du dock IA` : `Ajouter ce ${isBibleChapter ? 'verset' : isSong ? 'strophe' : 'paragraphe'} (${paraLabel}) au dock IA`}
+                          >
+                            {isSegInDock ? <Check className="w-3 h-3 stroke-[2.5]" /> : <Layers className="w-3 h-3" />}
+                            <span>{isSegInDock ? "Dans le Dock IA" : "+ Dock IA"}</span>
+                          </button>
+                        );
+                      })()}
+                      {/* Bouton Favori Verset / Paragraphe */}
+                      <button
+                        type="button"
+                        onClick={(e) => handleToggleParagraphFav(e, segIdx, seg.text)}
+                        className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer border ${
+                          sermon?.id && favoriteIds.has(`${sermon.id}-p-${segIdx + 1}`)
+                            ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/40'
+                            : 'bg-white dark:bg-zinc-900 hover:bg-amber-500/10 text-zinc-600 dark:text-zinc-400 hover:text-amber-600 border-slate-200 dark:border-zinc-800'
+                        }`}
+                        data-tooltip={sermon?.id && favoriteIds.has(`${sermon.id}-p-${segIdx + 1}`) ? (isBibleChapter ? "Retirer ce verset des favoris" : "Retirer des favoris") : (isBibleChapter ? "Ajouter ce verset aux favoris" : "Ajouter aux favoris")}
+                      >
+                        <Star className={`w-3 h-3 ${sermon?.id && favoriteIds.has(`${sermon.id}-p-${segIdx + 1}`) ? 'fill-amber-500 text-amber-500' : ''}`} />
+                        <span>Favori</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div data-para-content={segIdx} className="relative para-text-content select-text leading-relaxed">
+                    {content}
+                  </div>
+                </div>
+              );
+            }),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [structuredSegments, segmentContents, projectedSegmentIndex, isSong, isBibleChapter, isExpose, selectedBibleVerse, targetActiveParagraph, isProjectionOpen, favoriteIds, copiedSegIdx, handleCopyParagraph, handleToggleParagraphFav, handleProjectSegment, manualContextIds, toggleContextSermon, addNotification, highlightMap, sermon, activeSermon]);
 
   const handleSearchNext = () => {
     if (searchResults.length === 0) return;
@@ -4002,182 +4185,7 @@ const Reader: React.FC = () => {
           }`}
         >
           <div className={`w-full mx-auto printable-content whitespace-pre-wrap ${isSong ? 'text-left max-w-4xl' : 'text-justify max-w-full'} pb-20`} style={{ fontSize: `${fontSize}px` }}>
-            {structuredSegments.map((seg, segIdx) => {
-              if (seg.text.trim() === '') return null;
-              const isProjected = projectedSegmentIndex === segIdx;
-              const content = segmentContents[segIdx];
-              const isChorus = isSong && /^(ch[oœ]eur|refrain|chorus)\s*:/i.test(seg.text.trim());
-              const isSelectedParagraph = (isBibleChapter && selectedBibleVerse === (segIdx + 1)) || (targetActiveParagraph === (segIdx + 1));
-
-              return (
-                <div 
-                  key={segIdx} 
-                  ref={(el: any) => { if (el) segmentRefs.current.set(segIdx, el); }} 
-                  data-seg-idx={segIdx}
-                  onClick={(e) => {
-                    // Only trigger projection on whole paragraph click if projection mode is currently active
-                    if (!isProjectionOpen && projectedSegmentIndex === null) {
-                      return;
-                    }
-                    // If user is selecting text, do not trigger projection
-                    const sel = window.getSelection();
-                    if (sel && sel.toString().trim().length > 0) {
-                      return;
-                    }
-                    handleProjectSegment(segIdx, true);
-                  }}
-                  className={`group/seg relative mb-2.5 py-3 px-4 sm:px-5 rounded-2xl transition-all select-text ${structuredSegments.length > 150 ? 'ks-seg-cv' : ''} ${
-                    isProjectionOpen ? 'cursor-pointer' : 'cursor-text'
-                  } ${
-                    isProjected 
-                      ? 'bg-amber-500/10 border-l-[5px] border-amber-500 ring-2 ring-amber-500/40 shadow-md' 
-                      : isSelectedParagraph
-                        ? 'bg-teal-500/10 dark:bg-teal-500/15 border-l-[5px] border-teal-600 ring-2 ring-teal-500/30 shadow-md'
-                        : isChorus
-                          ? 'bg-teal-500/5 dark:bg-teal-500/10 border-l-[5px] border-teal-600 dark:border-teal-500 hover:bg-teal-500/10 shadow-xs'
-                          : seg.isNumbered
-                            ? 'bg-slate-50 dark:bg-zinc-900/50 border-l-[5px] border-teal-600/20 dark:border-zinc-800 hover:border-teal-600/50 hover:bg-teal-500/5'
-                            : 'bg-slate-50/60 dark:bg-zinc-900/30 border-l-[3px] border-zinc-200 dark:border-zinc-800 hover:border-teal-600/40 hover:bg-teal-500/5'
-                  } ${
-                    isProjectionOpen && !isProjected ? 'hover:ring-1 hover:ring-teal-500/30' : ''
-                  }`}
-                >
-                  {/* Ligne d'en-tête et d'actions du paragraphe - positionnée au-dessus du texte pour ne JAMAIS le masquer */}
-                  <div className="flex items-center justify-between gap-2 mb-1.5 no-print select-none min-h-[26px]">
-                    <div className="flex items-center gap-2 min-w-0">
-                      {isProjected ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-300 font-extrabold text-[10.5px] uppercase tracking-wider shadow-xs border border-amber-500/40">
-                          <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
-                          <MonitorPlay className="w-3.5 h-3.5" />
-                          <span>EN PROJECTION (ÉCRAN 2)</span>
-                        </span>
-                      ) : (
-                        <span className="text-[11px] font-mono font-bold text-zinc-400/80 dark:text-zinc-500/80 group-hover/seg:text-teal-600 dark:group-hover/seg:text-teal-400 transition-colors">
-                          {isBibleChapter ? `Verset ${segIdx + 1}` : isSong ? (isChorus ? `Refrain` : `Strophe ${segIdx + 1}`) : `§ ${segIdx + 1}`}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Boutons d'action (Projeter, Note, Dock IA) - restent strictement au-dessus du texte */}
-                    <div className={`flex items-center gap-1.5 shrink-0 transition-opacity duration-150 ${
-                      isProjected ? 'opacity-100' : 'opacity-0 group-hover/seg:opacity-100 focus-within:opacity-100'
-                    }`}>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); handleProjectSegment(segIdx, true); }}
-                        className={`inline-flex items-center gap-1 border text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer ${
-                          isProjected 
-                            ? 'bg-amber-500 hover:bg-amber-600 text-black border-amber-500 font-extrabold'
-                            : 'bg-white dark:bg-zinc-900 hover:bg-teal-600 text-teal-700 dark:text-teal-300 hover:text-white border-teal-600/40 dark:border-teal-500/40'
-                        }`}
-                        data-tooltip={isProjected ? "Cliquer pour arrêter la projection de ce paragraphe" : "Projeter ce paragraphe sur grand écran"}
-                      >
-                        <MonitorPlay className="w-3 h-3" />
-                        <span>{isProjected ? "En projection" : "Projeter"}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => { 
-                          e.stopPropagation(); 
-                          const segHighlights = extractHighlightsFromParagraph(seg, highlightMap);
-                          setNoteSelectorPayload({ 
-                            text: seg.text.trim(), 
-                            sermon, 
-                            paragraphIndex: segIdx + 1,
-                            highlights: segHighlights 
-                          }); 
-                        }}
-                        className="inline-flex items-center gap-1 bg-white dark:bg-zinc-900 hover:bg-emerald-600 text-emerald-700 dark:text-emerald-300 hover:text-white border border-emerald-600/40 dark:border-emerald-500/40 text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer"
-                        data-tooltip="Ajouter ce paragraphe au journal d'étude"
-                        data-tooltip-icon="notes"
-                      >
-                        <NotebookPen className="w-3 h-3" />
-                        <span>Note</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCopyParagraph(segIdx, seg.text);
-                        }}
-                        className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer border ${
-                          copiedSegIdx === segIdx
-                            ? 'bg-sky-600 text-white border-sky-600 ring-2 ring-sky-500/30 font-extrabold'
-                            : 'bg-white dark:bg-zinc-900 hover:bg-sky-600 text-sky-700 dark:text-sky-300 hover:text-white border-sky-600/40 dark:border-sky-500/40'
-                        }`}
-                        data-tooltip={
-                          isBibleChapter 
-                            ? "Copier ce verset avec sa référence complète" 
-                            : isSong 
-                              ? "Copier avec sa référence complète" 
-                              : "Copier ce paragraphe avec sa référence complète"
-                        }
-                      >
-                        {copiedSegIdx === segIdx ? <Check className="w-3 h-3 stroke-[2.5]" /> : <Copy className="w-3 h-3" />}
-                        <span>{copiedSegIdx === segIdx ? "Copié !" : "Copier"}</span>
-                      </button>
-                      {(() => {
-                        const paraNum = segIdx + 1;
-                        const targetDocId = sermon?.id || activeSermon?.id || '';
-                        const paraDockId = `${targetDocId}-p-${paraNum}`;
-                        const isSegInDock = manualContextIds.includes(paraDockId);
-                        const paraLabel = isBibleChapter 
-                          ? `Verset ${paraNum}` 
-                          : isSong 
-                            ? (isChorus ? `Refrain` : `Strophe ${paraNum}`) 
-                            : isExpose 
-                              ? `§ ${paraNum} (Exposé)` 
-                              : `§ ${paraNum}`;
-
-                        return (
-                          <button
-                            type="button"
-                            onClick={(e) => { 
-                              e.stopPropagation(); 
-                              if (targetDocId) {
-                                toggleContextSermon(paraDockId, true);
-                                if (isSegInDock) {
-                                  addNotification(`${paraLabel} retiré du dock IA`, "info");
-                                } else {
-                                  addNotification(`${paraLabel} ajouté au dock IA (Assistant ouvert)`, "success");
-                                }
-                              }
-                            }}
-                            className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer border ${
-                              isSegInDock
-                                ? 'bg-teal-600 text-white border-teal-600'
-                                : 'bg-white dark:bg-zinc-900 hover:bg-teal-600 text-teal-700 dark:text-teal-300 hover:text-white border-teal-600/40 dark:border-teal-500/40'
-                            }`}
-                            data-tooltip={isSegInDock ? `Retirer ce ${isBibleChapter ? 'verset' : isSong ? 'strophe' : 'paragraphe'} (${paraLabel}) du dock IA` : `Ajouter ce ${isBibleChapter ? 'verset' : isSong ? 'strophe' : 'paragraphe'} (${paraLabel}) au dock IA`}
-                          >
-                            {isSegInDock ? <Check className="w-3 h-3 stroke-[2.5]" /> : <Layers className="w-3 h-3" />}
-                            <span>{isSegInDock ? "Dans le Dock IA" : "+ Dock IA"}</span>
-                          </button>
-                        );
-                      })()}
-                      {/* Bouton Favori Verset / Paragraphe */}
-                      <button
-                        type="button"
-                        onClick={(e) => handleToggleParagraphFav(e, segIdx, seg.text)}
-                        className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer border ${
-                          sermon?.id && favoriteIds.has(`${sermon.id}-p-${segIdx + 1}`)
-                            ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/40'
-                            : 'bg-white dark:bg-zinc-900 hover:bg-amber-500/10 text-zinc-600 dark:text-zinc-400 hover:text-amber-600 border-slate-200 dark:border-zinc-800'
-                        }`}
-                        data-tooltip={sermon?.id && favoriteIds.has(`${sermon.id}-p-${segIdx + 1}`) ? (isBibleChapter ? "Retirer ce verset des favoris" : "Retirer des favoris") : (isBibleChapter ? "Ajouter ce verset aux favoris" : "Ajouter aux favoris")}
-                      >
-                        <Star className={`w-3 h-3 ${sermon?.id && favoriteIds.has(`${sermon.id}-p-${segIdx + 1}`) ? 'fill-amber-500 text-amber-500' : ''}`} />
-                        <span>Favori</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div data-para-content={segIdx} className="relative para-text-content select-text leading-relaxed">
-                    {content}
-                  </div>
-                </div>
-              );
-            })}
+            {renderedSegments}
           </div>
 
           {selection && (
