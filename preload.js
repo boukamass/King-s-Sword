@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   restartApp: () => ipcRenderer.send('restart_app'),
   printPage: () => ipcRenderer.send('print-page'),
   db: {
+    // Disponibilité de la base SQLite (sans elle, l'application chargeait tous les sermons en mémoire)
+    isReady: () => ipcRenderer.invoke('db:isReady'),
     // Sermons
     getSermonsMetadata: () => ipcRenderer.invoke('db:getSermonsMetadata'),
     getSermonFull: (id) => ipcRenderer.invoke('db:getSermonFull', id),

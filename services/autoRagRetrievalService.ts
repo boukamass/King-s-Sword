@@ -135,6 +135,28 @@ export async function executeAutoRagPipeline(
       // Poursuivre avec recherche vectorielle si disponible
     }
 
+    // Base SQLite (application installée) : le texte des sermons n'est pas gardé en mémoire. Les passages
+    // des seuls sermons trouvés par la passe lexicale sont construits à la demande depuis la base
+    // (quelques dizaines de sermons au plus), sans recharger toute la bibliothèque.
+    const sermonIdsWithChunks = new Set(chunks.map(c => c.sermonId));
+    const missingSermonIds = [...new Set(lexicalRetrieved.map(p => p.sermonId))]
+      .filter(id => id && !sermonIdsWithChunks.has(id))
+      .slice(0, 40);
+    if (missingSermonIds.length > 0) {
+      try {
+        const { getSermonById } = await import('./db');
+        const loaded = (await Promise.all(missingSermonIds.map(id => getSermonById(id).catch(() => null))))
+          .filter((s): s is Sermon => !!s && typeof s.text === 'string' && s.text.length > 0);
+        const extraChunks = loaded.flatMap(s => createSermonChunks(s));
+        if (extraChunks.length > 0) chunks = chunks.concat(extraChunks);
+        // Ces sermons servent aussi de texte de référence pour la validation d'authenticité des passages
+        const known = new Set(originalSermons.map(s => s.id));
+        originalSermons = originalSermons.concat(loaded.filter(s => !known.has(s.id)));
+      } catch (loadErr) {
+        console.warn('[AutoRagPipeline] Chargement des sermons trouvés impossible :', loadErr);
+      }
+    }
+
     const lexicalHits = mapParagraphsToChunkHits(lexicalRetrieved, chunks);
 
     // 4. Récupération vectorielle (avec clé API Gemini)

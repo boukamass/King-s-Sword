@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, useMemo, useCallback, memo, startTransition } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, memo, startTransition, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { useAppStore } from '../store';
 import { translations } from '../translations';
@@ -199,10 +199,28 @@ const ReaderSearchInput = memo(({ value, onDebouncedChange, onKeyDown, placehold
   );
 });
 
+/**
+ * Résultat courant de la recherche interne, partagé hors de l'état React du lecteur : au « résultat
+ * suivant », seuls les deux mots concernés (ancien et nouveau résultat courant) sont redessinés,
+ * au lieu de recalculer l'affichage de tout le sermon.
+ */
+const currentResultStore = {
+  value: -1,
+  listeners: new Set<() => void>(),
+  set(v: number) {
+    if (v === this.value) return;
+    this.value = v;
+    this.listeners.forEach(l => l());
+  },
+  subscribe(l: () => void) {
+    currentResultStore.listeners.add(l);
+    return () => { currentResultStore.listeners.delete(l); };
+  }
+};
+
 const WordComponent = memo(({
   word, 
   isSearchResult, 
-  isCurrentResult, 
   isJumpHighlight, 
   citationColor, 
   highlight, 
@@ -227,6 +245,10 @@ const WordComponent = memo(({
     ? 'border-b-[2.5px] border-amber-500 dark:border-amber-400 bg-amber-500/15 font-semibold text-zinc-950 dark:text-white underline decoration-amber-500/80 decoration-[2px] underline-offset-[3px]'
     : '';
 
+  const isCurrentResult = useSyncExternalStore(
+    currentResultStore.subscribe,
+    () => Boolean(isSearchResult) && currentResultStore.value === word.globalIndex
+  );
   const strongNum = showStrongs ? (propStrongNum || null) : null;
 
   const content = (
@@ -2489,6 +2511,18 @@ const Reader: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isProjectionOpen, projectedSegmentIndex, isOSFullscreen, handleProjectNextSegment, handleProjectPrevSegment, handleNextSource, handlePrevSource, setProjectionBlackout, toggleProjection, stopProjection]);
 
+  // Fonction de référence stable par mot : un mot dont l'affichage ne change pas n'est pas redessiné
+  const wordRefCallbacksRef = useRef(new Map<number, (el: any) => void>());
+  const getWordRefCallback = useCallback((idx: number) => {
+    let cb = wordRefCallbacksRef.current.get(idx);
+    if (!cb) {
+      cb = (el: any) => { if (el) wordRefs.current.set(idx, el); };
+      wordRefCallbacksRef.current.set(idx, cb);
+    }
+    return cb;
+  }, []);
+  useEffect(() => { wordRefCallbacksRef.current.clear(); }, [sermon?.id]);
+
   const renderSegmentContent = useCallback((segWords: SimpleWord[]) => {
     const elements: React.ReactNode[] = [];
     let textBuffer = "";
@@ -2505,9 +2539,8 @@ const Reader: React.FC = () => {
           <WordComponent 
             key={word.globalIndex} 
             word={word} 
-            wordRef={(el: any) => { if(el) wordRefs.current.set(word.globalIndex, el); }} 
+            wordRef={getWordRefCallback(word.globalIndex)}
             isSearchResult={searchMatchWordIndices.has(word.globalIndex)} 
-            isCurrentResult={searchResults[currentResultIndex] === word.globalIndex} 
             isJumpHighlight={jumpHighlightIndices.includes(word.globalIndex)} 
             citationColor={citationHighlightMap.get(word.globalIndex)?.colorClass} 
             highlight={highlightMap.get(word.globalIndex)} 
@@ -2526,7 +2559,21 @@ const Reader: React.FC = () => {
     });
     if (textBuffer) elements.push(textBuffer);
     return elements;
-  }, [interactiveIndices, searchMatchWordIndices, searchResults, currentResultIndex, jumpHighlightIndices, citationHighlightMap, highlightMap, projectionLastVisibleSet, projectionBottomVisibleIndex, handleRemoveHighlight, handleRemoveJumpHighlight, handleTextSelection, showStrongs, isBibleChapter, setSelectedStrongNumber, sermon, wordStrongMap]);
+  }, [interactiveIndices, searchMatchWordIndices, jumpHighlightIndices, citationHighlightMap, highlightMap, projectionLastVisibleSet, projectionBottomVisibleIndex, handleRemoveHighlight, handleRemoveJumpHighlight, handleTextSelection, showStrongs, isBibleChapter, setSelectedStrongNumber, sermon, wordStrongMap, getWordRefCallback]);
+
+
+  // Contenu de chaque paragraphe calculé une seule fois : il n'est recalculé que si le texte ou un
+  // surlignage change (et non à chaque action dans le lecteur, ce qui bloquait ~1,5 s sur un long sermon)
+  const segmentContents = useMemo(
+    () => structuredSegments.map(seg => (seg.text.trim() === '' ? null : renderSegmentContent(seg.words))),
+    [structuredSegments, renderSegmentContent]
+  );
+
+  // Résultat courant de la recherche interne : transmis aux seuls mots concernés (voir currentResultStore)
+  useLayoutEffect(() => {
+    currentResultStore.set(currentResultIndex >= 0 ? (searchResults[currentResultIndex] ?? -1) : -1);
+  }, [searchResults, currentResultIndex]);
+  useEffect(() => () => currentResultStore.set(-1), []);
 
   const handleSearchNext = () => {
     if (searchResults.length === 0) return;
@@ -3958,7 +4005,7 @@ const Reader: React.FC = () => {
             {structuredSegments.map((seg, segIdx) => {
               if (seg.text.trim() === '') return null;
               const isProjected = projectedSegmentIndex === segIdx;
-              const content = renderSegmentContent(seg.words);
+              const content = segmentContents[segIdx];
               const isChorus = isSong && /^(ch[oœ]eur|refrain|chorus)\s*:/i.test(seg.text.trim());
               const isSelectedParagraph = (isBibleChapter && selectedBibleVerse === (segIdx + 1)) || (targetActiveParagraph === (segIdx + 1));
 

@@ -131,6 +131,48 @@ export function buildStrongFormsDictionary(
 }
 
 /**
+ * Même résultat que buildStrongFormsDictionary, mais calculé livre par livre avec une courte pause
+ * entre deux livres : l'interface reste fluide pendant la préparation (en tâche de fond).
+ */
+export async function buildStrongFormsDictionaryAsync(
+  index: Record<string, Record<string, Record<string, StrongPair[]>>>,
+  minCount = 3,
+  minShare = 0.05
+): Promise<Map<string, Set<string>>> {
+  const counts = new Map<string, Map<string, number>>();
+  const add = (form: string, strong: string) => {
+    if (!form || form.length < 3 || FUNCTION_WORDS.has(form)) return;
+    let m = counts.get(form);
+    if (!m) counts.set(form, (m = new Map()));
+    m.set(strong, (m.get(strong) || 0) + 1);
+  };
+  for (const chapters of Object.values(index || {})) {
+    for (const verses of Object.values(chapters || {})) {
+      for (const pairs of Object.values(verses || {})) {
+        for (const [word, strong] of pairs || []) {
+          const full = normalizeStrongWord(word);
+          add(full, strong);
+          for (const part of (word || '').split(/[’'‘\-]/)) {
+            const p = normalizeStrongWord(part);
+            if (p !== full) add(p, strong);
+          }
+        }
+      }
+    }
+    await new Promise(resolve => setTimeout(resolve, 0));
+  }
+  const forms = new Map<string, Set<string>>();
+  counts.forEach((m, form) => {
+    const set = new Set<string>();
+    let total = 0;
+    m.forEach(c => { total += c; });
+    m.forEach((c, strong) => { if (c >= minCount && c / total >= minShare) set.add(strong); });
+    if (set.size > 0) forms.set(form, set);
+  });
+  return forms;
+}
+
+/**
  * Aligne les mots d'un verset (jetons tels qu'affichés) avec ses paires Strong.
  * Retourne, pour chaque mot, son numéro Strong ou null.
  */

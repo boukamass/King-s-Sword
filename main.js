@@ -327,7 +327,7 @@ ipcMain.handle('db:getSermonFull', (event, id) => {
   try {
     const sermon = db.prepare('SELECT * FROM sermons WHERE id = ?').get(id);
     if (!sermon) return null;
-    const paragraphs = db.prepare('SELECT content FROM paragraphs WHERE sermon_id = ? ORDER BY paragraph_index ASC').all();
+    const paragraphs = db.prepare('SELECT content FROM paragraphs WHERE sermon_id = ? ORDER BY paragraph_index ASC').all(id);
     sermon.text = paragraphs.map(p => p.content).join('\n\n');
     return sermon;
   } catch (e) {

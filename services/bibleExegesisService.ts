@@ -24,7 +24,7 @@ import {
   VERIFIED_WORD_STRONG_MAP 
 } from './strongIndexData';
 import { fetchJsonSafe } from '../utils/fetchHelper';
-import { buildStrongFormsDictionary } from '../utils/strongAlignment';
+import { buildStrongFormsDictionary, buildStrongFormsDictionaryAsync } from '../utils/strongAlignment';
 
 export interface StrongWord {
   word: string;
@@ -1456,6 +1456,7 @@ const VERSION_STRONG_INDEX_FILES: Record<string, string> = {
 };
 const versionStrongIndexPromises = new Map<string, Promise<StrongIndexData | null>>();
 const versionStrongFormsCache = new Map<string, Map<string, Set<string>>>();
+const versionStrongFormsPromises = new Map<string, Promise<Map<string, Set<string>>>>();
 
 /**
  * Charge l'index Strong propre à une version (LSG, Darby, KJV).
@@ -1500,7 +1501,13 @@ export async function getVersionChapterStrongs(
   if (!index) return null;
   let forms = versionStrongFormsCache.get(key);
   if (!forms) {
-    forms = buildStrongFormsDictionary(index);
+    // Construit une seule fois par version, par petits morceaux (interface fluide), même si plusieurs appels arrivent ensemble
+    let pending = versionStrongFormsPromises.get(key);
+    if (!pending) {
+      pending = buildStrongFormsDictionaryAsync(index);
+      versionStrongFormsPromises.set(key, pending);
+    }
+    forms = await pending;
     versionStrongFormsCache.set(key, forms);
   }
   const verses = index[bookId.toUpperCase()]?.[String(chapter)];
@@ -1587,7 +1594,10 @@ async function getStrongTranslationRefs(strongNum: string): Promise<StrongTransl
   const displayForms = new Map<string, Map<string, number>>();
   const formRefs = new Map<string, Array<{ bookId: string; chapter: number; verse: number; word: string }>>();
 
+  let scannedBooks = 0;
   for (const [bookId, chapters] of Object.entries(index)) {
+    // Courte pause tous les 8 livres : l'ouverture d'une fiche Strong ne fige pas la fenêtre
+    if (++scannedBooks % 8 === 0) await new Promise(resolve => setTimeout(resolve, 0));
     for (const [chStr, verses] of Object.entries(chapters)) {
       for (const [vsStr, pairs] of Object.entries(verses)) {
         const seenInVerse = new Set<string>();
