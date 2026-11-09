@@ -331,10 +331,15 @@ export const searchSermons = async (params: { query: string; mode: SearchMode; l
       const results = await window.electronAPI.db.search(searchParams);
       if (results) {
         const buildSnippet = createSermonSnippetBuilder(searchParams);
-        return results.map((r: any) => ({
-          ...r,
-          snippet: r.snippet ? mergeAdjacentMarks(r.snippet) : buildSnippet(r.content || '')
-        }));
+        // Extraits construits par lots de 500, avec une courte pause entre deux lots : la suite des
+        // résultats (jusqu'à 10 000) ne fige pas la fenêtre
+        const withSnippets: any[] = [];
+        for (let i = 0; i < results.length; i++) {
+          const r = results[i];
+          withSnippets.push({ ...r, snippet: r.snippet ? mergeAdjacentMarks(r.snippet) : buildSnippet(r.content || '') });
+          if (i > 0 && i % 500 === 0) await new Promise(resolve => setTimeout(resolve, 0));
+        }
+        return withSnippets;
       }
     } catch (error) {
       console.error("IPC Search Error:", error);

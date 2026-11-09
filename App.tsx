@@ -181,6 +181,32 @@ const App: React.FC = () => {
 
   useEffect(() => { initializeDB(); }, [initializeDB]);
 
+  // Assistant IA : ses deux modèles locaux (recherche sémantique E5 dans la fenêtre, reclassement
+  // cross-encoder dans le processus principal) sont chargés dès l'ouverture du panneau, avant la première
+  // question (sinon celle-ci attendait 3 à 10 s leur chargement). Rien n'est chargé si l'IA n'est pas ouverte.
+  const aiPanelOpen = useAppStore(s => s.aiOpen);
+  const aiModelsWarmedRef = useRef(false);
+  useEffect(() => {
+    if (!aiPanelOpen || aiModelsWarmedRef.current || isProjectionWindow || isMaskWindow) return;
+    const timer = window.setTimeout(async () => {
+      aiModelsWarmedRef.current = true;
+      try {
+        const { computeE5Embedding } = await import('./services/embeddingService');
+        // Un vrai calcul sur une phrase courte : charge le modèle ET initialise son moteur de calcul
+        await computeE5Embedding('préchargement du modèle', 'query: ');
+      } catch (e) {
+        console.warn('[IA] Préchargement du modèle sémantique impossible :', e);
+      }
+      try {
+        const ai = (window as any).electronAPI?.ai;
+        if (ai?.crossEncoderScore) await ai.crossEncoderScore({ query: 'préchargement', texts: ['préchargement'], maxLength: 16 });
+      } catch (e) {
+        console.warn('[IA] Préchargement du modèle de reclassement impossible :', e);
+      }
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [aiPanelOpen, isProjectionWindow, isMaskWindow]);
+
   // Préparation en tâche de fond des index de recherche locaux (Bible de la version choisie, Exposé,
   // cantiques) : la première recherche est aussi rapide que les suivantes. Pas dans les fenêtres de projection.
   const warmBibleVersion = useAppStore(s => s.bibleVersion);
