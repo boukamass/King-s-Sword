@@ -31,3 +31,6 @@ public/library.json
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+# Gros fichiers conservés en local uniquement (limite GitHub de 100 Mo)
+/backup_index/
+/public/models/Xenova/multilingual-e5-small/onnx/model_quantized.onnx
